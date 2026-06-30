@@ -250,7 +250,7 @@ final class GameController extends Controller
         // for this player's choice and is always more specific.
         $resolvedConsequencePath = null;
         if (! empty($game->defining_choice_id) && ! empty($game->defining_choice_line)) {
-            $priorSessionNumber = $this->extractSessionNumber($game->defining_choice_id);
+            $priorSessionNumber = $this->engine->extractSessionNumber($game->defining_choice_id);
             $priorSA = $story->adaptation?->sessionAdaptations
                 ?->firstWhere('session_number', $priorSessionNumber);
             if ($priorSA && ! empty($priorSA->choice_consequence_map)) {
@@ -401,18 +401,6 @@ final class GameController extends Controller
         UserActivityDay::record($game->user_id);
 
         return to_route('user.games.show', $game);
-    }
-
-    /**
-     * Extract the session number from a choice_id like "S2_C3" → 2.
-     */
-    private function extractSessionNumber(string $choiceId): int
-    {
-        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
-            return (int) $matches[1];
-        }
-
-        return 1;
     }
 
     /**

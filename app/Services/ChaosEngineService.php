@@ -277,6 +277,21 @@ final class ChaosEngineService
     }
 
     /**
+     * Extract the session number from a choice_id like "S2_C3" → 2.
+     *
+     * Centralised here so PromptController and GameController don't duplicate
+     * this parsing logic — it belongs in the engine, not controller layer.
+     */
+    public function extractSessionNumber(string $choiceId): int
+    {
+        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 1;
+    }
+
+    /**
      * Resolve which consequence path (A/B/C) the player took for a given
      * defining_choice_id by matching defining_choice_line against
      * defining_line_captured in each path of the consequence map.
@@ -321,7 +336,19 @@ final class ChaosEngineService
         }
 
         // Fuzzy fallback: first path if line matching fails.
+        // This should never happen when the adaptation ran correctly — defining_line_captured
+        // is designed to mirror defining_choice_line exactly. Log a warning so it surfaces
+        // in production logs rather than silently applying the wrong branch.
         if ($matchedPath === null && ! empty($branchingEntry['paths'])) {
+            Log::warning('consequence_path.fallback_to_first_path', [
+                'choice_id'            => $definingChoiceId,
+                'defining_choice_line' => $definingChoiceLine,
+                'available_lines'      => array_map(
+                    fn ($p) => ($p['label'] ?? '?') . ': ' . ($p['defining_line_captured'] ?? ''),
+                    (array) ($branchingEntry['paths'] ?? [])
+                ),
+                'note' => 'No path matched defining_line_captured — falling back to path A. Re-run adaptation if this persists.',
+            ]);
             $matchedPath = $branchingEntry['paths'][0];
         }
 
