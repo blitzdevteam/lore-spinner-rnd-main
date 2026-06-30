@@ -329,6 +329,14 @@ SEEDS FOR NEXT EPISODE: {{ $sessionSpine['next_session_seed'] ?? '' }}
 
 ---
 
+### SECTION 10A: CONSEQUENCE ECHO [RUNTIME]
+
+Below this line, the engine injects the active consequence guidance derived from the player's last defining choice — how to echo that choice in narration, what payoffs to honour this session, and how to surface the choice's aftermath. Empty when no defining choice has been made yet.
+
+[CONSEQUENCE_ECHO_INJECTION_POINT]
+
+---
+
 ### SECTION 11: SESSION PACKET [POPULATED]
 
 DRAMATIC QUESTION (this episode): {{ $sessionSpine['dramatic_question'] }}
@@ -442,9 +450,13 @@ The player must ALWAYS feel heard, even when folded back. Never "you can't do th
 
 ---
 
-### SECTION 16: SESSION-COMPLETE SIGNAL [HARDCODED]
+### SECTION 16: SESSION-COMPLETE SIGNAL [HARDCODED + RUNTIME]
 
-You decide when the episode has naturally closed (Resolution beat played; Branching Choice #4 made; player carries an unresolved decision out). Emit `[SESSION_COMPLETE]`. Do not rush it. The session closes when the story closes.
+When the authored close block below is present, deliver it verbatim — the resolution prose, hook transition, and session-end choice are the designed ending for this session. Do not improvise your own close when the authored block is provided. Emit `[SESSION_COMPLETE]` after delivering the final line.
+
+[SESSION_CLOSE_INJECTION_POINT]
+
+When no authored close block is injected above: you decide when the episode has naturally closed (Resolution beat played; Branching Choice #4 made; player carries an unresolved decision out). Emit `[SESSION_COMPLETE]`. Do not rush it. The session closes when the story closes.
 
 ---
 

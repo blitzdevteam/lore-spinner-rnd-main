@@ -37,10 +37,35 @@ final class PromptController extends Controller
         // Load story + adaptation (needed for session context)
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
 
+        // Resolve the consequence path for the player's last defining choice so the
+        // narrator knows how to echo and honour it this session.
+        $resolvedConsequencePath = null;
+        if (! empty($game->defining_choice_id) && ! empty($game->defining_choice_line)) {
+            $priorSessionNumber = $this->extractSessionNumber($game->defining_choice_id);
+            $priorSA = $story->adaptation?->sessionAdaptations
+                ?->firstWhere('session_number', $priorSessionNumber);
+            if ($priorSA && ! empty($priorSA->choice_consequence_map)) {
+                $resolvedConsequencePath = $this->engine->resolveConsequencePath(
+                    $game->defining_choice_id,
+                    $game->defining_choice_line,
+                    $priorSA->choice_consequence_map,
+                );
+            }
+        }
+
+        // Load the authored close design for the current session.
+        // Injected into the prompt only when is_climactic_choice was set on the previous
+        // turn (i.e. this is the aftermath/close turn).
+        $currentSA = $story->adaptation?->sessionAdaptations
+            ?->firstWhere('session_number', (int) ($game->current_session_number ?? 1));
+        $sessionCloseDesign = $currentSA?->session_close_design;
+
         $sessionContext = $this->engine->loadSessionContext(
-            story:         $story,
-            sessionNumber: (int) ($game->current_session_number ?? 1),
-            openingHandoff: null,
+            story:                   $story,
+            sessionNumber:           (int) ($game->current_session_number ?? 1),
+            openingHandoff:          null,
+            resolvedConsequencePath: $resolvedConsequencePath,
+            sessionCloseDesign:      $sessionCloseDesign,
         );
 
         if ($sessionContext === null) {
@@ -50,8 +75,12 @@ final class PromptController extends Controller
         // Build conversation history from persisted prompts (last 12 turns for context budget)
         $history = $this->buildConversationHistory($game, $story);
 
-        $worldState      = $game->world_state ?? $this->engine->emptyWorldState();
+        $worldState        = $game->world_state ?? $this->engine->emptyWorldState();
         $alignmentScaffold = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
+
+        // is_climactic_choice on the game record is the value set by the PREVIOUS turn.
+        // When true, this is the aftermath/close turn — inject the authored session close.
+        $isClimacticThisTurn = (bool) $game->is_climactic_choice;
 
         $systemPrompt = $this->engine->renderSystemPrompt(
             sessionContext:      $sessionContext,
@@ -59,7 +88,8 @@ final class PromptController extends Controller
             alignmentScaffold:   $alignmentScaffold,
             symbolicMemory:      $game->symbolic_memory,
             isSessionStart:      false,
-            isClimacticPrevious: (bool) $game->is_climactic_choice,
+            isClimacticPrevious: $isClimacticThisTurn,
+            isClimacticThisTurn: $isClimacticThisTurn,
         );
 
         // Continue button = autopilot signal; send as player action text
@@ -125,6 +155,18 @@ final class PromptController extends Controller
 
             return back()->with('error', 'Narration hiccuped — your input was preserved. Please retry.');
         }
+    }
+
+    /**
+     * Extract the session number from a choice_id like "S2_C3" → 2.
+     */
+    private function extractSessionNumber(string $choiceId): int
+    {
+        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 1;
     }
 
     /**

@@ -123,6 +123,7 @@ final class GameController extends Controller
             symbolicMemory:      null,
             isSessionStart:      true,
             isClimacticPrevious: false,
+            isClimacticThisTurn: false,
         );
 
         try {
@@ -240,10 +241,43 @@ final class GameController extends Controller
                 ->with('story_complete', true);
         }
 
-        $arcRow = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
+        $arcRow         = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
         $openingHandoff = (string) ($arcRow['opens_with'] ?? '');
 
-        $sessionContext = $this->engine->loadSessionContext($story, $nextSessionNumber, $openingHandoff);
+        // Resolve consequence path from the player's last defining choice.
+        // If the consequence map has a next_session_opening for the chosen path,
+        // it replaces the generic arc_progression opening — it is authored specifically
+        // for this player's choice and is always more specific.
+        $resolvedConsequencePath = null;
+        if (! empty($game->defining_choice_id) && ! empty($game->defining_choice_line)) {
+            $priorSessionNumber = $this->extractSessionNumber($game->defining_choice_id);
+            $priorSA = $story->adaptation?->sessionAdaptations
+                ?->firstWhere('session_number', $priorSessionNumber);
+            if ($priorSA && ! empty($priorSA->choice_consequence_map)) {
+                $resolvedConsequencePath = $this->engine->resolveConsequencePath(
+                    $game->defining_choice_id,
+                    $game->defining_choice_line,
+                    $priorSA->choice_consequence_map,
+                );
+            }
+        }
+
+        if (! empty($resolvedConsequencePath['next_session_opening'])) {
+            $openingHandoff = $resolvedConsequencePath['next_session_opening'];
+        }
+
+        // Load authored close design for the next session.
+        $nextSA = $story->adaptation?->sessionAdaptations
+            ?->firstWhere('session_number', $nextSessionNumber);
+        $sessionCloseDesign = $nextSA?->session_close_design;
+
+        $sessionContext = $this->engine->loadSessionContext(
+            story:                   $story,
+            sessionNumber:           $nextSessionNumber,
+            openingHandoff:          $openingHandoff,
+            resolvedConsequencePath: $resolvedConsequencePath,
+            sessionCloseDesign:      $sessionCloseDesign,
+        );
 
         if ($sessionContext === null) {
             return to_route('user.games.show', $game)
@@ -251,8 +285,8 @@ final class GameController extends Controller
         }
 
         $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
-        $carriedAlignment = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
-        $carriedMemory = $game->symbolic_memory;
+        $carriedAlignment  = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
+        $carriedMemory     = $game->symbolic_memory;
 
         $systemPrompt = $this->engine->renderSystemPrompt(
             sessionContext:      $sessionContext,
@@ -261,6 +295,7 @@ final class GameController extends Controller
             symbolicMemory:      $carriedMemory,
             isSessionStart:      true,
             isClimacticPrevious: false,
+            isClimacticThisTurn: false,
         );
 
         try {
@@ -366,6 +401,18 @@ final class GameController extends Controller
         UserActivityDay::record($game->user_id);
 
         return to_route('user.games.show', $game);
+    }
+
+    /**
+     * Extract the session number from a choice_id like "S2_C3" → 2.
+     */
+    private function extractSessionNumber(string $choiceId): int
+    {
+        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 1;
     }
 
     /**

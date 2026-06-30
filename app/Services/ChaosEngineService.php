@@ -110,7 +110,13 @@ final class ChaosEngineService
      *     full_session_events: array<int, array{position:int, title:string, content:string, objectives:?string}>,
      * }|null
      */
-    public function loadSessionContext(Story $story, int $sessionNumber, ?string $openingHandoff): ?array
+    public function loadSessionContext(
+        Story $story,
+        int $sessionNumber,
+        ?string $openingHandoff,
+        ?array $resolvedConsequencePath = null,
+        ?array $sessionCloseDesign = null,
+    ): ?array
     {
         /** @var StoryAdaptation|null $adaptation */
         $adaptation = $story->adaptation;
@@ -168,15 +174,17 @@ final class ChaosEngineService
         $totalSessions = (int) ($adaptation?->sessionAdaptations?->count() ?? 0);
 
         return [
-            'session_number'      => $sessionNumber,
-            'total_sessions'      => $totalSessions,
-            'cold_open'           => $this->normalizeOpeningScene($entry['cold_open'] ?? ''),
-            'opening_handoff'     => $resolvedHandoff,
-            'emotional_promise'   => trim((string) ($entry['emotional_promise'] ?? '')),
-            'must_reintroduce'    => trim((string) ($entry['format_specific_cut']['must_reintroduce'] ?? '')),
-            'runtime_prompt'      => (string) $sessionAdaptation->runtime_narrator_prompt,
-            'alignment_labels'    => (array) ($storyMap['alignment_labels'] ?? []),
-            'full_session_events' => $events,
+            'session_number'          => $sessionNumber,
+            'total_sessions'          => $totalSessions,
+            'cold_open'               => $this->normalizeOpeningScene($entry['cold_open'] ?? ''),
+            'opening_handoff'         => $resolvedHandoff,
+            'emotional_promise'       => trim((string) ($entry['emotional_promise'] ?? '')),
+            'must_reintroduce'        => trim((string) ($entry['format_specific_cut']['must_reintroduce'] ?? '')),
+            'runtime_prompt'          => (string) $sessionAdaptation->runtime_narrator_prompt,
+            'alignment_labels'        => (array) ($storyMap['alignment_labels'] ?? []),
+            'full_session_events'     => $events,
+            'resolved_consequence_path' => $resolvedConsequencePath,
+            'session_close_design'    => $sessionCloseDesign,
         ];
     }
 
@@ -199,6 +207,7 @@ final class ChaosEngineService
         ?string $symbolicMemory,
         bool $isSessionStart,
         bool $isClimacticPrevious,
+        bool $isClimacticThisTurn = false,
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
@@ -223,12 +232,22 @@ final class ChaosEngineService
         // narrator instructions never reach the model mid-session. The LLM does not see them;
         // it is not asked to self-suppress them. strtr still processes the other three tokens
         // normally; [OPENING_SCENE_INJECTION_POINT] simply goes unused on continuation paths.
+        $consequenceBlock = $this->buildConsequenceEchoBlock(
+            $sessionContext['resolved_consequence_path'] ?? null
+        );
+
+        $closeBlock = $isClimacticThisTurn
+            ? $this->buildSessionCloseBlock($sessionContext['session_close_design'] ?? null)
+            : '';
+
         if ($isSessionStart) {
             $prompt = strtr($prompt, [
                 '[SYMBOLIC_MEMORY_INJECTION_POINT]'    => $symbolicBlock,
                 '[ALIGNMENT_TILT_INJECTION_POINT]'     => $alignmentBlock,
                 '[OPENING_SCENE_INJECTION_POINT]'      => $this->buildOpeningSection($sessionContext),
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
+                '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
+                '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
             ]);
         } else {
             // Strip Section 13 entirely before substitution. Find the section header and the
@@ -249,10 +268,174 @@ final class ChaosEngineService
                 '[SYMBOLIC_MEMORY_INJECTION_POINT]'    => $symbolicBlock,
                 '[ALIGNMENT_TILT_INJECTION_POINT]'     => $alignmentBlock,
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
+                '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
+                '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
             ]);
         }
 
         return $prompt;
+    }
+
+    /**
+     * Resolve which consequence path (A/B/C) the player took for a given
+     * defining_choice_id by matching defining_choice_line against
+     * defining_line_captured in each path of the consequence map.
+     *
+     * Returns the merged path array (branching path + freeform_guidelines) or
+     * null if unresolvable (no consequence map, no matching choice_id, etc.).
+     *
+     * @param  array<string, mixed>  $consequenceMap  session_adaptations.choice_consequence_map
+     * @return array<string, mixed>|null
+     */
+    public function resolveConsequencePath(
+        string $definingChoiceId,
+        string $definingChoiceLine,
+        array $consequenceMap,
+    ): ?array {
+        if ($definingChoiceId === '' || $definingChoiceLine === '') {
+            return null;
+        }
+
+        $branchingEntry = null;
+        foreach ((array) ($consequenceMap['branching_consequences'] ?? []) as $bc) {
+            if (strtolower((string) ($bc['choice_id'] ?? '')) === strtolower($definingChoiceId)) {
+                $branchingEntry = $bc;
+                break;
+            }
+        }
+
+        if ($branchingEntry === null) {
+            return null;
+        }
+
+        $normalise  = fn (string $s): string => strtolower(trim(preg_replace('/\s+/', ' ', $s)));
+        $needle     = $normalise($definingChoiceLine);
+        $matchedPath = null;
+
+        foreach ((array) ($branchingEntry['paths'] ?? []) as $path) {
+            $captured = $normalise((string) ($path['defining_line_captured'] ?? ''));
+            if ($captured !== '' && (str_contains($captured, $needle) || str_contains($needle, $captured))) {
+                $matchedPath = $path;
+                break;
+            }
+        }
+
+        // Fuzzy fallback: first path if line matching fails.
+        if ($matchedPath === null && ! empty($branchingEntry['paths'])) {
+            $matchedPath = $branchingEntry['paths'][0];
+        }
+
+        if ($matchedPath === null) {
+            return null;
+        }
+
+        $pathLabel = strtoupper((string) ($matchedPath['label'] ?? ''));
+        $freeform  = null;
+        foreach ((array) ($consequenceMap['freeform_guidelines'] ?? []) as $fg) {
+            if (
+                strtolower((string) ($fg['choice_id'] ?? '')) === strtolower($definingChoiceId)
+                && strtoupper((string) ($fg['path_label'] ?? '')) === $pathLabel
+            ) {
+                $freeform = $fg;
+                break;
+            }
+        }
+
+        return array_merge($matchedPath, $freeform ?? []);
+    }
+
+    /**
+     * Build the consequence echo block injected at [CONSEQUENCE_ECHO_INJECTION_POINT].
+     *
+     * Tells the narrator how to surface the player's prior defining choice:
+     * what to echo this session, what payoffs to honour, fold-back guidance,
+     * and consequence visibility target.
+     *
+     * Returns empty string when no resolved path is provided.
+     *
+     * @param  array<string, mixed>|null  $path
+     */
+    private function buildConsequenceEchoBlock(?array $path): string
+    {
+        if ($path === null) {
+            return '';
+        }
+
+        $lines = ['ACTIVE CONSEQUENCE GUIDANCE (player\'s prior defining choice):'];
+
+        if (! empty($path['current_session_echo'])) {
+            $lines[] = 'Echo this session: ' . $path['current_session_echo'];
+        }
+        if (! empty($path['next_session_payoff'])) {
+            $lines[] = 'Honour this session: ' . $path['next_session_payoff'];
+        }
+        if (! empty($path['narrator_behavior'])) {
+            $lines[] = 'Narrator behaviour going forward: ' . $path['narrator_behavior'];
+        }
+        if (! empty($path['consequence_visibility']['what_changes'])) {
+            $vis     = $path['consequence_visibility'];
+            $target  = (int) ($vis['when_visible_target_responses'] ?? 2);
+            $lines[] = 'Make visible within ' . $target . ' responses: ' . $vis['what_changes']
+                . ' (' . ($vis['how_player_sees_it'] ?? '') . ')';
+        }
+        if (! empty($path['fold_back_acknowledge'])) {
+            $lines[] = 'Fold-back — acknowledge: "' . $path['fold_back_acknowledge']
+                . '" → redirect: "' . ($path['fold_back_redirect'] ?? '') . '"';
+        }
+        if (! empty($path['hard_limits'])) {
+            $lines[] = 'Hard limits at this node: ' . implode(' / ', (array) $path['hard_limits']);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Build the authored session close block injected at [SESSION_CLOSE_INJECTION_POINT].
+     *
+     * Only injected when is_climactic_choice was set on the previous turn,
+     * signalling the model to deliver the authored resolution prose and
+     * session-end choice instead of improvising its own close.
+     *
+     * Returns empty string when no close design is provided.
+     *
+     * @param  array<string, mixed>|null  $closeDesign
+     */
+    private function buildSessionCloseBlock(?array $closeDesign): string
+    {
+        if ($closeDesign === null) {
+            return '';
+        }
+
+        $lines = ['AUTHORED SESSION CLOSE — deliver this, do not improvise:'];
+
+        if (! empty($closeDesign['resolution_prose'])) {
+            $lines[] = '';
+            $lines[] = 'RESOLUTION PROSE (deliver in the author\'s voice):';
+            $lines[] = $closeDesign['resolution_prose'];
+        }
+        if (! empty($closeDesign['hook_transition'])) {
+            $lines[] = '';
+            $lines[] = 'HOOK TRANSITION:';
+            $lines[] = $closeDesign['hook_transition'];
+        }
+
+        $choice = $closeDesign['session_end_choice'] ?? null;
+        if ($choice !== null) {
+            $lines[] = '';
+            $lines[] = 'SESSION-END CHOICE — present these three options:';
+            $lines[] = 'Q: ' . ($choice['choice_question'] ?? '');
+            foreach (['option_a', 'option_b', 'option_c'] as $opt) {
+                if (! empty($choice[$opt]['text'])) {
+                    $lines[] = '  ' . strtoupper(str_replace('_', ' ', $opt)) . ': ' . $choice[$opt]['text'];
+                }
+            }
+            if (! empty($choice['final_line'])) {
+                $lines[] = '';
+                $lines[] = 'FINAL LINE (last words of this session): ' . $choice['final_line'];
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
