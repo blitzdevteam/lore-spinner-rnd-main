@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Ai\Agents\Chaos\ChaosNarrationSchema;
 use App\Ai\Agents\Chaos\NativeObjectSchema;
 use App\Models\Event;
+use App\Models\Game;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
@@ -292,22 +293,26 @@ final class ChaosEngineService
     }
 
     /**
-     * Resolve which consequence path (A/B/C) the player took for a given
-     * defining_choice_id by matching defining_choice_line against
-     * defining_line_captured in each path of the consequence map.
+     * Resolve the consequence path for a given defining choice using a direct
+     * choice_id + path_label lookup against the consequence map.
      *
-     * Returns the merged path array (branching path + freeform_guidelines) or
-     * null if unresolvable (no consequence map, no matching choice_id, etc.).
+     * V2.3.3: Text matching and fallback_to_first_path are removed entirely.
+     * The label (A/B/C) is now stored on `games.defining_path_label` and
+     * passed in here directly. An invalid or missing label logs a warning and
+     * returns null — the consequence echo is simply omitted rather than
+     * applying a wrong branch.
      *
      * @param  array<string, mixed>  $consequenceMap  session_adaptations.choice_consequence_map
      * @return array<string, mixed>|null
      */
     public function resolveConsequencePath(
         string $definingChoiceId,
-        string $definingChoiceLine,
+        string $definingPathLabel,
         array $consequenceMap,
     ): ?array {
-        if ($definingChoiceId === '' || $definingChoiceLine === '') {
+        $pathLabel = strtoupper(trim($definingPathLabel));
+
+        if ($definingChoiceId === '' || $pathLabel === '') {
             return null;
         }
 
@@ -320,44 +325,34 @@ final class ChaosEngineService
         }
 
         if ($branchingEntry === null) {
+            Log::warning('consequence_path.choice_not_found', [
+                'choice_id'  => $definingChoiceId,
+                'path_label' => $pathLabel,
+            ]);
             return null;
         }
 
-        $normalise  = fn (string $s): string => strtolower(trim(preg_replace('/\s+/', ' ', $s)));
-        $needle     = $normalise($definingChoiceLine);
         $matchedPath = null;
-
         foreach ((array) ($branchingEntry['paths'] ?? []) as $path) {
-            $captured = $normalise((string) ($path['defining_line_captured'] ?? ''));
-            if ($captured !== '' && (str_contains($captured, $needle) || str_contains($needle, $captured))) {
+            if (strtoupper((string) ($path['label'] ?? '')) === $pathLabel) {
                 $matchedPath = $path;
                 break;
             }
         }
 
-        // Fuzzy fallback: first path if line matching fails.
-        // This should never happen when the adaptation ran correctly — defining_line_captured
-        // is designed to mirror defining_choice_line exactly. Log a warning so it surfaces
-        // in production logs rather than silently applying the wrong branch.
-        if ($matchedPath === null && ! empty($branchingEntry['paths'])) {
-            Log::warning('consequence_path.fallback_to_first_path', [
-                'choice_id'            => $definingChoiceId,
-                'defining_choice_line' => $definingChoiceLine,
-                'available_lines'      => array_map(
-                    fn ($p) => ($p['label'] ?? '?') . ': ' . ($p['defining_line_captured'] ?? ''),
+        if ($matchedPath === null) {
+            Log::warning('consequence_path.label_not_found', [
+                'choice_id'        => $definingChoiceId,
+                'path_label'       => $pathLabel,
+                'available_labels' => array_map(
+                    fn ($p) => ($p['label'] ?? '?'),
                     (array) ($branchingEntry['paths'] ?? [])
                 ),
-                'note' => 'No path matched defining_line_captured — falling back to path A. Re-run adaptation if this persists.',
             ]);
-            $matchedPath = $branchingEntry['paths'][0];
-        }
-
-        if ($matchedPath === null) {
             return null;
         }
 
-        $pathLabel = strtoupper((string) ($matchedPath['label'] ?? ''));
-        $freeform  = null;
+        $freeform = null;
         foreach ((array) ($consequenceMap['freeform_guidelines'] ?? []) as $fg) {
             if (
                 strtolower((string) ($fg['choice_id'] ?? '')) === strtolower($definingChoiceId)
@@ -369,6 +364,85 @@ final class ChaosEngineService
         }
 
         return array_merge($matchedPath, $freeform ?? []);
+    }
+
+    /**
+     * Validate and return the branch triple to commit, or null if nothing should
+     * be committed this turn.
+     *
+     * Rules (atomic — all three fields are committed together or not at all):
+     *   - Empty choice_id: expressive/emergent/folded-back turn → return null
+     *     (caller preserves prior triple unchanged).
+     *   - Non-empty choice_id + invalid/missing label (not A/B/C, or not in
+     *     the authored options for that choice): log branch_commit.invalid_label
+     *     and return null (prior triple preserved — never pair a new choice_id
+     *     with a stale or guessed label).
+     *   - Non-empty choice_id + valid label: return the triple.
+     *
+     * @param  array<string, mixed>  $result            callAgent() return value
+     * @param  \Illuminate\Database\Eloquent\Collection<int, SessionAdaptation>|null  $sessionAdaptations
+     * @return array{defining_choice_id:string, defining_path_label:string, defining_choice_line:string}|null
+     */
+    public function resolveBranchCommit(
+        array $result,
+        Game $game,
+        ?object $sessionAdaptations,
+    ): ?array {
+        $newChoiceId = trim((string) ($result['defining_choice_id'] ?? ''));
+
+        if ($newChoiceId === '') {
+            return null;
+        }
+
+        $pathLabel = strtoupper(trim((string) ($result['defining_path_label'] ?? '')));
+
+        if (! in_array($pathLabel, ['A', 'B', 'C'], true)) {
+            Log::warning('branch_commit.invalid_label', [
+                'game_id'   => $game->id,
+                'choice_id' => $newChoiceId,
+                'raw_label' => $result['defining_path_label'] ?? '',
+                'note'      => 'Label is not A/B/C — branch triple not committed; prior state preserved.',
+            ]);
+            return null;
+        }
+
+        // Validate label exists in the authored options for this choice's own session.
+        if ($sessionAdaptations !== null) {
+            $choiceSession = $this->extractSessionNumber($newChoiceId);
+            $targetSA      = $sessionAdaptations->firstWhere('session_number', $choiceSession);
+            $authoredLabels = [];
+
+            if ($targetSA && ! empty($targetSA->session_choice_design['branching_choices'])) {
+                foreach ((array) $targetSA->session_choice_design['branching_choices'] as $bc) {
+                    if (strtolower((string) ($bc['choice_id'] ?? '')) === strtolower($newChoiceId)) {
+                        $authoredLabels = array_map(
+                            fn ($opt) => strtoupper((string) ($opt['label'] ?? '')),
+                            (array) ($bc['options'] ?? [])
+                        );
+                        break;
+                    }
+                }
+            }
+
+            if ($authoredLabels !== [] && ! in_array($pathLabel, $authoredLabels, true)) {
+                Log::warning('branch_commit.invalid_label', [
+                    'game_id'         => $game->id,
+                    'choice_id'       => $newChoiceId,
+                    'raw_label'       => $result['defining_path_label'] ?? '',
+                    'authored_labels' => $authoredLabels,
+                    'note'            => 'Label not found in authored options — branch triple not committed; prior state preserved.',
+                ]);
+                return null;
+            }
+        }
+
+        $newLine = trim((string) ($result['defining_choice_line'] ?? ''));
+
+        return [
+            'defining_choice_id'   => $newChoiceId,
+            'defining_path_label'  => $pathLabel,
+            'defining_choice_line' => $newLine !== '' ? $newLine : null,
+        ];
     }
 
     /**
@@ -538,6 +612,7 @@ final class ChaosEngineService
      *     alignment_tally_delta: array{chaotic:int, lawful:int, neutral:int},
      *     is_climactic_choice:bool,
      *     defining_choice_id:string,
+     *     defining_path_label:string,
      *     defining_choice_line:string,
      *     symbolic_memory_update:string,
      *     session_memory_update:string,
@@ -602,6 +677,7 @@ final class ChaosEngineService
             ],
             'is_climactic_choice'    => (bool)   ($structured['is_climactic_choice'] ?? false),
             'defining_choice_id'     => (string) ($structured['defining_choice_id'] ?? ''),
+            'defining_path_label'    => strtoupper(trim((string) ($structured['defining_path_label'] ?? ''))),
             'defining_choice_line'   => (string) ($structured['defining_choice_line'] ?? ''),
             'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
             'session_memory_update'  => (string) ($structured['session_memory_update'] ?? ''),

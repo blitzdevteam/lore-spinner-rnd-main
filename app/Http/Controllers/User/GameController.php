@@ -142,13 +142,20 @@ final class GameController extends Controller
             $alignmentScaffold = $this->engine->mergeAlignmentDelta($emptyAlignment, $result['alignment_tally_delta']);
             $symbolicMemory = $this->engine->appendMemory(null, $result['symbolic_memory_update']);
 
+            $branchCommit = $this->engine->resolveBranchCommit(
+                $result,
+                $game,
+                $story->adaptation?->sessionAdaptations,
+            );
+
             $game->update([
-                'world_state' => $worldState,
-                'alignment_scaffold' => $alignmentScaffold,
-                'symbolic_memory' => $symbolicMemory,
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
-                'defining_choice_id' => $result['defining_choice_id'] !== '' ? $result['defining_choice_id'] : null,
-                'defining_choice_line' => $result['defining_choice_line'] !== '' ? $result['defining_choice_line'] : null,
+                'world_state'              => $worldState,
+                'alignment_scaffold'       => $alignmentScaffold,
+                'symbolic_memory'          => $symbolicMemory,
+                'is_climactic_choice'      => (bool) $result['is_climactic_choice'],
+                'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : null,
+                'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : null,
+                'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : null,
                 'current_session_complete' => $result['session_complete'],
             ]);
 
@@ -249,14 +256,14 @@ final class GameController extends Controller
         // it replaces the generic arc_progression opening — it is authored specifically
         // for this player's choice and is always more specific.
         $resolvedConsequencePath = null;
-        if (! empty($game->defining_choice_id) && ! empty($game->defining_choice_line)) {
+        if (! empty($game->defining_choice_id) && ! empty($game->defining_path_label)) {
             $priorSessionNumber = $this->engine->extractSessionNumber($game->defining_choice_id);
             $priorSA = $story->adaptation?->sessionAdaptations
                 ?->firstWhere('session_number', $priorSessionNumber);
             if ($priorSA && ! empty($priorSA->choice_consequence_map)) {
                 $resolvedConsequencePath = $this->engine->resolveConsequencePath(
                     $game->defining_choice_id,
-                    $game->defining_choice_line,
+                    $game->defining_path_label,
                     $priorSA->choice_consequence_map,
                 );
             }
@@ -314,15 +321,22 @@ final class GameController extends Controller
             $alignmentScaffold = $this->engine->mergeAlignmentDelta($carriedAlignment, $result['alignment_tally_delta']);
             $symbolicMemory = $this->engine->appendMemory($carriedMemory, $result['symbolic_memory_update']);
 
+            $branchCommit = $this->engine->resolveBranchCommit(
+                $result,
+                $game,
+                $story->adaptation?->sessionAdaptations,
+            );
+
             $game->update([
-                'current_session_number' => $nextSessionNumber,
+                'current_session_number'   => $nextSessionNumber,
                 'current_session_complete' => $result['session_complete'],
-                'world_state' => $worldState,
-                'alignment_scaffold' => $alignmentScaffold,
-                'symbolic_memory' => $symbolicMemory,
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
-                'defining_choice_id' => $result['defining_choice_id'] !== '' ? $result['defining_choice_id'] : $game->defining_choice_id,
-                'defining_choice_line' => $result['defining_choice_line'] !== '' ? $result['defining_choice_line'] : $game->defining_choice_line,
+                'world_state'              => $worldState,
+                'alignment_scaffold'       => $alignmentScaffold,
+                'symbolic_memory'          => $symbolicMemory,
+                'is_climactic_choice'      => (bool) $result['is_climactic_choice'],
+                'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : $game->defining_choice_id,
+                'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : $game->defining_path_label,
+                'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
             ]);
 
             $game->prompts()->create([
@@ -394,6 +408,7 @@ final class GameController extends Controller
             'symbolic_memory'             => null,
             'alignment_scaffold'          => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
             'defining_choice_id'          => null,
+            'defining_path_label'         => null,
             'defining_choice_line'        => null,
             'is_climactic_choice'         => false,
         ]);

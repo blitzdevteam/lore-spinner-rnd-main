@@ -34,6 +34,8 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
  *                              weight or Choice #4 session-end hook. Triggers
  *                              Tier 3 state loading on the NEXT turn.
  *   - defining_choice_id       Phase 5 choice_id when this turn resolved one.
+ *   - defining_path_label      canonical path label (A/B/C) for the chosen option.
+ *                              Empty string when no branch resolved this turn.
  *   - defining_choice_line     Phase 5 Task 8 defining line for the chosen path.
  *   - symbolic_memory_update   short natural-language paragraph appended to
  *                              chaos_sessions.symbolic_memory and re-injected
@@ -175,6 +177,12 @@ final class ChaosNarrationSchema
                 ->required()
                 ->title('Defining Choice ID')
                 ->description('When this turn resolved a branching choice, copy the Phase 5 choice_id (e.g. "S2_C3"). Empty string otherwise.'),
+
+            'defining_path_label' => $schema
+                ->string()
+                ->required()
+                ->title('Defining Path Label')
+                ->description('When this turn resolved a branching choice (player clicked a presented option or freeform was BRANCH-ALIGNED), copy the canonical label — A, B, or C — exactly as shown in AUTHORED CHOICES for that option. Empty string otherwise.'),
 
             'defining_choice_line' => $schema
                 ->string()

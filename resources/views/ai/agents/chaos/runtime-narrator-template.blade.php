@@ -448,6 +448,8 @@ FREEFORM RESOLUTION: classify and resolve:
 4. UNSUPPORTED: cannot become a branch. FOLD BACK via the StoryGuard manifest — ACKNOWLEDGE intent, REDIRECT with an in-world reason, ARRIVE at the closest existing outcome.
 The player must ALWAYS feel heard, even when folded back. Never "you can't do that."
 
+BRANCH IDENTITY REPORTING: The three fields `defining_choice_id`, `defining_path_label`, and `defining_choice_line` are written together or not at all. When this turn resolves a branching choice — the player clicked a presented option OR typed freeform text you classified as BRANCH-ALIGNED — copy into the structured output: `defining_choice_id` (the Phase 5 choice_id from AUTHORED CHOICES, e.g. "S2_C3"), `defining_path_label` (the canonical label exactly as shown: A, B, or C), and `defining_choice_line` (the Phase 5 Task 8 defining line for that path). When the action is EXPRESSIVE, EMERGENT CANDIDATE, or UNSUPPORTED: set all three to empty string.
+
 ---
 
 ### SECTION 16: SESSION-COMPLETE SIGNAL [HARDCODED + RUNTIME]

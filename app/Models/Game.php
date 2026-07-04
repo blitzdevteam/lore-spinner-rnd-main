@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $symbolic_memory
  * @property array{chaotic:int, lawful:int, neutral:int}|null $alignment_scaffold
  * @property string|null $defining_choice_id
+ * @property string|null $defining_path_label
  * @property string|null $defining_choice_line
  * @property bool $is_climactic_choice
  * @property bool $current_session_complete

@@ -40,14 +40,14 @@ final class PromptController extends Controller
         // Resolve the consequence path for the player's last defining choice so the
         // narrator knows how to echo and honour it this session.
         $resolvedConsequencePath = null;
-        if (! empty($game->defining_choice_id) && ! empty($game->defining_choice_line)) {
+        if (! empty($game->defining_choice_id) && ! empty($game->defining_path_label)) {
             $priorSessionNumber = $this->engine->extractSessionNumber($game->defining_choice_id);
             $priorSA = $story->adaptation?->sessionAdaptations
                 ?->firstWhere('session_number', $priorSessionNumber);
             if ($priorSA && ! empty($priorSA->choice_consequence_map)) {
                 $resolvedConsequencePath = $this->engine->resolveConsequencePath(
                     $game->defining_choice_id,
-                    $game->defining_choice_line,
+                    $game->defining_path_label,
                     $priorSA->choice_consequence_map,
                 );
             }
@@ -113,13 +113,23 @@ final class PromptController extends Controller
             $newAlignment    = $this->engine->mergeAlignmentDelta($alignmentScaffold, $result['alignment_tally_delta']);
             $newSymbolicMem  = $this->engine->appendMemory($game->symbolic_memory, $result['symbolic_memory_update']);
 
+            // Validate and commit the branch triple atomically. Returns the new
+            // triple when choice_id + label are both valid; null otherwise (carry
+            // forward the prior triple unchanged — never mix fields from different turns).
+            $branchCommit = $this->engine->resolveBranchCommit(
+                $result,
+                $game,
+                $story->adaptation?->sessionAdaptations,
+            );
+
             $game->update([
                 'world_state'              => $newWorldState,
                 'alignment_scaffold'       => $newAlignment,
                 'symbolic_memory'          => $newSymbolicMem,
                 'is_climactic_choice'      => (bool) $result['is_climactic_choice'],
-                'defining_choice_id'       => $result['defining_choice_id'] !== '' ? $result['defining_choice_id'] : $game->defining_choice_id,
-                'defining_choice_line'     => $result['defining_choice_line'] !== '' ? $result['defining_choice_line'] : $game->defining_choice_line,
+                'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : $game->defining_choice_id,
+                'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : $game->defining_path_label,
+                'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
                 'current_session_complete' => $result['session_complete'],
             ]);
 

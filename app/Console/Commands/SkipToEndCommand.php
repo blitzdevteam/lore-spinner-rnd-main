@@ -127,6 +127,7 @@ final class SkipToEndCommand extends Command
                 'symbolic_memory'          => null,
                 'is_climactic_choice'      => false,
                 'defining_choice_id'       => null,
+                'defining_path_label'      => null,
                 'defining_choice_line'     => null,
             ]);
             $this->warn('remaining >= total sessions — game fully reset to session 1 (intro will replay).');
