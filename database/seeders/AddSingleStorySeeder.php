@@ -253,6 +253,7 @@ class AddSingleStorySeeder extends Seeder
      *   SEED_STORY=job-switching          php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=the-matrix             php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=nocturne                php artisan db:seed --class=AddSingleStorySeeder --force
+     *   SEED_STORY=wasteland               php artisan db:seed --class=AddSingleStorySeeder --force
      *
      * Defaults to Masque of the Red Death when SEED_STORY is not set.
      */
@@ -265,6 +266,7 @@ class AddSingleStorySeeder extends Seeder
             'the-matrix', 'matrix', 'the-matrix-1999'                          => $this->configTheMatrix(),
             'job-switching', 'i-love-lucy-job-switching', 'job-switching-final' => $this->configJobSwitching(),
             'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
+            'wasteland'                                                        => $this->configWasteland(),
             'wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'                 => $this->configWizardOfOz(),
             default                                                              => $this->configMasque(),
         };
@@ -359,6 +361,21 @@ class AddSingleStorySeeder extends Seeder
         ];
     }
 
+    private function configWasteland(): array
+    {
+        return [
+            'title'      => 'Wasteland',
+            'slug'       => 'wasteland',
+            'category'   => 'Dystopian',
+            'script'     => 'WASTELAND_script.txt',
+            'source_pdf' => 'FREEP1 - STORIES/WASTELAND/Wasteland.pdf',
+            'teaser'     => "Abandoned in a desert built from humanity's castoffs, an engineer must decide whether to escape or help the people that the world chose to forget.",
+            'rating'     => StoryRatingEnum::YOUNG_ADULT->value,
+            'opening'    => null,
+            'creator'    => $this->freepCreator(),
+        ];
+    }
+
     private function thomasWittmerCreator(): array
     {
         return [
@@ -380,6 +397,18 @@ class AddSingleStorySeeder extends Seeder
             'email'      => 'classics@lorespinner.com',
             'bio'        => "Enter the world's most iconic classic stories—now immersive, interactive adventures where your choices reshape timeless legends.",
             'avatar'     => 'THE CLASSICS, UNBOUND - PROFILE PIC.jpg',
+        ];
+    }
+
+    private function freepCreator(): array
+    {
+        return [
+            'first_name' => 'FREEP1',
+            'last_name'  => '',
+            'username'   => 'freep',
+            'email'      => 'freep@lorespinner.com',
+            'bio'        => 'Hollywood writing team creating high-impact television worlds where serialized mythology, procedural engines, and commercial concept collide.',
+            'avatar'     => 'FREEP1 - PROFILE PIC.jpg',
         ];
     }
 }
