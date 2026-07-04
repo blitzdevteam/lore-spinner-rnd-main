@@ -115,6 +115,20 @@ final class ChaosStoryConfig
                 'tagline'       => 'Baum — follow the yellow brick road to the Emerald City.',
                 'tts_voice_id'  => null,
             ],
+            [
+                'slug'          => 'wasteland',
+                'title'         => 'Wasteland',
+                'protagonist'   => 'Emmit',
+                'tagline'       => 'Soares — survive the desert built from the world\'s castoffs.',
+                'tts_voice_id'  => null,
+            ],
+            [
+                'slug'          => 'pjs',
+                'title'         => "PJ's",
+                'protagonist'   => 'Stills',
+                'tagline'       => 'FREEP1 — jump into the hardest battlefield there is.',
+                'tts_voice_id'  => null,
+            ],
         ];
     }
 

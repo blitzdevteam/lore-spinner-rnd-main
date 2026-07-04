@@ -254,6 +254,7 @@ class AddSingleStorySeeder extends Seeder
      *   SEED_STORY=the-matrix             php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=nocturne                php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=wasteland               php artisan db:seed --class=AddSingleStorySeeder --force
+     *   SEED_STORY=pjs                     php artisan db:seed --class=AddSingleStorySeeder --force
      *
      * Defaults to Masque of the Red Death when SEED_STORY is not set.
      */
@@ -267,6 +268,7 @@ class AddSingleStorySeeder extends Seeder
             'job-switching', 'i-love-lucy-job-switching', 'job-switching-final' => $this->configJobSwitching(),
             'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
             'wasteland'                                                        => $this->configWasteland(),
+            'pjs', 'pjs-final'                                                 => $this->configPjs(),
             'wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'                 => $this->configWizardOfOz(),
             default                                                              => $this->configMasque(),
         };
@@ -371,6 +373,21 @@ class AddSingleStorySeeder extends Seeder
             'source_pdf' => 'FREEP1 - STORIES/WASTELAND/Wasteland.pdf',
             'teaser'     => "Abandoned in a desert built from humanity's castoffs, an engineer must decide whether to escape or help the people that the world chose to forget.",
             'rating'     => StoryRatingEnum::YOUNG_ADULT->value,
+            'opening'    => null,
+            'creator'    => $this->freepCreator(),
+        ];
+    }
+
+    private function configPjs(): array
+    {
+        return [
+            'title'      => "PJ's",
+            'slug'       => 'pjs',
+            'category'   => 'Military Drama',
+            'script'     => 'PJS_script.txt',
+            'source_pdf' => "FREEP1 - STORIES/PJ'S/PJ's.pdf",
+            'teaser'     => "A team of elite Air Force PJs discover that the hardest battlefield may be the one where there's no enemy to shoot, only lives to save and ghosts to outrun.",
+            'rating'     => StoryRatingEnum::MATURE->value,
             'opening'    => null,
             'creator'    => $this->freepCreator(),
         ];

@@ -4,9 +4,9 @@ import janeEyreCover from '@/assets/featured/janeEyre.png';
 import frankensteinComingCover from '@/assets/commingSoon/frankstein-comming.png';
 import drjComingCover from '@/assets/commingSoon/drj-comming.png';
 import underseaComingCover from '@/assets/commingSoon/undersea-comming.JPG';
-import wastelandComingCover from '@/assets/commingSoon/wasteland-comming.JPG';
 import romeoComingCover from '@/assets/commingSoon/romeo-comming.png';
-import pjComingCover from '@/assets/commingSoon/pj-comming.JPG';
+import pjsCover from '@/assets/featured/pjs.png';
+import wastelandCover from '@/assets/featured/wasteland.png';
 import aliceCover from '@/assets/featured/alice.png';
 import animaCover from '@/assets/featured/anima.png';
 import draculaCover from '@/assets/featured/dracula.png';
@@ -37,6 +37,8 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     'the-tell-tale-heart': tellTaleCover,
     'i-love-lucy-job-switching': iLoveLucyCover,
     'the-matrix': theMatrixCover,
+    wasteland: wastelandCover,
+    pjs: pjsCover,
     // Explore by Mood / mood library picks
     'jekyll-and-hyde': jekyllCover,
     'the-strange-case-of-dr-jekyll-and-mr-hyde': drjComingCover,
@@ -46,9 +48,7 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     frankenstein: frankensteinComingCover,
     'dr-jekyll-and-mr-hyde': drjComingCover,
     leagues: underseaComingCover,
-    wasteland: wastelandComingCover,
     'romeo-and-juliet': romeoComingCover,
-    pjs: pjComingCover,
 };
 
 export function resolveStoryCover(slug: string, cover?: string | null): string {

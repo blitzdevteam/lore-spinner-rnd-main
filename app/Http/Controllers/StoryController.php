@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\Comment\CommentStatusEnum;
+use App\Enums\Story\StoryStatusEnum;
 use App\Http\Controllers\User\GameController;
 use App\Models\Story;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -69,17 +70,9 @@ final class StoryController extends Controller
             $existingGameId = Auth::user()->games()->where('story_id', $story->id)->value('id');
         }
 
-        // A story is playable only when it's on the launch list AND session 1 has a runtime_narrator_prompt.
-        $isOnLaunchList = in_array($story->slug, GameController::LAUNCH_SLUGS, true);
-
-        $isPlayable = false;
-        if ($isOnLaunchList) {
-            $story->load(['adaptation.sessionAdaptations']);
-            $isPlayable = $story->adaptation
-                ?->sessionAdaptations
-                ?->firstWhere('session_number', 1)
-                ?->runtime_narrator_prompt !== null;
-        }
+        // Playable when published and on the launch whitelist (matches GameController::store).
+        $isPlayable = $story->status === StoryStatusEnum::PUBLISHED
+            && in_array($story->slug, GameController::LAUNCH_SLUGS, true);
 
         return inertia('Stories/Show', [
             'story'          => $story->toResource(),
