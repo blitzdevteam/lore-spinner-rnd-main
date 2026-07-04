@@ -57,7 +57,6 @@ final class VoiceLockMergeJob implements ShouldQueue
             $fragment = Cache::get($key);
             if ($fragment !== null) {
                 $voiceFragments[] = $fragment;
-                Cache::forget($key);
             }
         }
 
@@ -70,7 +69,8 @@ final class VoiceLockMergeJob implements ShouldQueue
         if (empty($voiceFragments)) {
             Log::error('voice_lock.merge_failed: no fragments in cache', ['story_id' => $this->story->id]);
             $adaptation->update(['adaptation_status' => AdaptationStatusEnum::FAILED]);
-            return;
+
+            throw new \RuntimeException("Voice lock merge: no chapter fragments in cache for story {$this->story->id}");
         }
 
         usort($voiceFragments, fn ($a, $b) => ($a['chapter_position'] ?? 0) <=> ($b['chapter_position'] ?? 0));
@@ -99,6 +99,10 @@ final class VoiceLockMergeJob implements ShouldQueue
         $adaptation->update([
             'voice_profile' => $response->toArray(),
         ]);
+
+        foreach ($chapters as $chapter) {
+            Cache::forget("voice_lock_fragment:{$this->story->id}:{$chapter->id}");
+        }
 
         Log::info('voice_lock.merge_complete', [
             'story_id' => $this->story->id,

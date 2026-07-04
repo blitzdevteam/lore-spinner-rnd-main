@@ -415,33 +415,13 @@ final class VoiceLockSchema
 
             // --- V2.3 build-time QA (never ships to runtime) ---
             'build_time_qa_protocol' => $buildTimeQaSchema,
-
-            // --- LEGACY: preserved for backward compat; NOT required for V2.3 profiles ---
-            // fourteen_point_audit_protocol: old V2.2 field; kept so old profiles parse correctly.
-            // Do not populate this for new V2.3 IPs — use build_time_qa_protocol instead.
-            'fourteen_point_audit_protocol' => $schema->array()->title('Fourteen Point Audit Protocol — LEGACY (V2.2 only)')
-                ->description('Preserved for backward compat. V2.3 profiles use build_time_qa_protocol instead. May be absent.')
-                ->items($auditPointSchema),
         ];
 
-        // --- 1B v2 Section 3B: Voice Decay Prevention Protocol ---
-        // LEGACY — top-level only (sibling of build_time_qa_protocol), SCREENWRITER only.
-        // Canonical path: voice_profile.voice_decay_prevention_protocol
-        // MUST NOT appear under author_voice_dna_profile.
-        // V2.3 profiles: do not require or render VDPP in the runtime narrator; preserved here
-        // so old screenwriter profiles continue to parse. New IPs use voice_anchor / anchor_card.
-        if ($includeScreenwriterFields) {
-            $topLevel['voice_decay_prevention_protocol'] = $schema->object([
-                're_anchoring_trigger'             => $schema->string()->required()->title('Re-Anchoring Trigger')
-                    ->description('Word-count trigger (every 300-400 words) at which runtime must re-inject core enforcement constraints.'),
-                'passage_level_enforcement_checks' => $schema->array()->required()->title('Passage-Level Enforcement Checks')
-                    ->description('Deterministic checks to run before delivering any passage to the player.')
-                    ->items($schema->string()->required()),
-                'drift_detection_metrics'          => $schema->array()->required()->title('Drift Detection Metrics')
-                    ->description('Metrics to track across consecutive passages; consistent trend away from target triggers re-anchoring.')
-                    ->items($schema->string()->required()),
-            ])->withoutAdditionalProperties()->title('Voice Decay Prevention Protocol — LEGACY Section 3B (V2.2 only; V2.3 uses voice_anchor/anchor_card)');
-        }
+        // LEGACY V2.2 fields (fourteen_point_audit_protocol, voice_decay_prevention_protocol)
+        // are intentionally omitted from the merge schema. OpenAI structured output requires
+        // every property key to appear in `required`; optional legacy fields break validation.
+        // V2.3 profiles use build_time_qa_protocol + voice_anchor/anchor_card/runtime_self_check.
+        // Downstream readers already tolerate absence via ?? [] / ?? null.
 
         return $topLevel;
     }
