@@ -128,7 +128,7 @@ class AddSingleStorySeeder extends Seeder
         $story->update(['status' => StoryStatusEnum::PUBLISHED->value]);
         $this->command->info('Published!');
 
-        $this->attachMissingImages($story, $config['slug']);
+        $this->attachMissingImages($story, $config['slug'], $config['story_cover'] ?? null);
     }
 
     private function ensureCreator(array $config): Creator
@@ -171,19 +171,20 @@ class AddSingleStorySeeder extends Seeder
         return $creator;
     }
 
-    private function attachMissingImages(Story $story, string $slug): void
+    private function attachMissingImages(Story $story, string $slug, ?string $storyCoverPath = null): void
     {
         if (! $story->getFirstMedia('cover')) {
-            $coverFile = database_path("stories/covers/{$slug}.png");
+            $coverFile = $storyCoverPath ?? database_path("stories/covers/{$slug}.png");
 
             if (File::exists($coverFile)) {
+                $ext = pathinfo($coverFile, PATHINFO_EXTENSION) ?: 'png';
                 $story->addMedia($coverFile)
                     ->preservingOriginal()
-                    ->usingFileName('cover-' . $slug . '.png')
+                    ->usingFileName('cover-' . $slug . '.' . $ext)
                     ->toMediaCollection('cover', 'public');
                 $this->command->info('Story cover attached.');
             } else {
-                $this->command->warn("No story cover found at: covers/{$slug}.png");
+                $this->command->warn("No story cover found at: {$coverFile}");
             }
         } else {
             $this->command->info('Story cover already exists — skipped.');
@@ -374,6 +375,7 @@ class AddSingleStorySeeder extends Seeder
             'teaser'     => "Abandoned in a desert built from humanity's castoffs, an engineer must decide whether to escape or help the people that the world chose to forget.",
             'rating'     => StoryRatingEnum::YOUNG_ADULT->value,
             'opening'    => null,
+            'story_cover' => resource_path('js/assets/commingSoon/wasteland-comming.JPG'),
             'creator'    => $this->freepCreator(),
         ];
     }
@@ -389,6 +391,7 @@ class AddSingleStorySeeder extends Seeder
             'teaser'     => "A team of elite Air Force PJs discover that the hardest battlefield may be the one where there's no enemy to shoot, only lives to save and ghosts to outrun.",
             'rating'     => StoryRatingEnum::MATURE->value,
             'opening'    => null,
+            'story_cover' => resource_path('js/assets/commingSoon/pj-comming.JPG'),
             'creator'    => $this->freepCreator(),
         ];
     }

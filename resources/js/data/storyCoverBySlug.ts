@@ -4,9 +4,9 @@ import janeEyreCover from '@/assets/featured/janeEyre.png';
 import frankensteinComingCover from '@/assets/commingSoon/frankstein-comming.png';
 import drjComingCover from '@/assets/commingSoon/drj-comming.png';
 import underseaComingCover from '@/assets/commingSoon/undersea-comming.JPG';
+import pjPosterCover from '@/assets/commingSoon/pj-comming.JPG';
 import romeoComingCover from '@/assets/commingSoon/romeo-comming.png';
-import pjsCover from '@/assets/featured/pjs.png';
-import wastelandCover from '@/assets/featured/wasteland.png';
+import wastelandPosterCover from '@/assets/commingSoon/wasteland-comming.JPG';
 import aliceCover from '@/assets/featured/alice.png';
 import animaCover from '@/assets/featured/anima.png';
 import draculaCover from '@/assets/featured/dracula.png';
@@ -37,8 +37,8 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     'the-tell-tale-heart': tellTaleCover,
     'i-love-lucy-job-switching': iLoveLucyCover,
     'the-matrix': theMatrixCover,
-    wasteland: wastelandCover,
-    pjs: pjsCover,
+    wasteland: wastelandPosterCover,
+    pjs: pjPosterCover,
     // Explore by Mood / mood library picks
     'jekyll-and-hyde': jekyllCover,
     'the-strange-case-of-dr-jekyll-and-mr-hyde': drjComingCover,
