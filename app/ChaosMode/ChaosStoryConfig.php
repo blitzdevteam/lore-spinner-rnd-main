@@ -28,14 +28,18 @@ namespace App\ChaosMode;
 final class ChaosStoryConfig
 {
     /**
-     * Declan Sage voice (kqVT88a5QfII1HNAEPTJ) — used for Anima Machina, Driftheart, and The Matrix.
+     * Female voice (j3QcmAr55TvFW5CDB0Q3) — used for Anima Machina and Nocturne.
+     *
+     * Previous voices:
+     * - Anima Machina: Declan Sage (kqVT88a5QfII1HNAEPTJ)
+     * - Nocturne: Davidof (TWutjvRaJqAX89preB4e)
      */
-    private const VOICE_DECLAN_SAGE = 'kqVT88a5QfII1HNAEPTJ';
+    private const VOICE_FEMALE = 'j3QcmAr55TvFW5CDB0Q3';
 
     /**
-     * Davidof voice (TWutjvRaJqAX89preB4e) — used for Nocturne.
+     * Declan Sage voice (kqVT88a5QfII1HNAEPTJ) — used for Driftheart and The Matrix.
      */
-    private const VOICE_DAVIDOF = 'TWutjvRaJqAX89preB4e';
+    private const VOICE_DECLAN_SAGE = 'kqVT88a5QfII1HNAEPTJ';
 
     /**
      * Yusuke voice (Lci8YeL6PAFHJjNKvwXq) — used for Momotaro: The Peach Boy.
@@ -74,7 +78,7 @@ final class ChaosStoryConfig
                 'title'                  => 'Nocturne',
                 'protagonist'            => 'Akira',
                 'tagline'                => 'Wittmer — vanish into Tokyo\'s shadow-house.',
-                'tts_voice_id'           => self::VOICE_DAVIDOF,
+                'tts_voice_id'           => self::VOICE_FEMALE,
                 'prefer_literal_opening' => true,
             ],
             [
@@ -82,7 +86,7 @@ final class ChaosStoryConfig
                 'title'                 => 'Anima Machina',
                 'protagonist'           => 'Nora',
                 'tagline'               => 'Wittmer — dive grief in the neon archive.',
-                'tts_voice_id'          => self::VOICE_DECLAN_SAGE,
+                'tts_voice_id'          => self::VOICE_FEMALE,
                 'prefer_literal_opening' => true,
             ],
             [
