@@ -107,6 +107,7 @@ final class PromptController extends Controller
                 playerAction:        $playerAction,
                 protagonist:         $protagonist,
                 temperature:         $this->engine->gameTemperatureFor($game->model),
+                worldState:          $worldState,
             );
 
             $newWorldState   = $this->engine->mergeStateDelta($worldState, $result['state_delta']);

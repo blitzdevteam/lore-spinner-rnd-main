@@ -38,6 +38,23 @@ final class ChaosEngineService
 
     private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
 
+    // Base budget for prose + choices + scalars + JSON overhead, holding the
+    // three COMPLETE_LIST_STATE_FIELDS empty. See ChaosNarrationSchema: those
+    // three fields are re-emitted in full every turn and grow across a game,
+    // so they are budgeted separately in maxTokensFor() instead of folded
+    // into one fixed constant (that undercount is what caused the truncation
+    // soft-brick on long-running games — 2026-07-04 production audit).
+    private const MAX_TOKENS_BASE = 1_400;
+
+    // ~4 chars/token plus per-entry JSON quoting/comma overhead, rounded up.
+    private const MAX_TOKENS_PER_STATE_LIST_CHAR = 0.4;
+
+    private const MAX_TOKENS_FLOOR = 2_000;
+
+    // Hard ceiling so a runaway list (bad turn, adversarial input) still
+    // can't reserve an unbounded output buffer.
+    private const MAX_TOKENS_RETRY_CEILING = 8_000;
+
     public const MODEL_CONFIG = [
         'gpt-5.5'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'gpt-5.4'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
@@ -47,6 +64,7 @@ final class ChaosEngineService
         'chat-latest'       => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'claude-opus-4-8'   => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
         'claude-opus-4-7'   => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
+        'claude-sonnet-5'   => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-sonnet-4-6' => ['provider' => 'anthropic', 'temperature' => 0.9,  'reasoning_effort' => null],
         'claude-haiku-4-5'  => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
     ];
@@ -55,7 +73,7 @@ final class ChaosEngineService
     // /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     // public const GAME_TEMPERATURE = 0.4;
 
-    public const DEFAULT_MODEL = 'claude-sonnet-4-6';
+    public const DEFAULT_MODEL = 'claude-sonnet-5';
 
     /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     public const GAME_TEMPERATURE = 0.6;
@@ -625,6 +643,7 @@ final class ChaosEngineService
         ?string $playerAction,
         string $protagonist,
         float $temperature = 1.0,
+        array $worldState = [],
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
 
@@ -647,20 +666,30 @@ final class ChaosEngineService
             ->withSchema(new NativeObjectSchema($schemaArray))
             ->withSystemPrompt($systemPrompt)
             ->withPrompt($promptText)
-            ->usingTemperature($temperature)
             ->withClientOptions(['timeout' => 55])
             ->withProviderOptions($providerOptions);
 
-        if ($config['provider'] === 'anthropic') {
-            // Calculated ceiling for the ChaosNarrationSchema worst case:
-            //   response prose (4 HTML paragraphs) ~900 + state_delta all fields ~835
-            //   + choices/booleans/strings/JSON overhead ~315 = ~2050 tokens peak.
-            // 2500 covers even the densest climactic session-close turn with a 20% buffer.
-            // Previously 64_000 — a 96% over-reservation that delays Anthropic job scheduling.
-            $request = $request->withMaxTokens(2_500);
+        // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
+        // Omit sampling params; tone is governed by the runtime narrator system prompt.
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $request = $request->usingTemperature($temperature);
         }
 
-        $response   = $request->asStructured();
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withMaxTokens($this->maxTokensFor($worldState));
+        }
+
+        try {
+            $response = $request->asStructured();
+        } catch (Throwable $e) {
+            if ($config['provider'] === 'anthropic' && $this->looksLikeTruncation($e)) {
+                $request  = $request->withMaxTokens(self::MAX_TOKENS_RETRY_CEILING);
+                $response = $request->asStructured();
+            } else {
+                throw $e;
+            }
+        }
+
         $structured = $response->structured ?? [];
 
         $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
@@ -682,6 +711,47 @@ final class ChaosEngineService
             'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
             'session_memory_update'  => (string) ($structured['session_memory_update'] ?? ''),
         ];
+    }
+
+    /**
+     * Size the output token budget off the state the model must carry forward.
+     *
+     * conditions/items/unresolved_promises are re-emitted in full every turn
+     * (see COMPLETE_LIST_STATE_FIELDS), so their serialised size grows across
+     * a game. Budgeting a fixed constant for them undercounts late-game turns
+     * and causes a deterministic truncate-throw-retry-truncate loop. Early
+     * turns still get a small, fast-scheduling budget; only games that have
+     * accumulated real state pay for a larger one.
+     */
+    private function maxTokensFor(array $worldState): int
+    {
+        $carriedChars = 0;
+        foreach (self::COMPLETE_LIST_STATE_FIELDS as $key) {
+            foreach ((array) ($worldState[$key] ?? []) as $entry) {
+                $carriedChars += strlen((string) $entry);
+            }
+        }
+
+        $budget = self::MAX_TOKENS_BASE + (int) ceil($carriedChars * self::MAX_TOKENS_PER_STATE_LIST_CHAR);
+
+        return max(self::MAX_TOKENS_FLOOR, $budget);
+    }
+
+    /**
+     * Prism/Anthropic surfaces a truncated structured response as a decode
+     * failure, not a distinct exception type — match on message content.
+     * Conservative: only retries when the failure looks token-budget shaped,
+     * so a real schema/validation bug still surfaces immediately.
+     */
+    private function looksLikeTruncation(Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'max_tokens')
+            || str_contains($message, 'maximum context length')
+            || str_contains($message, 'incomplete')
+            || str_contains($message, 'unterminated')
+            || (str_contains($message, 'json') && str_contains($message, 'decod'));
     }
 
     /**
@@ -1130,7 +1200,22 @@ final class ChaosEngineService
     }
 
     /**
-     * @param  array{provider:string, temperature:float, reasoning_effort:?string}  $config
+     * Anthropic Sonnet 5 and Opus 4.7+ return 400 if temperature/top_p/top_k
+     * are set to non-default values. Omit sampling params for those models.
+     *
+     * @see https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5
+     */
+    private function modelAcceptsSamplingParams(string $model): bool
+    {
+        return ! in_array($model, [
+            'claude-sonnet-5',
+            'claude-opus-4-8',
+            'claude-opus-4-7',
+        ], true);
+    }
+
+    /**
+     * @param  array{provider:string, temperature?:float, reasoning_effort:?string}  $config
      * @return array<string, mixed>
      */
     private function providerOptionsFor(array $config): array

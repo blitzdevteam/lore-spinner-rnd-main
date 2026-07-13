@@ -316,6 +316,7 @@ final class GameController extends Controller
                 playerAction: null,
                 protagonist: $protagonist,
                 temperature: $this->engine->gameTemperatureFor($game->model),
+                worldState: $carriedWorldState,
             );
 
             $worldState = $this->engine->mergeStateDelta($carriedWorldState, $result['state_delta']);

@@ -38,6 +38,11 @@ final class ChaosStoryConfig
     private const VOICE_DAVIDOF = 'TWutjvRaJqAX89preB4e';
 
     /**
+     * Yusuke voice (Lci8YeL6PAFHJjNKvwXq) — used for Momotaro: The Peach Boy.
+     */
+    private const VOICE_YUSUKE = 'Lci8YeL6PAFHJjNKvwXq';
+
+    /**
      * @return array<int, array{slug:string, title:string, protagonist:string, tagline:string, tts_voice_id:string|null, prefer_literal_opening?: bool}>
      */
     public static function all(): array
@@ -128,6 +133,13 @@ final class ChaosStoryConfig
                 'protagonist'   => 'Stills',
                 'tagline'       => 'FREEP1 — jump into the hardest battlefield there is.',
                 'tts_voice_id'  => null,
+            ],
+            [
+                'slug'          => 'momotaro-the-peach-boy',
+                'title'         => 'Momotaro: The Peach Boy',
+                'protagonist'   => 'Momotaro',
+                'tagline'       => 'Japanese folktale — sail to Oni Island and face the demons.',
+                'tts_voice_id'  => self::VOICE_YUSUKE,
             ],
         ];
     }
