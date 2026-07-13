@@ -256,6 +256,7 @@ class AddSingleStorySeeder extends Seeder
      *   SEED_STORY=nocturne                php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=wasteland               php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=pjs                     php artisan db:seed --class=AddSingleStorySeeder --force
+     *   SEED_STORY=momotaro                php artisan db:seed --class=AddSingleStorySeeder --force
      *
      * Defaults to Masque of the Red Death when SEED_STORY is not set.
      */
@@ -270,6 +271,7 @@ class AddSingleStorySeeder extends Seeder
             'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
             'wasteland'                                                        => $this->configWasteland(),
             'pjs', 'pjs-final'                                                 => $this->configPjs(),
+            'momotaro', 'momotaro-the-peach-boy', 'peach-boy'                  => $this->configMomotaro(),
             'wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'                 => $this->configWizardOfOz(),
             default                                                              => $this->configMasque(),
         };
@@ -393,6 +395,21 @@ class AddSingleStorySeeder extends Seeder
             'opening'    => null,
             'story_cover' => resource_path('js/assets/commingSoon/pj-comming.JPG'),
             'creator'    => $this->freepCreator(),
+        ];
+    }
+
+    private function configMomotaro(): array
+    {
+        return [
+            'title'      => 'Momotaro: The Peach Boy',
+            'slug'       => 'momotaro-the-peach-boy',
+            'category'   => 'Fantasy Adventure',
+            'script'     => 'Momotaro_The_Peach_Boy_script.txt',
+            'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/Momotaro_The_Peach_Boy.pdf',
+            'teaser'     => 'Born from a miraculous peach and raised by humble elders, a fearless boy gathers unlikely companions and sails to Oni Island to face the demons who have stolen everything his village fears to name.',
+            'rating'     => StoryRatingEnum::EVERYONE->value,
+            'opening'    => null,
+            'creator'    => $this->classicsCreator(),
         ];
     }
 
