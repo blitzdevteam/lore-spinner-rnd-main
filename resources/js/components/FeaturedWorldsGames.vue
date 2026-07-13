@@ -10,6 +10,7 @@ import nocturneCover from '@/assets/featured/nocturne.png';
 import pridePrejudiceCover from '@/assets/featured/Pride-prejudice.png';
 import redDeathCover from '@/assets/featured/redDeath.png';
 import treasureCover from '@/assets/featured/treasure.png';
+import momotaroCover from '@/assets/featured/momotaro.png';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
@@ -27,6 +28,15 @@ interface FeaturedGame {
 }
 
 const games: FeaturedGame[] = [
+    {
+        id: 'momotaro-the-peach-boy',
+        title: 'Momotaro: The Peach Boy',
+        cover: momotaroCover,
+        playable: true,
+        slug: 'momotaro-the-peach-boy',
+        teaser:
+            'Born from a miraculous peach and raised by humble elders, a fearless boy gathers unlikely companions and sails to Oni Island to face the demons who have stolen everything his village fears to name.',
+    },
     {
         id: 'nocturne',
         title: 'Nocturne',

@@ -18,6 +18,7 @@ import treasureCover from '@/assets/featured/treasure.png';
 import sherlockCover from '@/assets/featured/sherlock.png';
 import tellTaleCover from '@/assets/featured/Tell Tale portrait titled.png';
 import wizardOzCover from '@/assets/featured/wizardoz.jpg';
+import momotaroCover from '@/assets/featured/momotaro.png';
 import { canonicalMoodStorySlug } from '@/data/moodStories';
 
 /** Portrait / card covers aligned with home — override API media when present. */
@@ -39,6 +40,7 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     'the-matrix': theMatrixCover,
     wasteland: wastelandPosterCover,
     pjs: pjPosterCover,
+    'momotaro-the-peach-boy': momotaroCover,
     // Explore by Mood / mood library picks
     'jekyll-and-hyde': jekyllCover,
     'the-strange-case-of-dr-jekyll-and-mr-hyde': drjComingCover,

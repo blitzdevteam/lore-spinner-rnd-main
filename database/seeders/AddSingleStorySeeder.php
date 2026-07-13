@@ -409,6 +409,7 @@ class AddSingleStorySeeder extends Seeder
             'teaser'     => 'Born from a miraculous peach and raised by humble elders, a fearless boy gathers unlikely companions and sails to Oni Island to face the demons who have stolen everything his village fears to name.',
             'rating'     => StoryRatingEnum::EVERYONE->value,
             'opening'    => null,
+            'story_cover' => database_path('stories/covers/Momotaro.png'),
             'creator'    => $this->classicsCreator(),
         ];
     }

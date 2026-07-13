@@ -21,6 +21,7 @@ export const STORY_DESCRIPTOR_THEMES_BY_SLUG: Record<string, [string, string, st
     pjs: ['Brotherhood', 'Sacrifice', 'Duty'],
     wasteland: ['Survival', 'Guilt', 'Escape'],
     'the-matrix': ['Rebellion', 'Identity', 'Truth'],
+    'momotaro-the-peach-boy': ['Courage', 'Loyalty', 'Destiny'],
 };
 
 const SLUG_ALIASES: Record<string, string> = {

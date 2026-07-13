@@ -42,6 +42,7 @@ final class GameController extends Controller
         'nocturne',
         'i-love-lucy-job-switching',
         'the-matrix',
+        'momotaro-the-peach-boy',
     ];
 
     public function __construct(private readonly ChaosEngineService $engine) {}
