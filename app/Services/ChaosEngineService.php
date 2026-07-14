@@ -73,7 +73,7 @@ final class ChaosEngineService
     // /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     // public const GAME_TEMPERATURE = 0.4;
 
-    public const DEFAULT_MODEL = 'claude-sonnet-5';
+    public const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
     /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     public const GAME_TEMPERATURE = 0.6;
