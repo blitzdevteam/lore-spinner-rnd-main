@@ -112,12 +112,33 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                     ->description('One line: how this choice engages core stakes and defines identity — not a side encounter.'),
             ])->required()->withoutAdditionalProperties()->title('First-Choice Spec — Task 4 ★ consumed by D4 Task 1'),
 
+            // --- Format-specific cut (moved before cold_open so must_reintroduce is in context when cold_open is generated) ---
+            'format_specific_cut' => $schema
+                ->object([
+                    'cut_point'          => $schema->string()->required()->title('Cut Point'),
+                    'original_before_cut' => $schema->string()->required()->title('Original Before Cut'),
+                    'cut_eliminates'     => $schema->string()->required()->title('Cut Eliminates'),
+                    'must_reintroduce'   => $schema->string()->required()->title('Must Reintroduce')
+                        ->description('List every essential fact the player needs to understand who they are and why this moment matters, but that was cut by starting at a later event. For each fact write: the specific fact itself, then "COLD OPEN" if it must appear in the cold open prose, or "LATER" if it can surface through dialogue/action/memory during the session. Be precise — not "backstory" but the exact piece of information and why the player cannot engage without it.'),
+                ])->required()->withoutAdditionalProperties()->title('Format-Specific Cut'),
+
             // --- Task 5: Cold Open prose (Task 5 / D8 Section 13) ---
+            // IMPORTANT: This field is filled AFTER protagonist_introduction, first_choice_spec, and
+            // format_specific_cut have already been committed. Treat this as composition, not fresh writing.
+            // The material already exists above — place it, do not paraphrase it.
             'cold_open' => $schema
                 ->string()
                 ->required()
                 ->title('Cold Open')
-                ->description('Second-person present tense cold open prose, 120-180 words. Written in the author\'s voice (Voice Anchor). Ends at the first choice question. Sensory grounding within first 50 words.'),
+                ->description(
+                    'Second-person present tense cold open prose, 120-180 words, in the author\'s voice.' . "\n\n" .
+                    'COMPOSITION — the following fields are already written; copy them into the prose at the right moment, do not rewrite them:' . "\n" .
+                    '• protagonist_introduction.reveal_lines must appear verbatim in the prose at the weight-bearing moment.' . "\n" .
+                    '• first_choice_spec.setup_prose must form the final 2-3 sentences immediately before the question.' . "\n" .
+                    '• first_choice_spec.question must be the exact final sentence, word for word.' . "\n" .
+                    '• Any fact in format_specific_cut.must_reintroduce marked COLD OPEN must be woven into the prose as present-pressure or lived-in knowledge — never as backstory narration.' . "\n\n" .
+                    'Sensory grounding within the first 50 words.'
+                ),
 
             // --- Task 6: Emotional Promise (→ D4) ---
             'emotional_promise' => $schema
@@ -139,14 +160,6 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                 ->required()
                 ->title('Editorial Diagnosis')
                 ->description('Full editorial diagnosis explaining what was cut and why (from entry point selection).'),
-
-            'format_specific_cut' => $schema
-                ->object([
-                    'cut_point'          => $schema->string()->required()->title('Cut Point'),
-                    'original_before_cut' => $schema->string()->required()->title('Original Before Cut'),
-                    'cut_eliminates'     => $schema->string()->required()->title('Cut Eliminates'),
-                    'must_reintroduce'   => $schema->string()->required()->title('Must Reintroduce'),
-                ])->required()->withoutAdditionalProperties()->title('Format-Specific Cut'),
 
             'start_event_position' => $schema
                 ->integer()
