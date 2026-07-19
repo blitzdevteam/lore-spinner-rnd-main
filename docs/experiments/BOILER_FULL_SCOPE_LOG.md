@@ -23,7 +23,15 @@
 | 8 | `3d04a12` | Narration suggestions contract and frontend identity |
 | 9 | `a6637eb` | Inspection, exports, tests, and this runbook |
 
-Post-stage static audit correction: `712b5bb` (tightened disabled-mode compatibility, next-session rollback safety, active-moment state scoping, opening suggestion validation, and budget identity checks).
+Post-stage static audit corrections:
+
+- `712b5bb` — tightened disabled-mode compatibility, next-session rollback safety, active-moment state scoping, opening suggestion validation, and budget identity checks.
+- `4e15a5b` — enforced one-to-one event/moment ownership.
+- `c872600` — expanded resolver rollback, opening, and shared reset regression coverage.
+- `453f839` — made existing phase schemas strictly conditional on persisted Boiler mode.
+- `60d3ccb` — preserved direct template-render compatibility and assembly failure diagnostics.
+- `31b93ea` — covered disabled-schema compatibility.
+- `a010a21` — normalized both prompt choice shapes and completed compact-map context.
 
 ## Daniel-run pre-deployment checks
 
@@ -96,7 +104,15 @@ The safe shared-history mechanism is `git revert`, not hard reset:
 ```bash
 git log --oneline pre-boiler..HEAD
 git revert HEAD
+git revert a010a21
+git revert 31b93ea
+git revert 60d3ccb
+git revert 453f839
+git revert c872600
+git revert 4e15a5b
+git revert db738ff
 git revert 712b5bb
+git revert 9d34477
 git revert a6637eb
 git revert 3d04a12
 git revert 4f2b72c
@@ -115,7 +131,12 @@ Push revert commits to `main` only with Daniel's approval and only while the ada
 The six Boiler migrations were created in FK-safe order. Roll them back in reverse order after code rollback:
 
 ```bash
-php artisan migrate:rollback --step=6 --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000006_add_source_prompt_id_to_prompts_table.php --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000005_add_boiler_runtime_columns_to_games_table.php --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000004_create_event_playability_roles_table.php --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000003_create_playable_moments_table.php --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000002_create_playable_session_cuts_table.php --force
+php artisan migrate:rollback --path=database/migrations/2026_07_19_000001_add_boiler_adaptation_columns.php --force
 php artisan queue:restart
 ```
 
