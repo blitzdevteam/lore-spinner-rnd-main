@@ -136,6 +136,43 @@ it('rejects protected breathing-room material cut without reintroduction', funct
     );
 })->throws(RuntimeException::class);
 
+it('rejects an event assigned to more than one moment', function () {
+    $draft = boilerTestDraft();
+    $draft['session_budget_decision']['target_moment_count'] = 2;
+    $draft['pacing_guidance_used']['recommended_moment_count_min'] = 2;
+    $draft['pacing_guidance_used']['recommended_moment_count_max'] = 2;
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+    ]);
+    $draft['playable_promise_arc']['final_cash_out'] = 'S1_M02';
+    $storyMap = boilerTestStoryMap();
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 2;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 2;
+
+    (new BoilerDraftValidator())->validate(
+        $draft,
+        boilerTestSession(),
+        $storyMap,
+        boilerTestEvents(),
+    );
+})->throws(RuntimeException::class, 'Boiler event 101 is assigned to more than one moment.');
+
+it('rejects playable promise arc shorthand instead of an exact drafted key', function () {
+    $draft = boilerTestDraft();
+    $draft['playable_promise_arc']['first_proof_moment'] = 'M01';
+
+    (new BoilerDraftValidator())->validate(
+        $draft,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+})->throws(
+    RuntimeException::class,
+    'Boiler Draft playable_promise_arc.first_proof_moment must resolve to a drafted moment.',
+);
+
 it('requires relationally sequential next moment evidence in final cards', function () {
     $session = boilerTestSession();
     $session->boiler_draft = boilerTestDraft();

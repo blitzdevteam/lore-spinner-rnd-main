@@ -16,6 +16,7 @@ use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 final class BoilerFinalizeJob implements ShouldQueue
@@ -58,11 +59,13 @@ final class BoilerFinalizeJob implements ShouldQueue
         }
 
         if ($session->boiler_status === BoilerStatus::FAILED) {
-            return;
+            throw new RuntimeException(
+                $session->boiler_error ?: "Boiler Finalize for session {$this->sessionNumber} is already failed."
+            );
         }
 
         if (! in_array($session->boiler_status, [BoilerStatus::DRAFTED, BoilerStatus::FINALIZING], true)) {
-            throw new \RuntimeException('Boiler Finalize requires boiler_status drafted or finalizing.');
+            throw new RuntimeException('Boiler Finalize requires boiler_status drafted or finalizing.');
         }
 
         $session->update([

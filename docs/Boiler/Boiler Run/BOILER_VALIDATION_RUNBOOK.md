@@ -260,6 +260,38 @@ PHASE A: PASS / FAIL
 
 # Phase B — Laravel Cloud pre-deploy safety
 
+## B0. Confirm the queue lease exceeds every adaptation timeout
+
+**Where:** Laravel Cloud command UI, before dispatching any adaptation
+
+```bash
+php artisan tinker --execute='echo "database_retry_after=".config("queue.connections.database.retry_after").PHP_EOL;'
+```
+
+**Expected:**
+
+```text
+database_retry_after=1200
+```
+
+The longest adaptation job timeout is 900 seconds. Never run the canary with a 90-second lease: a still-running AI job would become available to another worker, allowing concurrent execution of the same UUID.
+
+If Cloud still prints `90`, set this environment value, redeploy, and restart workers:
+
+```text
+DB_QUEUE_RETRY_AFTER=1200
+```
+
+**Paste result:**
+
+```text
+
+```
+
+**Result:** PASS / FAIL
+
+---
+
 ## B1. Confirm adaptation queue is idle
 
 **Where:** Laravel Cloud command UI, before push/deploy
@@ -338,6 +370,7 @@ git rev-parse HEAD
 ## Phase B gate
 
 ```text
+B0 Queue lease: PASS / FAIL
 B1 Queue idle: PASS / FAIL
 B2 Database snapshot: PASS / FAIL
 B3 Deployment SHA recorded: PASS / FAIL
@@ -479,7 +512,14 @@ stories:inspect-boiler
 **Paste result:**
 
 ```text
-
+Available commands for the "stories" namespace:
+  stories:boiler-status       Show Boiler compilation status for a story
+  stories:convert-scripts     Convert screenplay PDF scripts to .txt files for the extraction pipeline
+  stories:generate-openings   Generate cinematic Lorespinner opening narrations for stories.
+  stories:inspect-boiler      Inspect Boiler event roles and canonical moment cards
+  stories:repair-ip-trimming  Re-run IP trimming for stories with missing chapter_segments and optionally refresh affected sessions
+  stories:run-adaptation      Dispatch the adaptation pipeline for a story
+  stories:wipe                Remove ALL stories and their related data (games, chapters, events, adaptations, media)
 ```
 
 **Result:** PASS / FAIL
@@ -501,7 +541,18 @@ php artisan tinker --execute='foreach(["story_adaptations.boiler_enabled","sessi
 **Paste result:**
 
 ```text
-
+story_adaptations.boiler_enabled=present
+session_adaptations.boiler_draft=present
+session_adaptations.boiler_final_cut=present
+session_adaptations.boiler_status=present
+games.current_playable_session_cut_id=present
+games.current_playable_moment_id=present
+games.playable_moment_turn_count=present
+games.moment_footnote=present
+prompts.source_prompt_id=present
+playable_session_cuts=present
+playable_moments=present
+event_playability_roles=present
 ```
 
 **Result:** PASS / FAIL
@@ -558,7 +609,7 @@ php artisan tinker --execute='foreach(App\Models\Story::where("title","like","%S
 **Where:** Laravel Cloud command UI
 
 ```bash
-php artisan tinker --execute='$s=App\Models\Story::where("slug","YOUR_SHERLOCK_SLUG")->firstOrFail(); $a=$s->adaptation; echo "adaptation=".($a?"present":"missing").PHP_EOL; echo "boiler_enabled=".($a?->boiler_enabled?"true":"false").PHP_EOL; echo "status=".($a?->adaptation_status?->value??"missing").PHP_EOL; echo "sessions=".($a?->sessionAdaptations()->count()??0).PHP_EOL;'
+php artisan tinker --execute='$s=App\Models\Story::where("slug","the-adventure-of-the-speckled-band")->firstOrFail(); $a=$s->adaptation; echo "adaptation=".($a?"present":"missing").PHP_EOL; echo "boiler_enabled=".($a?->boiler_enabled?"true":"false").PHP_EOL; echo "status=".($a?->adaptation_status?->value??"missing").PHP_EOL; echo "sessions=".($a?->sessionAdaptations()->count()??0).PHP_EOL;'
 ```
 
 **Expected before canary re-adaptation:**
@@ -649,7 +700,7 @@ php artisan tinker --execute='$s=App\Models\Story::where("slug","YOUR_SHERLOCK_S
 **Where:** Laravel Cloud command UI
 
 ```bash
-php artisan stories:run-adaptation YOUR_SHERLOCK_SLUG --force --boiler
+php artisan stories:run-adaptation the-adventure-of-the-speckled-band --force --boiler
 ```
 
 **Expected:**
@@ -1546,6 +1597,8 @@ Search for:
 
 ```text
 boiler.draft_started
+boiler.draft_validation_failed
+boiler.draft_corrected
 boiler.draft_completed
 boiler.draft_attempt_failed
 boiler.finalize_started
@@ -1558,6 +1611,7 @@ runtime_narrator_assembly.failed
 **Expected:**
 
 - Every session has Draft started/completed.
+- A validation failure is followed by `boiler.draft_corrected` in the same job attempt or by a terminal Draft failure; it must not silently continue.
 - Every session has Finalize started/completed.
 - Every session has Assembly success.
 - No terminal failure remains.
@@ -1680,6 +1734,9 @@ Next action:
 | Boiler commands missing | Deploy/autoload/command discovery | Confirm deployed SHA and queue restart |
 | `boiler_enabled=false` after `--boiler` | Entry-point or job persistence | Inspect `RunAdaptationPipelineJob` payload and adaptation row |
 | Missing `boiling_profile` | Conditional Story Session Map schema/prompt | Check StorySessionMap job logs and stored mode |
+| Duplicate `failed_jobs` UUID or repeated overlapping starts | Queue lease shorter than job runtime | Pause workers; confirm `database_retry_after=1200`; clear only the affected pending queue work |
+| Draft event assigned to multiple moments | Invalid model partition | Confirm corrective pass receives the validation error; inspect `boiler.draft_validation_failed` then `boiler.draft_corrected` |
+| Draft promise arc references a missing moment | Arc field did not copy an exact generated key | Confirm corrective pass replaces shorthand/title with an exact `S{session}_M{nn}` key |
 | Story Session Map fails before sessions | Invalid profile structure | Inspect agent output and validation exception |
 | Draft stuck `drafting` | Queue/API/structured output | Check failed jobs and `boiler_error` |
 | Draft reports out-of-range count | Budget authority conflict | Inspect guidance range and Draft target; do not override manually |

@@ -43,9 +43,11 @@ final class BoilerDraftAgent implements Agent, HasStructuredOutput
         ])->required()->withoutAdditionalProperties();
 
         $momentDraft = $schema->object([
-            'moment_key' => $schema->string()->required()->title('Moment Key'),
+            'moment_key' => $schema->string()->required()->title('Moment Key')
+                ->description('Exact contiguous key S{session_number}_M{two-digit order}, for example S2_M01.'),
             'moment_order' => $schema->integer()->required()->title('Moment Order'),
             'source_event_ids' => $schema->array()->required()->title('Source Event IDs')
+                ->description('A strict partition: each event ID may occur in at most one moment_drafts source_event_ids list.')
                 ->items($schema->integer()->required()),
             'anchor_event_id' => $schema->integer()->required()->title('Anchor Event ID'),
             'treatment' => $schema->string()->required()->title('Treatment'),
@@ -85,9 +87,12 @@ final class BoilerDraftAgent implements Agent, HasStructuredOutput
                     ->items($schema->integer()->required()),
             ])->required()->withoutAdditionalProperties(),
             'playable_promise_arc' => $schema->object([
-                'first_proof_moment' => $schema->string()->required()->title('First Proof Moment'),
-                'midpoint_intensification' => $schema->string()->required()->title('Midpoint Intensification'),
-                'final_cash_out' => $schema->string()->required()->title('Final Cash Out'),
+                'first_proof_moment' => $schema->string()->required()->title('First Proof Moment')
+                    ->description('Copy one complete moment_drafts[].moment_key exactly. Never use a title, event ID, shorthand, or undrafted key.'),
+                'midpoint_intensification' => $schema->string()->required()->title('Midpoint Intensification')
+                    ->description('Copy one complete moment_drafts[].moment_key exactly. It may equal another arc key in a short session.'),
+                'final_cash_out' => $schema->string()->required()->title('Final Cash Out')
+                    ->description('Copy the final ordered moment_drafts[].moment_key exactly.'),
             ])->required()->withoutAdditionalProperties(),
             'event_role_map' => $schema->array()->required()->title('Event Role Map')->items($eventRole),
             'moment_drafts' => $schema->array()->required()->title('Moment Drafts')->items($momentDraft),

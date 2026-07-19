@@ -37,3 +37,10 @@ ASSIGNED SESSION EVENTS:
 {{ json_encode($context['events'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
 Critique every event, adopt the supplied target minutes, choose an exact moment count inside the approved range, and compile the complete Boiler Draft contract.
+
+Before returning, perform these referential checks:
+
+1. No event ID occurs in more than one `moment_drafts[].source_event_ids` list.
+2. Every non-empty `event_role_map[].included_moment_key` equals the unique moment containing that event.
+3. Every `playable_promise_arc` value is copied exactly from the generated `moment_drafts[].moment_key` values.
+4. `playable_promise_arc.final_cash_out` equals the final ordered moment key.

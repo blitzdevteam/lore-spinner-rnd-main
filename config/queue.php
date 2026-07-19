@@ -41,7 +41,10 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // Long adaptation agents can run for up to 900 seconds. The lease
+            // must outlive every job timeout or another worker can execute the
+            // same UUID concurrently while the first worker is still active.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1200),
             'after_commit' => false,
         ],
 
