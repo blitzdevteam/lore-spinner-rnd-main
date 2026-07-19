@@ -16,11 +16,12 @@ final class ConsequenceMapCanonicalizer
     public function canonicalize(array $consequenceMap, array $choiceDesign): array
     {
         $branchingChoices = collect((array) ($choiceDesign['branching_choices'] ?? []));
+        $lastBranchingIndex = $branchingChoices->count() - 1;
         $branchingConsequences = collect((array) ($consequenceMap['branching_consequences'] ?? []))
             ->keyBy('choice_id');
 
         $consequenceMap['branching_consequences'] = $branchingChoices
-            ->map(function ($choice, int $index) use ($branchingConsequences): array {
+            ->map(function ($choice, int $index) use ($branchingConsequences, $lastBranchingIndex): array {
                 if (! is_array($choice)) {
                     return [];
                 }
@@ -34,7 +35,7 @@ final class ConsequenceMapCanonicalizer
                 $consequence['moment_key'] = $choice['moment_key'] ?? '';
                 $consequence['tracked_dimension'] = $choice['what_this_choice_tracks'] ?? '';
                 $consequence['is_session_end_hook'] = ($choice['category'] ?? null) === 'SESSION_END_HOOK'
-                    || $index === $branchingChoices->count() - 1;
+                    || $index === $lastBranchingIndex;
                 $consequence['paths'] = collect((array) ($choice['options'] ?? []))
                     ->map(function ($option) use ($paths): array {
                         if (! is_array($option)) {

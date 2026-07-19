@@ -303,7 +303,7 @@ it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Ph
     $choiceDesign = [
         'branching_choices' => [[
             'choice_id' => 'S1_C1',
-            'category' => 'SESSION_END_HOOK',
+            'category' => 'IDENTITY',
             'moment_key' => 'S1_M01',
             'what_this_choice_tracks' => 'Truth versus protection',
             'options' => [
