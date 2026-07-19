@@ -22,12 +22,9 @@ use Throwable;
  * output and persists it on `session_adaptations.runtime_narrator_prompt`.
  * Chaos Mode reads this column at session start.
  *
- * Size policy (warn-not-fail):
- *   The builder runs a 6-pass compression cascade. If the prompt fits under
- *   MAX_PROMPT_CHARS it is returned from that pass. If all passes exceed the cap
- *   the most-compressed version is returned with a warning logged. Either way
- *   this job always persists — adaptation is never blocked by prompt size.
- *   Check the narration log after adaptation for near_cap / over_cap entries.
+ * The builder may log soft quality/size warnings. This job validates the
+ * mode-specific structural contract and persists only a valid prompt, then
+ * becomes the sole owner of session_status=completed.
  */
 final class RuntimeNarratorAssemblyJob implements ShouldQueue
 {
@@ -59,9 +56,6 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
 
         $session->update(['session_status' => SessionAdaptationStatusEnum::RUNTIME_ASSEMBLY]);
 
-        // build() always returns a string — it logs warnings but never throws
-        // for size or missing anchor fields. Non-assembly exceptions (DB, render
-        // errors) still bubble up and fail the job naturally.
         $prompt    = $builder->build($this->story, $session);
         $charCount = mb_strlen($prompt);
         $validator->validate($prompt, (bool) $adaptation->boiler_enabled);

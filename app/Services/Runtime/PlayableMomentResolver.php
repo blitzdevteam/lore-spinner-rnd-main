@@ -41,6 +41,23 @@ final class PlayableMomentResolver
     }
 
     /**
+     * @param  array<int, string|array<string, mixed>>  $choices
+     * @param  Collection<int, SessionAdaptation>  $sessionAdaptations
+     */
+    public function validateSuggestionsForCurrentMoment(
+        Game $game,
+        array $choices,
+        Collection $sessionAdaptations,
+    ): void {
+        if ($game->current_playable_moment_id === null) {
+            return;
+        }
+
+        $moment = PlayableMoment::query()->findOrFail($game->current_playable_moment_id);
+        $this->validateSuggestions($choices, $moment, $sessionAdaptations);
+    }
+
+    /**
      * @param  array<string, mixed>  $result
      * @param  array<int, string|array<string, mixed>>  $normalizedChoices
      * @param  Collection<int, SessionAdaptation>  $sessionAdaptations

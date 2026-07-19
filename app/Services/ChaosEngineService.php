@@ -232,10 +232,23 @@ final class ChaosEngineService
             $alignmentScaffold,
         );
 
+        $stateScopeEvents = (array) ($sessionContext['full_session_events'] ?? []);
+        $activeSourceEventIds = (array) data_get(
+            $sessionContext,
+            'active_moment_context.moment.source_event_ids',
+            [],
+        );
+        if ($activeSourceEventIds !== []) {
+            $stateScopeEvents = array_values(array_filter(
+                $stateScopeEvents,
+                fn (array $event): bool => in_array((int) ($event['id'] ?? 0), $activeSourceEventIds, true),
+            ));
+        }
+
         $worldStateBlock = $this->renderTieredWorldState(
             worldState:    $worldState,
             isClimactic:   $isClimacticPrevious,
-            sessionEvents: $sessionContext['full_session_events'] ?? [],
+            sessionEvents: $stateScopeEvents,
         );
 
         // On session-start: inject the full opening block into Section 13 via its token.

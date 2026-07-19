@@ -83,9 +83,8 @@ final class ChoiceDesignJob implements ShouldQueue
             );
 
             $choiceDesign = $response->toArray();
-
-            $this->validateCanonicalTopology($choiceDesign);
             if ($adaptation->boiler_enabled) {
+                $this->validateCanonicalTopology($choiceDesign);
                 $this->validateBoilerBindings($choiceDesign, (array) $session->boiler_draft);
             }
 

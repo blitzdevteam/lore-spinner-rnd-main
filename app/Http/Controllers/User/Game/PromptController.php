@@ -112,10 +112,14 @@ final class PromptController extends Controller
                     . '. Resolve this selected authored path; do not infer a different one.';
             }
 
+            $boilerActive = $game->current_playable_moment_id !== null;
+            $historyWindow = $boilerActive
+                ? array_slice($history, -max(2, ($game->playable_moment_turn_count + 1) * 2))
+                : array_slice($history, -12);
             $result = $this->engine->callAgent(
                 model: $game->model,
                 systemPrompt: $systemPrompt,
-                conversationHistory: array_slice($history, -12),
+                conversationHistory: $historyWindow,
                 playerAction: $playerAction,
                 protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
                 temperature: $this->engine->gameTemperatureFor($game->model),
@@ -123,7 +127,6 @@ final class PromptController extends Controller
                 game: $game,
                 isOpening: false,
             );
-            $boilerActive = $game->current_playable_moment_id !== null;
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
             if ($boilerActive) {

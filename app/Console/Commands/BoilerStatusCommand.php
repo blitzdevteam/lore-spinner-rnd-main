@@ -25,7 +25,6 @@ final class BoilerStatusCommand extends Command
         }
 
         $sessions = $story->adaptation->sessionAdaptations()
-            ->withCount('playableCut')
             ->when(
                 $this->option('session') !== null,
                 fn ($query) => $query->where('session_number', (int) $this->option('session')),

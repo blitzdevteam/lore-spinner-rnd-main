@@ -161,6 +161,11 @@ final class GameController extends Controller
                 $result,
                 $game->current_playable_moment_id !== null,
             );
+            $this->momentResolver->validateSuggestionsForCurrentMoment(
+                $game,
+                $normalizedChoices,
+                $story->adaptation->sessionAdaptations,
+            );
 
             $worldState = $this->engine->mergeStateDelta($emptyWorldState, $result['state_delta']);
             $alignmentScaffold = $this->engine->mergeAlignmentDelta($emptyAlignment, $result['alignment_tally_delta']);
@@ -312,38 +317,32 @@ final class GameController extends Controller
             'moment_footnote' => $game->moment_footnote,
         ];
 
-        if ($story->adaptation?->boiler_enabled) {
-            if ($nextSA === null) {
-                return to_route('user.games.show', $game)
-                    ->with('error', 'The next Boiler session has not been finalized.');
-            }
-            $this->momentResolver->initializeForSession($game, $nextSA);
-            $game->refresh();
-        }
-
-        $sessionContext = $this->engine->loadSessionContext(
-            story:                   $story,
-            sessionNumber:           $nextSessionNumber,
-            openingHandoff:          $openingHandoff,
-            resolvedConsequencePath: $resolvedConsequencePath,
-            sessionCloseDesign:      $sessionCloseDesign,
-            game:                    $game,
-        );
-
-        if ($sessionContext === null) {
-            if ($story->adaptation?->boiler_enabled) {
-                $game->update($boilerStateBeforeTransition);
-            }
-
-            return to_route('user.games.show', $game)
-                ->with('error', 'The next session has not been adapted yet. Re-run the adaptation pipeline before continuing.');
-        }
-
-        $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
-        $carriedAlignment  = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
-        $carriedMemory     = $game->symbolic_memory;
-
         try {
+            if ($story->adaptation?->boiler_enabled) {
+                if ($nextSA === null) {
+                    throw new \RuntimeException('The next Boiler session has not been finalized.');
+                }
+                $this->momentResolver->initializeForSession($game, $nextSA);
+                $game->refresh();
+            }
+
+            $sessionContext = $this->engine->loadSessionContext(
+                story:                   $story,
+                sessionNumber:           $nextSessionNumber,
+                openingHandoff:          $openingHandoff,
+                resolvedConsequencePath: $resolvedConsequencePath,
+                sessionCloseDesign:      $sessionCloseDesign,
+                game:                    $game,
+            );
+
+            if ($sessionContext === null) {
+                throw new \RuntimeException('The next session has not been adapted yet.');
+            }
+
+            $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
+            $carriedAlignment  = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
+            $carriedMemory     = $game->symbolic_memory;
+
             $systemPrompt = $this->engine->renderSystemPrompt(
                 sessionContext:      $sessionContext,
                 worldState:          $carriedWorldState,
@@ -370,6 +369,11 @@ final class GameController extends Controller
             $normalizedChoices = $this->resultNormalizer->choices(
                 $result,
                 $game->current_playable_moment_id !== null,
+            );
+            $this->momentResolver->validateSuggestionsForCurrentMoment(
+                $game,
+                $normalizedChoices,
+                $story->adaptation->sessionAdaptations,
             );
 
             $worldState = $this->engine->mergeStateDelta($carriedWorldState, $result['state_delta']);

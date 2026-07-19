@@ -66,6 +66,16 @@ final class BoilerDraftValidator
             throw new RuntimeException('Boiler Draft target_moment_count is outside the approved Story Session Map range.');
         }
 
+        foreach (['must_compress_event_ids', 'must_breathe_event_ids'] as $field) {
+            $draftIds = (array) ($budget[$field] ?? []);
+            $guidanceIds = (array) ($guidance[$field] ?? []);
+            sort($draftIds);
+            sort($guidanceIds);
+            if ($draftIds !== $guidanceIds) {
+                throw new RuntimeException("Boiler Draft {$field} must match Story Session Map guidance.");
+            }
+        }
+
         $moments = $draft['moment_drafts'] ?? null;
         if (! is_array($moments) || count($moments) !== $targetCount) {
             throw new RuntimeException('Boiler Draft moment count must exactly match target_moment_count.');
