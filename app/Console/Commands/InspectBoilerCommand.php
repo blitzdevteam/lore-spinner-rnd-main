@@ -48,6 +48,7 @@ final class InspectBoilerCommand extends Command
 
             if ($cut === null) {
                 $this->warn('No normalized cut.');
+
                 continue;
             }
 
@@ -72,19 +73,41 @@ final class InspectBoilerCommand extends Command
                     $moment->moment_key,
                     $card['title'] ?? '',
                 ));
-                $this->line('  Source events: ' . implode(', ', $moment->source_event_ids));
-                $this->line('  Anchor event: ' . ($moment->anchor_event_id ?? 'none'));
-                $this->line('  Choice IDs: ' . (implode(', ', (array) ($card['choice_ids'] ?? [])) ?: 'none'));
-                $this->line('  Goal: ' . ($card['runtime_goal'] ?? ''));
-                $this->line('  Desire: ' . ($card['player_desire'] ?? ''));
-                $this->line('  Pressure: ' . ($card['live_pressure'] ?? ''));
-                $this->line('  Extracts: ' . implode(' / ', (array) ($card['source_extracts'] ?? [])));
-                $this->line('  Exit: ' . ($card['exit_condition'] ?? ''));
-                $this->line('  Turn budget: ' . json_encode($card['turn_budget'] ?? []));
-                $this->line('  Next: ' . ($card['next_moment_key'] ?? 'final'));
+                $this->line('  Source events: '.implode(', ', $moment->source_event_ids));
+                $this->line('  Anchor event: '.($moment->anchor_event_id ?? 'none'));
+                $this->line('  Choice IDs: '.(implode(', ', (array) ($card['choice_ids'] ?? [])) ?: 'none'));
+                $this->line('  Goal: '.($card['runtime_goal'] ?? ''));
+                $this->line('  Desire: '.($card['player_desire'] ?? ''));
+                $this->line('  Pressure: '.($card['live_pressure'] ?? ''));
+                $this->line('  Extracts: '.implode(' / ', (array) ($card['source_extracts'] ?? [])));
+                $this->line('  Exit: '.($card['exit_condition'] ?? ''));
+                $this->line('  Turn budget: '.json_encode($card['turn_budget'] ?? []));
+                $this->line('  Next: '.($card['next_moment_key'] ?? 'final'));
             }
 
-            $this->line('Prompt chars: ' . mb_strlen((string) $session->runtime_narrator_prompt));
+            $this->line('Prompt chars: '.mb_strlen((string) $session->runtime_narrator_prompt));
+            $audit = (array) data_get($session->editorial_verification, 'boiler_audit', []);
+
+            if ($audit === []) {
+                $this->warn('Editorial Boiler audit: not persisted');
+
+                continue;
+            }
+
+            $this->line('Editorial Boiler audit: '.($audit['production_status'] ?? 'MISSING'));
+            foreach ((array) ($audit['revision_instructions'] ?? []) as $instruction) {
+                $this->warn('  Revision: '.$instruction);
+            }
+
+            foreach ($audit as $check => $result) {
+                if (is_array($result) && ($result['verdict'] ?? null) === 'REVISE') {
+                    $this->warn(sprintf(
+                        '  %s: %s',
+                        $check,
+                        $result['detail'] ?? 'No detail supplied.',
+                    ));
+                }
+            }
         }
 
         return self::SUCCESS;

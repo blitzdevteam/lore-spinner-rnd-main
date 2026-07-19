@@ -7,9 +7,10 @@ namespace App\Jobs\Adaptation;
 use App\Ai\Agents\Adaptation\EditorialVerificationAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Story;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -18,7 +19,9 @@ final class EditorialVerificationJob implements ShouldQueue
     use Batchable, Queueable;
 
     public int $tries = 3;
+
     public int $timeout = 300;
+
     public int $backoff = 60;
 
     public function __construct(
@@ -35,7 +38,7 @@ final class EditorialVerificationJob implements ShouldQueue
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
         if (empty($adaptation->voice_profile)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'voice_profile missing — Voice Lock must complete before Phase 8 (EditorialVerification)'
             );
         }
@@ -52,6 +55,7 @@ final class EditorialVerificationJob implements ShouldQueue
             ];
 
             $verification = $this->runVerification($adaptation, $session, $completeDesign);
+            $session->update(['editorial_verification' => $verification]);
 
             // One automatic retry on RED, per Deliverable 6 ("One automatic retry
             // is permitted at the orchestration layer").
@@ -61,13 +65,39 @@ final class EditorialVerificationJob implements ShouldQueue
             ) {
                 $verification = $this->runVerification($adaptation, $session, $completeDesign);
                 $verification['auto_retry_attempted'] = true;
+                $session->update(['editorial_verification' => $verification]);
             }
 
             if ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS') {
-                throw new RuntimeException('Boiler Editorial Verification did not pass. Review boiler_audit revision instructions.');
+                $revisions = collect((array) data_get($verification, 'boiler_audit.revision_instructions', []))
+                    ->filter(fn ($instruction): bool => is_string($instruction) && mb_trim($instruction) !== '')
+                    ->values()
+                    ->all();
+                $failedChecks = collect((array) data_get($verification, 'boiler_audit', []))
+                    ->filter(fn ($result, $key): bool => is_array($result)
+                        && ($result['verdict'] ?? null) === 'REVISE'
+                        && ! in_array($key, ['production_status', 'revision_instructions'], true))
+                    ->map(fn (array $result, string $key): array => [
+                        'check' => $key,
+                        'detail' => (string) ($result['detail'] ?? ''),
+                    ])
+                    ->values()
+                    ->all();
+                $message = $this->boilerFailureMessage($revisions, $failedChecks);
+
+                $session->update(['boiler_error' => mb_substr($message, 0, 2_000)]);
+                Log::warning('boiler.editorial_verification_failed', [
+                    'story_id' => $this->story->id,
+                    'session_number' => $this->sessionNumber,
+                    'production_status' => data_get($verification, 'boiler_audit.production_status'),
+                    'revision_instructions' => $revisions,
+                    'failed_checks' => $failedChecks,
+                ]);
+
+                throw new RuntimeException($message);
             }
 
-            $session->update(['editorial_verification' => $verification]);
+            $session->update(['boiler_error' => null]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
@@ -109,5 +139,24 @@ final class EditorialVerificationJob implements ShouldQueue
         );
 
         return $response->toArray();
+    }
+
+    /**
+     * @param  array<int, string>  $revisions
+     * @param  array<int, array{check: string, detail: string}>  $failedChecks
+     */
+    private function boilerFailureMessage(array $revisions, array $failedChecks): string
+    {
+        $details = $revisions;
+
+        if ($details === []) {
+            $details = array_map(
+                static fn (array $failure): string => "{$failure['check']}: {$failure['detail']}",
+                $failedChecks,
+            );
+        }
+
+        return 'Boiler Editorial Verification did not pass'
+            .($details === [] ? '.' : ': '.implode(' | ', $details));
     }
 }

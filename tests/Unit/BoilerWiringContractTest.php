@@ -147,3 +147,18 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
         ->toContain('PREVIOUS CANONICALIZED BUT INVALID CUT:')
         ->toContain('Return only the complete corrected structured output');
 });
+
+it('persists and exposes a failed Boiler editorial audit before stopping the chain', function () {
+    $job = file_get_contents(app_path('Jobs/Adaptation/EditorialVerificationJob.php'));
+    $command = file_get_contents(app_path('Console/Commands/InspectBoilerCommand.php'));
+
+    expect($job)
+        ->toContain("\$session->update(['editorial_verification' => \$verification])")
+        ->toContain('boiler.editorial_verification_failed')
+        ->toContain("'revision_instructions' => \$revisions")
+        ->toContain("\$session->update(['boiler_error' => mb_substr(\$message, 0, 2_000)])")
+        ->and($command)
+        ->toContain('Editorial Boiler audit:')
+        ->toContain('Revision: ')
+        ->toContain("\$result['verdict'] ?? null) === 'REVISE'");
+});
