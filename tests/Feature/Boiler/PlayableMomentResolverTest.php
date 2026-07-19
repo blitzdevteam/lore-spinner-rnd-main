@@ -13,6 +13,7 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Models\User;
 use App\Services\Runtime\PlayableMomentResolver;
+use App\Services\ChaosEngineService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 uses(DatabaseTransactions::class);
@@ -174,4 +175,61 @@ it('advances by moment order and preserves the final pointer on completion', fun
     expect($completed->current_session_complete)->toBeTrue()
         ->and($completed->current_playable_moment_id)->toBe($fixture['second']->id)
         ->and($completed->current_playable_session_cut_id)->toBe($fixture['cut']->id);
+});
+
+it('rolls back all Boiler state when resolver validation fails', function () {
+    $fixture = boilerResolverFixture();
+    $resolver = app(PlayableMomentResolver::class);
+    $before = $fixture['game']->fresh();
+
+    try {
+        $resolver->applyPlayerTurn(
+            $fixture['game'],
+            $fixture['source'],
+            'Choose an invalid mapped path.',
+            boilerResolverResult(
+                'S1_M01',
+                false,
+                'The player is probing boundaries; answer with grounded resistance while keeping the active pressure alive and responsive.',
+            ),
+            [[
+                'text' => 'Invalid path',
+                'canonical_choice_id' => 'S1_C99',
+                'canonical_path_label' => 'A',
+            ]],
+            $fixture['adaptation']->sessionAdaptations()->get(),
+        );
+    } catch (RuntimeException) {
+        // Expected validation failure.
+    }
+
+    $after = $fixture['game']->fresh();
+    expect($after->world_state)->toBe($before->world_state)
+        ->and($after->defining_choice_id)->toBe($before->defining_choice_id)
+        ->and($after->current_playable_moment_id)->toBe($before->current_playable_moment_id)
+        ->and($after->playable_moment_turn_count)->toBe($before->playable_moment_turn_count)
+        ->and($fixture['source']->fresh()->prompt)->toBeNull()
+        ->and(Prompt::where('game_id', $fixture['game']->id)->count())->toBe(1);
+});
+
+it('requires opening narration to keep the first moment active with no footnote', function () {
+    $fixture = boilerResolverFixture();
+    $engine = app(ChaosEngineService::class);
+    $method = (new ReflectionClass($engine))->getMethod('validateBoilerNarrationResult');
+
+    $valid = [
+        'visible_suggestions' => [],
+        'moment_progress' => [
+            'moment_key' => 'S1_M01',
+            'exit_condition_met' => false,
+            'moment_footnote' => null,
+        ],
+    ];
+    $method->invoke($engine, $valid, $fixture['game'], true);
+
+    $invalid = $valid;
+    $invalid['moment_progress']['moment_footnote'] = 'Opening narration must not critique a player who has not acted.';
+
+    expect(fn () => $method->invoke($engine, $invalid, $fixture['game'], true))
+        ->toThrow(RuntimeException::class);
 });

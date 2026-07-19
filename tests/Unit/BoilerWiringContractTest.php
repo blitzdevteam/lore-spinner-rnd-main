@@ -72,3 +72,15 @@ it('uses the explicit frontend Boiler discriminator for Continue behavior', func
         ->toContain('usesPlayableMoments')
         ->toContain('!props.usesPlayableMoments && canInteract.value');
 });
+
+it('runs the shared game reset only on a successful reconciliation transition', function () {
+    $reconciliation = file_get_contents(app_path('Jobs/Adaptation/AdaptationStatusReconciliationJob.php'));
+    $controller = file_get_contents(app_path('Http/Controllers/User/GameController.php'));
+
+    expect($reconciliation)
+        ->toContain('if ($status !== AdaptationStatusEnum::COMPLETED)')
+        ->toContain('$gameResetService->reset($game)')
+        ->toContain('$lockedAdaptation->adaptation_status === AdaptationStatusEnum::COMPLETED')
+        ->and($controller)
+        ->toContain('$this->gameResetService->reset($game)');
+});
