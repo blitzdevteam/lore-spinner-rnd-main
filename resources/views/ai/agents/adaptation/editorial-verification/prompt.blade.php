@@ -18,4 +18,20 @@ WORLD REACTIVITY RULES (Phase 2 Task 7: use for Q22):
 STORY SESSION MAP (for cross-session verification):
 {{ json_encode($storySessionMap, JSON_PRETTY_PRINT) }}
 
+@if($boilerEnabled)
+BOILER DRAFT:
+{{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+BOILER FINAL MANIFEST:
+{{ json_encode($boilerFinalCut, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+NORMALIZED EVENT ROLES:
+{{ json_encode($boilerEventRoles, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+CANONICAL FINAL PLAYABLE MOMENTS:
+{{ json_encode($boilerMoments, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+Run the complete Boiler audit. `production_status` is PASS only when every Boiler item passes.
+
+@endif
 SESSION NUMBER: {{ $sessionNumber }}

@@ -10,6 +10,7 @@ use App\Models\Story;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
 use Illuminate\Foundation\Queue\Queueable;
+use RuntimeException;
 use Throwable;
 
 final class EditorialVerificationJob implements ShouldQueue
@@ -54,15 +55,19 @@ final class EditorialVerificationJob implements ShouldQueue
 
             // One automatic retry on RED, per Deliverable 6 ("One automatic retry
             // is permitted at the orchestration layer").
-            if (($verification['production_status'] ?? '') === 'RED') {
+            if (
+                data_get($verification, 'final_verdict.production_status') === 'RED'
+                || ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS')
+            ) {
                 $verification = $this->runVerification($adaptation, $session, $completeDesign);
                 $verification['auto_retry_attempted'] = true;
             }
 
-            $session->update([
-                'editorial_verification' => $verification,
-                'session_status' => SessionAdaptationStatusEnum::COMPLETED,
-            ]);
+            if ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS') {
+                throw new RuntimeException('Boiler Editorial Verification did not pass. Review boiler_audit revision instructions.');
+            }
+
+            $session->update(['editorial_verification' => $verification]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
@@ -91,6 +96,15 @@ final class EditorialVerificationJob implements ShouldQueue
                 'persistentStateSchema' => $adaptation->story_session_map['persistent_state_schema'] ?? [],
                 'worldReactivityRules' => $adaptation->story_session_map['world_reactivity_rules'] ?? [],
                 'sessionNumber' => $this->sessionNumber,
+                'boilerEnabled' => (bool) $adaptation->boiler_enabled,
+                'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
+                'boilerFinalCut' => $adaptation->boiler_enabled ? $session->boiler_final_cut : null,
+                'boilerEventRoles' => $adaptation->boiler_enabled
+                    ? $session->playableCut?->eventRoles()->orderBy('event_id')->get()->toArray()
+                    : [],
+                'boilerMoments' => $adaptation->boiler_enabled
+                    ? $session->playableCut?->moments()->orderBy('moment_order')->get()->toArray()
+                    : [],
             ])->render()
         );
 

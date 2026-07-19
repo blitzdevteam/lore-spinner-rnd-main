@@ -97,6 +97,27 @@ Pass condition: The three options per branching choice genuinely span chaotic/la
 
 ---
 
+BOILER AUDIT (ONLY WHEN BOILER ARTIFACTS ARE PROVIDED)
+
+Read the normalized event roles and canonical `playable_moments.scene_card` values, not only the manifest.
+
+Return PASS or REVISE with evidence for each:
+
+1. EVENT COVERAGE — every assigned event has exactly one transparent role and valid moment/reintroduction route.
+2. CANON REINTRODUCTION — required canon and every must-breathe earned effect survive direct play or an explicit reintroduction.
+3. MOMENT ALIGNMENT — moments match Entry Point, Draft, Architecture, and ordered source coverage.
+4. CHOICE BINDINGS — canonical choice IDs, complete A/B/C paths, defining lines, and freeform mapping remain unchanged and bind to valid moments.
+5. CONSEQUENCE AND CLOSE BINDINGS — immediate/echo hooks resolve and the existing close belongs to the final moment.
+6. PLAYABLE ROOM QUALITY — every PLAY/PULSE/CHOICE room has pressure, credible affordances, local source texture, canon boundaries, variance, and an exit; it permits meaningful exploration and action rather than summarizing.
+7. PACING AND BUDGET AGREEMENT — Story Session Map minutes/range, Draft exact count, Architecture alignment, and final normalized count agree. Must-compress material was not silently expanded; protected material has adequate space.
+8. PLAYABLE PROMISE ARC — first proof demonstrates the promise, midpoint intensifies it, and final cash-out delivers it in the closing moment. Short-session coincident anchors are valid when supported.
+9. SEMANTIC EXIT CONDITIONS — each exit describes an outcome-based dramatic state change, not an exhaustive action checklist. Examples are possible routes only.
+10. EXPERIENCE BALANCE — every room deepens immersion, consequence, or momentum without materially damaging the others. Technically complete but experientially inert rooms must be revised or removed.
+
+Boiler `production_status` is PASS only when all ten checks pass. Otherwise return REVISE with concrete revision instructions. When no Boiler artifacts are provided, omit `boiler_audit`.
+
+---
+
 OUTPUT FORMAT: Return all 23 verdicts plus the 14-point audit results and a final_verdict object containing:
 - total_passing (count out of 23)
 - production_status: GREEN (23/23) / AMBER (20-22/23) / RED (below 20)

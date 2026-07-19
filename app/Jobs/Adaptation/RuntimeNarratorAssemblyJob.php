@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\RuntimeNarratorPromptValidator;
 use App\Ai\Adaptation\RuntimeNarratorTemplateBuilder;
+use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,16 +49,22 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
     /**
      * @throws Throwable
      */
-    public function handle(RuntimeNarratorTemplateBuilder $builder): void
+    public function handle(
+        RuntimeNarratorTemplateBuilder $builder,
+        RuntimeNarratorPromptValidator $validator,
+    ): void
     {
         $adaptation = $this->story->adaptation;
         $session    = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
+
+        $session->update(['session_status' => SessionAdaptationStatusEnum::RUNTIME_ASSEMBLY]);
 
         // build() always returns a string — it logs warnings but never throws
         // for size or missing anchor fields. Non-assembly exceptions (DB, render
         // errors) still bubble up and fail the job naturally.
         $prompt    = $builder->build($this->story, $session);
         $charCount = mb_strlen($prompt);
+        $validator->validate($prompt, (bool) $adaptation->boiler_enabled);
 
         \Log::channel('narration')->info('runtime_narrator_assembly.assembled', [
             'story_id'       => $this->story->id,
@@ -69,6 +77,24 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
         $session->update([
             'runtime_narrator_prompt'       => $prompt,
             'runtime_narrator_assembled_at' => Carbon::now(),
+            'session_status'                => SessionAdaptationStatusEnum::COMPLETED,
+        ]);
+    }
+
+    public function failed(?Throwable $throwable): void
+    {
+        $session = $this->story->fresh()?->adaptation?->sessionAdaptations()
+            ->where('session_number', $this->sessionNumber)
+            ->first();
+
+        $session?->update([
+            'session_status' => SessionAdaptationStatusEnum::FAILED,
+        ]);
+
+        \Log::channel('narration')->error('runtime_narrator_assembly.failed', [
+            'story_id' => $this->story->id,
+            'session_number' => $this->sessionNumber,
+            'error' => $throwable?->getMessage(),
         ]);
     }
 }

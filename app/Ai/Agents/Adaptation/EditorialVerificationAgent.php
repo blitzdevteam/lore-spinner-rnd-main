@@ -93,6 +93,23 @@ class EditorialVerificationAgent implements Agent, HasStructuredOutput
                 'q23_alignment_balance' => (clone $questionResultSchema)->title('Q23 — Alignment Balance'),
             ])->required()->withoutAdditionalProperties()->title('Section C — StoryGuard & State Compliance'),
 
+            'boiler_audit' => $schema->object([
+                'event_coverage' => (clone $questionResultSchema)->title('Boiler — Event Coverage'),
+                'canon_reintroduction' => (clone $questionResultSchema)->title('Boiler — Canon Reintroduction'),
+                'moment_alignment' => (clone $questionResultSchema)->title('Boiler — Moment Alignment'),
+                'choice_bindings' => (clone $questionResultSchema)->title('Boiler — Choice Bindings'),
+                'consequence_and_close_bindings' => (clone $questionResultSchema)->title('Boiler — Consequence and Close Bindings'),
+                'playable_room_quality' => (clone $questionResultSchema)->title('Boiler — Playable Room Quality'),
+                'pacing_and_budget_agreement' => (clone $questionResultSchema)->title('Boiler — Pacing and Budget Agreement'),
+                'playable_promise_arc' => (clone $questionResultSchema)->title('Boiler — Playable Promise Arc'),
+                'semantic_exit_conditions' => (clone $questionResultSchema)->title('Boiler — Semantic Exit Conditions'),
+                'experience_balance' => (clone $questionResultSchema)->title('Boiler — Immersion, Consequence, Momentum'),
+                'production_status' => $schema->string()->required()->title('Boiler Production Status')
+                    ->description('PASS only when every Boiler audit item passes; otherwise REVISE.'),
+                'revision_instructions' => $schema->array()->required()->title('Boiler Revision Instructions')
+                    ->items($schema->string()->required()),
+            ])->withoutAdditionalProperties()->title('Boiler Audit'),
+
             'final_verdict' => $schema->object([
                 'total_passing' => $schema->number()->required()->title('Total Passing')->description('Count of PASS verdicts out of 23.'),
                 'production_status' => $schema->string()->required()->title('Production Status')->description('GREEN (23/23), AMBER (20-22/23), or RED (below 20).'),

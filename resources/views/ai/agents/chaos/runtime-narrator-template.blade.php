@@ -378,6 +378,26 @@ SESSION DESTINATION: {{ $sessionSpine['session_destination'] }}
 
 ---
 
+@if($boilerActive)
+[BOILER_RUNTIME_V1]
+
+### SECTION 12: BOILER PLAYABLE SESSION MAP [POPULATED]
+
+PLAYABLE PROMISE: {{ $boilerManifest['playable_promise'] ?? '' }}
+
+ORDERED MOMENTS:
+@foreach($boilerMoments as $moment)
+- {{ $moment['moment_order'] }}. {{ $moment['moment_key'] }} — {{ $moment['title'] }} [{{ $moment['treatment'] }}]
+  Goal: {{ $moment['runtime_goal'] }}
+  Pressure: {{ $moment['live_pressure'] }}
+  Choice IDs: {{ implode(', ', $moment['choice_ids'] ?? []) ?: 'none' }}
+@endforeach
+
+The ordered map is pacing awareness only. Never reveal future moments to the player. Perform only the full active card injected below.
+
+[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]
+
+@else
 ### SECTION 12: FULL CURRENT EPISODE SCRIPT [POPULATED]
 
 {{ ($voice['profile_type'] ?? '') === 'SCREENWRITER'
@@ -395,6 +415,7 @@ OBJECTIVE: {{ $event['objectives'] }}
 
 @endforeach
 
+@endif
 ---
 
 ### SECTION 13: COLD OPEN [POPULATED]
@@ -416,15 +437,45 @@ WORD COUNT:
 - Bridge narration: 80-120 words.
 - Freeform responses: 100-150 words.
 
+@if($boilerActive)
+BOILER MOMENT_PROGRESS CONTRACT:
+- The active scene card is the only playable room. Respond to the latest player action inside it.
+- Judge `exit_condition_met` semantically: true only when the room's dramatic pressure has been resolved, transformed, bypassed, or made obsolete, including through credible unforeseen freeform action.
+- Exit conditions describe outcomes, never exhaustive action checklists. Do not compare player wording to listed affordances.
+- Turn count and estimated playtime are soft pacing cues only; they never force advancement.
+- If meaningful material remains, deepen discovery, relationship, resistance, consequence, or pressure without repeating the same invitation.
+- If the moment exits and a bounded next-moment preview is injected, naturally close this room and establish the next situation in the same response using `next_bridge`.
+- For opening narration before player input: report the current moment key, `exit_condition_met=false`, and `moment_footnote=null`.
+- After an actual player turn: report the current moment key, a boolean exit judgment, and one hidden natural `moment_footnote` of at most 30 words.
+
+BOILER PLAYER-CRITIQUE FOOTNOTE:
+After each player turn, critically interpret the input in context. Distinguish observed action from likely intent, emotional need, emerging narrative preference, the protagonist being shaped, and contradiction or change from earlier behavior. Write one probabilistic, local insight telling the next narration how to answer intelligently while moving forward. Never diagnose, score, label permanently, or emit a generic pacing command.
+
+BOILER VISIBLE_SUGGESTIONS CONTRACT:
+- Emit `visible_suggestions` with zero to three contextual suggestions. Freeform input is always available.
+- These are turn-level presentation only; they never replace canonical A/B/C Choice Design.
+- A mapped suggestion may use only a canonical choice ID bound to the resulting active moment and a real A/B/C path.
+- A normal action has null canonical identity.
+- Do not also emit legacy `choices` in Boiler mode.
+@endif
+
 THINKING PAUSE: After each branching or emotional choice, emit `[THINKING]`. Posture shifts have NO thinking pause.
 
 REPLAY: If the player replays before choosing, deliver the same outcome text verbatim. No commentary.
 
+@if($boilerActive)
+AGENCY HANDOFF: End every response with one short open question in natural phrasing (never "What do you do?"), then zero to three contextual visible suggestions. The question first. The player can always speak or type their own action.
+@else
 AGENCY HANDOFF: End every response with one short open question in natural phrasing (never "What do you do?"), then the 3 suggested actions. The question first, options after. The player can always speak or type their own choice.
+@endif
 
 FORWARD PULL. END ON THE LIVE MOMENT, NOT A STAKES SUMMARY: The pull forward comes from the unresolved moment and the question itself. NEVER from the narrator recapping what is at stake. Do not end a response by explaining the dilemma, summarizing the choice's significance, or telling the player what they must now decide ("you must decide whether the dead stay dead...," "what you do next will determine everything...," "you need to understand X before Y"). That is an essay-line, and it is banned (Master Rule 1, Explanatory Commentary / Meta-Narration). End on a live image or action, then the question. Let the stakes be felt in the scene, not stated by the narrator.
 
+@if($boilerActive)
+CHOICE PRESENTATION: Show exactly the zero-to-three `visible_suggestions` authored for this turn. Canonical alignment remains hidden. The player is never limited to suggestions.
+@else
 CHOICE PRESENTATION: 3 options. Alignment (chaotic/lawful/neutral) MAPPED but NEVER visible. Randomized order per the Session Packet. The player is never limited to the three.
+@endif
 
 POSTURE SHIFTS: At a posture-shift moment, pause for one natural line inviting a response ("Your hand tightens on the railing. Do you let it show?"). Absorb the response into the next 2-3 sentences. The flow does not break.
 

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Ai\Adaptation;
 
 use App\ChaosMode\ChaosStoryConfig;
-use App\Models\Event;
+use App\Models\PlayableSessionCut;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
+use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Support\Facades\View;
+use RuntimeException;
 
 /**
  * D8 v2 assembler — 18-section runtime narrator template.
@@ -48,6 +50,8 @@ final class RuntimeNarratorTemplateBuilder
      */
     public const WARN_MARGIN_CHARS = 50_000;
 
+    public function __construct(private SessionEventLoader $eventLoader) {}
+
     /**
      * Build the cached runtime narrator prompt for a given session adaptation.
      *
@@ -73,10 +77,38 @@ final class RuntimeNarratorTemplateBuilder
 
         $totalSessions      = $adaptation->sessionAdaptations()->count();
         $startEventPosition = (int) ($session->entry_point_diagnosis['start_event_position'] ?? 0);
-        $sessionEvents      = $this->loadSessionEvents($story, $session->session_number);
+        $sessionEvents = $this->eventLoader
+            ->forSession(
+                $story,
+                $session->session_number,
+                $startEventPosition > 0 ? $startEventPosition : null,
+            )
+            ->reject(fn ($event): bool => (bool) $event->before_entry_point)
+            ->map(fn ($event): array => [
+                'id' => (int) $event->id,
+                'chapter_id' => (int) $event->chapter_id,
+                'chapter_position' => (int) $event->chapter_position,
+                'chapter_title' => (string) $event->chapter_title,
+                'position' => (int) $event->position,
+                'story_position' => (int) $event->story_position,
+                'session_number' => (int) $event->session_number,
+                'title' => (string) $event->title,
+                'content' => (string) $event->content,
+                'objectives' => $event->objectives,
+            ])
+            ->values()
+            ->all();
 
-        if ($startEventPosition > 0 && ! empty($sessionEvents)) {
-            $sessionEvents = $this->filterEventsByStoryPosition($story, $sessionEvents, $startEventPosition);
+        $cut = null;
+        if ($adaptation->boiler_enabled) {
+            $cut = $session->playableCut()
+                ->where('status', 'finalized')
+                ->with('moments')
+                ->first();
+
+            if ($cut === null || $cut->moments->isEmpty()) {
+                throw new RuntimeException('Boiler runtime assembly requires one finalized cut with ordered moments.');
+            }
         }
 
         // Compression cascade — event bodies are NEVER compressed.
@@ -96,7 +128,7 @@ final class RuntimeNarratorTemplateBuilder
 
         foreach ($compressionAttempts as $sourceMode => $sourceFn) {
             foreach ($voiceCompression as $voiceMode => $voiceFn) {
-                $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile));
+                $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut);
                 $charCount       = mb_strlen($rendered);
                 $lastRendered    = $rendered;
                 $lastCompression = "{$sourceMode}+{$voiceMode}";
@@ -191,7 +223,14 @@ final class RuntimeNarratorTemplateBuilder
      * @param  array<int, array<string, mixed>>  $sessionEvents
      * @param  array<string, mixed>              $voiceProfile
      */
-    private function render(Story $story, SessionAdaptation $session, int $totalSessions, array $sessionEvents, array $voiceProfile): string
+    private function render(
+        Story $story,
+        SessionAdaptation $session,
+        int $totalSessions,
+        array $sessionEvents,
+        array $voiceProfile,
+        ?PlayableSessionCut $cut,
+    ): string
     {
         $adaptation = $session->storyAdaptation;
         $trimming = (array) ($adaptation->ip_trimming ?? []);
@@ -228,6 +267,13 @@ final class RuntimeNarratorTemplateBuilder
             $choiceDesign,
             $consequenceMap,
         );
+        $boilerMoments = $cut !== null
+            ? $cut->moments
+                ->sortBy('moment_order')
+                ->map(fn ($moment): array => (array) $moment->scene_card)
+                ->values()
+                ->all()
+            : [];
 
         $rendered = View::make('ai.agents.chaos.runtime-narrator-template', [
             'storyTitle' => $story->title,
@@ -248,6 +294,9 @@ final class RuntimeNarratorTemplateBuilder
             'sessionSpine' => $sessionSpine,
             'beatMap' => (array) ($architecture['beat_map'] ?? []),
             'sessionEvents' => $sessionEvents,
+            'boilerActive' => $cut !== null,
+            'boilerManifest' => $cut !== null ? (array) $session->boiler_final_cut : [],
+            'boilerMoments' => $boilerMoments,
 
             'branchingChoices' => (array) ($choiceDesign['branching_choices'] ?? []),
             'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
@@ -466,72 +515,6 @@ final class RuntimeNarratorTemplateBuilder
             }
         }
         return [];
-    }
-
-    /**
-     * Filter session events to only those at or after `$startEventPosition`,
-     * where position is the story-wide 1-based index computed by ordering all
-     * story events by (chapter.position, event.position).
-     *
-     * @param  array<int, array<string, mixed>>  $sessionEvents  Already ordered
-     * @return array<int, array<string, mixed>>
-     */
-    private function filterEventsByStoryPosition(Story $story, array $sessionEvents, int $startEventPosition): array
-    {
-        $orderedIds = Event::query()
-            ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
-            ->where('chapters.story_id', $story->id)
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->pluck('events.id')
-            ->values()
-            ->toArray();
-
-        $idToStoryPosition = array_flip($orderedIds);
-
-        return array_values(
-            array_filter(
-                $sessionEvents,
-                function (array $e) use ($idToStoryPosition, $startEventPosition): bool {
-                    $idx = $idToStoryPosition[$e['id']] ?? null;
-
-                    return $idx !== null && ($idx + 1) >= $startEventPosition;
-                }
-            )
-        );
-    }
-
-    private function loadSessionEvents(Story $story, int $sessionNumber): array
-    {
-        return Event::query()
-            ->join('chapters', 'events.chapter_id', '=', 'chapters.id')
-            ->where('chapters.story_id', $story->id)
-            ->where('events.session_number', $sessionNumber)
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->get([
-                'events.id',
-                'events.chapter_id',
-                'events.position',
-                'events.title',
-                'events.content',
-                'events.objectives',
-                'events.session_number',
-                'chapters.position as chapter_position',
-                'chapters.title as chapter_title',
-            ])
-            ->map(fn (Event $e) => [
-                'id' => (int) $e->id,
-                'chapter_id' => (int) $e->chapter_id,
-                'chapter_position' => (int) $e->chapter_position,
-                'chapter_title' => (string) $e->chapter_title,
-                'position' => (int) $e->position,
-                'session_number' => (int) $e->session_number,
-                'title' => (string) $e->title,
-                'content' => (string) $e->content,
-                'objectives' => $e->objectives,
-            ])
-            ->all();
     }
 
     /**
