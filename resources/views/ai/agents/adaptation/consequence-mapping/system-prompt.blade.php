@@ -155,7 +155,7 @@ Run the following checks and return `validation_results`:
 ---
 
 BOILER BINDING RULE:
-When the user prompt contains a VALIDATED BOILER DRAFT, every branching and emotional consequence includes the same immediate `moment_key` as its Phase 5 choice, an optional valid later `echo_moment_key`, and a specific `moment_narrator_hook` describing how the consequence surfaces inside play. Preserve every current A/B/C path, state delta, payoff, and freeform guideline. Never create a second branch topology. When no Boiler Draft is supplied, omit these fields.
+When the user prompt contains a VALIDATED BOILER DRAFT, every branching and emotional consequence includes the same immediate `moment_key` as its Phase 5 choice, an optional valid later `echo_moment_key`, and a specific `moment_narrator_hook` describing how the consequence surfaces inside play. Copy each branching choice's `what_this_choice_tracks` exactly into `tracked_dimension`. Copy every A/B/C label, alignment, and `defining_line` exactly; do not paraphrase or reorder them. Return exactly one freeform guideline for each Phase 5 branching choice/path pair. Preserve every current state delta and payoff. Never create a second branch topology. PHP deterministically overlays these authoritative identity fields before validation. When no Boiler Draft is supplied, omit Boiler-only fields.
 
 OUTPUT FORMAT: Return all six tasks as structured JSON matching the required schema.
 

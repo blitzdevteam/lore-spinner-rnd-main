@@ -28,7 +28,7 @@ use Throwable;
 #[Model('gpt-5.4')]
 #[Temperature(0.6)]
 #[Timeout(240)]
-class SessionArchitectureAgent implements Agent, HasStructuredOutput
+final class SessionArchitectureAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
@@ -103,10 +103,11 @@ class SessionArchitectureAgent implements Agent, HasStructuredOutput
                 ->array()
                 ->required()
                 ->title('Beat Map')
-                ->description('Complete session beat map with time slots. Must include exactly 4 BRANCHING slots, 1 BREATH beat between minutes 8-10.')
+                ->description('Complete session beat map. Time ranges use MM:SS-MM:SS. Must include exactly 4 BRANCHING slots and exactly 1 BREATH beat wholly inside minutes 10-13.')
                 ->items(
                     $schema->object([
-                        'time_range' => $schema->string()->required()->title('Time Range'),
+                        'time_range' => $schema->string()->required()->title('Time Range')
+                            ->description('Exact MM:SS-MM:SS format, for example 10:00-12:30.'),
                         'moment' => $schema->string()->required()->title('Moment'),
                         'beat_type' => $schema->string()->required()->title('Beat Type'),
                         'choice_slot' => $schema->string()->required()->title('Choice Slot')->description('BRANCHING / EMOTIONAL / POSTURE / none.'),

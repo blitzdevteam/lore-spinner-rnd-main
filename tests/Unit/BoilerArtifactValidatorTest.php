@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
+use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
+use App\Ai\Adaptation\ConsequenceMapValidator;
+use App\Ai\Adaptation\SessionArchitectureValidator;
 use App\Models\Event;
 use App\Models\SessionAdaptation;
 use Illuminate\Database\Eloquent\Collection;
@@ -254,3 +257,96 @@ it('requires relationally sequential next moment evidence in final cards', funct
 
     (new BoilerFinalCutValidator())->validate($finalCut, $session, boilerTestEvents());
 })->throws(RuntimeException::class);
+
+it('requires the Architecture breath row wholly inside minutes 10 through 13', function () {
+    $valid = [
+        'boiler_budget_alignment' => ['aligned' => true, 'conflict' => ''],
+        'beat_map' => [
+            [
+                'time_range' => '00:00-03:00',
+                'beat_type' => 'SETUP',
+                'choice_slot' => 'BRANCHING',
+                'moment_key' => 'S1_M01',
+            ],
+            [
+                'time_range' => '03:00-07:00',
+                'beat_type' => 'ESCALATION',
+                'choice_slot' => 'BRANCHING',
+                'moment_key' => 'S1_M01',
+            ],
+            [
+                'time_range' => '10:00-12:30',
+                'beat_type' => 'BREATH',
+                'choice_slot' => 'BRANCHING',
+                'moment_key' => 'S1_M01',
+            ],
+            [
+                'time_range' => '17:00-20:00',
+                'beat_type' => 'RESOLUTION',
+                'choice_slot' => 'BRANCHING',
+                'moment_key' => 'S1_M01',
+            ],
+        ],
+    ];
+    $validator = new SessionArchitectureValidator();
+
+    $validator->validate($valid, boilerTestDraft());
+
+    $invalid = $valid;
+    $invalid['beat_map'][2]['time_range'] = '02:00-04:00';
+
+    expect(fn () => $validator->validate($invalid, boilerTestDraft()))
+        ->toThrow(RuntimeException::class, 'The BREATH beat must fit wholly inside minutes 10:00-13:00');
+});
+
+it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Phase 5', function () {
+    $choiceDesign = [
+        'branching_choices' => [[
+            'choice_id' => 'S1_C1',
+            'category' => 'SESSION_END_HOOK',
+            'moment_key' => 'S1_M01',
+            'what_this_choice_tracks' => 'Truth versus protection',
+            'options' => [
+                ['label' => 'A', 'alignment' => 'chaotic', 'defining_line' => 'Expose it.'],
+                ['label' => 'B', 'alignment' => 'lawful', 'defining_line' => 'Report it.'],
+                ['label' => 'C', 'alignment' => 'neutral', 'defining_line' => 'Hold it.'],
+            ],
+        ]],
+        'emotional_choices' => [],
+    ];
+    $generated = [
+        'branching_consequences' => [[
+            'choice_id' => 'S1_C1',
+            'moment_key' => 'S1_M99',
+            'tracked_dimension' => 'Changed dimension',
+            'is_session_end_hook' => false,
+            'moment_narrator_hook' => 'Surface the chosen account during the debrief.',
+            'echo_moment_key' => '',
+            'paths' => [
+                ['label' => 'C', 'alignment' => 'LAWFUL', 'defining_line_captured' => 'Wrong C'],
+                ['label' => 'A', 'alignment' => 'NEUTRAL', 'defining_line_captured' => 'Wrong A'],
+                ['label' => 'B', 'alignment' => 'CHAOTIC', 'defining_line_captured' => 'Wrong B'],
+            ],
+        ]],
+        'emotional_consequences' => [],
+        'freeform_guidelines' => [
+            ['choice_id' => 'S1_C1', 'path_label' => 'A'],
+            ['choice_id' => 'S1_C1', 'path_label' => 'B'],
+            ['choice_id' => 'S1_C1', 'path_label' => 'C'],
+        ],
+    ];
+
+    $canonical = (new ConsequenceMapCanonicalizer())->canonicalize($generated, $choiceDesign);
+    (new ConsequenceMapValidator())->validate($canonical, $choiceDesign, boilerTestDraft());
+
+    expect($canonical['branching_consequences'][0])
+        ->moment_key->toBe('S1_M01')
+        ->tracked_dimension->toBe('Truth versus protection')
+        ->is_session_end_hook->toBeTrue()
+        ->and($canonical['branching_consequences'][0]['paths'])
+        ->sequence(
+            fn ($path) => $path->label->toBe('A')->alignment->toBe('CHAOTIC')->defining_line_captured->toBe('Expose it.'),
+            fn ($path) => $path->label->toBe('B')->alignment->toBe('LAWFUL')->defining_line_captured->toBe('Report it.'),
+            fn ($path) => $path->label->toBe('C')->alignment->toBe('NEUTRAL')->defining_line_captured->toBe('Hold it.'),
+        );
+});

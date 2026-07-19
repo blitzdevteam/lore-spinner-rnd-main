@@ -164,3 +164,39 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
         ->toContain('Revision: ')
         ->toContain("\$result['verdict'] ?? null) === 'REVISE'");
 });
+
+it('repairs Architecture pacing and canonicalizes Phase 6 choice authority before Editorial', function () {
+    $architectureJob = file_get_contents(app_path('Jobs/Adaptation/SessionArchitectureJob.php'));
+    $consequenceJob = file_get_contents(app_path('Jobs/Adaptation/ConsequenceMappingJob.php'));
+    $architecturePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/session-architecture/repair-prompt.blade.php'));
+    $consequencePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/consequence-mapping/repair-prompt.blade.php'));
+
+    expect($architectureJob)
+        ->toContain('SessionArchitectureValidator')
+        ->toContain('boiler.architecture_validation_failed')
+        ->toContain('session-architecture.repair-prompt')
+        ->and($architecturePrompt)
+        ->toContain('10:00-13:00')
+        ->and($consequenceJob)
+        ->toContain('ConsequenceMapCanonicalizer')
+        ->toContain('ConsequenceMapValidator')
+        ->toContain('boiler.consequence_mapping_validation_failed')
+        ->toContain('consequence-mapping.repair-prompt')
+        ->and($consequencePrompt)
+        ->toContain('Phase 5 Choice Design is the sole authority');
+});
+
+it('provides scoped commands for replaying only failed Editorial dependencies', function () {
+    $command = file_get_contents(app_path('Console/Commands/RepairBoilerEditorialCommand.php'));
+
+    expect($command)
+        ->toContain('stories:repair-boiler-editorial')
+        ->toContain('ConsequenceMapCanonicalizer')
+        ->toContain('ConsequenceMapValidator')
+        ->toContain("'boiler_status' => BoilerStatus::DRAFTED")
+        ->toContain('new SessionArchitectureJob')
+        ->toContain('new ConsequenceMappingJob')
+        ->toContain('new EditorialVerificationJob')
+        ->toContain('new RuntimeNarratorAssemblyJob')
+        ->toContain('new AdaptationStatusReconciliationJob');
+});

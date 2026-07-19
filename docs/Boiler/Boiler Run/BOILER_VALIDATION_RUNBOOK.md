@@ -1730,6 +1730,22 @@ Next action:
 
 ---
 
+# Targeted Editorial repair
+
+After deploying a fix for a persisted Boiler audit revision, rerun only the affected authoritative phase and its dependents:
+
+```bash
+# Architecture/pacing revision: reruns Phase 4 through Runtime Assembly.
+php artisan stories:repair-boiler-editorial STORY_ID --session=2 --from=architecture
+
+# Phase 5→6 consequence binding revision: canonicalizes Phase 6, then reruns Editorial and Assembly.
+php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=consequence
+```
+
+The consequence repair reuses the existing Phase 6 prose when strict validation passes after canonicalization; otherwise it regenerates Phase 6 with corrective feedback. The command clears only stale downstream artifacts for that session, preserves the validated Draft, and finishes with adaptation reconciliation. Run it only while the `adaptation` queue is idle.
+
+---
+
 # Failure guide
 
 | Symptom | Likely area | First action |
@@ -1743,6 +1759,8 @@ Next action:
 | Draft promise arc references a missing moment | Arc field did not copy an exact generated key | Confirm corrective pass replaces shorthand/title with an exact `S{session}_M{nn}` key |
 | Final scene card references an invalid or differently bound choice | Finalize copied a choice from the wrong moment | Deploy the Finalize canonicalizer; it derives exact `choice_ids` from Choice Design before validation |
 | Finalize fails after canonical reference overlay | Invalid authored card content or budget | Inspect `boiler.finalize_validation_failed`; the bounded corrective pass must repair or fail terminally |
+| Boiler audit says BREATH lands outside 10–13 minutes | Architecture accepted an invalid time range | Re-run from Session Architecture after deploying the deterministic 10:00–13:00 validator/corrective pass; inspect `boiler.architecture_validation_failed` |
+| Boiler audit reports Phase 5/6 choice dimension or binding mismatch | Consequence Mapping reinterpreted Choice Design authority | Re-run Consequence Mapping after deploying canonicalization; inspect `boiler.consequence_mapping_validation_failed` and confirm exact IDs, dimensions, moments, A/B/C alignments, and defining lines |
 | Story Session Map fails before sessions | Invalid profile structure | Inspect agent output and validation exception |
 | Draft stuck `drafting` | Queue/API/structured output | Check failed jobs and `boiler_error` |
 | Draft reports out-of-range count | Budget authority conflict | Inspect guidance range and Draft target; do not override manually |
