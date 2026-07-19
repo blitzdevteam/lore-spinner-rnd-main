@@ -16,6 +16,10 @@ use Illuminate\Support\Carbon;
  * @property int $story_id
  * @property int $user_id
  * @property int|null $current_session_number
+ * @property int|null $current_playable_session_cut_id
+ * @property int|null $current_playable_moment_id
+ * @property int $playable_moment_turn_count
+ * @property array{moment_key:string,text:string,source_prompt_id:string}|null $moment_footnote
  * @property int $current_story_cycle_number
  * @property string $model
  * @property array<string, mixed>|null $world_state
@@ -32,6 +36,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Story $story
  * @property-read User $user
+ * @property-read PlayableSessionCut|null $currentPlayableSessionCut
+ * @property-read PlayableMoment|null $currentPlayableMoment
  * @property-read Collection<int, Prompt> $prompts
  * @property-read Collection<int, GameSessionCompletion> $sessionCompletions
  * @property-read Collection<int, GameReset> $resets
@@ -51,6 +57,7 @@ final class Game extends Model
         return [
             'world_state'              => 'json',
             'alignment_scaffold'       => 'json',
+            'moment_footnote'           => 'json',
             'is_climactic_choice'      => 'boolean',
             'current_session_complete' => 'boolean',
             'is_preview'               => 'boolean',
@@ -72,6 +79,16 @@ final class Game extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function currentPlayableSessionCut(): BelongsTo
+    {
+        return $this->belongsTo(PlayableSessionCut::class, 'current_playable_session_cut_id');
+    }
+
+    public function currentPlayableMoment(): BelongsTo
+    {
+        return $this->belongsTo(PlayableMoment::class, 'current_playable_moment_id');
     }
 
     /**

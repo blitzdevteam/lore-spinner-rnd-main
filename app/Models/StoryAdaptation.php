@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $story_id
  * @property AdaptationStatusEnum $adaptation_status
+ * @property bool $boiler_enabled
  * @property array|null $ip_trimming
  * @property array|null $format_detection
  * @property array|null $ip_audit
@@ -34,6 +35,7 @@ final class StoryAdaptation extends Model
 
     protected $casts = [
         'adaptation_status' => AdaptationStatusEnum::class,
+        'boiler_enabled' => 'boolean',
         'ip_trimming' => 'json',
         'format_detection' => 'json',
         'ip_audit' => 'json',

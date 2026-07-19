@@ -18,6 +18,7 @@ enum SessionAdaptationStatusEnum: string implements HasLabel
     case CONSEQUENCE_MAPPING = 'consequence-mapping';
     case SESSION_CLOSE = 'session-close';
     case EDITORIAL_VERIFICATION = 'editorial-verification';
+    case RUNTIME_ASSEMBLY = 'runtime-assembly';
     case COMPLETED = 'completed';
     case FAILED = 'failed';
 
@@ -31,6 +32,7 @@ enum SessionAdaptationStatusEnum: string implements HasLabel
             self::CONSEQUENCE_MAPPING => 'Consequence Mapping',
             self::SESSION_CLOSE => 'Session Close',
             self::EDITORIAL_VERIFICATION => 'Editorial Verification',
+            self::RUNTIME_ASSEMBLY => 'Runtime Assembly',
             self::COMPLETED => 'Completed',
             self::FAILED => 'Failed',
         };
@@ -45,7 +47,8 @@ enum SessionAdaptationStatusEnum: string implements HasLabel
             self::CHOICE_DESIGN,
             self::CONSEQUENCE_MAPPING,
             self::SESSION_CLOSE,
-            self::EDITORIAL_VERIFICATION => 'info',
+            self::EDITORIAL_VERIFICATION,
+            self::RUNTIME_ASSEMBLY => 'info',
             self::COMPLETED => 'success',
             self::FAILED => 'danger',
         };
