@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Ai\Adaptation\BoilerDraftValidator;
+use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
 use App\Models\Event;
 use App\Models\SessionAdaptation;
@@ -172,6 +173,44 @@ it('rejects playable promise arc shorthand instead of an exact drafted key', fun
     RuntimeException::class,
     'Boiler Draft playable_promise_arc.first_proof_moment must resolve to a drafted moment.',
 );
+
+it('overlays Finalize references from their authoritative upstream artifacts', function () {
+    $session = boilerTestSession();
+    $session->boiler_draft = boilerTestDraft();
+    $invalidCut = [
+        'boiler_version' => 'wrong',
+        'session_number' => 99,
+        'cut_key' => 'invented',
+        'playable_promise' => 'Changed promise',
+        'moments' => [[
+            'moment_key' => 'S1_M99',
+            'moment_order' => 99,
+            'source_event_ids' => [999],
+            'anchor_event_id' => 999,
+            'choice_ids' => ['S1_C99'],
+            'next_moment_key' => 'S1_M99',
+        ]],
+        'event_role_map' => [],
+    ];
+
+    $canonical = (new BoilerFinalCutCanonicalizer())->canonicalize($invalidCut, $session);
+
+    expect($canonical)
+        ->boiler_version->toBe('1.0')
+        ->session_number->toBe(1)
+        ->cut_key->toBe('standard')
+        ->playable_promise->toBe(boilerTestDraft()['playable_promise'])
+        ->and($canonical['moments'][0])
+        ->moment_key->toBe('S1_M01')
+        ->moment_order->toBe(1)
+        ->source_event_ids->toBe([101])
+        ->anchor_event_id->toBe(101)
+        ->choice_ids->toBe(['S1_C1'])
+        ->next_moment_key->toBe('')
+        ->and($canonical['event_role_map'][0])
+        ->primary_role->toBe('PLAY')
+        ->included_moment_key->toBe('S1_M01');
+});
 
 it('requires relationally sequential next moment evidence in final cards', function () {
     $session = boilerTestSession();

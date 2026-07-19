@@ -1602,6 +1602,8 @@ boiler.draft_corrected
 boiler.draft_completed
 boiler.draft_attempt_failed
 boiler.finalize_started
+boiler.finalize_validation_failed
+boiler.finalize_corrected
 boiler.finalize_completed
 boiler.finalize_attempt_failed
 runtime_narrator_assembly.assembled
@@ -1612,6 +1614,8 @@ runtime_narrator_assembly.failed
 
 - Every session has Draft started/completed.
 - A validation failure is followed by `boiler.draft_corrected` in the same job attempt or by a terminal Draft failure; it must not silently continue.
+- Finalize choice IDs, moment references, next keys, and event roles are canonically overlaid from upstream artifacts before validation.
+- Any remaining Finalize validation failure is followed by `boiler.finalize_corrected` in the same job attempt or by a terminal Finalize failure.
 - Every session has Finalize started/completed.
 - Every session has Assembly success.
 - No terminal failure remains.
@@ -1737,6 +1741,8 @@ Next action:
 | Duplicate `failed_jobs` UUID or repeated overlapping starts | Queue lease shorter than job runtime | Pause workers; confirm `database_retry_after=1200`; clear only the affected pending queue work |
 | Draft event assigned to multiple moments | Invalid model partition | Confirm corrective pass receives the validation error; inspect `boiler.draft_validation_failed` then `boiler.draft_corrected` |
 | Draft promise arc references a missing moment | Arc field did not copy an exact generated key | Confirm corrective pass replaces shorthand/title with an exact `S{session}_M{nn}` key |
+| Final scene card references an invalid or differently bound choice | Finalize copied a choice from the wrong moment | Deploy the Finalize canonicalizer; it derives exact `choice_ids` from Choice Design before validation |
+| Finalize fails after canonical reference overlay | Invalid authored card content or budget | Inspect `boiler.finalize_validation_failed`; the bounded corrective pass must repair or fail terminally |
 | Story Session Map fails before sessions | Invalid profile structure | Inspect agent output and validation exception |
 | Draft stuck `drafting` | Queue/API/structured output | Check failed jobs and `boiler_error` |
 | Draft reports out-of-range count | Budget authority conflict | Inspect guidance range and Draft target; do not override manually |

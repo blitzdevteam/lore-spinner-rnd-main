@@ -27,6 +27,8 @@ Every card requires:
 - an outcome-based semantic exit condition;
 - a natural bridge and sequential next-moment reference.
 
+Choice Design is the sole authority for `choice_ids`. For each card, copy exactly every `branching_choices[].choice_id` and `emotional_choices[].choice_id` whose `moment_key` equals that card's `moment_key`. Do not attach a choice to a nearby room, infer placement from its prose, invent an ID, omit a bound ID, or include `posture_shifts[].shift_id`. PHP deterministically overlays this authoritative mapping before validation.
+
 Exit conditions describe the dramatic state change that completes the room. They are not exhaustive action checklists. Any credible freeform route may resolve, transform, bypass, or make obsolete the pressure. PHP will validate only structure; the runtime narrator judges meaning.
 
 `next_moment_key` is bridge evidence only. For each non-final card it must equal the next card by `moment_order`. Use an empty string on the final card; normalization removes it from the canonical stored card. Runtime never routes by this text field.

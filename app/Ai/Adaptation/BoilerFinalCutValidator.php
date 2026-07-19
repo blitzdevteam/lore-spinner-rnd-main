@@ -42,10 +42,14 @@ final class BoilerFinalCutValidator
 
         $eventIds = $events->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $choiceDesign = (array) $session->session_choice_design;
-        $authoredChoices = collect([
+        $authoredChoiceRows = collect([
             ...(array) ($choiceDesign['branching_choices'] ?? []),
             ...(array) ($choiceDesign['emotional_choices'] ?? []),
-        ])->keyBy('choice_id');
+        ]);
+        $authoredChoices = $authoredChoiceRows->keyBy('choice_id');
+        $authoredChoiceIdsByMoment = $authoredChoiceRows
+            ->groupBy('moment_key')
+            ->map(fn ($choices): array => $choices->pluck('choice_id')->values()->all());
 
         $finalMomentKeys = [];
         foreach ($moments as $index => $card) {
@@ -79,7 +83,7 @@ final class BoilerFinalCutValidator
             }
 
             foreach (['title', 'runtime_goal', 'player_desire', 'live_pressure', 'opening_image', 'next_bridge'] as $field) {
-                if (! is_string($card[$field] ?? null) || trim($card[$field]) === '') {
+                if (! is_string($card[$field] ?? null) || mb_trim($card[$field]) === '') {
                     throw new RuntimeException("Final scene card {$momentKey} requires {$field}.");
                 }
             }
@@ -95,7 +99,7 @@ final class BoilerFinalCutValidator
             }
 
             $exitCondition = $card['exit_condition'] ?? null;
-            if (! is_string($exitCondition) || mb_strlen(trim($exitCondition)) < 30 || mb_strlen($exitCondition) > 1_000) {
+            if (! is_string($exitCondition) || mb_strlen(mb_trim($exitCondition)) < 30 || mb_strlen($exitCondition) > 1_000) {
                 throw new RuntimeException("Final scene card {$momentKey} requires a bounded semantic exit condition.");
             }
 
@@ -110,7 +114,12 @@ final class BoilerFinalCutValidator
                 throw new RuntimeException("Final scene card {$momentKey} has invalid word or turn budgets.");
             }
 
-            foreach ($card['choice_ids'] as $choiceId) {
+            $expectedChoiceIds = $authoredChoiceIdsByMoment->get($momentKey, []);
+            if ($card['choice_ids'] !== $expectedChoiceIds) {
+                throw new RuntimeException("Final scene card {$momentKey} must contain exactly the choices authored for that moment.");
+            }
+
+            foreach ($expectedChoiceIds as $choiceId) {
                 $choice = $authoredChoices->get($choiceId);
                 if (! is_array($choice) || ($choice['moment_key'] ?? null) !== $momentKey) {
                     throw new RuntimeException("Final scene card {$momentKey} references an invalid or differently bound choice.");

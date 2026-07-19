@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Ai\Adaptation;
+
+use App\Models\SessionAdaptation;
+
+final class BoilerFinalCutCanonicalizer
+{
+    /**
+     * Overlay references owned by validated upstream artifacts.
+     *
+     * Finalize may author titles, opening images, budgets, and bridges, but it
+     * must not reinterpret identity, routing, choice bindings, or event roles.
+     *
+     * @param  array<string, mixed>  $finalCut
+     * @return array<string, mixed>
+     */
+    public function canonicalize(array $finalCut, SessionAdaptation $session): array
+    {
+        $draft = (array) $session->boiler_draft;
+        $draftMoments = collect((array) ($draft['moment_drafts'] ?? []))
+            ->sortBy('moment_order')
+            ->values();
+        $choiceDesign = (array) $session->session_choice_design;
+        $choiceIdsByMoment = collect([
+            ...(array) ($choiceDesign['branching_choices'] ?? []),
+            ...(array) ($choiceDesign['emotional_choices'] ?? []),
+        ])
+            ->filter(fn ($choice): bool => is_array($choice)
+                && is_string($choice['choice_id'] ?? null)
+                && is_string($choice['moment_key'] ?? null))
+            ->groupBy('moment_key')
+            ->map(fn ($choices): array => $choices->pluck('choice_id')->values()->all());
+
+        $finalCut['boiler_version'] = $draft['boiler_version'] ?? '1.0';
+        $finalCut['session_number'] = $session->session_number;
+        $finalCut['cut_key'] = 'standard';
+        $finalCut['playable_promise'] = $draft['playable_promise'] ?? '';
+
+        $cards = (array) ($finalCut['moments'] ?? []);
+        foreach ($cards as $index => $card) {
+            if (! is_array($card)) {
+                continue;
+            }
+
+            $draftMoment = $draftMoments->get($index);
+            if (! is_array($draftMoment)) {
+                continue;
+            }
+
+            $momentKey = (string) ($draftMoment['moment_key'] ?? '');
+            $nextDraftMoment = $draftMoments->get($index + 1);
+
+            $card['moment_key'] = $momentKey;
+            $card['moment_order'] = $index + 1;
+            $card['source_event_ids'] = (array) ($draftMoment['source_event_ids'] ?? []);
+            $card['anchor_event_id'] = $draftMoment['anchor_event_id'] ?? null;
+            $card['choice_ids'] = $choiceIdsByMoment->get($momentKey, []);
+            $card['next_moment_key'] = is_array($nextDraftMoment)
+                ? (string) ($nextDraftMoment['moment_key'] ?? '')
+                : '';
+
+            $cards[$index] = $card;
+        }
+        $finalCut['moments'] = $cards;
+
+        $finalCut['event_role_map'] = collect((array) ($draft['event_role_map'] ?? []))
+            ->map(fn ($role): array => [
+                'event_id' => $role['event_id'] ?? null,
+                'primary_role' => $role['role'] ?? null,
+                'included_moment_key' => $role['included_moment_key'] ?? '',
+                'why' => $role['why'] ?? null,
+                'reintroduction_note' => $role['reintroduction_note'] ?? '',
+            ])
+            ->values()
+            ->all();
+
+        return $finalCut;
+    }
+}

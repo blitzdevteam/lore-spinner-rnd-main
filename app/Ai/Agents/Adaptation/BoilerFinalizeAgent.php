@@ -62,6 +62,7 @@ final class BoilerFinalizeAgent implements Agent, HasStructuredOutput
             'source_extracts' => $schema->array()->required()->title('Source Extracts')
                 ->items($schema->string()->required()),
             'choice_ids' => $schema->array()->required()->title('Choice IDs')
+                ->description('Exactly all branching_choices and emotional_choices whose moment_key equals this card moment_key; no choices bound elsewhere and no posture shift IDs.')
                 ->items($schema->string()->required()),
             'word_budget' => $schema->object([
                 'target_per_turn' => $schema->integer()->required()->title('Target Words Per Turn'),

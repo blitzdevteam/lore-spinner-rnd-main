@@ -124,3 +124,26 @@ it('keeps long adaptation jobs inside the database queue lease', function () {
         ->toContain('$session->boiler_status !== BoilerStatus::DRAFTED')
         ->toContain('requires a validated Boiler Draft');
 });
+
+it('canonicalizes Finalize references and repairs remaining invalid scene-card fields', function () {
+    $job = file_get_contents(app_path('Jobs/Adaptation/BoilerFinalizeJob.php'));
+    $canonicalizer = file_get_contents(app_path('Ai/Adaptation/BoilerFinalCutCanonicalizer.php'));
+    $validator = file_get_contents(app_path('Ai/Adaptation/BoilerFinalCutValidator.php'));
+    $repairPrompt = file_get_contents(resource_path('views/ai/agents/adaptation/boiler-finalize/repair-prompt.blade.php'));
+
+    expect($job)
+        ->toContain('MAX_VALIDATION_ATTEMPTS = 2')
+        ->toContain('BoilerFinalCutCanonicalizer')
+        ->toContain('boiler-finalize.repair-prompt')
+        ->toContain('boiler.finalize_validation_failed')
+        ->toContain('boiler.finalize_corrected')
+        ->and($canonicalizer)
+        ->toContain("\$card['choice_ids'] = \$choiceIdsByMoment->get(\$momentKey, [])")
+        ->toContain("\$card['next_moment_key']")
+        ->toContain("\$finalCut['event_role_map']")
+        ->and($validator)
+        ->toContain('must contain exactly the choices authored for that moment')
+        ->and($repairPrompt)
+        ->toContain('PREVIOUS CANONICALIZED BUT INVALID CUT:')
+        ->toContain('Return only the complete corrected structured output');
+});
