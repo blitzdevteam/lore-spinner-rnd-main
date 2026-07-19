@@ -118,7 +118,7 @@ export interface PromptInterface {
     session_number: number | null;
     prompt: string | null;
     response: string;
-    choices: string[];
+    choices: PromptChoice[];
     created_at: string | null;
     updated_at: string | null;
 
@@ -126,12 +126,21 @@ export interface PromptInterface {
     game?: GameInterface;
 }
 
+export interface VisibleSuggestionInterface {
+    text: string;
+    canonical_choice_id: string | null;
+    canonical_path_label: 'A' | 'B' | 'C' | null;
+}
+
+export type PromptChoice = string | VisibleSuggestionInterface;
+
 export interface GameInterface {
     id: string;
     story_id: number;
     user_id: number;
     current_session_number: number | null;
     current_session_complete: boolean;
+    uses_playable_moments: boolean;
     total_sessions: number;
     model: string;
     created_at: string | null;

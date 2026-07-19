@@ -19,7 +19,7 @@ import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { Head } from '@inertiajs/vue3';
 import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
-import type { PromptInterface } from '@/types';
+import type { PromptChoice, PromptInterface } from '@/types';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 defineOptions({ layout: null });
@@ -189,8 +189,8 @@ const prompts = ref<PromptInterface[]>([
 const pendingSelection = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
 
-const selectChoice = (promptId: string, choice: string) => {
-    pendingSelection.value[promptId] = choice;
+const selectChoice = (promptId: string, _suggestionIndex: number, choice: PromptChoice) => {
+    pendingSelection.value[promptId] = typeof choice === 'string' ? choice : choice.text;
 };
 
 // ── Chat input glow ───────────────────────────────────────────────────────────

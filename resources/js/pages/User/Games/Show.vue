@@ -6,7 +6,7 @@ import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import { GameInterface } from '@/types';
+import { GameInterface, PromptChoice } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -192,11 +192,17 @@ const handleNextSession = () => {
     );
 };
 
-const handleChoiceSelected = (promptId: string, choice: string) => {
+const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice: PromptChoice) => {
     if (isSubmitting.value) return;
     tts.primeAudio();
-    pendingSelection.value[promptId] = choice;
-    submitPrompt(choice);
+    const text = typeof choice === 'string' ? choice : choice.text;
+    pendingSelection.value[promptId] = text;
+    submitPrompt(text, {
+        promptId,
+        suggestionIndex,
+        canonicalChoiceId: typeof choice === 'string' ? null : choice.canonical_choice_id,
+        canonicalPathLabel: typeof choice === 'string' ? null : choice.canonical_path_label,
+    });
 };
 
 const handleContinue = () => {
@@ -205,22 +211,38 @@ const handleContinue = () => {
     const latestPrompt = prompts.value[prompts.value.length - 1];
     if (latestPrompt) {
         pendingSelection.value[latestPrompt.id] = CONTINUE_MARKER;
+        submitPrompt(CONTINUE_MARKER, { promptId: latestPrompt.id });
     }
-    submitPrompt(CONTINUE_MARKER);
 };
 
 const handleSubmit = (prompt: string) => {
     if (isSubmitting.value) return;
     tts.primeAudio();
-    submitPrompt(prompt);
+    const latestPrompt = prompts.value[prompts.value.length - 1];
+    if (!latestPrompt) return;
+    submitPrompt(prompt, { promptId: latestPrompt.id });
 };
 
-const submitPrompt = (prompt: string) => {
+const submitPrompt = (
+    prompt: string,
+    options: {
+        promptId: string;
+        suggestionIndex?: number;
+        canonicalChoiceId?: string | null;
+        canonicalPathLabel?: 'A' | 'B' | 'C' | null;
+    },
+) => {
     isSubmitting.value = true;
 
     router.post(
         storePrompt(props.game.id),
-        { prompt },
+        {
+            prompt,
+            prompt_id: options.promptId,
+            suggestion_index: options.suggestionIndex,
+            canonical_choice_id: options.canonicalChoiceId ?? null,
+            canonical_path_label: options.canonicalPathLabel ?? null,
+        },
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -342,6 +364,7 @@ onUnmounted(() => {
                 :pending-choice="pendingSelection[prompt.id]"
                 :is-submitting="isSubmitting"
                 :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
+                :uses-playable-moments="game.uses_playable_moments"
                 @choice-selected="handleChoiceSelected"
                 @continue="handleContinue"
                 @choices-ready="handleChoicesReady"

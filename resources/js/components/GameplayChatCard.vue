@@ -4,7 +4,7 @@ import GameplayContinueIcon from '@/components/icons/GameplayContinueIcon.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { useTypewriter } from '@/composables/useTypewriter';
-import { PromptInterface } from '@/types';
+import { PromptChoice, PromptInterface } from '@/types';
 import { glassTintVars } from '@/utils/color';
 import { LucideCheck, LucideLoader, LucidePause, LucidePlay } from 'lucide-vue-next';
 import { computed, onMounted, watch } from 'vue';
@@ -23,10 +23,11 @@ const props = defineProps<{
     pendingChoice?: string;
     isSubmitting?: boolean;
     animate?: boolean;
+    usesPlayableMoments?: boolean;
 }>();
 
 const emit = defineEmits<{
-    'choice-selected': [promptId: string, choice: string];
+    'choice-selected': [promptId: string, suggestionIndex: number, choice: PromptChoice];
     continue: [];
     /** Fired once when the choice buttons first become visible on this (latest) card. */
     'choices-ready': [];
@@ -48,16 +49,23 @@ const canInteract = computed(() => {
 });
 
 const hasChoices = computed(() => (props.prompt.choices?.length ?? 0) > 0);
+const normalizedChoices = computed(() =>
+    (props.prompt.choices ?? []).map((choice, index) => ({
+        index,
+        raw: choice,
+        text: typeof choice === 'string' ? choice : choice.text,
+    })),
+);
 
 // Player's own typed/spoken action (not one of the listed choices, not a continue)
 const showCustomAction = computed(() => {
     if (!effectiveSelection.value || isContinued.value) return false;
-    return !props.prompt.choices?.includes(effectiveSelection.value);
+    return !normalizedChoices.value.some((choice) => choice.text === effectiveSelection.value);
 });
 
 // Continue is always available when the player can interact and a response exists
 const showContinueButton = computed(() => {
-    return canInteract.value && !!props.prompt.response;
+    return !props.usesPlayableMoments && canInteract.value && !!props.prompt.response;
 });
 
 const renderedResponse = computed(() => {
@@ -88,10 +96,10 @@ const getChoiceClass = (choice: string) => {
     return `${base} choice-glass--dimmed border-white/5 text-gray-400 opacity-50 pointer-events-none`;
 };
 
-const handleChoiceClick = (choice: string) => {
+const handleChoiceClick = (index: number, choice: PromptChoice) => {
     if (!canInteract.value) return;
     tts.primeAudio();
-    emit('choice-selected', props.prompt.id, choice);
+    emit('choice-selected', props.prompt.id, index, choice);
 };
 
 const handleContinue = () => {
@@ -245,20 +253,20 @@ watch(choicesVisible, (visible, wasVisible) => {
 
             <div class="flex flex-col gap-2.5">
                 <div
-                    v-for="choice in prompt.choices"
-                    :key="choice"
-                    :class="getChoiceClass(choice)"
+                    v-for="choice in normalizedChoices"
+                    :key="`${choice.index}:${choice.text}`"
+                    :class="getChoiceClass(choice.text)"
                     :style="panelGlassStyle"
-                    @click="handleChoiceClick(choice)"
+                    @click="handleChoiceClick(choice.index, choice.raw)"
                 >
                     <span
-                        v-if="effectiveSelection === choice"
+                        v-if="effectiveSelection === choice.text"
                         class="grid size-7 shrink-0 place-items-center rounded-full border-2 border-primary-600 bg-primary-600/20 text-primary-600"
                     >
                         <LucideCheck class="size-4" />
                     </span>
                     <span v-else class="size-7 shrink-0 rounded-full border border-gray-500" />
-                    <p class="text-sm font-normal sm:text-[15px]">{{ choice }}</p>
+                    <p class="text-sm font-normal sm:text-[15px]">{{ choice.text }}</p>
                 </div>
             </div>
 

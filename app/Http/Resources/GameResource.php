@@ -26,6 +26,7 @@ class GameResource extends BaseResource
             'story_id'                 => $this->story_id,
             'current_session_number'   => $this->current_session_number,
             'current_session_complete' => (bool) $this->current_session_complete,
+            'uses_playable_moments'    => $this->current_playable_moment_id !== null,
             'total_sessions'           => (int) ($this->story?->adaptation?->session_adaptations_count ?? 0),
             'model'                    => $this->model,
             'created_at'               => $this->created_at,

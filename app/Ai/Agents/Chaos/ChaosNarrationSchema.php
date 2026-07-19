@@ -62,10 +62,28 @@ final class ChaosNarrationSchema
 
             'choices' => $schema
                 ->array()
-                ->required()
                 ->title('Choices')
-                ->description('Exactly 3 visible suggested actions. Each begins with a strong verb. Short, direct, action-first intent labels: prefer 4-8 words, never exceed 12 words. Do not explain consequences inside the choice text. The player may type anything — these are suggestions, not constraints.')
+                ->description('Legacy zero-to-three suggested action strings. Boiler prompts emit visible_suggestions instead. Never emit both.')
                 ->items($schema->string()->required()),
+
+            'visible_suggestions' => $schema
+                ->array()
+                ->title('Visible Suggestions')
+                ->description('Boiler-only zero-to-three contextual suggestions. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment.')
+                ->items(
+                    $schema->object([
+                        'text' => $schema->string()->required()->title('Suggestion Text'),
+                        'canonical_choice_id' => $schema->string()->title('Canonical Choice ID'),
+                        'canonical_path_label' => $schema->string()->title('Canonical Path Label'),
+                    ])->required()->withoutAdditionalProperties()
+                ),
+
+            'moment_progress' => $schema->object([
+                'moment_key' => $schema->string()->required()->title('Active Moment Key'),
+                'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
+                'moment_footnote' => $schema->string()->title('Hidden Moment Footnote')
+                    ->description('After player input: one natural probabilistic player-critique sentence of at most 30 words. Omit for opening narration.'),
+            ])->withoutAdditionalProperties()->title('Boiler Moment Progress'),
 
             'session_complete' => $schema
                 ->boolean()

@@ -26,6 +26,10 @@ final class StorePromptRequest extends FormRequest
     {
         return [
             'prompt' => ['required', 'string', 'min:3', 'max:255'],
+            'prompt_id' => ['required', 'ulid', 'exists:prompts,id'],
+            'suggestion_index' => ['nullable', 'integer', 'between:0,2'],
+            'canonical_choice_id' => ['nullable', 'required_with:canonical_path_label', 'string', 'max:128'],
+            'canonical_path_label' => ['nullable', 'required_with:canonical_choice_id', 'string', 'in:A,B,C'],
         ];
     }
 }
