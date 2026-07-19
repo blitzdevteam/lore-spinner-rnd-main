@@ -81,9 +81,15 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
             ->where('session_number', $this->sessionNumber)
             ->first();
 
-        $session?->update([
-            'session_status' => SessionAdaptationStatusEnum::FAILED,
-        ]);
+        $updates = ['session_status' => SessionAdaptationStatusEnum::FAILED];
+        if ($session?->storyAdaptation?->boiler_enabled) {
+            $updates['boiler_error'] = mb_substr(
+                $throwable?->getMessage() ?? 'Runtime narrator assembly failed.',
+                0,
+                2_000,
+            );
+        }
+        $session?->update($updates);
 
         \Log::channel('narration')->error('runtime_narrator_assembly.failed', [
             'story_id' => $this->story->id,

@@ -19,6 +19,11 @@
        [ALIGNMENT_TILT_INJECTION_POINT]
        [WORLD_STATE_TIERED_INJECTION_POINT]
 --}}
+@php
+    $boilerActive = $boilerActive ?? false;
+    $boilerManifest = $boilerManifest ?? [];
+    $boilerMoments = $boilerMoments ?? [];
+@endphp
 === LORESPINNER RUNTIME NARRATOR | {{ $storyTitle }} | Session {{ $sessionNumber }} of {{ $totalSessions }} ===
 
 ---
