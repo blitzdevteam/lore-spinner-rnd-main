@@ -104,6 +104,7 @@ The safe shared-history mechanism is `git revert`, not hard reset:
 ```bash
 git log --oneline pre-boiler..HEAD
 git revert HEAD
+git revert 2e13d7a
 git revert a010a21
 git revert 31b93ea
 git revert 60d3ccb
