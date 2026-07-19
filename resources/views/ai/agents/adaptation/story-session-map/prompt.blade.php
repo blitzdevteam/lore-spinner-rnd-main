@@ -11,6 +11,8 @@ FORMAT DETECTION:
 
 ESTIMATED SESSION COUNT FROM FORMAT DETECTION: {{ $estimatedSessionCount }}
 
+BOILER ENABLED: {{ $boilerEnabled ? 'true' : 'false' }}
+
 STORY ENTRY OVERRIDE:
 prefer_literal_opening: {{ $preferLiteralOpening ? 'true' : 'false' }}
 
@@ -39,7 +41,7 @@ Do NOT use per-chapter positions. Do NOT emit ranges that exceed {{ $totalEvents
 
 EXTRACTED EVENTS (story-global ordinal | chapter context):
 @foreach($events as $event)
-Event {{ $event['story_position'] }} of {{ $totalEvents }} (Chapter {{ $event['chapter_position'] }}, local pos {{ $event['position'] }}): {{ $event['title'] }}
+Event {{ $event['story_position'] }} of {{ $totalEvents }} (database ID {{ $event['id'] }}, Chapter {{ $event['chapter_position'] }}, local pos {{ $event['position'] }}): {{ $event['title'] }}
 @if(!empty($event['objectives']))
   Objectives: {{ $event['objectives'] }}
 @endif

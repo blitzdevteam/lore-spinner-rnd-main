@@ -101,6 +101,26 @@ class StorySessionMapAgent implements Agent, HasStructuredOutput
                     ])->required()->withoutAdditionalProperties()
                 ),
 
+            'boiling_profile' => $schema->object([
+                'compaction_level' => $schema->string()->required()->title('Compaction Level')
+                    ->description('light / balanced / strong. Editorial judgment grounded in this story, never a formula.'),
+                'target_total_playtime_minutes' => $schema->integer()->required()->title('Target Total Playtime Minutes'),
+                'diagnosis' => $schema->string()->required()->title('Diagnosis'),
+                'per_session_guidance' => $schema->array()->required()->title('Per-Session Guidance')->items(
+                    $schema->object([
+                        'session_number' => $schema->integer()->required()->title('Session Number'),
+                        'target_playtime_minutes' => $schema->integer()->required()->title('Target Playtime Minutes'),
+                        'recommended_moment_count_min' => $schema->integer()->required()->title('Recommended Moment Count Minimum'),
+                        'recommended_moment_count_max' => $schema->integer()->required()->title('Recommended Moment Count Maximum'),
+                        'must_compress_event_ids' => $schema->array()->required()->title('Must Compress Event IDs')
+                            ->items($schema->integer()->required()),
+                        'must_breathe_event_ids' => $schema->array()->required()->title('Must Breathe Event IDs')
+                            ->items($schema->integer()->required()),
+                        'rationale' => $schema->string()->required()->title('Rationale'),
+                    ])->required()->withoutAdditionalProperties()
+                ),
+            ])->withoutAdditionalProperties()->title('Boiling Profile'),
+
             // --- Pipeline Upgrade V2: Deliverable 2 Tasks 6-9 ---
 
             'persistent_state_schema' => $schema->object([

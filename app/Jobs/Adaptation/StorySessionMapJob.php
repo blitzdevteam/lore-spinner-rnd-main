@@ -11,6 +11,7 @@ use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
 use App\Models\Story;
+use App\Services\Adaptation\SessionEventLoader;
 use App\Support\Adaptation\SessionAdaptationChain;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -38,7 +39,7 @@ final class StorySessionMapJob implements ShouldQueue
     /**
      * @throws Throwable
      */
-    public function handle(): void
+    public function handle(SessionEventLoader $eventLoader): void
     {
         $adaptation = $this->story->adaptation;
 
@@ -65,11 +66,12 @@ final class StorySessionMapJob implements ShouldQueue
                 ])
                 ->all();
 
-            $storyGlobalEvents = $this->loadEventsWithStoryPosition();
+            $storyGlobalEvents = $eventLoader->forStory($this->story);
             $totalEvents = $storyGlobalEvents->count();
 
             $events = $storyGlobalEvents
                 ->map(fn ($ev) => [
+                    'id' => (int) $ev->id,
                     'story_position' => $ev->story_position,
                     'position' => $ev->position,
                     'title' => $ev->title,
@@ -95,10 +97,15 @@ final class StorySessionMapJob implements ShouldQueue
                     'ipTrimmingConversionNotes' => $ipTrimming['interactive_conversion_notes'] ?? null,
                     'voiceProfile' => VoiceProfilePromptSlice::alignmentContext((array) ($adaptation->voice_profile ?? [])),
                     'preferLiteralOpening' => (bool) (ChaosStoryConfig::find($this->story->slug)['prefer_literal_opening'] ?? false),
+                    'boilerEnabled' => (bool) $adaptation->boiler_enabled,
                 ])->render()
             );
 
             $sessionMap = $response->toArray();
+
+            if ($adaptation->boiler_enabled) {
+                $this->validateBoilingProfile($sessionMap, $storyGlobalEvents);
+            }
 
             DB::transaction(function () use ($sessionMap, $adaptation, $storyGlobalEvents): void {
                 $adaptation->sessionAdaptations()->delete();
@@ -174,32 +181,90 @@ final class StorySessionMapJob implements ShouldQueue
     }
 
     /**
-     * Load every event in the story ordered by (chapter.position, event.position)
-     * and stamp a 1-based story-global `story_position` onto each row. This index
-     * is the contract used for both the agent prompt and session_allocation filtering.
-     *
-     * @return Collection<int, Event>
+     * @param  array<string, mixed>  $sessionMap
+     * @param  Collection<int, Event>  $storyGlobalEvents
      */
-    private function loadEventsWithStoryPosition(): Collection
+    private function validateBoilingProfile(array $sessionMap, Collection $storyGlobalEvents): void
     {
-        return Event::query()
-            ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
-            ->where('chapters.story_id', $this->story->id)
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->get([
-                'events.id',
-                'events.position',
-                'events.title',
-                'events.objectives',
-                'events.chapter_id',
-                'chapters.position as chapter_position',
-            ])
-            ->values()
-            ->map(function (Event $ev, int $i): Event {
-                $ev->setAttribute('story_position', $i + 1);
+        $profile = $sessionMap['boiling_profile'] ?? null;
+        $allocations = $sessionMap['session_allocation'] ?? null;
 
-                return $ev;
-            });
+        if (! is_array($profile) || ! is_array($allocations)) {
+            throw new RuntimeException('Boiler-enabled Story Session Map requires boiling_profile and session_allocation.');
+        }
+
+        if (! in_array($profile['compaction_level'] ?? null, ['light', 'balanced', 'strong'], true)) {
+            throw new RuntimeException('boiling_profile.compaction_level must be light, balanced, or strong.');
+        }
+
+        $targetTotal = $profile['target_total_playtime_minutes'] ?? null;
+        if (! is_int($targetTotal) || $targetTotal < 1) {
+            throw new RuntimeException('boiling_profile.target_total_playtime_minutes must be a positive integer.');
+        }
+
+        $guidance = $profile['per_session_guidance'] ?? null;
+        if (! is_array($guidance) || count($guidance) !== count($allocations)) {
+            throw new RuntimeException('boiling_profile must contain exactly one guidance entry per allocated session.');
+        }
+
+        $guidanceBySession = [];
+        foreach ($guidance as $entry) {
+            if (! is_array($entry) || ! is_int($entry['session_number'] ?? null)) {
+                throw new RuntimeException('Each boiling_profile guidance entry requires an integer session_number.');
+            }
+
+            $sessionNumber = $entry['session_number'];
+            if (isset($guidanceBySession[$sessionNumber])) {
+                throw new RuntimeException("Duplicate boiling guidance for session {$sessionNumber}.");
+            }
+            $guidanceBySession[$sessionNumber] = $entry;
+        }
+
+        $targetMinutesSum = 0;
+        foreach ($allocations as $allocation) {
+            $sessionNumber = (int) ($allocation['session_number'] ?? 0);
+            $entry = $guidanceBySession[$sessionNumber] ?? null;
+
+            if (! is_array($entry)) {
+                throw new RuntimeException("Missing boiling guidance for allocated session {$sessionNumber}.");
+            }
+
+            foreach (['target_playtime_minutes', 'recommended_moment_count_min', 'recommended_moment_count_max'] as $field) {
+                if (! is_int($entry[$field] ?? null) || $entry[$field] < 1) {
+                    throw new RuntimeException("boiling_profile session {$sessionNumber} {$field} must be a positive integer.");
+                }
+            }
+
+            if ($entry['recommended_moment_count_min'] > $entry['recommended_moment_count_max']) {
+                throw new RuntimeException("boiling_profile session {$sessionNumber} moment-count minimum exceeds maximum.");
+            }
+
+            $range = $this->parseEventRange((string) ($allocation['event_range'] ?? ''));
+            $validEventIds = $storyGlobalEvents
+                ->filter(fn (Event $event): bool => $event->story_position >= $range[0] && $event->story_position <= $range[1])
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            foreach (['must_breathe_event_ids', 'must_compress_event_ids'] as $field) {
+                $ids = $entry[$field] ?? null;
+                if (! is_array($ids)) {
+                    throw new RuntimeException("boiling_profile session {$sessionNumber} {$field} must be an array.");
+                }
+
+                foreach ($ids as $eventId) {
+                    if (! is_int($eventId) || ! in_array($eventId, $validEventIds, true)) {
+                        throw new RuntimeException("boiling_profile session {$sessionNumber} {$field} contains an out-of-session event ID.");
+                    }
+                }
+            }
+
+            $targetMinutesSum += $entry['target_playtime_minutes'];
+        }
+
+        if (abs($targetMinutesSum - $targetTotal) > count($allocations)) {
+            throw new RuntimeException('boiling_profile per-session minutes do not reconcile with target_total_playtime_minutes.');
+        }
     }
+
 }

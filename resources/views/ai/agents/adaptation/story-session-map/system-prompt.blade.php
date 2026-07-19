@@ -155,6 +155,22 @@ Generate three to five story-native alignment labels with full behavioral, conse
 
 ---
 
-Return all nine tasks as structured JSON matching the required schema.
+TASK 10: BOILING PROFILE (ONLY WHEN THE USER PROMPT SAYS BOILER ENABLED: true)
 
-STOP GATE: Before finalizing, verify: Does every session have a primary dramatic question? Are there at least 2 branching opportunities per session? Does the cross-session payoff plan connect at least 2 early choices to later sessions? Are there at least 3 defined branch dimensions? Are persistent state objects, NPCs, world flags, and player-historical archive categories all populated? Does the StoryGuard canon cover all four layers? Are the alignment labels story-native (never chaotic/lawful/neutral)? If any answer is no, revise before returning.
+Diagnose how strongly this story should be compacted into a fast, explorable playable cut. This is an editorial judgment, not a genre, format, event-count, or pacing formula.
+
+Consider:
+* source format and author pacing;
+* action, exposition, connective-material, emotional, relationship, mystery, and meaningful-choice density;
+* canon and voice fragility;
+* suspense, confrontation, spectacle, intimacy, revelation, and payoff scenes that need earned breathing room;
+* repeated or compressible material;
+* arc position, climax proximity, and contrast between sessions.
+
+Return exactly one `per_session_guidance` entry for every allocated session. Use the database Event ID shown in the user prompt for `must_compress_event_ids` and `must_breathe_event_ids`, never the story-global ordinal. Moment-count ranges must be deliberate and achievable. Per-session target minutes should reconcile to the story total within ordinary whole-minute rounding.
+
+When BOILER ENABLED is false, omit `boiling_profile`. Do not produce placeholder Boiler guidance.
+
+Return all required tasks as structured JSON matching the required schema.
+
+STOP GATE: Before finalizing, verify: Does every session have a primary dramatic question? Are there at least 2 branching opportunities per session? Does the cross-session payoff plan connect at least 2 early choices to later sessions? Are there at least 3 defined branch dimensions? Are persistent state objects, NPCs, world flags, and player-historical archive categories all populated? Does the StoryGuard canon cover all four layers? Are the alignment labels story-native (never chaotic/lawful/neutral)? When Boiler is enabled, does every session have exactly one valid boiling guidance entry whose event IDs belong to that session? If any answer is no, revise before returning.

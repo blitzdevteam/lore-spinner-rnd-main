@@ -11,10 +11,10 @@ use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
+use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Collection;
 use RuntimeException;
 use Throwable;
 
@@ -34,7 +34,7 @@ final class EntryPointDiagnosisJob implements ShouldQueue
     }
 
     /** @throws Throwable */
-    public function handle(): void
+    public function handle(SessionEventLoader $eventLoader): void
     {
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
@@ -52,7 +52,7 @@ final class EntryPointDiagnosisJob implements ShouldQueue
         try {
             $session->update(['session_status' => SessionAdaptationStatusEnum::ENTRY_POINT_DIAGNOSIS]);
 
-            $sessionEvents = $this->loadSessionEventsWithStoryPosition();
+            $sessionEvents = $eventLoader->forSession($this->story, $this->sessionNumber);
 
             if ($sessionEvents->isEmpty()) {
                 throw new RuntimeException(
@@ -115,39 +115,4 @@ final class EntryPointDiagnosisJob implements ShouldQueue
         }
     }
 
-    /**
-     * Load the events in this session ordered by (chapter.position, event.position)
-     * and stamp each row with a 1-based story-global `story_position`. The ordinal
-     * is computed across ALL events in the story (not just this session) so it
-     * matches what StorySessionMapJob shows the agent.
-     *
-     * @return Collection<int, Event>
-     */
-    private function loadSessionEventsWithStoryPosition(): Collection
-    {
-        $allEvents = Event::query()
-            ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
-            ->where('chapters.story_id', $this->story->id)
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->get([
-                'events.id',
-                'events.position',
-                'events.title',
-                'events.objectives',
-                'events.chapter_id',
-                'events.session_number',
-                'chapters.position as chapter_position',
-            ])
-            ->values()
-            ->map(function (Event $ev, int $i): Event {
-                $ev->setAttribute('story_position', $i + 1);
-
-                return $ev;
-            });
-
-        return $allEvents->filter(
-            fn (Event $ev) => (int) $ev->session_number === $this->sessionNumber
-        )->values();
-    }
 }
