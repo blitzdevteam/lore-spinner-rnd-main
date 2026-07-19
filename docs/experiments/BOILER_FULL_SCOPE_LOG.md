@@ -23,6 +23,8 @@
 | 8 | `3d04a12` | Narration suggestions contract and frontend identity |
 | 9 | `a6637eb` | Inspection, exports, tests, and this runbook |
 
+Post-stage static audit correction: `712b5bb` (tightened disabled-mode compatibility, next-session rollback safety, active-moment state scoping, opening suggestion validation, and budget identity checks).
+
 ## Daniel-run pre-deployment checks
 
 Run these from the Laravel Cloud Command UI. Do not deploy while adaptation jobs are active.
@@ -94,6 +96,7 @@ The safe shared-history mechanism is `git revert`, not hard reset:
 ```bash
 git log --oneline pre-boiler..HEAD
 git revert HEAD
+git revert 712b5bb
 git revert a6637eb
 git revert 3d04a12
 git revert 4f2b72c
