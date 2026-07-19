@@ -21,7 +21,7 @@
 | 6 | `a6ab2e1` | Editorial audit and authoritative runtime assembly |
 | 7 | `4f2b72c` | Runtime progression, atomic state commit, duplicate-turn protection, reset |
 | 8 | `3d04a12` | Narration suggestions contract and frontend identity |
-| 9 | `40e9780` | Inspection, exports, tests, and this runbook |
+| 9 | `a6637eb` | Inspection, exports, tests, and this runbook |
 
 ## Daniel-run pre-deployment checks
 
@@ -93,7 +93,8 @@ The safe shared-history mechanism is `git revert`, not hard reset:
 
 ```bash
 git log --oneline pre-boiler..HEAD
-git revert 40e9780
+git revert HEAD
+git revert a6637eb
 git revert 3d04a12
 git revert 4f2b72c
 git revert a6ab2e1
