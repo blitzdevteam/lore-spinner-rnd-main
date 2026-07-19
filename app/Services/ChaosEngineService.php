@@ -6,14 +6,16 @@ namespace App\Services;
 
 use App\Ai\Agents\Chaos\ChaosNarrationSchema;
 use App\Ai\Agents\Chaos\NativeObjectSchema;
-use App\Models\Event;
 use App\Models\Game;
+use App\Models\PlayableMoment;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
+use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -78,6 +80,8 @@ final class ChaosEngineService
     /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     public const GAME_TEMPERATURE = 0.6;
 
+    public function __construct(private SessionEventLoader $eventLoader) {}
+
     // -------------------------------------------------------------------------
     // Public API
     // -------------------------------------------------------------------------
@@ -135,6 +139,7 @@ final class ChaosEngineService
         ?string $openingHandoff,
         ?array $resolvedConsequencePath = null,
         ?array $sessionCloseDesign = null,
+        ?Game $game = null,
     ): ?array
     {
         /** @var StoryAdaptation|null $adaptation */
@@ -150,33 +155,19 @@ final class ChaosEngineService
 
         $storyMap = (array) ($adaptation->story_session_map ?? []);
 
-        $events = Event::query()
-            ->whereHas('chapter', fn ($q) => $q->where('story_id', $story->id))
-            ->where('session_number', $sessionNumber)
-            ->join('chapters', 'events.chapter_id', '=', 'chapters.id')
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->get([
-                'events.id',
-                'events.chapter_id',
-                'events.position',
-                'events.title',
-                'events.content',
-                'events.objectives',
-                'events.session_number',
-                'chapters.position as chapter_position',
-                'chapters.title as chapter_title',
-            ])
-            ->map(fn (Event $e) => [
-                'id'               => (int) $e->id,
-                'chapter_id'       => (int) $e->chapter_id,
-                'chapter_position' => (int) $e->chapter_position,
-                'chapter_title'    => (string) $e->chapter_title,
-                'position'         => (int) $e->position,
-                'session_number'   => (int) $e->session_number,
-                'title'            => (string) $e->title,
-                'content'          => (string) $e->content,
-                'objectives'       => $e->objectives,
+        $events = $this->eventLoader
+            ->forSession($story, $sessionNumber)
+            ->map(fn ($event) => [
+                'id' => (int) $event->id,
+                'chapter_id' => (int) $event->chapter_id,
+                'chapter_position' => (int) $event->chapter_position,
+                'chapter_title' => (string) $event->chapter_title,
+                'position' => (int) $event->position,
+                'story_position' => (int) $event->story_position,
+                'session_number' => (int) $event->session_number,
+                'title' => (string) $event->title,
+                'content' => (string) $event->content,
+                'objectives' => $event->objectives,
             ])
             ->all();
 
@@ -191,6 +182,7 @@ final class ChaosEngineService
         }
 
         $totalSessions = (int) ($adaptation?->sessionAdaptations?->count() ?? 0);
+        $activeMomentContext = $this->resolveActiveMomentContext($game, $sessionAdaptation);
 
         return [
             'session_number'          => $sessionNumber,
@@ -204,6 +196,7 @@ final class ChaosEngineService
             'full_session_events'     => $events,
             'resolved_consequence_path' => $resolvedConsequencePath,
             'session_close_design'    => $sessionCloseDesign,
+            'active_moment_context'   => $activeMomentContext,
         ];
     }
 
@@ -258,6 +251,9 @@ final class ChaosEngineService
         $closeBlock = $isClimacticThisTurn
             ? $this->buildSessionCloseBlock($sessionContext['session_close_design'] ?? null)
             : '';
+        $activeMomentBlock = $this->buildActiveMomentBlock(
+            $sessionContext['active_moment_context'] ?? null,
+        );
 
         if ($isSessionStart) {
             $prompt = strtr($prompt, [
@@ -267,6 +263,7 @@ final class ChaosEngineService
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
                 '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
                 '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
+                '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
             ]);
         } else {
             // Strip Section 13 entirely before substitution. Find the section header and the
@@ -289,10 +286,84 @@ final class ChaosEngineService
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
                 '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
                 '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
+                '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
             ]);
         }
 
         return $prompt;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveActiveMomentContext(?Game $game, SessionAdaptation $session): ?array
+    {
+        if ($game === null || $game->current_playable_moment_id === null) {
+            return null;
+        }
+
+        $moment = PlayableMoment::query()
+            ->with('cut')
+            ->whereKey($game->current_playable_moment_id)
+            ->first();
+
+        if (
+            $moment === null
+            || $moment->cut->id !== $game->current_playable_session_cut_id
+            || $moment->cut->session_adaptation_id !== $session->id
+        ) {
+            throw new RuntimeException('Game playable-moment pointer does not belong to the active session cut.');
+        }
+
+        $nextMoment = PlayableMoment::query()
+            ->where('playable_session_cut_id', $moment->playable_session_cut_id)
+            ->where('moment_order', $moment->moment_order + 1)
+            ->first();
+        $footnote = (array) ($game->moment_footnote ?? []);
+
+        if (($footnote['moment_key'] ?? null) !== $moment->moment_key) {
+            $footnote = [];
+        }
+
+        $nextCard = (array) ($nextMoment?->scene_card ?? []);
+        $preview = $nextMoment === null ? null : [
+            'moment_key' => $nextMoment->moment_key,
+            'title' => $nextCard['title'] ?? '',
+            'runtime_goal' => $nextCard['runtime_goal'] ?? '',
+            'opening_image' => $nextCard['opening_image'] ?? '',
+            'live_pressure' => $nextCard['live_pressure'] ?? '',
+            'player_affordances' => $nextCard['player_affordances'] ?? [],
+            'choice_ids' => $nextCard['choice_ids'] ?? [],
+            'canon_must_keep' => $nextCard['canon_must_keep'] ?? [],
+            'next_bridge' => data_get($moment->scene_card, 'next_bridge'),
+        ];
+
+        return [
+            'moment' => (array) $moment->scene_card,
+            'turn_count' => (int) $game->playable_moment_turn_count,
+            'treasure_insight' => $footnote['text'] ?? null,
+            'next_moment_preview' => $preview,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $context
+     */
+    private function buildActiveMomentBlock(?array $context): string
+    {
+        if ($context === null) {
+            return '';
+        }
+
+        return implode("\n\n", [
+            'ACTIVE PLAYABLE MOMENT (the only room you may perform now):',
+            json_encode($context['moment'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
+            'SOFT MOMENT TURN COUNT: ' . (int) ($context['turn_count'] ?? 0),
+            'HIDDEN TREASURE INSIGHT (never quote or expose): '
+                . (($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)'),
+            'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
+            json_encode($context['next_moment_preview'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null',
+        ]);
     }
 
     /**
@@ -644,6 +715,8 @@ final class ChaosEngineService
         string $protagonist,
         float $temperature = 1.0,
         array $worldState = [],
+        ?Game $game = null,
+        bool $isOpening = false,
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
 
@@ -694,9 +767,15 @@ final class ChaosEngineService
 
         $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
 
-        return [
+        $result = [
             'response'               => (string) ($structured['response'] ?? ''),
             'choices'                => (array)  ($structured['choices'] ?? []),
+            'visible_suggestions'    => array_key_exists('visible_suggestions', $structured)
+                ? (array) $structured['visible_suggestions']
+                : null,
+            'moment_progress'        => isset($structured['moment_progress'])
+                ? (array) $structured['moment_progress']
+                : null,
             'session_complete'       => (bool)   ($structured['session_complete'] ?? false),
             'state_delta'            => (array)  ($structured['state_delta'] ?? []),
             'alignment_tally_delta'  => [
@@ -711,6 +790,50 @@ final class ChaosEngineService
             'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
             'session_memory_update'  => (string) ($structured['session_memory_update'] ?? ''),
         ];
+
+        $this->validateBoilerNarrationResult($result, $game, $isOpening);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function validateBoilerNarrationResult(array $result, ?Game $game, bool $isOpening): void
+    {
+        if ($game === null || $game->current_playable_moment_id === null) {
+            return;
+        }
+
+        $moment = $game->currentPlayableMoment()->first();
+        $progress = $result['moment_progress'] ?? null;
+
+        if (
+            $moment === null
+            || ! is_array($progress)
+            || ($progress['moment_key'] ?? null) !== $moment->moment_key
+            || ! array_key_exists('exit_condition_met', $progress)
+            || ! is_bool($progress['exit_condition_met'])
+        ) {
+            throw new RuntimeException('Boiler narration returned missing or stale moment_progress.');
+        }
+
+        if (! is_array($result['visible_suggestions'] ?? null) || count($result['visible_suggestions']) > 3) {
+            throw new RuntimeException('Boiler narration must return visible_suggestions with zero to three entries.');
+        }
+
+        $footnote = $progress['moment_footnote'] ?? null;
+        if ($isOpening) {
+            if ($progress['exit_condition_met'] !== false || $footnote !== null) {
+                throw new RuntimeException('Boiler opening narration must report exit_condition_met=false and a null footnote.');
+            }
+
+            return;
+        }
+
+        if (! is_string($footnote) || trim($footnote) === '') {
+            throw new RuntimeException('Boiler player turns require one hidden natural moment footnote.');
+        }
     }
 
     /**

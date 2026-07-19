@@ -8,9 +8,13 @@ use App\Ai\Adaptation\RuntimeNarratorPromptValidator;
 use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
+use App\Models\Game;
 use App\Models\Story;
+use App\Models\StoryAdaptation;
+use App\Services\Adaptation\StoryGameResetService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 
 final class AdaptationStatusReconciliationJob implements ShouldQueue
 {
@@ -25,7 +29,10 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
         $this->onQueue('adaptation');
     }
 
-    public function handle(RuntimeNarratorPromptValidator $promptValidator): void
+    public function handle(
+        RuntimeNarratorPromptValidator $promptValidator,
+        StoryGameResetService $gameResetService,
+    ): void
     {
         $adaptation = $this->story->adaptation;
 
@@ -77,6 +84,28 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
             default => AdaptationStatusEnum::PARTIAL_COMPLETION,
         };
 
-        $adaptation->update(['adaptation_status' => $status]);
+        if ($status !== AdaptationStatusEnum::COMPLETED) {
+            $adaptation->update(['adaptation_status' => $status]);
+
+            return;
+        }
+
+        DB::transaction(function () use ($adaptation, $gameResetService): void {
+            $lockedAdaptation = StoryAdaptation::query()
+                ->whereKey($adaptation->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedAdaptation->adaptation_status === AdaptationStatusEnum::COMPLETED) {
+                return;
+            }
+
+            Game::query()
+                ->where('story_id', $lockedAdaptation->story_id)
+                ->orderBy('id')
+                ->each(fn (Game $game) => $gameResetService->reset($game));
+
+            $lockedAdaptation->update(['adaptation_status' => AdaptationStatusEnum::COMPLETED]);
+        });
     }
 }

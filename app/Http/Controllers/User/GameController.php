@@ -9,12 +9,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Game\StoreGameRequest;
 use App\Models\Game;
 use App\Models\GameCompletion;
-use App\Models\GameReset;
 use App\Models\GameSessionCompletion;
 use App\Models\Story;
 use App\Models\User;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\Adaptation\StoryGameResetService;
+use App\Services\Runtime\NarrationResultNormalizer;
+use App\Services\Runtime\PlayableMomentResolver;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +47,12 @@ final class GameController extends Controller
         'momotaro-the-peach-boy',
     ];
 
-    public function __construct(private readonly ChaosEngineService $engine) {}
+    public function __construct(
+        private readonly ChaosEngineService $engine,
+        private readonly PlayableMomentResolver $momentResolver,
+        private readonly NarrationResultNormalizer $resultNormalizer,
+        private readonly StoryGameResetService $gameResetService,
+    ) {}
 
     public function index(): RedirectResponse
     {
@@ -106,8 +113,18 @@ final class GameController extends Controller
         }
 
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
+        $firstSession = $story->adaptation?->sessionAdaptations?->firstWhere('session_number', 1);
 
-        $sessionContext = $this->engine->loadSessionContext($story, 1, null);
+        if ($story->adaptation?->boiler_enabled) {
+            if ($firstSession === null) {
+                return to_route('user.games.show', $game)
+                    ->with('error', 'This Boiler story has no first session adaptation.');
+            }
+            $this->momentResolver->initializeForSession($game, $firstSession);
+            $game->refresh();
+        }
+
+        $sessionContext = $this->engine->loadSessionContext($story, 1, null, game: $game);
 
         if ($sessionContext === null) {
             return to_route('user.games.show', $game)
@@ -137,6 +154,12 @@ final class GameController extends Controller
                 playerAction: null,
                 protagonist: $protagonist,
                 temperature: $this->engine->gameTemperatureFor($game->model),
+                game: $game,
+                isOpening: true,
+            );
+            $normalizedChoices = $this->resultNormalizer->choices(
+                $result,
+                $game->current_playable_moment_id !== null,
             );
 
             $worldState = $this->engine->mergeStateDelta($emptyWorldState, $result['state_delta']);
@@ -157,13 +180,15 @@ final class GameController extends Controller
                 'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : null,
                 'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : null,
                 'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : null,
-                'current_session_complete' => $result['session_complete'],
+                'current_session_complete' => $game->current_playable_moment_id !== null
+                    ? false
+                    : $result['session_complete'],
             ]);
 
             $game->prompts()->create([
                 'session_number' => 1,
                 'response' => $result['response'],
-                'choices' => $result['choices'],
+                'choices' => $normalizedChoices,
             ]);
 
             GameSessionCompletion::updateOrCreate(
@@ -278,6 +303,23 @@ final class GameController extends Controller
         $nextSA = $story->adaptation?->sessionAdaptations
             ?->firstWhere('session_number', $nextSessionNumber);
         $sessionCloseDesign = $nextSA?->session_close_design;
+        $boilerStateBeforeTransition = [
+            'current_session_number' => $game->current_session_number,
+            'current_session_complete' => $game->current_session_complete,
+            'current_playable_session_cut_id' => $game->current_playable_session_cut_id,
+            'current_playable_moment_id' => $game->current_playable_moment_id,
+            'playable_moment_turn_count' => $game->playable_moment_turn_count,
+            'moment_footnote' => $game->moment_footnote,
+        ];
+
+        if ($story->adaptation?->boiler_enabled) {
+            if ($nextSA === null) {
+                return to_route('user.games.show', $game)
+                    ->with('error', 'The next Boiler session has not been finalized.');
+            }
+            $this->momentResolver->initializeForSession($game, $nextSA);
+            $game->refresh();
+        }
 
         $sessionContext = $this->engine->loadSessionContext(
             story:                   $story,
@@ -285,9 +327,14 @@ final class GameController extends Controller
             openingHandoff:          $openingHandoff,
             resolvedConsequencePath: $resolvedConsequencePath,
             sessionCloseDesign:      $sessionCloseDesign,
+            game:                    $game,
         );
 
         if ($sessionContext === null) {
+            if ($story->adaptation?->boiler_enabled) {
+                $game->update($boilerStateBeforeTransition);
+            }
+
             return to_route('user.games.show', $game)
                 ->with('error', 'The next session has not been adapted yet. Re-run the adaptation pipeline before continuing.');
         }
@@ -296,17 +343,17 @@ final class GameController extends Controller
         $carriedAlignment  = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
         $carriedMemory     = $game->symbolic_memory;
 
-        $systemPrompt = $this->engine->renderSystemPrompt(
-            sessionContext:      $sessionContext,
-            worldState:          $carriedWorldState,
-            alignmentScaffold:   $carriedAlignment,
-            symbolicMemory:      $carriedMemory,
-            isSessionStart:      true,
-            isClimacticPrevious: false,
-            isClimacticThisTurn: false,
-        );
-
         try {
+            $systemPrompt = $this->engine->renderSystemPrompt(
+                sessionContext:      $sessionContext,
+                worldState:          $carriedWorldState,
+                alignmentScaffold:   $carriedAlignment,
+                symbolicMemory:      $carriedMemory,
+                isSessionStart:      true,
+                isClimacticPrevious: false,
+                isClimacticThisTurn: false,
+            );
+
             $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
 
             $result = $this->engine->callAgent(
@@ -317,6 +364,12 @@ final class GameController extends Controller
                 protagonist: $protagonist,
                 temperature: $this->engine->gameTemperatureFor($game->model),
                 worldState: $carriedWorldState,
+                game: $game,
+                isOpening: true,
+            );
+            $normalizedChoices = $this->resultNormalizer->choices(
+                $result,
+                $game->current_playable_moment_id !== null,
             );
 
             $worldState = $this->engine->mergeStateDelta($carriedWorldState, $result['state_delta']);
@@ -331,7 +384,9 @@ final class GameController extends Controller
 
             $game->update([
                 'current_session_number'   => $nextSessionNumber,
-                'current_session_complete' => $result['session_complete'],
+                'current_session_complete' => $game->current_playable_moment_id !== null
+                    ? false
+                    : $result['session_complete'],
                 'world_state'              => $worldState,
                 'alignment_scaffold'       => $alignmentScaffold,
                 'symbolic_memory'          => $symbolicMemory,
@@ -344,7 +399,7 @@ final class GameController extends Controller
             $game->prompts()->create([
                 'session_number' => $nextSessionNumber,
                 'response' => $result['response'],
-                'choices' => $result['choices'],
+                'choices' => $normalizedChoices,
             ]);
 
             GameSessionCompletion::where('game_id', $game->id)
@@ -378,6 +433,10 @@ final class GameController extends Controller
 
             return to_route('user.games.show', $game);
         } catch (Throwable $e) {
+            if ($story->adaptation?->boiler_enabled) {
+                $game->update($boilerStateBeforeTransition);
+            }
+
             Log::channel('narration')->error('game.next_session_failed', [
                 'game_id' => $game->id,
                 'session_number' => $nextSessionNumber,
@@ -393,27 +452,7 @@ final class GameController extends Controller
 
     public function reset(Game $game): RedirectResponse
     {
-        GameReset::create([
-            'game_id'              => $game->id,
-            'user_id'              => $game->user_id,
-            'story_id'             => $game->story_id,
-            'had_prior_completion' => $game->completed_at !== null,
-        ]);
-
-        $game->prompts()->delete();
-
-        $game->update([
-            'current_session_number'      => 1,
-            'current_story_cycle_number'  => $game->current_story_cycle_number + 1,
-            'current_session_complete'    => false,
-            'world_state'                 => null,
-            'symbolic_memory'             => null,
-            'alignment_scaffold'          => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
-            'defining_choice_id'          => null,
-            'defining_path_label'         => null,
-            'defining_choice_line'        => null,
-            'is_climactic_choice'         => false,
-        ]);
+        $this->gameResetService->reset($game);
 
         UserActivityDay::record($game->user_id);
 
