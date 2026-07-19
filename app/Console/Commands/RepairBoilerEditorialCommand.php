@@ -27,7 +27,7 @@ final class RepairBoilerEditorialCommand extends Command
     protected $signature = 'stories:repair-boiler-editorial
                             {story : Story ID or slug}
                             {--session= : Session number to repair}
-                            {--from=consequence : Earliest phase to rerun: architecture or consequence}';
+                            {--from=consequence : Earliest phase to rerun: architecture, choice, or consequence}';
 
     protected $description = 'Repair a failed Boiler editorial audit from the affected authoritative phase';
 
@@ -50,8 +50,8 @@ final class RepairBoilerEditorialCommand extends Command
         }
 
         $from = mb_strtolower(mb_trim((string) $this->option('from')));
-        if (! in_array($from, ['architecture', 'consequence'], true)) {
-            $this->error('--from must be architecture or consequence.');
+        if (! in_array($from, ['architecture', 'choice', 'consequence'], true)) {
+            $this->error('--from must be architecture, choice, or consequence.');
 
             return self::FAILURE;
         }
@@ -102,12 +102,11 @@ final class RepairBoilerEditorialCommand extends Command
                 'adaptation_status' => AdaptationStatusEnum::ADAPTING_SESSIONS,
             ]);
 
-            if ($from === 'architecture') {
+            if (in_array($from, ['architecture', 'choice'], true)) {
                 $session->playableCut()->delete();
-                $session->update([
+                $updates = [
                     'boiler_status' => BoilerStatus::DRAFTED,
                     'boiler_error' => null,
-                    'session_architecture' => null,
                     'session_choice_design' => null,
                     'choice_consequence_map' => null,
                     'session_close_design' => null,
@@ -116,7 +115,11 @@ final class RepairBoilerEditorialCommand extends Command
                     'editorial_verification' => null,
                     'runtime_narrator_prompt' => null,
                     'runtime_narrator_assembled_at' => null,
-                ]);
+                ];
+                if ($from === 'architecture') {
+                    $updates['session_architecture'] = null;
+                }
+                $session->update($updates);
 
                 return;
             }
@@ -130,8 +133,8 @@ final class RepairBoilerEditorialCommand extends Command
             ]);
         });
 
-        $jobs = $from === 'architecture'
-            ? [
+        $jobs = match ($from) {
+            'architecture' => [
                 new SessionArchitectureJob($story, $sessionNumber),
                 new ChoiceDesignJob($story, $sessionNumber),
                 new ConsequenceMappingJob($story, $sessionNumber),
@@ -140,15 +143,25 @@ final class RepairBoilerEditorialCommand extends Command
                 new EditorialVerificationJob($story, $sessionNumber),
                 new RuntimeNarratorAssemblyJob($story, $sessionNumber),
                 new AdaptationStatusReconciliationJob($story),
-            ]
-            : [
+            ],
+            'choice' => [
+                new ChoiceDesignJob($story, $sessionNumber),
+                new ConsequenceMappingJob($story, $sessionNumber),
+                new SessionCloseJob($story, $sessionNumber),
+                new BoilerFinalizeJob($story, $sessionNumber),
+                new EditorialVerificationJob($story, $sessionNumber),
+                new RuntimeNarratorAssemblyJob($story, $sessionNumber),
+                new AdaptationStatusReconciliationJob($story),
+            ],
+            default => [
                 ...($regenerateConsequenceMap
                     ? [new ConsequenceMappingJob($story, $sessionNumber)]
                     : []),
                 new EditorialVerificationJob($story, $sessionNumber),
                 new RuntimeNarratorAssemblyJob($story, $sessionNumber),
                 new AdaptationStatusReconciliationJob($story),
-            ];
+            ],
+        };
 
         Bus::chain($jobs)->onQueue('adaptation')->dispatch();
 

@@ -8,9 +8,10 @@ use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ChoiceDesignAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Story;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -19,8 +20,12 @@ final class ChoiceDesignJob implements ShouldQueue
 {
     use Batchable, Queueable;
 
-    public int $tries = 3;
-    public int $timeout = 720;
+    private const int MAX_VALIDATION_ATTEMPTS = 2;
+
+    public int $tries = 1;
+
+    public int $timeout = 1100;
+
     public int $backoff = 60;
 
     public function __construct(
@@ -37,7 +42,7 @@ final class ChoiceDesignJob implements ShouldQueue
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
         if (empty($adaptation->voice_profile)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'voice_profile missing — Voice Lock must complete before Phase 5 (ChoiceDesign)'
             );
         }
@@ -52,9 +57,9 @@ final class ChoiceDesignJob implements ShouldQueue
         $firstChoiceSpec = $session->entry_point_diagnosis['first_choice_spec'] ?? null;
 
         if ($firstChoiceSpec === null) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 'first_choice_spec missing from entry_point_diagnosis (story %d, session %d). '
-                . 'Phase 3 (EntryPointDiagnosisJob) must complete before Phase 5 (ChoiceDesign).',
+                .'Phase 3 (EntryPointDiagnosisJob) must complete before Phase 5 (ChoiceDesign).',
                 $this->story->id,
                 $this->sessionNumber,
             ));
@@ -68,25 +73,21 @@ final class ChoiceDesignJob implements ShouldQueue
             // Use ip_trimming chapter segments for session-accurate source pages.
             $choiceMomentPages = $this->story->getSessionTrimmedText($this->sessionNumber);
 
-            $response = (new ChoiceDesignAgent((bool) $adaptation->boiler_enabled))->prompt(
-                view('ai.agents.adaptation.choice-design.prompt', [
-                    'beatMap'              => $session->session_architecture,
-                    'storySessionMap'      => $adaptation->story_session_map,
-                    'protagonistCoreTrait' => $ipAudit['bounded_agency']['evidence'] ?? '',
-                    'emotionalPromise'     => $session->entry_point_diagnosis['emotional_promise'] ?? '',
-                    'sessionNumber'        => $this->sessionNumber,
-                    'choiceMomentPages'    => $choiceMomentPages,
-                    'voiceProfile'         => $voiceProfile,
-                    'firstChoiceSpec'      => $firstChoiceSpec,
-                    'boilerDraft'          => $adaptation->boiler_enabled ? $session->boiler_draft : null,
-                ])->render()
-            );
+            $prompt = view('ai.agents.adaptation.choice-design.prompt', [
+                'beatMap' => $session->session_architecture,
+                'storySessionMap' => $adaptation->story_session_map,
+                'protagonistCoreTrait' => $ipAudit['bounded_agency']['evidence'] ?? '',
+                'emotionalPromise' => $session->entry_point_diagnosis['emotional_promise'] ?? '',
+                'sessionNumber' => $this->sessionNumber,
+                'choiceMomentPages' => $choiceMomentPages,
+                'voiceProfile' => $voiceProfile,
+                'firstChoiceSpec' => $firstChoiceSpec,
+                'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
+            ])->render();
 
-            $choiceDesign = $response->toArray();
-            if ($adaptation->boiler_enabled) {
-                $this->validateCanonicalTopology($choiceDesign);
-                $this->validateBoilerBindings($choiceDesign, (array) $session->boiler_draft);
-            }
+            $choiceDesign = $adaptation->boiler_enabled
+                ? $this->generateValidatedChoiceDesign($prompt, (array) $session->boiler_draft)
+                : (new ChoiceDesignAgent(false))->prompt($prompt)->toArray();
 
             $session->update(['session_choice_design' => $choiceDesign]);
 
@@ -128,11 +129,11 @@ final class ChoiceDesignJob implements ShouldQueue
 
             $pathData = [];
             foreach ((array) ($choice['options'] ?? []) as $option) {
-                $label = strtolower((string) ($option['label'] ?? ''));
+                $label = mb_strtolower((string) ($option['label'] ?? ''));
                 if ($label === '') {
                     continue;
                 }
-                $pathData['option_' . $label] = (string) ($option['text'] ?? $option['downstream_effect'] ?? '');
+                $pathData['option_'.$label] = (string) ($option['text'] ?? $option['downstream_effect'] ?? '');
             }
 
             if ($existingIndex !== null) {
@@ -161,15 +162,27 @@ final class ChoiceDesignJob implements ShouldQueue
     private function validateCanonicalTopology(array $choiceDesign): void
     {
         $branchingChoices = (array) ($choiceDesign['branching_choices'] ?? []);
+        $expectedCategories = ['IDENTITY', 'METHODOLOGY', 'MORAL_WEIGHT', 'SESSION_END_HOOK'];
 
         if (count($branchingChoices) !== 4) {
             throw new RuntimeException('Choice Design must preserve exactly four canonical branching choices.');
         }
 
-        foreach ($branchingChoices as $choice) {
+        foreach ($branchingChoices as $index => $choice) {
+            $expectedChoiceId = "S{$this->sessionNumber}_C".($index + 1);
+            if (
+                ! is_array($choice)
+                || ($choice['choice_id'] ?? null) !== $expectedChoiceId
+                || ($choice['category'] ?? null) !== $expectedCategories[$index]
+            ) {
+                throw new RuntimeException(
+                    'Choice Design must preserve canonical IDs and IDENTITY / METHODOLOGY / MORAL_WEIGHT / SESSION_END_HOOK order.'
+                );
+            }
+
             $labels = collect((array) ($choice['options'] ?? []))
                 ->pluck('label')
-                ->map(fn ($label): string => strtoupper((string) $label))
+                ->map(fn ($label): string => mb_strtoupper((string) $label))
                 ->sort()
                 ->values()
                 ->all();
@@ -203,5 +216,75 @@ final class ChoiceDesignJob implements ShouldQueue
                 }
             }
         }
+
+        $requiredChoiceMoments = collect((array) ($draft['event_role_map'] ?? []))
+            ->filter(fn ($role): bool => is_array($role)
+                && ($role['role'] ?? null) === 'CHOICE'
+                && is_string($role['included_moment_key'] ?? null)
+                && $role['included_moment_key'] !== '')
+            ->pluck('included_moment_key')
+            ->unique()
+            ->values();
+        $branchingChoiceMoments = collect((array) ($choiceDesign['branching_choices'] ?? []))
+            ->pluck('moment_key')
+            ->filter()
+            ->unique();
+        $unboundChoiceMoments = $requiredChoiceMoments->diff($branchingChoiceMoments)->values();
+
+        if ($unboundChoiceMoments->isNotEmpty()) {
+            throw new RuntimeException(
+                'Every Draft CHOICE-role moment requires a canonical branching choice; missing: '
+                .$unboundChoiceMoments->implode(', ').'.'
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    private function generateValidatedChoiceDesign(string $originalPrompt, array $draft): array
+    {
+        $prompt = $originalPrompt;
+        $lastValidationError = null;
+
+        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
+            $choiceDesign = (new ChoiceDesignAgent(true))->prompt($prompt)->toArray();
+
+            try {
+                $this->validateCanonicalTopology($choiceDesign);
+                $this->validateBoilerBindings($choiceDesign, $draft);
+
+                if ($attempt > 1) {
+                    Log::info('boiler.choice_design_corrected', [
+                        'story_id' => $this->story->id,
+                        'session_number' => $this->sessionNumber,
+                        'generation_attempt' => $attempt,
+                    ]);
+                }
+
+                return $choiceDesign;
+            } catch (RuntimeException $validationError) {
+                $lastValidationError = $validationError;
+                Log::warning('boiler.choice_design_validation_failed', [
+                    'story_id' => $this->story->id,
+                    'session_number' => $this->sessionNumber,
+                    'generation_attempt' => $attempt,
+                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
+                    'error' => $validationError->getMessage(),
+                ]);
+
+                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
+                    $prompt = view('ai.agents.adaptation.choice-design.repair-prompt', [
+                        'validationError' => $validationError->getMessage(),
+                        'previousChoiceDesign' => $choiceDesign,
+                        'originalPrompt' => $originalPrompt,
+                    ])->render();
+                }
+            }
+        }
+
+        throw $lastValidationError
+            ?? new RuntimeException('Choice Design validation failed without an error.');
     }
 }

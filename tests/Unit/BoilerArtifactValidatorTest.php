@@ -8,8 +8,10 @@ use App\Ai\Adaptation\BoilerFinalCutValidator;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
 use App\Ai\Adaptation\SessionArchitectureValidator;
+use App\Jobs\Adaptation\ChoiceDesignJob;
 use App\Models\Event;
 use App\Models\SessionAdaptation;
+use App\Models\Story;
 use Illuminate\Database\Eloquent\Collection;
 
 function boilerTestSession(): SessionAdaptation
@@ -350,3 +352,19 @@ it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Ph
             fn ($path) => $path->label->toBe('C')->alignment->toBe('NEUTRAL')->defining_line_captured->toBe('Hold it.'),
         );
 });
+
+it('rejects a Draft CHOICE-role moment without a canonical branching choice', function () {
+    $draft = boilerTestDraft();
+    $draft['event_role_map'][0]['role'] = 'CHOICE';
+    $choiceDesign = [
+        'branching_choices' => [],
+        'emotional_choices' => [],
+        'posture_shifts' => [],
+    ];
+    $method = new ReflectionMethod(ChoiceDesignJob::class, 'validateBoilerBindings');
+
+    $method->invoke(new ChoiceDesignJob(new Story, 1), $choiceDesign, $draft);
+})->throws(
+    RuntimeException::class,
+    'Every Draft CHOICE-role moment requires a canonical branching choice; missing: S1_M01.',
+);

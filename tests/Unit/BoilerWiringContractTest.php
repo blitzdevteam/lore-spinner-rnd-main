@@ -167,8 +167,10 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
 
 it('repairs Architecture pacing and canonicalizes Phase 6 choice authority before Editorial', function () {
     $architectureJob = file_get_contents(app_path('Jobs/Adaptation/SessionArchitectureJob.php'));
+    $choiceJob = file_get_contents(app_path('Jobs/Adaptation/ChoiceDesignJob.php'));
     $consequenceJob = file_get_contents(app_path('Jobs/Adaptation/ConsequenceMappingJob.php'));
     $architecturePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/session-architecture/repair-prompt.blade.php'));
+    $choicePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/choice-design/repair-prompt.blade.php'));
     $consequencePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/consequence-mapping/repair-prompt.blade.php'));
 
     expect($architectureJob)
@@ -177,6 +179,12 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
         ->toContain('session-architecture.repair-prompt')
         ->and($architecturePrompt)
         ->toContain('10:00-13:00')
+        ->and($choiceJob)
+        ->toContain('boiler.choice_design_validation_failed')
+        ->toContain('choice-design.repair-prompt')
+        ->toContain('Every Draft CHOICE-role moment requires a canonical branching choice')
+        ->and($choicePrompt)
+        ->toContain('At least one canonical branching choice must bind')
         ->and($consequenceJob)
         ->toContain('ConsequenceMapCanonicalizer')
         ->toContain('ConsequenceMapValidator')
@@ -193,6 +201,7 @@ it('provides scoped commands for replaying only failed Editorial dependencies', 
         ->toContain('stories:repair-boiler-editorial')
         ->toContain('ConsequenceMapCanonicalizer')
         ->toContain('ConsequenceMapValidator')
+        ->toContain("'choice'")
         ->toContain("'boiler_status' => BoilerStatus::DRAFTED")
         ->toContain('new SessionArchitectureJob')
         ->toContain('new ConsequenceMappingJob')
