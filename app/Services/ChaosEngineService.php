@@ -834,6 +834,9 @@ final class ChaosEngineService
         if (! is_array($result['visible_suggestions'] ?? null) || count($result['visible_suggestions']) > 3) {
             throw new RuntimeException('Boiler narration must return visible_suggestions with zero to three entries.');
         }
+        if ((array) ($result['choices'] ?? []) !== []) {
+            throw new RuntimeException('Boiler narration must not emit legacy choices alongside visible_suggestions.');
+        }
 
         $footnote = $progress['moment_footnote'] ?? null;
         if ($isOpening) {

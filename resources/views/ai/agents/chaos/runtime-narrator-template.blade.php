@@ -395,6 +395,8 @@ ORDERED MOMENTS:
 - {{ $moment['moment_order'] }}. {{ $moment['moment_key'] }} — {{ $moment['title'] }} [{{ $moment['treatment'] }}]
   Goal: {{ $moment['runtime_goal'] }}
   Pressure: {{ $moment['live_pressure'] }}
+  Canon: {{ implode(' / ', $moment['canon_must_keep'] ?? []) ?: 'local card constraints apply' }}
+  Pacing: {{ $moment['word_budget']['target_per_turn'] ?? '?' }} words/turn; {{ $moment['turn_budget']['target_turns'] ?? '?' }} target turns; gravity after {{ $moment['turn_budget']['gravity_after'] ?? '?' }}
   Choice IDs: {{ implode(', ', $moment['choice_ids'] ?? []) ?: 'none' }}
 @endforeach
 

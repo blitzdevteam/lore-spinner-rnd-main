@@ -26,7 +26,16 @@ class PromptResource extends BaseResource
             'session_number' => $this->session_number,
             'prompt'         => $this->prompt ?? '',
             'response'       => $this->response,
-            'choices'        => $this->choices ?? [],
+            'choices'        => collect((array) ($this->choices ?? []))
+                ->map(static fn ($choice) => is_array($choice)
+                    ? [
+                        'text' => (string) ($choice['text'] ?? ''),
+                        'canonical_choice_id' => $choice['canonical_choice_id'] ?? null,
+                        'canonical_path_label' => $choice['canonical_path_label'] ?? null,
+                    ]
+                    : (string) $choice)
+                ->values()
+                ->all(),
 
             // Relations
             'game' => GameResource::make($this->whenLoaded('game')),
