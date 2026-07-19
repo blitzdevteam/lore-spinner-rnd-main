@@ -23,6 +23,7 @@ final class RunAdaptationPipelineJob implements ShouldQueue
     public function __construct(
         private Story $story,
         private bool $force = false,
+        private bool $boilerEnabled = false,
     ) {
         $this->onQueue('adaptation');
     }
@@ -51,12 +52,14 @@ final class RunAdaptationPipelineJob implements ShouldQueue
                     'ip_audit' => null,
                     'voice_profile' => null,
                     'story_session_map' => null,
+                    'boiler_enabled' => $this->boilerEnabled,
                     'adaptation_status' => AdaptationStatusEnum::PENDING,
                 ]);
             });
         } else {
             $adaptation = StoryAdaptation::create([
                 'story_id' => $this->story->id,
+                'boiler_enabled' => $this->boilerEnabled,
                 'adaptation_status' => AdaptationStatusEnum::PENDING,
             ]);
         }

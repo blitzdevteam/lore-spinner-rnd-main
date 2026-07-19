@@ -11,10 +11,10 @@ use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
 use App\Models\Story;
+use App\Support\Adaptation\SessionAdaptationChain;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -144,31 +144,16 @@ final class StorySessionMapJob implements ShouldQueue
             });
 
             $sessionAdaptations = $adaptation->sessionAdaptations()->orderBy('session_number')->get();
-
-            $sessionChains = [];
-            foreach ($sessionAdaptations as $sa) {
-                $sessionChains[] = [
-                    new EntryPointDiagnosisJob($this->story, $sa->session_number),
-                    new SessionArchitectureJob($this->story, $sa->session_number),
-                    new ChoiceDesignJob($this->story, $sa->session_number),
-                    new ConsequenceMappingJob($this->story, $sa->session_number),
-                    new SessionCloseJob($this->story, $sa->session_number),
-                    new EditorialVerificationJob($this->story, $sa->session_number),
-                    // Pipeline Upgrade V2: assemble Deliverable 8 runtime narrator template
-                    // immediately after Phase 8 so Chaos Mode can read it from cache.
-                    new RuntimeNarratorAssemblyJob($this->story, $sa->session_number),
-                ];
-            }
-
             $storyId = $this->story->id;
 
-            $batch = Bus::batch($sessionChains)
-                ->onQueue('adaptation')
-                ->finally(function () use ($storyId) {
+            SessionAdaptationChain::dispatchBatch(
+                $this->story,
+                $sessionAdaptations->pluck('session_number')->all(),
+                function () use ($storyId): void {
                     $story = Story::findOrFail($storyId);
                     AdaptationStatusReconciliationJob::dispatch($story)->onQueue('adaptation');
-                })
-                ->dispatch();
+                },
+            );
         } catch (Throwable $throwable) {
             $adaptation->update([
                 'adaptation_status' => AdaptationStatusEnum::FAILED,

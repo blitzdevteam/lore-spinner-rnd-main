@@ -22,9 +22,14 @@ final class CreateStory extends CreateRecord
 
     protected static bool $canCreateAnother = false;
 
+    private bool $boilerEnabled = false;
+
     #[\Override]
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $this->boilerEnabled = (bool) ($data['boiler_enabled'] ?? false);
+        unset($data['boiler_enabled']);
+
         $data['creator_id'] = auth()->id();
 
         return parent::mutateFormDataBeforeCreate($data);
@@ -47,7 +52,10 @@ final class CreateStory extends CreateRecord
             StoryBannerGeneratorJob::dispatch($story);
             StoryOpeningGeneratorJob::dispatch($story)->delay(now()->addMinutes(5));
 
-            RunAdaptationPipelineJob::dispatch($story)->delay(now()->addMinutes(2));
+            RunAdaptationPipelineJob::dispatch(
+                $story,
+                boilerEnabled: $this->boilerEnabled,
+            )->delay(now()->addMinutes(2));
         } else {
             $story->update([
                 'status' => StoryStatusEnum::DRAFT,

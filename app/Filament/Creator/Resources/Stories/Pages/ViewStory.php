@@ -12,6 +12,7 @@ use App\Models\Story;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
@@ -51,8 +52,17 @@ final class ViewStory extends ViewRecord
 
             Action::make('run-adaptation')
                 ->label('Run Adaptation')
-                ->action(function (Story $story): void {
-                    RunAdaptationPipelineJob::dispatch($story);
+                ->schema([
+                    Toggle::make('boiler_enabled')
+                        ->label('Enable Boiler pacing')
+                        ->helperText('Compile this adaptation into paced playable moments.')
+                        ->default(false),
+                ])
+                ->action(function (array $data, Story $story): void {
+                    RunAdaptationPipelineJob::dispatch(
+                        $story,
+                        boilerEnabled: (bool) ($data['boiler_enabled'] ?? false),
+                    );
                 })
                 ->color(Color::Blue)
                 ->icon(Heroicon::Sparkles)
@@ -63,8 +73,20 @@ final class ViewStory extends ViewRecord
 
             Action::make('rerun-adaptation')
                 ->label('Re-run Adaptation')
-                ->action(function (Story $story): void {
-                    RunAdaptationPipelineJob::dispatch($story, force: true);
+                ->schema([
+                    Toggle::make('boiler_enabled')
+                        ->label('Enable Boiler pacing')
+                        ->helperText('Changing this mode rebuilds the adaptation and resets existing games only after a successful run.'),
+                ])
+                ->fillForm(fn (Story $story): array => [
+                    'boiler_enabled' => (bool) $story->adaptation?->boiler_enabled,
+                ])
+                ->action(function (array $data, Story $story): void {
+                    RunAdaptationPipelineJob::dispatch(
+                        $story,
+                        force: true,
+                        boilerEnabled: (bool) ($data['boiler_enabled'] ?? false),
+                    );
                 })
                 ->color(Color::Orange)
                 ->icon(Heroicon::ArrowPath)

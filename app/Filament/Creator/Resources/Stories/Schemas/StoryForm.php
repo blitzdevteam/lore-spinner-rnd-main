@@ -93,6 +93,12 @@ final class StoryForm
                                     ->default(false)
                                     ->columnSpanFull()
                                     ->live(),
+                                Checkbox::make('boiler_enabled')
+                                    ->label('Enable Boiler pacing')
+                                    ->helperText('Compile this adaptation into paced playable moments. During R&D this is off by default.')
+                                    ->default(false)
+                                    ->visibleOn('create')
+                                    ->columnSpanFull(),
                                 SpatieMediaLibraryFileUpload::make('script')
                                     ->label('Story Script')
                                     ->helperText('Upload the story script file here and chapterizing will be done automatically.')

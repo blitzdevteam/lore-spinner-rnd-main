@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support\Adaptation;
 
+use App\Jobs\Adaptation\BoilerDraftJob;
+use App\Jobs\Adaptation\BoilerFinalizeJob;
 use App\Jobs\Adaptation\ChoiceDesignJob;
 use App\Jobs\Adaptation\ConsequenceMappingJob;
 use App\Jobs\Adaptation\EditorialVerificationJob;
@@ -21,15 +23,35 @@ final class SessionAdaptationChain
      */
     public static function jobsForSession(Story $story, int $sessionNumber): array
     {
-        return [
+        $boilerEnabled = (bool) $story->adaptation()->value('boiler_enabled');
+
+        $jobs = [
             new EntryPointDiagnosisJob($story, $sessionNumber),
+        ];
+
+        if ($boilerEnabled) {
+            $jobs[] = new BoilerDraftJob($story, $sessionNumber);
+        }
+
+        array_push(
+            $jobs,
             new SessionArchitectureJob($story, $sessionNumber),
             new ChoiceDesignJob($story, $sessionNumber),
             new ConsequenceMappingJob($story, $sessionNumber),
             new SessionCloseJob($story, $sessionNumber),
+        );
+
+        if ($boilerEnabled) {
+            $jobs[] = new BoilerFinalizeJob($story, $sessionNumber);
+        }
+
+        array_push(
+            $jobs,
             new EditorialVerificationJob($story, $sessionNumber),
             new RuntimeNarratorAssemblyJob($story, $sessionNumber),
-        ];
+        );
+
+        return $jobs;
     }
 
     /**
