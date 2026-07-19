@@ -167,6 +167,7 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
 
 it('repairs Architecture pacing and canonicalizes Phase 6 choice authority before Editorial', function () {
     $architectureJob = file_get_contents(app_path('Jobs/Adaptation/SessionArchitectureJob.php'));
+    $architectureValidator = file_get_contents(app_path('Ai/Adaptation/SessionArchitectureValidator.php'));
     $choiceJob = file_get_contents(app_path('Jobs/Adaptation/ChoiceDesignJob.php'));
     $consequenceJob = file_get_contents(app_path('Jobs/Adaptation/ConsequenceMappingJob.php'));
     $architecturePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/session-architecture/repair-prompt.blade.php'));
@@ -179,6 +180,8 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
         ->toContain('session-architecture.repair-prompt')
         ->and($architecturePrompt)
         ->toContain('10:00-13:00')
+        ->and($architectureValidator)
+        ->toContain('Every Draft CHOICE-role moment requires a BRANCHING Architecture slot')
         ->and($choiceJob)
         ->toContain('boiler.choice_design_validation_failed')
         ->toContain('choice-design.repair-prompt')

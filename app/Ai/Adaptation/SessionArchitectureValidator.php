@@ -33,6 +33,15 @@ final class SessionArchitectureValidator
             throw new RuntimeException("Session Architecture conflicts with the approved Boiler budget: {$conflict}");
         }
 
+        $requiredChoiceMoments = collect((array) ($draft['event_role_map'] ?? []))
+            ->filter(fn ($role): bool => is_array($role)
+                && ($role['role'] ?? null) === 'CHOICE'
+                && is_string($role['included_moment_key'] ?? null)
+                && $role['included_moment_key'] !== '')
+            ->pluck('included_moment_key')
+            ->unique()
+            ->values();
+        $branchingMoments = collect();
         $breathWindows = [];
         $branchingSlots = 0;
         foreach ((array) ($architecture['beat_map'] ?? []) as $beat) {
@@ -50,6 +59,7 @@ final class SessionArchitectureValidator
                 'BRANCHING',
             )) {
                 $branchingSlots++;
+                $branchingMoments->push($beat['moment_key']);
             }
 
             if (mb_strtoupper(mb_trim((string) ($beat['beat_type'] ?? ''))) === 'BREATH') {
@@ -63,6 +73,16 @@ final class SessionArchitectureValidator
 
         if ($branchingSlots !== 4) {
             throw new RuntimeException('Boiler-enabled Session Architecture requires exactly four BRANCHING beat-map slots.');
+        }
+
+        $missingChoiceMoments = $requiredChoiceMoments
+            ->diff($branchingMoments->unique())
+            ->values();
+        if ($missingChoiceMoments->isNotEmpty()) {
+            throw new RuntimeException(
+                'Every Draft CHOICE-role moment requires a BRANCHING Architecture slot; missing: '
+                .$missingChoiceMoments->implode(', ').'.'
+            );
         }
 
         if (count($breathWindows) !== 1) {

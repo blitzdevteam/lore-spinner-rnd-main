@@ -17,6 +17,7 @@ Correction requirements:
 2. Exactly one row has `beat_type` equal to `BREATH`.
 3. The BREATH row fits wholly inside `10:00-13:00`.
 4. Exactly four rows use a `BRANCHING` choice slot.
-5. Bind the release/reward to an existing Draft moment in source order. Use humor, absurdity, or wonder; if the source lacks one, apply the minimum canon-safe editorial intervention inside that existing moment.
-6. Do not add, remove, split, merge, reorder, or replace Draft moments.
-7. Return `boiler_budget_alignment.aligned=true` only when the corrected architecture genuinely fits.
+5. Every Draft `event_role_map` row marked `CHOICE` must have its `included_moment_key` represented by one of those four BRANCHING rows. Move the matching canonical branch slot to that moment; do not add a fifth slot.
+6. Bind the release/reward to an existing Draft moment in source order. Use humor, absurdity, or wonder; if the source lacks one, apply the minimum canon-safe editorial intervention inside that existing moment.
+7. Do not add, remove, split, merge, reorder, or replace Draft moments.
+8. Return `boiler_budget_alignment.aligned=true` only when the corrected architecture genuinely fits.

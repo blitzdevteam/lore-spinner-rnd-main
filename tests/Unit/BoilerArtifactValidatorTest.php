@@ -301,6 +301,37 @@ it('requires the Architecture breath row wholly inside minutes 10 through 13', f
         ->toThrow(RuntimeException::class, 'The BREATH beat must fit wholly inside minutes 10:00-13:00');
 });
 
+it('requires Architecture to place a branching slot on every Draft CHOICE-role moment', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+    ]);
+    $draft['event_role_map'][] = [
+        'event_id' => 102,
+        'role' => 'CHOICE',
+        'why' => 'A load-bearing stealth versus confrontation decision.',
+        'included_moment_key' => 'S1_M02',
+        'reintroduction_note' => '',
+    ];
+    $architecture = [
+        'boiler_budget_alignment' => ['aligned' => true, 'conflict' => ''],
+        'beat_map' => [
+            ['time_range' => '00:00-03:00', 'beat_type' => 'SETUP', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
+            ['time_range' => '03:00-07:00', 'beat_type' => 'ESCALATION', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
+            ['time_range' => '10:00-12:30', 'beat_type' => 'BREATH', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
+            ['time_range' => '17:00-20:00', 'beat_type' => 'RESOLUTION', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
+        ],
+    ];
+
+    (new SessionArchitectureValidator())->validate($architecture, $draft);
+})->throws(
+    RuntimeException::class,
+    'Every Draft CHOICE-role moment requires a BRANCHING Architecture slot; missing: S1_M02.',
+);
+
 it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Phase 5', function () {
     $choiceDesign = [
         'branching_choices' => [[
