@@ -316,6 +316,12 @@ it('requires Architecture to place a branching slot on every Draft CHOICE-role m
         'source_event_ids' => [102],
         'anchor_event_id' => 102,
     ]);
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [103],
+        'anchor_event_id' => 103,
+    ]);
     $draft['event_role_map'][] = [
         'event_id' => 102,
         'role' => 'CHOICE',
@@ -329,7 +335,7 @@ it('requires Architecture to place a branching slot on every Draft CHOICE-role m
             ['time_range' => '00:00-03:00', 'beat_type' => 'SETUP', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
             ['time_range' => '03:00-07:00', 'beat_type' => 'ESCALATION', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
             ['time_range' => '10:00-12:30', 'beat_type' => 'BREATH', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
-            ['time_range' => '17:00-20:00', 'beat_type' => 'RESOLUTION', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M01'],
+            ['time_range' => '17:00-20:00', 'beat_type' => 'RESOLUTION', 'choice_slot' => 'BRANCHING', 'moment_key' => 'S1_M03'],
         ],
     ];
 
@@ -347,6 +353,13 @@ it('relocates the semantically matching Architecture branch to a Draft CHOICE-ro
         'source_event_ids' => [102],
         'anchor_event_id' => 102,
         'runtime_goal' => 'Choose stealth or direct confrontation.',
+    ]);
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [103],
+        'anchor_event_id' => 103,
+        'runtime_goal' => 'Commit to what happens next.',
     ]);
     $draft['event_role_map'][] = [
         'event_id' => 102,
@@ -370,7 +383,8 @@ it('relocates the semantically matching Architecture branch to a Draft CHOICE-ro
 
     expect($canonical['beat_map'][1])
         ->moment_key->toBe('S1_M02')
-        ->moment->toBe('Choose stealth or direct confrontation.');
+        ->moment->toBe('Choose stealth or direct confrontation.')
+        ->and($canonical['beat_map'][3]['moment_key'])->toBe('S1_M03');
 });
 
 it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Phase 5', function () {
@@ -428,8 +442,18 @@ it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Ph
 it('rejects a Draft CHOICE-role moment without a canonical branching choice', function () {
     $draft = boilerTestDraft();
     $draft['event_role_map'][0]['role'] = 'CHOICE';
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+    ]);
     $choiceDesign = [
-        'branching_choices' => [],
+        'branching_choices' => [[
+            'choice_id' => 'S1_C4',
+            'category' => 'SESSION_END_HOOK',
+            'moment_key' => 'S1_M02',
+        ]],
         'emotional_choices' => [],
         'posture_shifts' => [],
     ];
@@ -470,4 +494,26 @@ it('relocates the semantically matching canonical choice to a Draft CHOICE-role 
 
     expect($canonical['branching_choices'][0]['moment_key'])->toBe('S1_M02')
         ->and($canonical['branching_choices'][1]['moment_key'])->toBe('S1_M01');
+});
+
+it('always binds the canonical session-end choice to the final Draft moment', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+    ]);
+    $choiceDesign = [
+        'branching_choices' => [
+            ['choice_id' => 'S1_C1', 'category' => 'IDENTITY', 'moment_key' => 'S1_M01'],
+            ['choice_id' => 'S1_C2', 'category' => 'METHODOLOGY', 'moment_key' => 'S1_M01'],
+            ['choice_id' => 'S1_C3', 'category' => 'MORAL_WEIGHT', 'moment_key' => 'S1_M01'],
+            ['choice_id' => 'S1_C4', 'category' => 'SESSION_END_HOOK', 'moment_key' => 'S1_M01'],
+        ],
+    ];
+
+    $canonical = (new ChoiceDesignCanonicalizer())->canonicalize($choiceDesign, $draft);
+
+    expect($canonical['branching_choices'][3]['moment_key'])->toBe('S1_M02');
 });

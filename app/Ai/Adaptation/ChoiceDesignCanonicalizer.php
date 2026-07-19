@@ -23,11 +23,30 @@ final class ChoiceDesignCanonicalizer
                 && $role['included_moment_key'] !== '')
             ->groupBy('included_moment_key');
         $choices = (array) ($choiceDesign['branching_choices'] ?? []);
+        $finalDraftMoment = collect((array) ($draft['moment_drafts'] ?? []))
+            ->sortBy('moment_order')
+            ->last();
+        $finalMomentKey = is_array($finalDraftMoment)
+            ? ($finalDraftMoment['moment_key'] ?? null)
+            : null;
+        $sessionEndIndex = collect($choices)->search(
+            fn ($choice): bool => is_array($choice)
+                && ($choice['category'] ?? null) === 'SESSION_END_HOOK',
+        );
+        $reservedIndexes = collect();
+        if (
+            $sessionEndIndex !== false
+            && is_string($finalMomentKey)
+            && $finalMomentKey !== ''
+            && is_array($choices[$sessionEndIndex] ?? null)
+        ) {
+            $choices[$sessionEndIndex]['moment_key'] = $finalMomentKey;
+            $reservedIndexes->push($sessionEndIndex);
+        }
         $alreadyBoundMoments = collect($choices)
             ->pluck('moment_key')
             ->filter()
             ->values();
-        $reservedIndexes = collect();
 
         foreach ($rolesByMoment as $momentKey => $roles) {
             if ($alreadyBoundMoments->contains($momentKey)) {

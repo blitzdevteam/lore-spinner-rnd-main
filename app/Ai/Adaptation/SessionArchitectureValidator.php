@@ -75,6 +75,13 @@ final class SessionArchitectureValidator
             throw new RuntimeException('Boiler-enabled Session Architecture requires exactly four BRANCHING beat-map slots.');
         }
 
+        $finalMomentKey = end($momentKeys);
+        if (! is_string($finalMomentKey) || ! $branchingMoments->contains($finalMomentKey)) {
+            throw new RuntimeException(
+                'The final Draft moment must own a BRANCHING Architecture slot for the session-end hook.'
+            );
+        }
+
         $missingChoiceMoments = $requiredChoiceMoments
             ->diff($branchingMoments->unique())
             ->values();

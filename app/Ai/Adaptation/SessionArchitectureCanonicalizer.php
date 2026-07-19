@@ -26,7 +26,10 @@ final class SessionArchitectureCanonicalizer
                 && $role['included_moment_key'] !== '')
             ->groupBy('included_moment_key');
         $draftMoments = collect((array) ($draft['moment_drafts'] ?? []))
-            ->keyBy('moment_key');
+            ->sortBy('moment_order')
+            ->values();
+        $draftMomentsByKey = $draftMoments->keyBy('moment_key');
+        $finalMomentKey = $draftMoments->last()['moment_key'] ?? null;
         $beatMap = (array) ($architecture['beat_map'] ?? []);
         $branchingIndexes = collect($beatMap)
             ->filter(fn ($beat): bool => is_array($beat)
@@ -35,13 +38,35 @@ final class SessionArchitectureCanonicalizer
                     'BRANCHING',
                 ))
             ->keys();
+        $reservedIndexes = collect();
+        $finalBranchIndex = $branchingIndexes
+            ->first(fn ($index): bool => is_array($beatMap[$index] ?? null)
+                && ($beatMap[$index]['moment_key'] ?? null) === $finalMomentKey)
+            ?? $branchingIndexes->last();
+        if (
+            is_string($finalMomentKey)
+            && $finalMomentKey !== ''
+            && $finalBranchIndex !== null
+            && is_array($beatMap[$finalBranchIndex] ?? null)
+        ) {
+            $finalDraftMoment = $draftMomentsByKey->get($finalMomentKey);
+            $beatMap[$finalBranchIndex]['moment_key'] = $finalMomentKey;
+            if (is_array($finalDraftMoment)) {
+                $beatMap[$finalBranchIndex]['moment'] = (string) ($finalDraftMoment['runtime_goal'] ?? $finalMomentKey);
+            }
+            $beatMap[$finalBranchIndex]['dramatic_function'] = mb_trim(
+                (string) ($beatMap[$finalBranchIndex]['dramatic_function'] ?? '')
+                .' Session-end hook authority: the fourth canonical branch closes in the final Draft moment.'
+            );
+            $reservedIndexes->push($finalBranchIndex);
+        }
+
         $alreadyBoundMoments = $branchingIndexes
             ->map(fn ($index) => is_array($beatMap[$index] ?? null)
                 ? ($beatMap[$index]['moment_key'] ?? null)
                 : null)
             ->filter()
             ->values();
-        $reservedIndexes = collect();
 
         foreach ($rolesByMoment as $momentKey => $roles) {
             if ($alreadyBoundMoments->contains($momentKey)) {
@@ -72,7 +97,7 @@ final class SessionArchitectureCanonicalizer
                 continue;
             }
 
-            $draftMoment = $draftMoments->get($momentKey);
+            $draftMoment = $draftMomentsByKey->get($momentKey);
             $beatMap[$candidateIndex]['moment_key'] = $momentKey;
             if (is_array($draftMoment)) {
                 $beatMap[$candidateIndex]['moment'] = (string) ($draftMoment['runtime_goal'] ?? $momentKey);

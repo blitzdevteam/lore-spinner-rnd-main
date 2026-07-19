@@ -222,6 +222,19 @@ final class ChoiceDesignJob implements ShouldQueue
             }
         }
 
+        $sessionEndChoice = collect((array) ($choiceDesign['branching_choices'] ?? []))
+            ->firstWhere('category', 'SESSION_END_HOOK');
+        $finalMomentKey = end($momentKeys);
+        if (
+            ! is_array($sessionEndChoice)
+            || ! is_string($finalMomentKey)
+            || ($sessionEndChoice['moment_key'] ?? null) !== $finalMomentKey
+        ) {
+            throw new RuntimeException(
+                'The SESSION_END_HOOK canonical choice must bind to the final Draft moment.'
+            );
+        }
+
         $requiredChoiceMoments = collect((array) ($draft['event_role_map'] ?? []))
             ->filter(fn ($role): bool => is_array($role)
                 && ($role['role'] ?? null) === 'CHOICE'
