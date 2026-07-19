@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ChoiceDesignAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -36,7 +37,7 @@ final class ChoiceDesignJob implements ShouldQueue
     }
 
     /** @throws Throwable */
-    public function handle(): void
+    public function handle(ChoiceDesignCanonicalizer $canonicalizer): void
     {
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
@@ -86,7 +87,11 @@ final class ChoiceDesignJob implements ShouldQueue
             ])->render();
 
             $choiceDesign = $adaptation->boiler_enabled
-                ? $this->generateValidatedChoiceDesign($prompt, (array) $session->boiler_draft)
+                ? $this->generateValidatedChoiceDesign(
+                    $prompt,
+                    $canonicalizer,
+                    (array) $session->boiler_draft,
+                )
                 : (new ChoiceDesignAgent(false))->prompt($prompt)->toArray();
 
             $session->update(['session_choice_design' => $choiceDesign]);
@@ -243,13 +248,17 @@ final class ChoiceDesignJob implements ShouldQueue
      * @param  array<string, mixed>  $draft
      * @return array<string, mixed>
      */
-    private function generateValidatedChoiceDesign(string $originalPrompt, array $draft): array
-    {
+    private function generateValidatedChoiceDesign(
+        string $originalPrompt,
+        ChoiceDesignCanonicalizer $canonicalizer,
+        array $draft,
+    ): array {
         $prompt = $originalPrompt;
         $lastValidationError = null;
 
         for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
             $choiceDesign = (new ChoiceDesignAgent(true))->prompt($prompt)->toArray();
+            $choiceDesign = $canonicalizer->canonicalize($choiceDesign, $draft);
 
             try {
                 $this->validateCanonicalTopology($choiceDesign);

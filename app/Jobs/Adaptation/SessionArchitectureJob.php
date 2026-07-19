@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\SessionArchitectureCanonicalizer;
 use App\Ai\Adaptation\SessionArchitectureValidator;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\SessionArchitectureAgent;
@@ -37,8 +38,10 @@ final class SessionArchitectureJob implements ShouldQueue
     }
 
     /** @throws Throwable */
-    public function handle(SessionArchitectureValidator $validator): void
-    {
+    public function handle(
+        SessionArchitectureCanonicalizer $canonicalizer,
+        SessionArchitectureValidator $validator,
+    ): void {
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -75,7 +78,12 @@ final class SessionArchitectureJob implements ShouldQueue
             ])->render();
 
             $architecture = $adaptation->boiler_enabled
-                ? $this->generateValidatedArchitecture($prompt, $validator, (array) $session->boiler_draft)
+                ? $this->generateValidatedArchitecture(
+                    $prompt,
+                    $canonicalizer,
+                    $validator,
+                    (array) $session->boiler_draft,
+                )
                 : (new SessionArchitectureAgent(false))->prompt($prompt)->toArray();
 
             $session->update(['session_architecture' => $architecture]);
@@ -91,6 +99,7 @@ final class SessionArchitectureJob implements ShouldQueue
      */
     private function generateValidatedArchitecture(
         string $originalPrompt,
+        SessionArchitectureCanonicalizer $canonicalizer,
         SessionArchitectureValidator $validator,
         array $draft,
     ): array {
@@ -99,6 +108,7 @@ final class SessionArchitectureJob implements ShouldQueue
 
         for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
             $architecture = (new SessionArchitectureAgent(true))->prompt($prompt)->toArray();
+            $architecture = $canonicalizer->canonicalize($architecture, $draft);
 
             try {
                 $validator->validate($architecture, $draft);

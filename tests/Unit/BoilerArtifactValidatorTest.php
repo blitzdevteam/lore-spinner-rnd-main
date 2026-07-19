@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
+use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
+use App\Ai\Adaptation\SessionArchitectureCanonicalizer;
 use App\Ai\Adaptation\SessionArchitectureValidator;
 use App\Jobs\Adaptation\ChoiceDesignJob;
 use App\Models\Event;
@@ -332,6 +334,40 @@ it('requires Architecture to place a branching slot on every Draft CHOICE-role m
     'Every Draft CHOICE-role moment requires a BRANCHING Architecture slot; missing: S1_M02.',
 );
 
+it('relocates the semantically matching Architecture branch to a Draft CHOICE-role moment', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+        'runtime_goal' => 'Choose stealth or direct confrontation.',
+    ]);
+    $draft['event_role_map'][] = [
+        'event_id' => 102,
+        'role' => 'CHOICE',
+        'why' => 'A load-bearing stealth versus confrontation methodology decision.',
+        'included_moment_key' => 'S1_M02',
+        'reintroduction_note' => '',
+    ];
+    $architecture = [
+        'boiler_budget_alignment' => ['aligned' => true, 'conflict' => ''],
+        'beat_map' => [
+            ['time_range' => '00:00-03:00', 'moment' => 'Identity', 'beat_type' => 'SETUP', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Identity and trust', 'moment_key' => 'S1_M01'],
+            ['time_range' => '03:00-07:00', 'moment' => 'Approach', 'beat_type' => 'ESCALATION', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Methodology: stealth or confrontation', 'moment_key' => 'S1_M01'],
+            ['time_range' => '10:00-12:30', 'moment' => 'Moral', 'beat_type' => 'BREATH', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Moral pressure', 'moment_key' => 'S1_M01'],
+            ['time_range' => '17:00-20:00', 'moment' => 'Commitment', 'beat_type' => 'RESOLUTION', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Future commitment', 'moment_key' => 'S1_M01'],
+        ],
+    ];
+
+    $canonical = (new SessionArchitectureCanonicalizer())->canonicalize($architecture, $draft);
+    (new SessionArchitectureValidator())->validate($canonical, $draft);
+
+    expect($canonical['beat_map'][1])
+        ->moment_key->toBe('S1_M02')
+        ->moment->toBe('Choose stealth or direct confrontation.');
+});
+
 it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Phase 5', function () {
     $choiceDesign = [
         'branching_choices' => [[
@@ -399,3 +435,34 @@ it('rejects a Draft CHOICE-role moment without a canonical branching choice', fu
     RuntimeException::class,
     'Every Draft CHOICE-role moment requires a canonical branching choice; missing: S1_M01.',
 );
+
+it('relocates the semantically matching canonical choice to a Draft CHOICE-role moment', function () {
+    $draft = boilerTestDraft();
+    $draft['event_role_map'][0]['role'] = 'CHOICE';
+    $draft['event_role_map'][0]['why'] = 'A load-bearing stealth versus confrontation methodology decision.';
+    $choiceDesign = [
+        'branching_choices' => [
+            [
+                'choice_id' => 'S1_C1',
+                'category' => 'IDENTITY',
+                'moment_key' => 'S1_M02',
+                'what_this_choice_tracks' => 'Trust versus suspicion',
+                'source_moment' => 'Read the room',
+                'choice_question' => 'Whom do you trust?',
+            ],
+            [
+                'choice_id' => 'S1_C2',
+                'category' => 'METHODOLOGY',
+                'moment_key' => 'S1_M03',
+                'what_this_choice_tracks' => 'Stealth versus confrontation',
+                'source_moment' => 'Choose an approach',
+                'choice_question' => 'Do you hide or confront?',
+            ],
+        ],
+    ];
+
+    $canonical = (new ChoiceDesignCanonicalizer())->canonicalize($choiceDesign, $draft);
+
+    expect($canonical['branching_choices'][0]['moment_key'])->toBe('S1_M02')
+        ->and($canonical['branching_choices'][1]['moment_key'])->toBe('S1_M01');
+});
