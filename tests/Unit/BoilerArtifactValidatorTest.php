@@ -34,7 +34,11 @@ function boilerTestSession(): SessionAdaptation
             ]],
             'emotional_choices' => [],
         ],
-        'session_close_design' => ['closing_moment_key' => 'S1_M01'],
+        'session_close_design' => [
+            'closing_moment_key' => 'S1_M01',
+            'hook_transition' => 'The resolved pressure turns toward the final authored choice.',
+            'next_bridge_guidance' => 'Hand off from the resolution into the session-end decision.',
+        ],
     ]);
 }
 
@@ -214,6 +218,7 @@ it('overlays Finalize references from their authoritative upstream artifacts', f
         ->anchor_event_id->toBe(101)
         ->choice_ids->toBe(['S1_C1'])
         ->next_moment_key->toBe('')
+        ->next_bridge->toBe('The resolved pressure turns toward the final authored choice.')
         ->and($canonical['event_role_map'][0])
         ->primary_role->toBe('PLAY')
         ->included_moment_key->toBe('S1_M01');

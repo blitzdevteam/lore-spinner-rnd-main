@@ -1743,6 +1743,9 @@ php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=choice
 
 # Phase 5→6 consequence binding revision: canonicalizes Phase 6, then reruns Editorial and Assembly.
 php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=consequence
+
+# Final scene-card revision: preserves Phases 4–7 and reruns Finalize through Assembly.
+php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=finalize
 ```
 
 The consequence repair reuses the existing Phase 6 prose when strict validation passes after canonicalization; otherwise it regenerates Phase 6 with corrective feedback. The command clears only stale downstream artifacts for that session, preserves the validated Draft, and finishes with adaptation reconciliation. Run it only while the `adaptation` queue is idle.
@@ -1772,6 +1775,7 @@ The consequence repair reuses the existing Phase 6 prose when strict validation 
 | Finalize stuck `finalizing` | Invalid binding/card/role normalization | Check `boiler_error` and finalizer logs |
 | Event roles fewer than assigned events | Draft/Finalize coverage failure | Inspect role map and session event IDs |
 | Final moment has next key | Finalizer contract failure | Inspect final scene card and validator output |
+| Final moment is missing `next_bridge` | Finalize omitted the Session Close handoff | Confirm canonicalization falls back to validated `hook_transition`, then `next_bridge_guidance`; no story-specific bridge patching |
 | Boiler audit `REVISE` | Experiential or structural weakness | Follow audit revision instructions; do not force completion |
 | Session stuck `editorial-verification` | Assembly did not finish | Check Runtime Assembly failed job and prompt validator |
 | Prompt missing marker | Boiler template branch not used | Verify persisted mode and finalized cut |

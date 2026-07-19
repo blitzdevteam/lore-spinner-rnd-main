@@ -33,6 +33,8 @@ Exit conditions describe the dramatic state change that completes the room. They
 
 `next_moment_key` is bridge evidence only. For each non-final card it must equal the next card by `moment_order`. Use an empty string on the final card; normalization removes it from the canonical stored card. Runtime never routes by this text field.
 
+`next_bridge` is required on every card, including the final card. On the final card, turn Session Close `hook_transition` / `next_bridge_guidance` into the natural handoff from resolved room pressure to the authored session-end choice. PHP falls back to the validated Session Close transition when this final field is accidentally empty.
+
 Preserve the Draft event-role map exactly in coverage and primary role. Rename its `role` field to `primary_role` in final output. Preserve reasons and reintroduction notes.
 
 Do not include complete cards in a separate manifest. The normalizer will persist full cards only in `playable_moments.scene_card` and derive a references-only session manifest.

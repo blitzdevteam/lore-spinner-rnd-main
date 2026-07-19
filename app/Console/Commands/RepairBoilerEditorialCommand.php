@@ -27,7 +27,7 @@ final class RepairBoilerEditorialCommand extends Command
     protected $signature = 'stories:repair-boiler-editorial
                             {story : Story ID or slug}
                             {--session= : Session number to repair}
-                            {--from=consequence : Earliest phase to rerun: architecture, choice, or consequence}';
+                            {--from=consequence : Earliest phase to rerun: architecture, choice, consequence, or finalize}';
 
     protected $description = 'Repair a failed Boiler editorial audit from the affected authoritative phase';
 
@@ -50,8 +50,8 @@ final class RepairBoilerEditorialCommand extends Command
         }
 
         $from = mb_strtolower(mb_trim((string) $this->option('from')));
-        if (! in_array($from, ['architecture', 'choice', 'consequence'], true)) {
-            $this->error('--from must be architecture, choice, or consequence.');
+        if (! in_array($from, ['architecture', 'choice', 'consequence', 'finalize'], true)) {
+            $this->error('--from must be architecture, choice, consequence, or finalize.');
 
             return self::FAILURE;
         }
@@ -67,6 +67,18 @@ final class RepairBoilerEditorialCommand extends Command
 
         if ($from === 'consequence' && empty($session->session_choice_design)) {
             $this->error("Session {$sessionNumber} does not have Phase 5 Choice Design.");
+
+            return self::FAILURE;
+        }
+        if (
+            $from === 'finalize'
+            && (
+                empty($session->session_choice_design)
+                || empty($session->choice_consequence_map)
+                || empty($session->session_close_design)
+            )
+        ) {
+            $this->error("Session {$sessionNumber} does not have all validated Phase 5-7 artifacts.");
 
             return self::FAILURE;
         }
@@ -102,20 +114,22 @@ final class RepairBoilerEditorialCommand extends Command
                 'adaptation_status' => AdaptationStatusEnum::ADAPTING_SESSIONS,
             ]);
 
-            if (in_array($from, ['architecture', 'choice'], true)) {
+            if (in_array($from, ['architecture', 'choice', 'finalize'], true)) {
                 $session->playableCut()->delete();
                 $updates = [
                     'boiler_status' => BoilerStatus::DRAFTED,
                     'boiler_error' => null,
-                    'session_choice_design' => null,
-                    'choice_consequence_map' => null,
-                    'session_close_design' => null,
                     'boiler_final_cut' => null,
                     'boiler_finalized_at' => null,
                     'editorial_verification' => null,
                     'runtime_narrator_prompt' => null,
                     'runtime_narrator_assembled_at' => null,
                 ];
+                if (in_array($from, ['architecture', 'choice'], true)) {
+                    $updates['session_choice_design'] = null;
+                    $updates['choice_consequence_map'] = null;
+                    $updates['session_close_design'] = null;
+                }
                 if ($from === 'architecture') {
                     $updates['session_architecture'] = null;
                 }
@@ -148,6 +162,12 @@ final class RepairBoilerEditorialCommand extends Command
                 new ChoiceDesignJob($story, $sessionNumber),
                 new ConsequenceMappingJob($story, $sessionNumber),
                 new SessionCloseJob($story, $sessionNumber),
+                new BoilerFinalizeJob($story, $sessionNumber),
+                new EditorialVerificationJob($story, $sessionNumber),
+                new RuntimeNarratorAssemblyJob($story, $sessionNumber),
+                new AdaptationStatusReconciliationJob($story),
+            ],
+            'finalize' => [
                 new BoilerFinalizeJob($story, $sessionNumber),
                 new EditorialVerificationJob($story, $sessionNumber),
                 new RuntimeNarratorAssemblyJob($story, $sessionNumber),

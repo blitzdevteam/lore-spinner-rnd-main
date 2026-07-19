@@ -40,6 +40,7 @@ final class BoilerFinalCutCanonicalizer
         $finalCut['playable_promise'] = $draft['playable_promise'] ?? '';
 
         $cards = (array) ($finalCut['moments'] ?? []);
+        $lastCardIndex = count($cards) - 1;
         foreach ($cards as $index => $card) {
             if (! is_array($card)) {
                 continue;
@@ -61,6 +62,12 @@ final class BoilerFinalCutCanonicalizer
             $card['next_moment_key'] = is_array($nextDraftMoment)
                 ? (string) ($nextDraftMoment['moment_key'] ?? '')
                 : '';
+            if (
+                $index === $lastCardIndex
+                && (! is_string($card['next_bridge'] ?? null) || mb_trim($card['next_bridge']) === '')
+            ) {
+                $card['next_bridge'] = $this->finalBridgeFallback($session);
+            }
 
             $cards[$index] = $card;
         }
@@ -78,5 +85,19 @@ final class BoilerFinalCutCanonicalizer
             ->all();
 
         return $finalCut;
+    }
+
+    private function finalBridgeFallback(SessionAdaptation $session): string
+    {
+        $close = (array) $session->session_close_design;
+
+        foreach (['hook_transition', 'next_bridge_guidance'] as $field) {
+            $value = $close[$field] ?? null;
+            if (is_string($value) && mb_trim($value) !== '') {
+                return $value;
+            }
+        }
+
+        return '';
     }
 }
