@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Ai\Adaptation\RuntimeNarratorPromptValidator;
 use App\Ai\Agents\Adaptation\BoilerDraftAgent;
 use App\Ai\Agents\Adaptation\BoilerFinalizeAgent;
+use App\Ai\Agents\Adaptation\EditorialVerificationAgent;
+use App\Ai\Agents\Adaptation\StorySessionMapAgent;
 use App\Enums\BoilerStatus;
 use App\Services\Runtime\NarrationResultNormalizer;
+use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
@@ -24,6 +27,15 @@ it('pins both Boiler agents to the IP Trimming Opus tier', function () {
             ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-4-8')
             ->and($reflection->getAttributes(Timeout::class)[0]->getArguments()[0])->toBe(300);
     }
+});
+
+it('keeps Boiler additions out of disabled adaptation schemas', function () {
+    $schema = new JsonSchemaTypeFactory();
+
+    expect((new StorySessionMapAgent(false))->schema($schema))->not->toHaveKey('boiling_profile')
+        ->and((new StorySessionMapAgent(true))->schema($schema))->toHaveKey('boiling_profile')
+        ->and((new EditorialVerificationAgent(false))->schema($schema))->not->toHaveKey('boiler_audit')
+        ->and((new EditorialVerificationAgent(true))->schema($schema))->toHaveKey('boiler_audit');
 });
 
 it('normalizes legacy choices and Boiler suggestion objects without changing canonical identity', function () {
