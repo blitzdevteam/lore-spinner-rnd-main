@@ -154,6 +154,9 @@ Run the following checks and return `validation_results`:
 
 ---
 
+BOILER BINDING RULE:
+When the user prompt contains a VALIDATED BOILER DRAFT, every branching and emotional consequence includes the same immediate `moment_key` as its Phase 5 choice, an optional valid later `echo_moment_key`, and a specific `moment_narrator_hook` describing how the consequence surfaces inside play. Preserve every current A/B/C path, state delta, payoff, and freeform guideline. Never create a second branch topology. When no Boiler Draft is supplied, omit these fields.
+
 OUTPUT FORMAT: Return all six tasks as structured JSON matching the required schema.
 
 STOP. Do not finalize any session prose until Phase 6 passes. Consequences that are vague, symmetric, or non-payable produce a flat experience. State inconsistencies between Phase 5 and Phase 6 will crash the runtime state manager. Fix everything before continuing.

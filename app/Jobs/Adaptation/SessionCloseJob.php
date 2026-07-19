@@ -9,10 +9,10 @@ use App\Ai\Agents\Adaptation\SessionCloseAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
 use App\Models\Story;
+use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Collection;
 use RuntimeException;
 use Throwable;
 
@@ -32,7 +32,7 @@ final class SessionCloseJob implements ShouldQueue
     }
 
     /** @throws Throwable */
-    public function handle(): void
+    public function handle(SessionEventLoader $eventLoader): void
     {
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
@@ -57,18 +57,19 @@ final class SessionCloseJob implements ShouldQueue
             // V1 fallback path: legacy `branching_choice_3` key.
             $branchingChoices = (array) ($choiceDesign['branching_choices'] ?? []);
             $sessionEndChoice = collect($branchingChoices)
-                ->first(fn ($c) => (int) ($c['choice_number'] ?? 0) === 4)
+                ->first(fn ($c) => ($c['category'] ?? null) === 'SESSION_END_HOOK'
+                    || str_ends_with((string) ($c['choice_id'] ?? ''), '_C4'))
                 ?? ($choiceDesign['branching_choice_3'] ?? null);
 
             $branchingConsequences = (array) ($consequenceMap['branching_consequences'] ?? []);
             $sessionEndConsequence = collect($branchingConsequences)
-                ->first(fn ($c) => (int) ($c['choice_number'] ?? 0) === 4)
+                ->first(fn ($c) => ($c['is_session_end_hook'] ?? false) === true)
                 ?? ($consequenceMap['consequence_map_choice_3'] ?? null);
 
             $sessionAllocation = collect($adaptation->story_session_map['session_allocation'] ?? [])
                 ->firstWhere('session_number', $this->sessionNumber);
 
-            $sessionEvents = $this->loadSessionEventsWithStoryPosition();
+            $sessionEvents = $eventLoader->forSession($this->story, $this->sessionNumber);
 
             if ($sessionEvents->isEmpty()) {
                 throw new RuntimeException(
@@ -89,6 +90,7 @@ final class SessionCloseJob implements ShouldQueue
                     ])->all(),
                     'resolutionSourcePages' => $resolutionSourcePages,
                     'voiceProfile' => VoiceProfilePromptSlice::dnaAndBans((array) ($adaptation->voice_profile ?? [])),
+                    'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
                 ])->render()
             );
 
@@ -110,6 +112,10 @@ final class SessionCloseJob implements ShouldQueue
             $result['session_close_trigger_event_id'] = $triggerEvent->id;
             $result['session_close_trigger_event_position'] = $triggerEvent->story_position;
 
+            if ($adaptation->boiler_enabled) {
+                $this->validateBoilerClose($result, (array) $session->boiler_draft);
+            }
+
             $session->update(['session_close_design' => $result]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
@@ -118,38 +124,26 @@ final class SessionCloseJob implements ShouldQueue
     }
 
     /**
-     * Load the events in this session ordered by (chapter.position, event.position)
-     * and stamp each row with a 1-based story-global `story_position`. Mirrors the
-     * loader in EntryPointDiagnosisJob so session_close_trigger_event_position uses
-     * the same ordinal space as start_event_position.
-     *
-     * @return Collection<int, Event>
+     * @param  array<string, mixed>  $close
+     * @param  array<string, mixed>  $draft
      */
-    private function loadSessionEventsWithStoryPosition(): Collection
+    private function validateBoilerClose(array $close, array $draft): void
     {
-        $allEvents = Event::query()
-            ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
-            ->where('chapters.story_id', $this->story->id)
-            ->orderBy('chapters.position')
-            ->orderBy('events.position')
-            ->get([
-                'events.id',
-                'events.position',
-                'events.title',
-                'events.objectives',
-                'events.chapter_id',
-                'events.session_number',
-                'chapters.position as chapter_position',
-            ])
-            ->values()
-            ->map(function (Event $ev, int $i): Event {
-                $ev->setAttribute('story_position', $i + 1);
+        $moments = collect((array) ($draft['moment_drafts'] ?? []))->sortBy('moment_order')->values();
+        $finalMoment = $moments->last();
 
-                return $ev;
-            });
+        if (! is_array($finalMoment) || ($close['closing_moment_key'] ?? null) !== ($finalMoment['moment_key'] ?? null)) {
+            throw new RuntimeException('Boiler Session Close must bind to the final ordered draft moment.');
+        }
 
-        return $allEvents->filter(
-            fn (Event $ev) => (int) $ev->session_number === $this->sessionNumber
-        )->values();
+        if (! in_array((int) ($close['session_close_trigger_event_id'] ?? 0), (array) ($finalMoment['source_event_ids'] ?? []), true)) {
+            throw new RuntimeException('Boiler session close trigger event must belong to the final ordered moment.');
+        }
+
+        foreach (['closing_moment_relationship', 'next_bridge_guidance'] as $field) {
+            if (trim((string) ($close[$field] ?? '')) === '') {
+                throw new RuntimeException("Boiler Session Close requires {$field}.");
+            }
+        }
     }
 }

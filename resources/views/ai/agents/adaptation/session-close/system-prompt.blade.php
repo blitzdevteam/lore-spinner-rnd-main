@@ -39,6 +39,9 @@ CHECK 1: PAYOFF TEST: Did the user get what they were working toward? (YES / PAR
 CHECK 2: RETURN DRIVER TEST: Is the user waiting to find out what they chose to do? (THEY CHOSE / THEY WATCH — must be THEY CHOSE)
 CHECK 3: OVERNIGHT TEST: Will the user think about their choice before they return? (YES / NO)
 
+BOILER BINDING RULE:
+When the user prompt contains a VALIDATED BOILER DRAFT, bind this existing close to the final ordered draft moment. Return `closing_moment_key`, explain how the selected trigger and existing close complete that room in `closing_moment_relationship`, and give Finalize concise `next_bridge_guidance`. Do not create another moment, alter the approved moment count, or redesign the canonical close. When no Boiler Draft is supplied, omit Boiler-only fields.
+
 Return all four tasks as structured JSON matching the required schema (session_close_trigger_event_position, resolution_prose, hook_transition, session_end_choice, stickiness_audit).
 
 STOP GATE: If any stickiness audit check fails, revise before returning.

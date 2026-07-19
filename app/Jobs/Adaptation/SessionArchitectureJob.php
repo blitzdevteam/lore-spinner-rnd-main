@@ -11,6 +11,7 @@ use App\Models\Story;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
 use Illuminate\Foundation\Queue\Queueable;
+use RuntimeException;
 use Throwable;
 
 final class SessionArchitectureJob implements ShouldQueue
@@ -54,13 +55,49 @@ final class SessionArchitectureJob implements ShouldQueue
                     'sessionNumber' => $this->sessionNumber,
                     'sessionSourcePages' => $sessionSourcePages,
                     'voiceProfile' => VoiceProfilePromptSlice::dna((array) ($adaptation->voice_profile ?? [])),
+                    'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
                 ])->render()
             );
 
-            $session->update(['session_architecture' => $response->toArray()]);
+            $architecture = $response->toArray();
+
+            if ($adaptation->boiler_enabled) {
+                $this->validateBoilerBindings($architecture, (array) $session->boiler_draft);
+            }
+
+            $session->update(['session_architecture' => $architecture]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $architecture
+     * @param  array<string, mixed>  $draft
+     */
+    private function validateBoilerBindings(array $architecture, array $draft): void
+    {
+        $momentKeys = collect((array) ($draft['moment_drafts'] ?? []))
+            ->pluck('moment_key')
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($momentKeys === []) {
+            throw new RuntimeException('Boiler-enabled Session Architecture requires a validated Boiler Draft.');
+        }
+
+        $alignment = $architecture['boiler_budget_alignment'] ?? null;
+        if (! is_array($alignment) || ($alignment['aligned'] ?? null) !== true) {
+            $conflict = is_array($alignment) ? ($alignment['conflict'] ?? 'unspecified conflict') : 'missing alignment result';
+            throw new RuntimeException("Session Architecture conflicts with the approved Boiler budget: {$conflict}");
+        }
+
+        foreach ((array) ($architecture['beat_map'] ?? []) as $beat) {
+            if (! is_array($beat) || ! in_array($beat['moment_key'] ?? null, $momentKeys, true)) {
+                throw new RuntimeException('Every Boiler-enabled beat-map row must reference a valid draft moment_key.');
+            }
         }
     }
 }

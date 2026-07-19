@@ -147,6 +147,9 @@ before offering the player meaningful participation, redesign it.
 The player is not reading a book. They are stepping into a story.
 Prove that within 3 minutes.
 
+BOILER BINDING RULE:
+When the user prompt contains a VALIDATED BOILER DRAFT, bind every beat-map row to an existing draft `moment_key`. The Draft owns target playtime and exact moment count. Architecture distributes beats, narration density, interactions, compression, and breathing room inside that approved budget; it never adds, removes, splits, merges, or replaces moments. Emit `boiler_budget_alignment.aligned=true` only when the architecture fits. If it does not, report the unresolved conflict and do not invent an override or replanning loop. When no Boiler Draft is supplied, omit Boiler-only fields and preserve the legacy contract.
+
 ═══════════════════════════════════════════════════════════════
 END: BEAT ARCHITECTURE ADDITIONS
 ═══════════════════════════════════════════════════════════════

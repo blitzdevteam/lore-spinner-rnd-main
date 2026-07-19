@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 final class ChoiceDesignJob implements ShouldQueue
@@ -77,10 +78,17 @@ final class ChoiceDesignJob implements ShouldQueue
                     'choiceMomentPages'    => $choiceMomentPages,
                     'voiceProfile'         => $voiceProfile,
                     'firstChoiceSpec'      => $firstChoiceSpec,
+                    'boilerDraft'          => $adaptation->boiler_enabled ? $session->boiler_draft : null,
                 ])->render()
             );
 
             $choiceDesign = $response->toArray();
+
+            $this->validateCanonicalTopology($choiceDesign);
+            if ($adaptation->boiler_enabled) {
+                $this->validateBoilerBindings($choiceDesign, (array) $session->boiler_draft);
+            }
+
             $session->update(['session_choice_design' => $choiceDesign]);
 
             $this->enrichBranchDimensionRegistry($adaptation, $choiceDesign);
@@ -146,5 +154,55 @@ final class ChoiceDesignJob implements ShouldQueue
 
         $sessionMap['branch_dimensions'] = $dimensions;
         $adaptation->update(['story_session_map' => $sessionMap]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $choiceDesign
+     */
+    private function validateCanonicalTopology(array $choiceDesign): void
+    {
+        $branchingChoices = (array) ($choiceDesign['branching_choices'] ?? []);
+
+        if (count($branchingChoices) !== 4) {
+            throw new RuntimeException('Choice Design must preserve exactly four canonical branching choices.');
+        }
+
+        foreach ($branchingChoices as $choice) {
+            $labels = collect((array) ($choice['options'] ?? []))
+                ->pluck('label')
+                ->map(fn ($label): string => strtoupper((string) $label))
+                ->sort()
+                ->values()
+                ->all();
+
+            if ($labels !== ['A', 'B', 'C']) {
+                throw new RuntimeException('Every canonical branching choice must preserve exactly A/B/C options.');
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $choiceDesign
+     * @param  array<string, mixed>  $draft
+     */
+    private function validateBoilerBindings(array $choiceDesign, array $draft): void
+    {
+        $momentKeys = collect((array) ($draft['moment_drafts'] ?? []))
+            ->pluck('moment_key')
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($momentKeys === []) {
+            throw new RuntimeException('Boiler-enabled Choice Design requires a validated Boiler Draft.');
+        }
+
+        foreach (['branching_choices', 'emotional_choices', 'posture_shifts'] as $collection) {
+            foreach ((array) ($choiceDesign[$collection] ?? []) as $choice) {
+                if (! is_array($choice) || ! in_array($choice['moment_key'] ?? null, $momentKeys, true)) {
+                    throw new RuntimeException("Every Boiler-enabled {$collection} entry must bind to a valid moment_key.");
+                }
+            }
+        }
     }
 }

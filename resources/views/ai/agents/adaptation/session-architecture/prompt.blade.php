@@ -9,6 +9,13 @@ STORY SESSION MAP:
 PHASE 3: ENTRY POINT DIAGNOSIS:
 {{ json_encode($entryPointDiagnosis, JSON_PRETTY_PRINT) }}
 
+@if(!empty($boilerDraft))
+VALIDATED BOILER DRAFT:
+{{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+Bind every beat-map row to one existing `moment_key`. Distribute the existing content and interaction budgets inside the Draft's approved target playtime and exact moment count. Do not split, merge, add, remove, or replace moments. Return `boiler_budget_alignment.aligned=true` only when the architecture fits that authority; otherwise report the conflict without inventing an override.
+
+@endif
 SESSION NUMBER: {{ $sessionNumber }}
 
 SOURCE PAGES FOR THIS SESSION:

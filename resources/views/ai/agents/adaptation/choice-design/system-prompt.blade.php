@@ -187,6 +187,9 @@ OUTPUT SHAPE — return a single JSON object with these top-level keys:
 
 ---
 
+BOILER BINDING RULE:
+When the user prompt contains a VALIDATED BOILER DRAFT, every branching choice, emotional choice, and posture shift must include one existing draft `moment_key`. This is only a placement binding. Preserve canonical choice IDs, exactly three A/B/C branching paths, option text and outcomes, branch dimensions, freeform alignment mapping, defining lines, and consequence compatibility. Do not turn moment affordances into a second choice topology. When no Boiler Draft is supplied, omit `moment_key` and preserve the legacy contract.
+
 STOP. Before returning, verify:
 - exactly 4 branching choices in IDENTITY / METHODOLOGY / MORAL_WEIGHT / SESSION_END_HOOK order
 - exactly 3 options per branching choice with labels A, B, C

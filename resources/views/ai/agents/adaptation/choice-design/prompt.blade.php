@@ -13,6 +13,13 @@ FIRST-CHOICE SPEC (from Phase 3 / Deliverable 10):
 PHASE 4 BEAT MAP:
 {{ json_encode($beatMap, JSON_PRETTY_PRINT) }}
 
+@if(!empty($boilerDraft))
+VALIDATED BOILER DRAFT:
+{{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+
+Bind every branching choice, emotional choice, and posture shift to one existing `moment_key`. Preserve the complete canonical four-choice A/B/C topology, all choice IDs, option counts, outcomes, defining lines, dimensions, and freeform mapping.
+
+@endif
 STORY SESSION MAP (including branch dimensions):
 {{ json_encode($storySessionMap, JSON_PRETTY_PRINT) }}
 

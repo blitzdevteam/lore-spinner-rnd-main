@@ -63,6 +63,11 @@ class SessionCloseAgent implements Agent, HasStructuredOutput
                 ])->required()->withoutAdditionalProperties()->title('Option C'),
                 'final_line' => $schema->string()->required()->title('Final Line')->description('The sessions last words. An invitation, not a cliffhanger.'),
             ])->required()->withoutAdditionalProperties()->title('Session-End Choice'),
+            'closing_moment_key' => $schema->string()->title('Boiler Closing Moment Key'),
+            'closing_moment_relationship' => $schema->string()->title('Close Trigger Relationship')
+                ->description('How the existing trigger event and close resolve inside the final ordered moment.'),
+            'next_bridge_guidance' => $schema->string()->title('Next Bridge Guidance')
+                ->description('Guidance for Finalize to close the moment and hand off to the next session.'),
             'stickiness_audit' => $schema->object([
                 'payoff_test' => $schema->string()->required()->title('Payoff Test')->description('PASS or REVISE.'),
                 'return_driver_test' => $schema->string()->required()->title('Return Driver Test')->description('PASS or REVISE.'),
