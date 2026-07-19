@@ -160,8 +160,11 @@ final class BoilerFinalCutValidator
                 ! is_array($draftRole)
                 || in_array($eventId, $seenRoleEventIds, true)
                 || ($role['primary_role'] ?? null) !== ($draftRole['role'] ?? null)
+                || ($role['included_moment_key'] ?? '') !== ($draftRole['included_moment_key'] ?? '')
+                || ($role['why'] ?? null) !== ($draftRole['why'] ?? null)
+                || ($role['reintroduction_note'] ?? '') !== ($draftRole['reintroduction_note'] ?? '')
             ) {
-                throw new RuntimeException('Final event roles changed, duplicated, or omitted Draft coverage.');
+                throw new RuntimeException('Final event roles changed, duplicated, or omitted Draft coverage or rationale.');
             }
             $seenRoleEventIds[] = $eventId;
         }

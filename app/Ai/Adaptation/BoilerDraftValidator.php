@@ -103,6 +103,12 @@ final class BoilerDraftValidator
             if (! is_string($role['why'] ?? null) || trim($role['why']) === '') {
                 throw new RuntimeException("Boiler event {$eventId} requires a role reason.");
             }
+            if (
+                in_array($role['role'], ['PLAY', 'PULSE', 'CHOICE'], true)
+                && trim((string) ($role['included_moment_key'] ?? '')) === ''
+            ) {
+                throw new RuntimeException("Playable Boiler event {$eventId} must belong to a moment.");
+            }
 
             $roleEventIds[] = $eventId;
         }
@@ -114,6 +120,7 @@ final class BoilerDraftValidator
         }
 
         $momentKeys = [];
+        $momentSourceEventIds = [];
         foreach ($moments as $index => $moment) {
             if (! is_array($moment)) {
                 throw new RuntimeException('Every Boiler moment draft must be an object.');
@@ -140,6 +147,15 @@ final class BoilerDraftValidator
                 if (! is_int($sourceId) || ! in_array($sourceId, $eventIds, true)) {
                     throw new RuntimeException("Boiler moment {$momentKey} references an out-of-session event.");
                 }
+                if (in_array($sourceId, $momentSourceEventIds, true)) {
+                    throw new RuntimeException("Boiler event {$sourceId} is assigned to more than one moment.");
+                }
+
+                $role = collect($roles)->firstWhere('event_id', $sourceId);
+                if (! is_array($role) || ($role['included_moment_key'] ?? null) !== $momentKey) {
+                    throw new RuntimeException("Boiler event {$sourceId} does not bind back to moment {$momentKey}.");
+                }
+                $momentSourceEventIds[] = $sourceId;
             }
 
             if (! is_int($moment['anchor_event_id'] ?? null) || ! in_array($moment['anchor_event_id'], $sourceIds, true)) {
