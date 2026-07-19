@@ -108,6 +108,7 @@ final class ViewStory extends ViewRecord
                         'story' => ['id' => $story->id, 'title' => $story->title, 'slug' => $slug],
                         'exported_at' => now()->toIso8601String(),
                         'adaptation_status' => $adaptation->adaptation_status->value,
+                        'boiler_enabled' => (bool) $adaptation->boiler_enabled,
                         'story_wide' => [
                             'format_detection' => $adaptation->format_detection,
                             'ip_audit' => $adaptation->ip_audit,
@@ -117,10 +118,14 @@ final class ViewStory extends ViewRecord
                             'session_number' => $s->session_number,
                             'session_status' => $s->session_status->value,
                             'entry_point_diagnosis' => $s->entry_point_diagnosis,
+                            'boiler_status' => $s->boiler_status->value,
+                            'boiler_error' => $s->boiler_error,
+                            'boiler_draft' => $s->boiler_draft,
                             'session_architecture' => $s->session_architecture,
                             'session_choice_design' => $s->session_choice_design,
                             'choice_consequence_map' => $s->choice_consequence_map,
                             'session_close_design' => $s->session_close_design,
+                            'boiler_final_cut' => $s->boiler_final_cut,
                             'editorial_verification' => $s->editorial_verification,
                         ])->values()->toArray(),
                     ];

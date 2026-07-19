@@ -6,6 +6,7 @@ namespace App\Filament\Creator\Resources\Stories\Schemas;
 
 use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Enums\BoilerStatus;
 use App\Enums\Story\StoryRatingEnum;
 use App\Enums\Story\StoryStatusEnum;
 use App\Models\Story;
@@ -85,6 +86,11 @@ final class StoryInfolist
                             ->badge()
                             ->color(fn (?AdaptationStatusEnum $state): string => $state?->getSeverity() ?? 'gray')
                             ->placeholder('Not started'),
+                        TextEntry::make('adaptation.boiler_enabled')
+                            ->label('Boiler Mode')
+                            ->badge()
+                            ->formatStateUsing(fn ($state): string => $state ? 'Enabled' : 'Disabled')
+                            ->color(fn ($state): string => $state ? 'success' : 'gray'),
                         TextEntry::make('adaptation.sessionAdaptations')
                             ->label('Session Progress')
                             ->formatStateUsing(function ($state, Story $record) {
@@ -152,8 +158,23 @@ final class StoryInfolist
                                     ->label('Status')
                                     ->badge()
                                     ->color(fn (?SessionAdaptationStatusEnum $state): string => $state?->getSeverity() ?? 'gray'),
+                                TextEntry::make('boiler_status')
+                                    ->label('Boiler Status')
+                                    ->badge()
+                                    ->formatStateUsing(fn (?BoilerStatus $state): string => $state?->value ?? 'pending')
+                                    ->color(fn (?BoilerStatus $state): string => match ($state) {
+                                        BoilerStatus::FINALIZED => 'success',
+                                        BoilerStatus::FAILED => 'danger',
+                                        BoilerStatus::DRAFTING, BoilerStatus::FINALIZING => 'info',
+                                        default => 'warning',
+                                    }),
                                 TextEntry::make('entry_point_diagnosis')
                                     ->label('Phase 3: Entry Point')
+                                    ->formatStateUsing(fn ($state) => $state ? self::formatJson($state) : 'Pending')
+                                    ->html()
+                                    ->columnSpanFull(),
+                                TextEntry::make('boiler_draft')
+                                    ->label('Phase 3.5: Boiler Draft')
                                     ->formatStateUsing(fn ($state) => $state ? self::formatJson($state) : 'Pending')
                                     ->html()
                                     ->columnSpanFull(),
@@ -174,6 +195,11 @@ final class StoryInfolist
                                     ->columnSpanFull(),
                                 TextEntry::make('session_close_design')
                                     ->label('Phase 7: Session Close')
+                                    ->formatStateUsing(fn ($state) => $state ? self::formatJson($state) : 'Pending')
+                                    ->html()
+                                    ->columnSpanFull(),
+                                TextEntry::make('boiler_final_cut')
+                                    ->label('Phase 7.5: Boiler Final Manifest')
                                     ->formatStateUsing(fn ($state) => $state ? self::formatJson($state) : 'Pending')
                                     ->html()
                                     ->columnSpanFull(),

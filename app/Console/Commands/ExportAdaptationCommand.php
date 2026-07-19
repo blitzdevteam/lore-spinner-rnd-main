@@ -84,6 +84,7 @@ final class ExportAdaptationCommand extends Command
 
         fputcsv($handle, [
             'story_status',
+            'boiler_enabled',
             'format_detection',
             'ip_audit',
             'voice_profile',
@@ -91,6 +92,7 @@ final class ExportAdaptationCommand extends Command
         ]);
         fputcsv($handle, [
             $adaptation->adaptation_status->value,
+            $adaptation->boiler_enabled ? 'yes' : 'no',
             $adaptation->format_detection ? 'done' : 'pending',
             $adaptation->ip_audit ? 'done' : 'pending',
             $adaptation->voice_profile ? 'done' : 'pending',
@@ -102,12 +104,14 @@ final class ExportAdaptationCommand extends Command
         fputcsv($handle, [
             'session_number',
             'session_status',
+            'boiler_status',
             'entry_point_diagnosis',
             'session_architecture',
             'choice_design',
             'consequence_map',
             'session_close',
             'editorial_verification',
+            'boiler_final_cut',
             'updated_at',
         ]);
 
@@ -115,12 +119,14 @@ final class ExportAdaptationCommand extends Command
             fputcsv($handle, [
                 $session->session_number,
                 $session->session_status->value,
+                $session->boiler_status->value,
                 $session->entry_point_diagnosis ? 'done' : 'pending',
                 $session->session_architecture ? 'done' : 'pending',
                 $session->session_choice_design ? 'done' : 'pending',
                 $session->choice_consequence_map ? 'done' : 'pending',
                 $session->session_close_design ? 'done' : 'pending',
                 $session->editorial_verification ? 'done' : 'pending',
+                $session->boiler_final_cut ? 'done' : 'pending',
                 $session->updated_at?->toDateTimeString(),
             ]);
         }
@@ -138,6 +144,7 @@ final class ExportAdaptationCommand extends Command
             ],
             'exported_at' => now()->toIso8601String(),
             'adaptation_status' => $adaptation->adaptation_status->value,
+            'boiler_enabled' => (bool) $adaptation->boiler_enabled,
             'story_wide' => [
                 'format_detection' => $adaptation->format_detection,
                 'ip_audit' => $adaptation->ip_audit,
@@ -149,11 +156,15 @@ final class ExportAdaptationCommand extends Command
                 ->map(fn ($s) => [
                     'session_number' => $s->session_number,
                     'session_status' => $s->session_status->value,
+                    'boiler_status' => $s->boiler_status->value,
+                    'boiler_error' => $s->boiler_error,
                     'entry_point_diagnosis' => $s->entry_point_diagnosis,
+                    'boiler_draft' => $s->boiler_draft,
                     'session_architecture' => $s->session_architecture,
                     'session_choice_design' => $s->session_choice_design,
                     'choice_consequence_map' => $s->choice_consequence_map,
                     'session_close_design' => $s->session_close_design,
+                    'boiler_final_cut' => $s->boiler_final_cut,
                     'editorial_verification' => $s->editorial_verification,
                     'updated_at' => $s->updated_at?->toIso8601String(),
                 ])

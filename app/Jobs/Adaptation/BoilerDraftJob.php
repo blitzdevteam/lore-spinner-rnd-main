@@ -14,6 +14,7 @@ use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 final class BoilerDraftJob implements ShouldQueue
@@ -62,6 +63,10 @@ final class BoilerDraftJob implements ShouldQueue
             'boiler_status' => BoilerStatus::DRAFTING,
             'boiler_error' => null,
         ]);
+        Log::info('boiler.draft_started', [
+            'story_id' => $this->story->id,
+            'session_number' => $this->sessionNumber,
+        ]);
 
         try {
             $context = $contextBuilder->build($this->story, $this->sessionNumber);
@@ -89,9 +94,20 @@ final class BoilerDraftJob implements ShouldQueue
                 'boiler_error' => null,
                 'boiler_generated_at' => now(),
             ]);
+            Log::info('boiler.draft_completed', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'moment_count' => count((array) ($result['moment_drafts'] ?? [])),
+                'event_count' => count((array) ($result['event_role_map'] ?? [])),
+            ]);
         } catch (Throwable $throwable) {
             $session->update([
                 'boiler_error' => mb_substr($throwable->getMessage(), 0, 2_000),
+            ]);
+            Log::warning('boiler.draft_attempt_failed', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'error' => $throwable->getMessage(),
             ]);
 
             throw $throwable;

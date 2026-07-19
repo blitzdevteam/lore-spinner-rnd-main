@@ -15,6 +15,7 @@ use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 final class BoilerFinalizeJob implements ShouldQueue
@@ -68,6 +69,10 @@ final class BoilerFinalizeJob implements ShouldQueue
             'boiler_status' => BoilerStatus::FINALIZING,
             'boiler_error' => null,
         ]);
+        Log::info('boiler.finalize_started', [
+            'story_id' => $this->story->id,
+            'session_number' => $this->sessionNumber,
+        ]);
 
         try {
             $context = $contextBuilder->build($this->story, $this->sessionNumber);
@@ -80,9 +85,19 @@ final class BoilerFinalizeJob implements ShouldQueue
             $events = $eventLoader->forSession($this->story, $this->sessionNumber);
             $validator->validate($result, $session, $events);
             $normalizer->normalize($session, $result);
+            Log::info('boiler.finalize_completed', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'moment_count' => count((array) ($result['moments'] ?? [])),
+            ]);
         } catch (Throwable $throwable) {
             $session->update([
                 'boiler_error' => mb_substr($throwable->getMessage(), 0, 2_000),
+            ]);
+            Log::warning('boiler.finalize_attempt_failed', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'error' => $throwable->getMessage(),
             ]);
 
             throw $throwable;
