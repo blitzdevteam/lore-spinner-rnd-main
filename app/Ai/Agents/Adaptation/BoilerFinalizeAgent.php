@@ -71,8 +71,8 @@ final class BoilerFinalizeAgent implements Agent, HasStructuredOutput
                 'gravity_after' => $schema->integer()->required()->title('Gravity After'),
             ])->required()->withoutAdditionalProperties(),
             'exit_condition' => $schema->string()->required()->title('Semantic Exit Condition'),
-            'next_moment_key' => $schema->string()->title('Next Moment Key')
-                ->description('Required for non-final moments; omit for the final moment.'),
+            'next_moment_key' => $schema->string()->required()->title('Next Moment Key')
+                ->description('The next sequential key for non-final moments; empty string for the final moment.'),
             'next_bridge' => $schema->string()->required()->title('Next Bridge'),
         ])->required()->withoutAdditionalProperties();
 

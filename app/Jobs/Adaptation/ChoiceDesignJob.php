@@ -68,7 +68,7 @@ final class ChoiceDesignJob implements ShouldQueue
             // Use ip_trimming chapter segments for session-accurate source pages.
             $choiceMomentPages = $this->story->getSessionTrimmedText($this->sessionNumber);
 
-            $response = (new ChoiceDesignAgent)->prompt(
+            $response = (new ChoiceDesignAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.choice-design.prompt', [
                     'beatMap'              => $session->session_architecture,
                     'storySessionMap'      => $adaptation->story_session_map,

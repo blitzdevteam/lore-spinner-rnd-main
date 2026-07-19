@@ -46,7 +46,7 @@ final class ConsequenceMappingJob implements ShouldQueue
 
             $choiceDesign = $session->session_choice_design;
 
-            $response = (new ConsequenceMappingAgent)->prompt(
+            $response = (new ConsequenceMappingAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.consequence-mapping.prompt', [
                     // V2 shape: pass through the full branching_choices array
                     // (4 entries) plus the persistent state schema + reactivity

@@ -77,7 +77,7 @@ final class SessionCloseJob implements ShouldQueue
                 );
             }
 
-            $response = (new SessionCloseAgent)->prompt(
+            $response = (new SessionCloseAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.session-close.prompt', [
                     'branchingChoice3Design' => $sessionEndChoice,
                     'choice3ConsequenceMap' => $sessionEndConsequence,

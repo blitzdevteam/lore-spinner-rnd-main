@@ -29,7 +29,7 @@ Every card requires:
 
 Exit conditions describe the dramatic state change that completes the room. They are not exhaustive action checklists. Any credible freeform route may resolve, transform, bypass, or make obsolete the pressure. PHP will validate only structure; the runtime narrator judges meaning.
 
-`next_moment_key` is bridge evidence only. For each non-final card it must equal the next card by `moment_order`. Omit it on the final card. Runtime never routes by this text field.
+`next_moment_key` is bridge evidence only. For each non-final card it must equal the next card by `moment_order`. Use an empty string on the final card; normalization removes it from the canonical stored card. Runtime never routes by this text field.
 
 Preserve the Draft event-role map exactly in coverage and primary role. Rename its `role` field to `primary_role` in final output. Preserve reasons and reintroduction notes.
 

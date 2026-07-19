@@ -32,6 +32,8 @@ class SessionArchitectureAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    public function __construct(private bool $boilerEnabled = false) {}
+
     /**
      * @throws Throwable
      */
@@ -109,16 +111,18 @@ class SessionArchitectureAgent implements Agent, HasStructuredOutput
                         'beat_type' => $schema->string()->required()->title('Beat Type'),
                         'choice_slot' => $schema->string()->required()->title('Choice Slot')->description('BRANCHING / EMOTIONAL / POSTURE / none.'),
                         'dramatic_function' => $schema->string()->required()->title('Dramatic Function'),
-                        'moment_key' => $schema->string()->title('Boiler Moment Key')
-                            ->description('Required only when a Boiler Draft is supplied. Must reference an existing draft moment.'),
+                        ...($this->boilerEnabled ? [
+                            'moment_key' => $schema->string()->required()->title('Boiler Moment Key')
+                                ->description('Must reference an existing draft moment.'),
+                        ] : []),
                     ])->required()->withoutAdditionalProperties()
                 ),
 
-            'boiler_budget_alignment' => $schema->object([
+            ...($this->boilerEnabled ? ['boiler_budget_alignment' => $schema->object([
                 'aligned' => $schema->boolean()->required()->title('Aligned'),
-                'conflict' => $schema->string()->title('Conflict')
-                    ->description('Omit when aligned; otherwise state the unresolved conflict without changing the Draft count.'),
-            ])->withoutAdditionalProperties()->title('Boiler Budget Alignment'),
+                'conflict' => $schema->string()->required()->title('Conflict')
+                    ->description('Empty when aligned; otherwise state the unresolved conflict without changing the Draft count.'),
+            ])->required()->withoutAdditionalProperties()->title('Boiler Budget Alignment')] : []),
 
             'posture_shift_placement_strategy' => $schema->object([
                 'pressure_points' => $schema->array()->required()->title('Pressure Points')->description('3-4 emotional pressure points where posture shifts cluster.')->items(

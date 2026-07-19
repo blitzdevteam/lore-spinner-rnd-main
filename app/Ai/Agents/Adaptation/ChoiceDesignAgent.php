@@ -50,6 +50,8 @@ class ChoiceDesignAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    public function __construct(private bool $boilerEnabled = false) {}
+
     /**
      * @throws Throwable
      */
@@ -114,7 +116,9 @@ class ChoiceDesignAgent implements Agent, HasStructuredOutput
             'choice_id' => $schema->string()->required()->title('Choice ID')->description('S{session}_C{number}.'),
             'category' => $schema->string()->required()->title('Category')->description('IDENTITY / METHODOLOGY / MORAL_WEIGHT / SESSION_END_HOOK.'),
             'beat' => $schema->string()->required()->title('Beat')->description('SETUP / ESCALATION / TWIST / RESOLUTION.'),
-            'moment_key' => $schema->string()->title('Boiler Moment Key'),
+            ...($this->boilerEnabled ? [
+                'moment_key' => $schema->string()->required()->title('Boiler Moment Key'),
+            ] : []),
             'source_moment' => $schema->string()->required()->title('Source Moment'),
             'what_this_choice_tracks' => $schema->string()->required()->title('What This Choice Tracks')->description('Must reference a Phase 2 branch dimension by name.'),
             'alignment_order' => $schema->object([
@@ -153,7 +157,9 @@ class ChoiceDesignAgent implements Agent, HasStructuredOutput
         $emotionalChoiceSchema = $schema->object([
             'choice_id' => $schema->string()->required()->title('Choice ID')->description('S{session}_E{n}.'),
             'beat' => $schema->string()->required()->title('Beat')->description('ESCALATION / BREATH / TWIST / RESOLUTION.'),
-            'moment_key' => $schema->string()->title('Boiler Moment Key'),
+            ...($this->boilerEnabled ? [
+                'moment_key' => $schema->string()->required()->title('Boiler Moment Key'),
+            ] : []),
             'source_moment' => $schema->string()->required()->title('Source Moment'),
             'emotional_register' => $schema->string()->required()->title('Emotional Register'),
             'alignment_order' => $schema->object([
@@ -178,7 +184,9 @@ class ChoiceDesignAgent implements Agent, HasStructuredOutput
         $postureShiftSchema = $schema->object([
             'shift_id' => $schema->string()->required()->title('Shift ID')->description('S{session}_P{n}.'),
             'beat' => $schema->string()->required()->title('Beat'),
-            'moment_key' => $schema->string()->title('Boiler Moment Key'),
+            ...($this->boilerEnabled ? [
+                'moment_key' => $schema->string()->required()->title('Boiler Moment Key'),
+            ] : []),
             'placement' => $schema->string()->required()->title('Placement')->description('Source moment + emotional pressure context.'),
             'narrator_line' => $schema->string()->required()->title('Narrator Line')->description('Single line in the author\'s voice that invites the response. Never menu-shaped.'),
             'options' => $schema->array()->required()->title('Options')->description('2-3 entries.')->items($postureOptionSchema),

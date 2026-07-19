@@ -120,7 +120,9 @@ final class BoilerFinalCutValidator
             $expectedNextKey = $index < count($moments) - 1
                 ? ($moments[$index + 1]['moment_key'] ?? null)
                 : null;
-            $actualNextKey = $card['next_moment_key'] ?? null;
+            $actualNextKey = ($card['next_moment_key'] ?? '') !== ''
+                ? $card['next_moment_key']
+                : null;
 
             if ($actualNextKey !== $expectedNextKey) {
                 throw new RuntimeException("Final scene card {$momentKey} has an invalid next_moment_key.");

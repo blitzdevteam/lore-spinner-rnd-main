@@ -85,7 +85,7 @@ final class StorySessionMapJob implements ShouldQueue
             // Extraction and use conversion notes for session content allocation.
             $ipTrimming = $adaptation->ip_trimming ?? [];
 
-            $response = (new StorySessionMapAgent)->prompt(
+            $response = (new StorySessionMapAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.story-session-map.prompt', [
                     'ipAudit' => $ipAudit,
                     'formatDetection' => json_encode($formatDetection, JSON_PRETTY_PRINT),

@@ -87,7 +87,7 @@ final class EditorialVerificationJob implements ShouldQueue
             ['voice_decay_prevention_protocol' => true]
         );
 
-        $response = (new EditorialVerificationAgent)->prompt(
+        $response = (new EditorialVerificationAgent((bool) $adaptation->boiler_enabled))->prompt(
             view('ai.agents.adaptation.editorial-verification.prompt', [
                 'completeSessionDesign' => $completeDesign,
                 'storySessionMap' => $adaptation->story_session_map,

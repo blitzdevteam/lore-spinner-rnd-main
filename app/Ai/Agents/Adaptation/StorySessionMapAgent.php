@@ -21,6 +21,8 @@ class StorySessionMapAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    public function __construct(private bool $boilerEnabled = false) {}
+
     /**
      * @throws Throwable
      */
@@ -101,7 +103,7 @@ class StorySessionMapAgent implements Agent, HasStructuredOutput
                     ])->required()->withoutAdditionalProperties()
                 ),
 
-            'boiling_profile' => $schema->object([
+            ...($this->boilerEnabled ? ['boiling_profile' => $schema->object([
                 'compaction_level' => $schema->string()->required()->title('Compaction Level')
                     ->description('light / balanced / strong. Editorial judgment grounded in this story, never a formula.'),
                 'target_total_playtime_minutes' => $schema->integer()->required()->title('Target Total Playtime Minutes'),
@@ -119,7 +121,7 @@ class StorySessionMapAgent implements Agent, HasStructuredOutput
                         'rationale' => $schema->string()->required()->title('Rationale'),
                     ])->required()->withoutAdditionalProperties()
                 ),
-            ])->withoutAdditionalProperties()->title('Boiling Profile'),
+            ])->required()->withoutAdditionalProperties()->title('Boiling Profile')] : []),
 
             // --- Pipeline Upgrade V2: Deliverable 2 Tasks 6-9 ---
 

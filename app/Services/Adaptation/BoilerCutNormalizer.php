@@ -33,6 +33,10 @@ final class BoilerCutNormalizer
             ]);
 
             foreach ((array) ($finalCut['moments'] ?? []) as $card) {
+                if (($card['next_moment_key'] ?? '') === '') {
+                    unset($card['next_moment_key']);
+                }
+
                 $cut->moments()->create([
                     'moment_key' => $card['moment_key'],
                     'moment_order' => $card['moment_order'],

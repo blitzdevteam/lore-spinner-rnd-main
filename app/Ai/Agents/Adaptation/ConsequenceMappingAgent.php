@@ -49,6 +49,8 @@ class ConsequenceMappingAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    public function __construct(private bool $boilerEnabled = false) {}
+
     /**
      * @throws Throwable
      */
@@ -101,9 +103,12 @@ class ConsequenceMappingAgent implements Agent, HasStructuredOutput
 
         $branchingConsequenceSchema = $schema->object([
             'choice_id' => $schema->string()->required()->title('Choice ID'),
-            'moment_key' => $schema->string()->title('Immediate Boiler Moment Key'),
-            'echo_moment_key' => $schema->string()->title('Optional Same-Session Echo Moment Key'),
-            'moment_narrator_hook' => $schema->string()->title('Moment-Aware Narrator Hook'),
+            ...($this->boilerEnabled ? [
+                'moment_key' => $schema->string()->required()->title('Immediate Boiler Moment Key'),
+                'echo_moment_key' => $schema->string()->required()->title('Optional Same-Session Echo Moment Key')
+                    ->description('Use an empty string when no same-session echo applies.'),
+                'moment_narrator_hook' => $schema->string()->required()->title('Moment-Aware Narrator Hook'),
+            ] : []),
             'tracked_dimension' => $schema->string()->required()->title('Tracked Dimension')->description('Must match the Phase 5 branching choice dimension exactly.'),
             'is_session_end_hook' => $schema->boolean()->required()->title('Is Session End Hook')->description('True only for Branching Choice #4.'),
             'paths' => $schema->array()->required()->title('Paths')->description('Exactly 3 entries: labels A, B, C.')->items($pathSchema),
@@ -122,9 +127,12 @@ class ConsequenceMappingAgent implements Agent, HasStructuredOutput
 
         $emotionalConsequenceSchema = $schema->object([
             'choice_id' => $schema->string()->required()->title('Choice ID'),
-            'moment_key' => $schema->string()->title('Immediate Boiler Moment Key'),
-            'echo_moment_key' => $schema->string()->title('Optional Same-Session Echo Moment Key'),
-            'moment_narrator_hook' => $schema->string()->title('Moment-Aware Narrator Hook'),
+            ...($this->boilerEnabled ? [
+                'moment_key' => $schema->string()->required()->title('Immediate Boiler Moment Key'),
+                'echo_moment_key' => $schema->string()->required()->title('Optional Same-Session Echo Moment Key')
+                    ->description('Use an empty string when no same-session echo applies.'),
+                'moment_narrator_hook' => $schema->string()->required()->title('Moment-Aware Narrator Hook'),
+            ] : []),
             'paths' => $schema->array()->required()->title('Paths')->items($emotionalPathSchema),
             'convergence_point' => $schema->string()->required()->title('Convergence Point'),
         ])->required()->withoutAdditionalProperties();

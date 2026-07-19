@@ -48,7 +48,7 @@ final class SessionArchitectureJob implements ShouldQueue
             // Falls back to raw source if ip_trimming is not yet available.
             $sessionSourcePages = $this->story->getSessionTrimmedText($this->sessionNumber);
 
-            $response = (new SessionArchitectureAgent)->prompt(
+            $response = (new SessionArchitectureAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.session-architecture.prompt', [
                     'storySessionMap' => $adaptation->story_session_map,
                     'entryPointDiagnosis' => $session->entry_point_diagnosis,

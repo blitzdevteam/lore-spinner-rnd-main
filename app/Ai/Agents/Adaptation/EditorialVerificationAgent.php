@@ -37,6 +37,8 @@ class EditorialVerificationAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    public function __construct(private bool $boilerEnabled = false) {}
+
     /**
      * @throws Throwable
      */
@@ -93,7 +95,7 @@ class EditorialVerificationAgent implements Agent, HasStructuredOutput
                 'q23_alignment_balance' => (clone $questionResultSchema)->title('Q23 — Alignment Balance'),
             ])->required()->withoutAdditionalProperties()->title('Section C — StoryGuard & State Compliance'),
 
-            'boiler_audit' => $schema->object([
+            ...($this->boilerEnabled ? ['boiler_audit' => $schema->object([
                 'event_coverage' => (clone $questionResultSchema)->title('Boiler — Event Coverage'),
                 'canon_reintroduction' => (clone $questionResultSchema)->title('Boiler — Canon Reintroduction'),
                 'moment_alignment' => (clone $questionResultSchema)->title('Boiler — Moment Alignment'),
@@ -108,7 +110,7 @@ class EditorialVerificationAgent implements Agent, HasStructuredOutput
                     ->description('PASS only when every Boiler audit item passes; otherwise REVISE.'),
                 'revision_instructions' => $schema->array()->required()->title('Boiler Revision Instructions')
                     ->items($schema->string()->required()),
-            ])->withoutAdditionalProperties()->title('Boiler Audit'),
+            ])->required()->withoutAdditionalProperties()->title('Boiler Audit')] : []),
 
             'final_verdict' => $schema->object([
                 'total_passing' => $schema->number()->required()->title('Total Passing')->description('Count of PASS verdicts out of 23.'),
