@@ -153,6 +153,8 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
     $command = file_get_contents(app_path('Console/Commands/InspectBoilerCommand.php'));
 
     expect($job)
+        ->toContain('public int $tries = 1')
+        ->toContain('public int $timeout = 600')
         ->toContain("\$session->update(['editorial_verification' => \$verification])")
         ->toContain('boiler.editorial_verification_failed')
         ->toContain("'revision_instructions' => \$revisions")

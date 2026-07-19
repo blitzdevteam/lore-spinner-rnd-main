@@ -18,9 +18,9 @@ final class EditorialVerificationJob implements ShouldQueue
 {
     use Batchable, Queueable;
 
-    public int $tries = 3;
+    public int $tries = 1;
 
-    public int $timeout = 300;
+    public int $timeout = 600;
 
     public int $backoff = 60;
 
