@@ -62,11 +62,18 @@ final class BoilerFinalCutCanonicalizer
             $card['next_moment_key'] = is_array($nextDraftMoment)
                 ? (string) ($nextDraftMoment['moment_key'] ?? '')
                 : '';
-            if (
-                $index === $lastCardIndex
-                && (! is_string($card['next_bridge'] ?? null) || mb_trim($card['next_bridge']) === '')
-            ) {
-                $card['next_bridge'] = $this->finalBridgeFallback($session);
+
+            // Phase 7 Session Close owns the closing hook for the final card.
+            // Always overlay next_bridge from hook_transition/next_bridge_guidance
+            // so the Finalize AI cannot replace a crafted moral question with an
+            // explanatory summary.
+            if ($index === $lastCardIndex) {
+                $canonical = $this->finalBridgeFallback($session);
+                if ($canonical !== '') {
+                    $card['next_bridge'] = $canonical;
+                } elseif (! is_string($card['next_bridge'] ?? null) || mb_trim($card['next_bridge']) === '') {
+                    $card['next_bridge'] = '';
+                }
             }
 
             $cards[$index] = $card;
