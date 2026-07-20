@@ -106,7 +106,7 @@ Return PASS or REVISE with evidence for each:
 1. EVENT COVERAGE — every assigned event has exactly one transparent role and valid moment/reintroduction route.
 2. CANON REINTRODUCTION — required canon and every must-breathe earned effect survive direct play or an explicit reintroduction.
 3. MOMENT ALIGNMENT — moments match Entry Point, Draft, Architecture, and ordered source coverage.
-4. CHOICE BINDINGS — canonical choice IDs, complete A/B/C paths, defining lines, and freeform mapping remain unchanged and bind to valid moments.
+4. CHOICE BINDINGS — canonical choice IDs, complete A/B/C paths, defining lines, and freeform mapping remain unchanged and bind to valid moments. `session_choice_design` is the sole authority for which four canonical branching IDs exist and where they bind; Draft event roles marked `CHOICE` are candidate pressures and do not each require a canonical branching ID. Require SESSION_END_HOOK / C4 on the final ordered moment.
 5. CONSEQUENCE AND CLOSE BINDINGS — immediate/echo hooks resolve and the existing close belongs to the final moment.
 6. PLAYABLE ROOM QUALITY — every PLAY/PULSE/CHOICE room has pressure, credible affordances, local source texture, canon boundaries, variance, and an exit; it permits meaningful exploration and action rather than summarizing.
 7. PACING AND BUDGET AGREEMENT — Story Session Map minutes/range, Draft exact count, Architecture alignment, and final normalized count agree. Must-compress material was not silently expanded; protected material has adequate space.

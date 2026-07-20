@@ -308,7 +308,7 @@ it('requires the Architecture breath row wholly inside minutes 10 through 13', f
         ->toThrow(RuntimeException::class, 'The BREATH beat must fit wholly inside minutes 10:00-13:00');
 });
 
-it('requires Architecture to place a branching slot on every Draft CHOICE-role moment', function () {
+it('does not manufacture extra Architecture branches for every Draft CHOICE candidate', function () {
     $draft = boilerTestDraft();
     $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
         'moment_key' => 'S1_M02',
@@ -340,12 +340,11 @@ it('requires Architecture to place a branching slot on every Draft CHOICE-role m
     ];
 
     (new SessionArchitectureValidator())->validate($architecture, $draft);
-})->throws(
-    RuntimeException::class,
-    'Every Draft CHOICE-role moment requires a BRANCHING Architecture slot; missing: S1_M02.',
-);
 
-it('relocates the semantically matching Architecture branch to a Draft CHOICE-role moment', function () {
+    expect(true)->toBeTrue();
+});
+
+it('anchors the final Architecture branch without relocating other slots from candidate roles', function () {
     $draft = boilerTestDraft();
     $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
         'moment_key' => 'S1_M02',
@@ -382,8 +381,8 @@ it('relocates the semantically matching Architecture branch to a Draft CHOICE-ro
     (new SessionArchitectureValidator())->validate($canonical, $draft);
 
     expect($canonical['beat_map'][1])
-        ->moment_key->toBe('S1_M02')
-        ->moment->toBe('Choose stealth or direct confrontation.')
+        ->moment_key->toBe('S1_M01')
+        ->moment->toBe('Approach')
         ->and($canonical['beat_map'][3]['moment_key'])->toBe('S1_M03');
 });
 
@@ -439,7 +438,7 @@ it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Ph
         );
 });
 
-it('rejects a Draft CHOICE-role moment without a canonical branching choice', function () {
+it('allows Draft CHOICE candidates that Architecture did not select as canonical branches', function () {
     $draft = boilerTestDraft();
     $draft['event_role_map'][0]['role'] = 'CHOICE';
     $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
@@ -460,12 +459,11 @@ it('rejects a Draft CHOICE-role moment without a canonical branching choice', fu
     $method = new ReflectionMethod(ChoiceDesignJob::class, 'validateBoilerBindings');
 
     $method->invoke(new ChoiceDesignJob(new Story, 1), $choiceDesign, $draft);
-})->throws(
-    RuntimeException::class,
-    'Every Draft CHOICE-role moment requires a canonical branching choice; missing: S1_M01.',
-);
 
-it('relocates the semantically matching canonical choice to a Draft CHOICE-role moment', function () {
+    expect(true)->toBeTrue();
+});
+
+it('does not infer canonical choice placement from unstructured Draft role prose', function () {
     $draft = boilerTestDraft();
     $draft['event_role_map'][0]['role'] = 'CHOICE';
     $draft['event_role_map'][0]['why'] = 'A load-bearing stealth versus confrontation methodology decision.';
@@ -493,7 +491,7 @@ it('relocates the semantically matching canonical choice to a Draft CHOICE-role 
     $canonical = (new ChoiceDesignCanonicalizer())->canonicalize($choiceDesign, $draft);
 
     expect($canonical['branching_choices'][0]['moment_key'])->toBe('S1_M02')
-        ->and($canonical['branching_choices'][1]['moment_key'])->toBe('S1_M01');
+        ->and($canonical['branching_choices'][1]['moment_key'])->toBe('S1_M03');
 });
 
 it('always binds the canonical session-end choice to the final Draft moment', function () {

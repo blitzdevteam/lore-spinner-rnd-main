@@ -235,26 +235,6 @@ final class ChoiceDesignJob implements ShouldQueue
             );
         }
 
-        $requiredChoiceMoments = collect((array) ($draft['event_role_map'] ?? []))
-            ->filter(fn ($role): bool => is_array($role)
-                && ($role['role'] ?? null) === 'CHOICE'
-                && is_string($role['included_moment_key'] ?? null)
-                && $role['included_moment_key'] !== '')
-            ->pluck('included_moment_key')
-            ->unique()
-            ->values();
-        $branchingChoiceMoments = collect((array) ($choiceDesign['branching_choices'] ?? []))
-            ->pluck('moment_key')
-            ->filter()
-            ->unique();
-        $unboundChoiceMoments = $requiredChoiceMoments->diff($branchingChoiceMoments)->values();
-
-        if ($unboundChoiceMoments->isNotEmpty()) {
-            throw new RuntimeException(
-                'Every Draft CHOICE-role moment requires a canonical branching choice; missing: '
-                .$unboundChoiceMoments->implode(', ').'.'
-            );
-        }
     }
 
     /**

@@ -8,7 +8,7 @@ For every assigned event, assign exactly one primary role:
 
 - PLAY — a room worth inhabiting for several turns because action, pressure, discovery, relationship, or embodied conflict can change;
 - PULSE — a short playable beat with one strong image, reaction, or action;
-- CHOICE — a load-bearing identity, methodology, moral, or commitment pressure;
+- CHOICE — a candidate load-bearing identity, methodology, moral, or commitment pressure; multiple CHOICE-role events may compete for the fixed downstream topology of exactly three non-final canonical branches plus one final SESSION_END_HOOK, so this role does not itself create a canonical choice ID;
 - REACTION — consequence surface where the world notices prior action;
 - MONTAGE — connective action compressed into cinematic movement;
 - ECHO — source meaning preserved later through object, dialogue, memory, relationship, or world response;
