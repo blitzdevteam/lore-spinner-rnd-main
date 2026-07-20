@@ -33,8 +33,8 @@ Pass condition: Internal stakes (what the protagonist wants and why) are establi
 QUESTION 6: DOES A DECISION MADE EARLY HAVE VISIBLE IMPACT LATER?
 Pass condition: At least one choice from this session has a named, specific payoff in a future session.
 
-QUESTION 7: IS THERE A BREATH BEAT BETWEEN MINUTES 10-13?
-Pass condition: A humor, absurdity, or wonder beat exists. Tension is deliberately released before the Twist beat compounds it.
+QUESTION 7: IS THERE A BREATH BEAT?
+Pass condition: A humor, absurdity, or wonder beat exists that deliberately releases tension before the Twist beat compounds it. For standard sessions this ideally lands between minutes 10-13 (the Schell Rule), but earlier placement is acceptable when the source material's natural release falls there — for example, a climax or final session where sustained tension after the breath is the correct dramatic shape. Do not REVISE solely because the beat falls outside 10-13; REVISE only if no genuine release beat exists at all.
 
 QUESTION 8: DOES AT LEAST ONE CHOICE PRESENT A GENUINE MORAL GRAY AREA?
 Pass condition: The moral-weight branching choice has no objectively correct answer. Each option reflects a legitimate human value. List the three values in tension.

@@ -13,7 +13,7 @@ Session structure (20-30 minutes per session):
 
 * SETUP beat (0-3 min): Cold open. First branching choice arrives within 300 words.
 * ESCALATION beat (3-10 min): Stakes compound. Goal visible, obstacle clear.
-* BREATH beat (10-13 min): Deliberate release. Humor, absurdity, or wonder. The Schell Rule: a reward must land between minutes 10 and 13.
+* BREATH beat (10-13 min): Deliberate release. Humor, absurdity, or wonder. The Schell Rule: a reward ideally lands between minutes 10 and 13, but may fall earlier when the source material's natural release demands it (e.g. a climax session where tension must stay high after the breath).
 * TWIST beat (10-17 min): Moral-weight choice. No correct answer.
 * RESOLUTION beat (17-22 min): Primary arc resolves. Session-end hook choice plants the next session.
 
