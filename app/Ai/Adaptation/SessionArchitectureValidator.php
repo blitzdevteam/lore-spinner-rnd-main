@@ -9,6 +9,12 @@ use RuntimeException;
 final class SessionArchitectureValidator
 {
     /**
+     * Enforce only the universal structural invariants every Boiler story must satisfy.
+     *
+     * Pacing checks (BREATH window, time-range format) are intentionally left to
+     * Editorial Verification Q7 — they are story-dependent guidelines, not hard
+     * structural contracts that hold across all IPs.
+     *
      * @param  array<string, mixed>  $architecture
      * @param  array<string, mixed>  $draft
      */
@@ -34,16 +40,11 @@ final class SessionArchitectureValidator
         }
 
         $branchingMoments = collect();
-        $breathWindows = [];
         $branchingSlots = 0;
+
         foreach ((array) ($architecture['beat_map'] ?? []) as $beat) {
             if (! is_array($beat) || ! in_array($beat['moment_key'] ?? null, $momentKeys, true)) {
                 throw new RuntimeException('Every Boiler-enabled beat-map row must reference a valid draft moment_key.');
-            }
-
-            [$startMinute, $endMinute] = $this->parseTimeRange((string) ($beat['time_range'] ?? ''));
-            if ($endMinute <= $startMinute) {
-                throw new RuntimeException('Every Architecture time_range must end after it starts.');
             }
 
             if (str_starts_with(
@@ -52,14 +53,6 @@ final class SessionArchitectureValidator
             )) {
                 $branchingSlots++;
                 $branchingMoments->push($beat['moment_key']);
-            }
-
-            if (mb_strtoupper(mb_trim((string) ($beat['beat_type'] ?? ''))) === 'BREATH') {
-                $breathWindows[] = [
-                    'range' => (string) $beat['time_range'],
-                    'start' => $startMinute,
-                    'end' => $endMinute,
-                ];
             }
         }
 
@@ -73,38 +66,5 @@ final class SessionArchitectureValidator
                 'The final Draft moment must own a BRANCHING Architecture slot for the session-end hook.'
             );
         }
-
-        if (count($breathWindows) !== 1) {
-            throw new RuntimeException('Boiler-enabled Session Architecture requires exactly one BREATH beat-map row.');
-        }
-
-        $breath = $breathWindows[0];
-        if ($breath['start'] < 10 || $breath['end'] > 13) {
-            throw new RuntimeException(
-                'The BREATH beat must fit wholly inside minutes 10:00-13:00; '
-                ."received {$breath['range']}."
-            );
-        }
-    }
-
-    /**
-     * @return array{0: float, 1: float}
-     */
-    private function parseTimeRange(string $range): array
-    {
-        if (! preg_match(
-            '/^\s*(\d{1,2}):([0-5]\d)\s*[-–—]\s*(\d{1,2}):([0-5]\d)\s*$/u',
-            $range,
-            $matches,
-        )) {
-            throw new RuntimeException(
-                "Architecture time_range must use MM:SS-MM:SS format; received {$range}."
-            );
-        }
-
-        return [
-            (int) $matches[1] + ((int) $matches[2] / 60),
-            (int) $matches[3] + ((int) $matches[4] / 60),
-        ];
     }
 }

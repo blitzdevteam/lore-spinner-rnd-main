@@ -267,46 +267,6 @@ it('requires relationally sequential next moment evidence in final cards', funct
     (new BoilerFinalCutValidator())->validate($finalCut, $session, boilerTestEvents());
 })->throws(RuntimeException::class);
 
-it('requires the Architecture breath row wholly inside minutes 10 through 13', function () {
-    $valid = [
-        'boiler_budget_alignment' => ['aligned' => true, 'conflict' => ''],
-        'beat_map' => [
-            [
-                'time_range' => '00:00-03:00',
-                'beat_type' => 'SETUP',
-                'choice_slot' => 'BRANCHING',
-                'moment_key' => 'S1_M01',
-            ],
-            [
-                'time_range' => '03:00-07:00',
-                'beat_type' => 'ESCALATION',
-                'choice_slot' => 'BRANCHING',
-                'moment_key' => 'S1_M01',
-            ],
-            [
-                'time_range' => '10:00-12:30',
-                'beat_type' => 'BREATH',
-                'choice_slot' => 'BRANCHING',
-                'moment_key' => 'S1_M01',
-            ],
-            [
-                'time_range' => '17:00-20:00',
-                'beat_type' => 'RESOLUTION',
-                'choice_slot' => 'BRANCHING',
-                'moment_key' => 'S1_M01',
-            ],
-        ],
-    ];
-    $validator = new SessionArchitectureValidator();
-
-    $validator->validate($valid, boilerTestDraft());
-
-    $invalid = $valid;
-    $invalid['beat_map'][2]['time_range'] = '02:00-04:00';
-
-    expect(fn () => $validator->validate($invalid, boilerTestDraft()))
-        ->toThrow(RuntimeException::class, 'The BREATH beat must fit wholly inside minutes 10:00-13:00');
-});
 
 it('does not manufacture extra Architecture branches for every Draft CHOICE candidate', function () {
     $draft = boilerTestDraft();

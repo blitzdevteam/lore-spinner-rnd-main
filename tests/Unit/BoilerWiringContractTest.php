@@ -184,7 +184,7 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
         ->toContain('boiler.architecture_validation_failed')
         ->toContain('session-architecture.repair-prompt')
         ->and($architecturePrompt)
-        ->toContain('10:00-13:00')
+        ->toContain('Exactly four rows use a')
         ->and($architectureCanonicalizer)
         ->toContain('Session-end hook authority')
         ->and($architectureValidator)
