@@ -23,6 +23,13 @@ final class RuntimeNarratorPromptValidator
         '[POPULATED]',
         '[RUNTIME]',
         '[HARDCODED]',
+        // Beat-type labels rendered inline in the beat map section (line: [SETUP] 00:00-03:00: ...)
+        '[SETUP]',
+        '[ESCALATION]',
+        '[BREATH]',
+        '[TWIST]',
+        '[RESOLUTION]',
+        '[BRANCHING]',
     ];
 
     public function validate(string $prompt, bool $boilerEnabled): void
