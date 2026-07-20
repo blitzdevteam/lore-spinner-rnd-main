@@ -119,7 +119,7 @@ it('keeps long adaptation jobs inside the database queue lease', function () {
         ->and($draftJob)
         ->toContain('is already failed.')
         ->and($finalizeJob)
-        ->toContain('is already failed.')
+        ->toContain('boiler.finalize_concurrent_skip')
         ->and($architectureJob)
         ->toContain('$session->boiler_status !== BoilerStatus::DRAFTED')
         ->toContain('requires a validated Boiler Draft');

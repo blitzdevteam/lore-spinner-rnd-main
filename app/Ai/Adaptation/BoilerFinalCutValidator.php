@@ -167,10 +167,19 @@ final class BoilerFinalCutValidator
             }
             $eventId = $role['event_id'];
             $draftRole = $draftRoles->get($eventId);
+            $draftRoleValue = $draftRole['role'] ?? null;
+            $actualRole = $role['primary_role'] ?? null;
+
+            // The canonicalizer legitimately downgrades Draft CHOICE candidates
+            // that Phase 5 did not select to PRESSURE. All other role changes
+            // are disallowed.
+            $roleValid = $actualRole === $draftRoleValue
+                || ($draftRoleValue === 'CHOICE' && $actualRole === 'PRESSURE');
+
             if (
                 ! is_array($draftRole)
                 || in_array($eventId, $seenRoleEventIds, true)
-                || ($role['primary_role'] ?? null) !== ($draftRole['role'] ?? null)
+                || ! $roleValid
                 || ($role['included_moment_key'] ?? '') !== ($draftRole['included_moment_key'] ?? '')
                 || ($role['why'] ?? null) !== ($draftRole['why'] ?? null)
                 || ($role['reintroduction_note'] ?? '') !== ($draftRole['reintroduction_note'] ?? '')

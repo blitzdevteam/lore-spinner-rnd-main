@@ -18,6 +18,7 @@ use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
@@ -60,24 +61,41 @@ final class BoilerFinalizeJob implements ShouldQueue
             return;
         }
 
-        if ($session->boiler_status === BoilerStatus::FINALIZED) {
+        // Atomic claim: only one worker may run finalize at a time for this session.
+        // Uses a SELECT FOR UPDATE lock so concurrent orphaned queue jobs skip
+        // rather than racing each other.
+        $claimed = DB::transaction(function () use ($session): bool {
+            $fresh = SessionAdaptation::lockForUpdate()->find($session->id);
+            if ($fresh === null) {
+                return false;
+            }
+            if ($fresh->boiler_status === BoilerStatus::FINALIZED) {
+                return false;
+            }
+            if ($fresh->boiler_status === BoilerStatus::FINALIZING) {
+                // Already claimed by a concurrent worker — skip silently.
+                return false;
+            }
+            if (! in_array($fresh->boiler_status, [BoilerStatus::DRAFTED], true)) {
+                return false;
+            }
+            $fresh->update([
+                'boiler_status' => BoilerStatus::FINALIZING,
+                'boiler_error' => null,
+            ]);
+
+            return true;
+        });
+
+        if (! $claimed) {
+            Log::info('boiler.finalize_concurrent_skip', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'boiler_status' => $session->boiler_status,
+            ]);
+
             return;
         }
-
-        if ($session->boiler_status === BoilerStatus::FAILED) {
-            throw new RuntimeException(
-                $session->boiler_error ?: "Boiler Finalize for session {$this->sessionNumber} is already failed."
-            );
-        }
-
-        if (! in_array($session->boiler_status, [BoilerStatus::DRAFTED, BoilerStatus::FINALIZING], true)) {
-            throw new RuntimeException('Boiler Finalize requires boiler_status drafted or finalizing.');
-        }
-
-        $session->update([
-            'boiler_status' => BoilerStatus::FINALIZING,
-            'boiler_error' => null,
-        ]);
         Log::info('boiler.finalize_started', [
             'story_id' => $this->story->id,
             'session_number' => $this->sessionNumber,
