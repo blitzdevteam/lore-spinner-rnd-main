@@ -138,8 +138,15 @@ final class RepairBoilerEditorialCommand extends Command
                 return;
             }
 
+            // Reset boiler_status to DRAFTED so any orphaned finalize job still
+            // lingering in the queue fails the "drafted or finalizing" guard
+            // in BoilerFinalizeJob rather than running a second concurrent time.
+            $session->playableCut()->delete();
             $session->update([
                 'boiler_error' => null,
+                'boiler_status' => BoilerStatus::DRAFTED,
+                'boiler_final_cut' => null,
+                'boiler_finalized_at' => null,
                 'choice_consequence_map' => $canonicalConsequenceMap,
                 'editorial_verification' => null,
                 'runtime_narrator_prompt' => null,

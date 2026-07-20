@@ -73,14 +73,28 @@ final class BoilerFinalCutCanonicalizer
         }
         $finalCut['moments'] = $cards;
 
+        // Only moments that Phase 5 assigned a canonical branching choice carry the
+        // CHOICE role in the final cut. Draft CHOICE candidates that were not
+        // selected by Phase 5 are reclassified as PRESSURE — they exert narrative
+        // weight without owning a canonical branching ID.
+        $canonicalChoiceMoments = $choiceIdsByMoment->keys()->all();
+
         $finalCut['event_role_map'] = collect((array) ($draft['event_role_map'] ?? []))
-            ->map(fn ($role): array => [
-                'event_id' => $role['event_id'] ?? null,
-                'primary_role' => $role['role'] ?? null,
-                'included_moment_key' => $role['included_moment_key'] ?? '',
-                'why' => $role['why'] ?? null,
-                'reintroduction_note' => $role['reintroduction_note'] ?? '',
-            ])
+            ->map(function ($role) use ($canonicalChoiceMoments): array {
+                $draftRole = $role['role'] ?? null;
+                $momentKey = $role['included_moment_key'] ?? '';
+                $effectiveRole = ($draftRole === 'CHOICE' && ! in_array($momentKey, $canonicalChoiceMoments, true))
+                    ? 'PRESSURE'
+                    : $draftRole;
+
+                return [
+                    'event_id' => $role['event_id'] ?? null,
+                    'primary_role' => $effectiveRole,
+                    'included_moment_key' => $momentKey,
+                    'why' => $role['why'] ?? null,
+                    'reintroduction_note' => $role['reintroduction_note'] ?? '',
+                ];
+            })
             ->values()
             ->all();
 
