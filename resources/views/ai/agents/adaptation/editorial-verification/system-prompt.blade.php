@@ -103,7 +103,7 @@ Read the normalized event roles and canonical `playable_moments.scene_card` valu
 
 Return PASS or REVISE with evidence for each:
 
-1. EVENT COVERAGE — every assigned event has exactly one transparent role and valid moment/reintroduction route.
+1. EVENT COVERAGE — every assigned event has exactly one transparent role and valid moment/reintroduction route. Draft events with `role: CHOICE` that Phase 5 (`session_choice_design`) did not select as one of the four canonical branching moments will appear as `primary_role: PRESSURE` in the Final Manifest and Normalized Event Roles — this is correct canonical output, not an inconsistency or a fifth branching choice.
 2. CANON REINTRODUCTION — required canon and every must-breathe earned effect survive direct play or an explicit reintroduction.
 3. MOMENT ALIGNMENT — moments match Entry Point, Draft, Architecture, and ordered source coverage.
 4. CHOICE BINDINGS — canonical choice IDs, complete A/B/C paths, defining lines, and freeform mapping remain unchanged and bind to valid moments. `session_choice_design` is the sole authority for which four canonical branching IDs exist and where they bind; Draft event roles marked `CHOICE` are candidate pressures and do not each require a canonical branching ID. Require SESSION_END_HOOK / C4 on the final ordered moment.
