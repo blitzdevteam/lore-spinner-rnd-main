@@ -64,11 +64,12 @@ const journalMeta = computed(() => ({
 }));
 
 function stripHtml(html: string): string {
+    const input = typeof html === 'string' ? html : '';
     if (typeof document === 'undefined') {
-        return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        return input.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
     const el = document.createElement('div');
-    el.innerHTML = html;
+    el.innerHTML = input;
     return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 

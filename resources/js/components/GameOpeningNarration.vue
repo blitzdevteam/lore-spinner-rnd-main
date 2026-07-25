@@ -14,7 +14,8 @@ const emit = defineEmits<{
 }>();
 
 const segments = computed(() => {
-    return props.opening
+    const opening = typeof props.opening === 'string' ? props.opening : '';
+    return opening
         .split(/<br\s*\/?>/gi)
         .map((s) => s.trim())
         .filter((s) => s.length > 0);

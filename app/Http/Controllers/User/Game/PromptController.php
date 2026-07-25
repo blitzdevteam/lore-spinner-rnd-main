@@ -187,6 +187,8 @@ final class PromptController extends Controller
         Game $game,
         Prompt $sourcePrompt,
     ): array {
+        $game->loadMissing(['story.adaptation.sessionAdaptations', 'currentPlayableMoment']);
+
         $submittedText = $request->string('prompt')->toString();
         $suggestionIndex = $request->input('suggestion_index');
 
@@ -238,33 +240,107 @@ final class PromptController extends Controller
             ];
         }
 
+        $choiceId = (string) $storedChoiceId;
+        $pathLabel = strtoupper((string) ($storedPathLabel ?? ''));
         $momentChoiceIds = (array) data_get($game->currentPlayableMoment?->scene_card, 'choice_ids', []);
-        if (! in_array($storedChoiceId, $momentChoiceIds, true)) {
-            throw new RuntimeException('The selected canonical choice is not bound to the active moment.');
+
+        if (! in_array($choiceId, $momentChoiceIds, true)) {
+            return $this->demoteSubmittedMapping(
+                $submittedText,
+                $game->id,
+                $choiceId,
+                $pathLabel,
+                'not_bound_to_moment',
+            );
         }
 
-        $choiceSession = $this->engine->extractSessionNumber($storedChoiceId);
+        $choiceSession = $this->engine->extractSessionNumber($choiceId);
         $session = $game->story?->adaptation?->sessionAdaptations?->firstWhere('session_number', $choiceSession);
-        $choice = collect((array) data_get($session, 'session_choice_design.branching_choices', []))
-            ->firstWhere('choice_id', $storedChoiceId);
-        $option = collect((array) ($choice['options'] ?? []))
-            ->first(fn ($option): bool => strtoupper((string) ($option['label'] ?? '')) === $storedPathLabel);
+        $design = (array) ($session?->session_choice_design ?? []);
 
-        if (! is_array($option)) {
-            throw new RuntimeException('The selected canonical path does not exist in authored Choice Design.');
+        $branchingChoice = collect((array) ($design['branching_choices'] ?? []))
+            ->firstWhere('choice_id', $choiceId);
+        if (is_array($branchingChoice)) {
+            $option = collect((array) ($branchingChoice['options'] ?? []))
+                ->first(fn ($option): bool => strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+
+            if (! is_array($option)) {
+                return $this->demoteSubmittedMapping(
+                    $submittedText,
+                    $game->id,
+                    $choiceId,
+                    $pathLabel,
+                    'branching_path_not_in_authored_options',
+                );
+            }
+
+            return [
+                $submittedText,
+                $submittedText,
+                [
+                    'defining_choice_id' => $choiceId,
+                    'defining_path_label' => $pathLabel,
+                    'defining_choice_line' => ($option['defining_line'] ?? '') !== ''
+                        ? (string) $option['defining_line']
+                        : null,
+                ],
+            ];
         }
 
-        return [
+        $emotionalChoice = collect((array) ($design['emotional_choices'] ?? []))
+            ->firstWhere('choice_id', $choiceId);
+        if (is_array($emotionalChoice)) {
+            $option = collect((array) ($emotionalChoice['options'] ?? []))
+                ->first(fn ($option): bool => strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+
+            if (! is_array($option)) {
+                return $this->demoteSubmittedMapping(
+                    $submittedText,
+                    $game->id,
+                    $choiceId,
+                    $pathLabel,
+                    'emotional_path_not_in_authored_options',
+                );
+            }
+
+            // Emotional mappings are playable suggestions, not defining branch commits.
+            Log::channel('narration')->info('boiler.submitted_emotional_mapping', [
+                'game_id' => $game->id,
+                'canonical_choice_id' => $choiceId,
+                'canonical_path_label' => $pathLabel,
+            ]);
+
+            return [$submittedText, $submittedText, null];
+        }
+
+        return $this->demoteSubmittedMapping(
             $submittedText,
-            $submittedText,
-            [
-                'defining_choice_id' => $storedChoiceId,
-                'defining_path_label' => $storedPathLabel,
-                'defining_choice_line' => ($option['defining_line'] ?? '') !== ''
-                    ? (string) $option['defining_line']
-                    : null,
-            ],
-        ];
+            $game->id,
+            $choiceId,
+            $pathLabel,
+            'choice_not_in_design',
+        );
+    }
+
+    /**
+     * @return array{0:string,1:string,2:null}
+     */
+    private function demoteSubmittedMapping(
+        string $submittedText,
+        string $gameId,
+        string $choiceId,
+        string $pathLabel,
+        string $reason,
+    ): array {
+        Log::channel('narration')->warning('boiler.submitted_mapping_demoted', [
+            'game_id' => $gameId,
+            'canonical_choice_id' => $choiceId,
+            'canonical_path_label' => $pathLabel,
+            'reason' => $reason,
+            'player_input' => mb_substr($submittedText, 0, 120),
+        ]);
+
+        return [$submittedText, $submittedText, null];
     }
 
     /**
