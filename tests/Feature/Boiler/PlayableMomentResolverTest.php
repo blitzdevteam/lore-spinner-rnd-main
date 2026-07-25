@@ -177,39 +177,124 @@ it('advances by moment order and preserves the final pointer on completion', fun
         ->and($completed->current_playable_session_cut_id)->toBe($fixture['cut']->id);
 });
 
-it('rolls back all Boiler state when resolver validation fails', function () {
+it('demotes invalid mapped suggestions and still commits the turn', function () {
     $fixture = boilerResolverFixture();
-    $resolver = app(PlayableMomentResolver::class);
-    $before = $fixture['game']->fresh();
+    $fixture['first']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M01',
+            'choice_ids' => ['S1_C1', 'S1_E1'],
+            'next_moment_key' => 'S1_M02',
+        ],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                [
+                    'choice_id' => 'S1_C1',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Path A'],
+                        ['label' => 'B', 'text' => 'Path B'],
+                        ['label' => 'C', 'text' => 'Path C'],
+                    ],
+                ],
+            ],
+            'emotional_choices' => [
+                [
+                    'choice_id' => 'S1_E1',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Soft'],
+                        ['label' => 'B', 'text' => 'Hard'],
+                        ['label' => 'C', 'text' => 'Quiet'],
+                    ],
+                ],
+            ],
+        ],
+    ]);
 
-    try {
-        $resolver->applyPlayerTurn(
-            $fixture['game'],
-            $fixture['source'],
-            'Choose an invalid mapped path.',
-            boilerResolverResult(
-                'S1_M01',
-                false,
-                'The player is probing boundaries; answer with grounded resistance while keeping the active pressure alive and responsive.',
-            ),
-            [[
-                'text' => 'Invalid path',
+    $resolver = app(PlayableMomentResolver::class);
+    $response = $resolver->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Choose something messy.',
+        boilerResolverResult(
+            'S1_M01',
+            false,
+            'The player is probing boundaries; answer with grounded resistance while keeping the active pressure alive and responsive.',
+        ),
+        [
+            [
+                'text' => 'Unknown choice mapping',
                 'canonical_choice_id' => 'S1_C99',
                 'canonical_path_label' => 'A',
-            ]],
-            $fixture['adaptation']->sessionAdaptations()->get(),
-        );
-    } catch (RuntimeException) {
-        // Expected validation failure.
-    }
+            ],
+            [
+                'text' => 'Bad path on real choice',
+                'canonical_choice_id' => 'S1_C1',
+                'canonical_path_label' => 'Z',
+            ],
+            [
+                'text' => 'Valid emotional mapping',
+                'canonical_choice_id' => 'S1_E1',
+                'canonical_path_label' => 'B',
+            ],
+        ],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
 
-    $after = $fixture['game']->fresh();
-    expect($after->world_state)->toBe($before->world_state)
-        ->and($after->defining_choice_id)->toBe($before->defining_choice_id)
-        ->and($after->current_playable_moment_id)->toBe($before->current_playable_moment_id)
-        ->and($after->playable_moment_turn_count)->toBe($before->playable_moment_turn_count)
-        ->and($fixture['source']->fresh()->prompt)->toBeNull()
-        ->and(Prompt::where('game_id', $fixture['game']->id)->count())->toBe(1);
+    expect($response->choices)->toBe([
+        [
+            'text' => 'Unknown choice mapping',
+            'canonical_choice_id' => null,
+            'canonical_path_label' => null,
+        ],
+        [
+            'text' => 'Bad path on real choice',
+            'canonical_choice_id' => null,
+            'canonical_path_label' => null,
+        ],
+        [
+            'text' => 'Valid emotional mapping',
+            'canonical_choice_id' => 'S1_E1',
+            'canonical_path_label' => 'B',
+        ],
+    ])
+        ->and($fixture['source']->fresh()->prompt)->toBe('Choose something messy.')
+        ->and($fixture['game']->fresh()->playable_moment_turn_count)->toBe(1)
+        ->and(Prompt::where('game_id', $fixture['game']->id)->count())->toBe(2);
+});
+
+it('repairs missing or stale moment_progress onto the active moment', function () {
+    $fixture = boilerResolverFixture();
+    $engine = app(ChaosEngineService::class);
+    $method = (new ReflectionClass($engine))->getMethod('validateBoilerNarrationResult');
+
+    $missing = [
+        'visible_suggestions' => [],
+        'choices' => [],
+        'moment_progress' => null,
+    ];
+    $method->invokeArgs($engine, [&$missing, $fixture['game'], true]);
+    expect($missing['moment_progress'])->toBe([
+        'moment_key' => 'S1_M01',
+        'exit_condition_met' => false,
+        'moment_footnote' => null,
+    ]);
+
+    $stale = [
+        'visible_suggestions' => [],
+        'choices' => [],
+        'moment_progress' => [
+            'moment_key' => 'S1_M99',
+            'exit_condition_met' => true,
+            'moment_footnote' => 'The player presses for proof; answer with one concrete resistance and keep the room live.',
+        ],
+    ];
+    $method->invokeArgs($engine, [&$stale, $fixture['game'], false]);
+    expect($stale['moment_progress']['moment_key'])->toBe('S1_M01')
+        ->and($stale['moment_progress']['exit_condition_met'])->toBeFalse()
+        ->and($stale['moment_progress']['moment_footnote'])->toBe(
+            'The player presses for proof; answer with one concrete resistance and keep the room live.'
+        );
 });
 
 it('requires opening narration to keep the first moment active with no footnote', function () {
@@ -219,17 +304,18 @@ it('requires opening narration to keep the first moment active with no footnote'
 
     $valid = [
         'visible_suggestions' => [],
+        'choices' => [],
         'moment_progress' => [
             'moment_key' => 'S1_M01',
             'exit_condition_met' => false,
             'moment_footnote' => null,
         ],
     ];
-    $method->invoke($engine, $valid, $fixture['game'], true);
+    $method->invokeArgs($engine, [&$valid, $fixture['game'], true]);
 
     $invalid = $valid;
     $invalid['moment_progress']['moment_footnote'] = 'Opening narration must not critique a player who has not acted.';
 
-    expect(fn () => $method->invoke($engine, $invalid, $fixture['game'], true))
+    expect(fn () => $method->invokeArgs($engine, [&$invalid, $fixture['game'], true]))
         ->toThrow(RuntimeException::class);
 });

@@ -41,20 +41,26 @@ final class PlayableMomentResolver
     }
 
     /**
+     * Soft-sanitize mapped visible suggestions for the active moment.
+     * Invalid canonical mappings are demoted to freeform (null identity) so the
+     * turn can still commit — mapping is optional presentation, not a hard gate.
+     *
      * @param  array<int, string|array<string, mixed>>  $choices
      * @param  Collection<int, SessionAdaptation>  $sessionAdaptations
+     * @return array<int, string|array{text:string,canonical_choice_id:?string,canonical_path_label:?string}>
      */
-    public function validateSuggestionsForCurrentMoment(
+    public function sanitizeSuggestionsForCurrentMoment(
         Game $game,
         array $choices,
         Collection $sessionAdaptations,
-    ): void {
+    ): array {
         if ($game->current_playable_moment_id === null) {
-            return;
+            return $choices;
         }
 
         $moment = PlayableMoment::query()->findOrFail($game->current_playable_moment_id);
-        $this->validateSuggestions($choices, $moment, $sessionAdaptations);
+
+        return $this->sanitizeMappedSuggestions($choices, $moment, $sessionAdaptations, $game->id);
     }
 
     /**
@@ -124,7 +130,12 @@ final class PlayableMomentResolver
             }
             $resultingMoment = $nextMoment ?? $currentMoment;
 
-            $this->validateSuggestions($normalizedChoices, $resultingMoment, $sessionAdaptations);
+            $normalizedChoices = $this->sanitizeMappedSuggestions(
+                $normalizedChoices,
+                $resultingMoment,
+                $sessionAdaptations,
+                $lockedGame->id,
+            );
 
             if ($explicitBranch !== null) {
                 if (
@@ -213,38 +224,116 @@ final class PlayableMomentResolver
     /**
      * @param  array<int, string|array<string, mixed>>  $choices
      * @param  Collection<int, SessionAdaptation>  $sessionAdaptations
+     * @return array<int, string|array{text:string,canonical_choice_id:?string,canonical_path_label:?string}>
      */
-    private function validateSuggestions(
+    private function sanitizeMappedSuggestions(
         array $choices,
         PlayableMoment $resultingMoment,
         Collection $sessionAdaptations,
-    ): void {
+        string $gameId,
+    ): array {
         $allowedChoiceIds = (array) data_get($resultingMoment->scene_card, 'choice_ids', []);
 
-        foreach ($choices as $choice) {
+        return array_map(function ($choice) use ($allowedChoiceIds, $sessionAdaptations, $gameId, $resultingMoment) {
             if (! is_array($choice) || empty($choice['canonical_choice_id'])) {
-                continue;
+                return $choice;
             }
 
             $choiceId = (string) $choice['canonical_choice_id'];
             $pathLabel = strtoupper((string) ($choice['canonical_path_label'] ?? ''));
+
             if (! in_array($choiceId, $allowedChoiceIds, true)) {
-                throw new RuntimeException('A mapped visible suggestion is not bound to the resulting active moment.');
+                return $this->demoteMappedSuggestion(
+                    $choice,
+                    $gameId,
+                    $choiceId,
+                    $pathLabel,
+                    'not_bound_to_moment',
+                    $resultingMoment->moment_key,
+                );
             }
 
             $choiceSession = $this->engine->extractSessionNumber($choiceId);
             $session = $sessionAdaptations->firstWhere('session_number', $choiceSession);
-            $authoredChoice = collect((array) data_get($session, 'session_choice_design.branching_choices', []))
-                ->firstWhere('choice_id', $choiceId);
+            $authoredChoice = $this->findAuthoredChoice($session, $choiceId);
             $labels = collect((array) ($authoredChoice['options'] ?? []))
                 ->pluck('label')
                 ->map(fn ($label): string => strtoupper((string) $label))
                 ->all();
 
+            if ($authoredChoice === null) {
+                return $this->demoteMappedSuggestion(
+                    $choice,
+                    $gameId,
+                    $choiceId,
+                    $pathLabel,
+                    'choice_not_in_design',
+                    $resultingMoment->moment_key,
+                );
+            }
+
             if (! in_array($pathLabel, $labels, true)) {
-                throw new RuntimeException('A mapped visible suggestion references a nonexistent authored path.');
+                return $this->demoteMappedSuggestion(
+                    $choice,
+                    $gameId,
+                    $choiceId,
+                    $pathLabel,
+                    'path_not_in_authored_options',
+                    $resultingMoment->moment_key,
+                );
+            }
+
+            return $choice;
+        }, $choices);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findAuthoredChoice(?SessionAdaptation $session, string $choiceId): ?array
+    {
+        if ($session === null) {
+            return null;
+        }
+
+        $design = (array) ($session->session_choice_design ?? []);
+        foreach (['branching_choices', 'emotional_choices'] as $bucket) {
+            $match = collect((array) ($design[$bucket] ?? []))
+                ->firstWhere('choice_id', $choiceId);
+            if (is_array($match)) {
+                return $match;
             }
         }
+
+        return null;
+    }
+
+    /**
+     * @param  array{text:string,canonical_choice_id:?string,canonical_path_label:?string}  $choice
+     * @return array{text:string,canonical_choice_id:null,canonical_path_label:null}
+     */
+    private function demoteMappedSuggestion(
+        array $choice,
+        string $gameId,
+        string $choiceId,
+        string $pathLabel,
+        string $reason,
+        string $momentKey,
+    ): array {
+        Log::channel('narration')->warning('boiler.mapped_suggestion_demoted', [
+            'game_id' => $gameId,
+            'moment_key' => $momentKey,
+            'canonical_choice_id' => $choiceId,
+            'canonical_path_label' => $pathLabel,
+            'reason' => $reason,
+            'suggestion_text' => mb_substr((string) ($choice['text'] ?? ''), 0, 120),
+        ]);
+
+        return [
+            'text' => (string) ($choice['text'] ?? ''),
+            'canonical_choice_id' => null,
+            'canonical_path_label' => null,
+        ];
     }
 
     private function boundedFootnote(string $footnote): string

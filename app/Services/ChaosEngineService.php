@@ -812,23 +812,42 @@ final class ChaosEngineService
     /**
      * @param  array<string, mixed>  $result
      */
-    private function validateBoilerNarrationResult(array $result, ?Game $game, bool $isOpening): void
+    private function validateBoilerNarrationResult(array &$result, ?Game $game, bool $isOpening): void
     {
         if ($game === null || $game->current_playable_moment_id === null) {
             return;
         }
 
         $moment = $game->currentPlayableMoment()->first();
-        $progress = $result['moment_progress'] ?? null;
-
-        if (
-            $moment === null
-            || ! is_array($progress)
-            || ($progress['moment_key'] ?? null) !== $moment->moment_key
-            || ! array_key_exists('exit_condition_met', $progress)
-            || ! is_bool($progress['exit_condition_met'])
-        ) {
+        if ($moment === null) {
             throw new RuntimeException('Boiler narration returned missing or stale moment_progress.');
+        }
+
+        $progress = $result['moment_progress'] ?? null;
+        $keyMatches = is_array($progress) && ($progress['moment_key'] ?? null) === $moment->moment_key;
+        $exitIsBool = is_array($progress) && array_key_exists('exit_condition_met', $progress)
+            && is_bool($progress['exit_condition_met']);
+
+        if (! is_array($progress) || ! $keyMatches || ! $exitIsBool) {
+            $hadProgressObject = is_array($progress);
+            $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
+            $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
+            $result['moment_progress'] = [
+                'moment_key' => $moment->moment_key,
+                // Never trust an exit judgment that was attached to the wrong room
+                // or an incomplete object — hold the player in the active moment.
+                'exit_condition_met' => false,
+                'moment_footnote' => $footnote,
+            ];
+            $progress = $result['moment_progress'];
+
+            Log::channel('narration')->warning('boiler.moment_progress_repaired', [
+                'game_id' => $game->id,
+                'active_moment_key' => $moment->moment_key,
+                'is_opening' => $isOpening,
+                'had_progress_object' => $hadProgressObject,
+                'raw_moment_key' => $rawMomentKey,
+            ]);
         }
 
         if (! is_array($result['visible_suggestions'] ?? null) || count($result['visible_suggestions']) > 3) {

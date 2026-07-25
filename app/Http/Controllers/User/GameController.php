@@ -161,7 +161,7 @@ final class GameController extends Controller
                 $result,
                 $game->current_playable_moment_id !== null,
             );
-            $this->momentResolver->validateSuggestionsForCurrentMoment(
+            $normalizedChoices = $this->momentResolver->sanitizeSuggestionsForCurrentMoment(
                 $game,
                 $normalizedChoices,
                 $story->adaptation->sessionAdaptations,
@@ -370,7 +370,7 @@ final class GameController extends Controller
                 $result,
                 $game->current_playable_moment_id !== null,
             );
-            $this->momentResolver->validateSuggestionsForCurrentMoment(
+            $normalizedChoices = $this->momentResolver->sanitizeSuggestionsForCurrentMoment(
                 $game,
                 $normalizedChoices,
                 $story->adaptation->sessionAdaptations,
