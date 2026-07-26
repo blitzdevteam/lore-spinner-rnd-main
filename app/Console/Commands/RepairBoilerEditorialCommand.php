@@ -95,6 +95,7 @@ final class RepairBoilerEditorialCommand extends Command
             $canonicalConsequenceMap = $canonicalizer->canonicalize(
                 $existingConsequenceMap,
                 $choiceDesign,
+                $draft,
             );
 
             try {

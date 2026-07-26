@@ -13,15 +13,12 @@ use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
 final class ConsequenceMappingJob implements ShouldQueue
 {
     use Batchable, Queueable;
-
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
 
     public int $tries = 1;
 
@@ -70,75 +67,27 @@ final class ConsequenceMappingJob implements ShouldQueue
                 'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
             ])->render();
 
-            $consequenceMap = $adaptation->boiler_enabled
-                ? $this->generateValidatedMap(
-                    $prompt,
-                    $canonicalizer,
-                    $validator,
+            $consequenceMap = (new ConsequenceMappingAgent((bool) $adaptation->boiler_enabled))
+                ->prompt($prompt)
+                ->toArray();
+
+            if ($adaptation->boiler_enabled) {
+                $consequenceMap = $canonicalizer->canonicalize(
+                    $consequenceMap,
                     (array) $choiceDesign,
                     (array) $session->boiler_draft,
-                )
-                : (new ConsequenceMappingAgent(false))->prompt($prompt)->toArray();
+                );
+                $validator->validate(
+                    $consequenceMap,
+                    (array) $choiceDesign,
+                    (array) $session->boiler_draft,
+                );
+            }
 
             $session->update(['choice_consequence_map' => $consequenceMap]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $choiceDesign
-     * @param  array<string, mixed>  $draft
-     * @return array<string, mixed>
-     */
-    private function generateValidatedMap(
-        string $originalPrompt,
-        ConsequenceMapCanonicalizer $canonicalizer,
-        ConsequenceMapValidator $validator,
-        array $choiceDesign,
-        array $draft,
-    ): array {
-        $prompt = $originalPrompt;
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $consequenceMap = (new ConsequenceMappingAgent(true))->prompt($prompt)->toArray();
-            $consequenceMap = $canonicalizer->canonicalize($consequenceMap, $choiceDesign);
-
-            try {
-                $validator->validate($consequenceMap, $choiceDesign, $draft);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.consequence_mapping_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $consequenceMap;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-                Log::warning('boiler.consequence_mapping_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.consequence-mapping.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousConsequenceMap' => $consequenceMap,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError
-            ?? new RuntimeException('Consequence Mapping validation failed without an error.');
     }
 }

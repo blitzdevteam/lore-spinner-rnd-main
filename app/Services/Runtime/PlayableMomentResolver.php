@@ -118,7 +118,25 @@ final class PlayableMomentResolver
                 || ($progress['moment_key'] ?? null) !== $currentMoment->moment_key
                 || ! is_bool($progress['exit_condition_met'] ?? null)
             ) {
-                throw new RuntimeException('Narrator moment_progress is missing, stale, or invalid.');
+                // Soft-repair like ChaosEngineService::validateBoilerNarrationResult —
+                // never kill a turn that already produced narration over progress shape.
+                $hadProgressObject = is_array($progress);
+                $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
+                $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
+                $progress = [
+                    'moment_key' => $currentMoment->moment_key,
+                    'exit_condition_met' => false,
+                    'moment_footnote' => $footnote,
+                ];
+                $result['moment_progress'] = $progress;
+
+                Log::channel('narration')->warning('boiler.moment_progress_repaired_on_commit', [
+                    'game_id' => $lockedGame->id,
+                    'source_prompt_id' => $lockedSource->id,
+                    'active_moment_key' => $currentMoment->moment_key,
+                    'had_progress_object' => $hadProgressObject,
+                    'raw_moment_key' => $rawMomentKey,
+                ]);
             }
 
             $nextMoment = null;
@@ -174,7 +192,10 @@ final class PlayableMomentResolver
             );
             $branchCommit = $this->engine->resolveBranchCommit($result, $lockedGame, $sessionAdaptations);
 
-            $footnote = $this->boundedFootnote((string) ($progress['moment_footnote'] ?? ''));
+            $footnote = $this->boundedFootnote(
+                (string) ($progress['moment_footnote'] ?? ''),
+                $lockedGame->id,
+            );
             $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
 
             $lockedSource->update(['prompt' => $storedPromptValue]);
@@ -336,15 +357,20 @@ final class PlayableMomentResolver
         ];
     }
 
-    private function boundedFootnote(string $footnote): string
+    private function boundedFootnote(string $footnote, string $gameId): string
     {
         $words = preg_split('/\s+/u', trim($footnote), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if ($words === []) {
-            throw new RuntimeException('Boiler player turns require a non-empty moment footnote.');
+            Log::channel('narration')->warning('boiler.moment_footnote_defaulted_on_commit', [
+                'game_id' => $gameId,
+            ]);
+
+            return 'The player acted; answer the immediate pressure and keep the active room alive.';
         }
 
         if (count($words) > 30) {
             Log::channel('narration')->warning('boiler.moment_footnote_truncated', [
+                'game_id' => $gameId,
                 'original_word_count' => count($words),
             ]);
             $words = array_slice($words, 0, 30);

@@ -263,6 +263,53 @@ it('demotes invalid mapped suggestions and still commits the turn', function () 
         ->and(Prompt::where('game_id', $fixture['game']->id)->count())->toBe(2);
 });
 
+it('commits a turn after soft-repairing missing moment_progress and empty footnotes', function () {
+    $fixture = boilerResolverFixture();
+    $resolver = app(PlayableMomentResolver::class);
+
+    $response = $resolver->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Probe the room.',
+        [
+            'response' => '<p>The room answers.</p>',
+            'state_delta' => [
+                'location' => '',
+                'conditions' => [],
+                'items' => [],
+                'object_states' => [],
+                'relationship_updates' => [],
+                'world_flags' => [],
+                'knowledge' => [],
+                'notes' => [],
+                'player_style' => [],
+                'unresolved_promises' => [],
+                'emotional_ledger_entries' => [],
+            ],
+            'alignment_tally_delta' => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
+            'is_climactic_choice' => false,
+            'defining_choice_id' => '',
+            'defining_path_label' => '',
+            'defining_choice_line' => '',
+            'symbolic_memory_update' => '',
+            'session_complete' => false,
+            'moment_progress' => null,
+        ],
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    $game = $fixture['game']->fresh();
+
+    expect($response->response)->toBe('<p>The room answers.</p>')
+        ->and($fixture['source']->fresh()->prompt)->toBe('Probe the room.')
+        ->and($game->playable_moment_turn_count)->toBe(1)
+        ->and($game->current_playable_moment_id)->toBe($fixture['first']->id)
+        ->and($game->moment_footnote['text'] ?? null)->toBe(
+            'The player acted; answer the immediate pressure and keep the active room alive.'
+        );
+});
+
 it('repairs missing or stale moment_progress onto the active moment', function () {
     $fixture = boilerResolverFixture();
     $engine = app(ChaosEngineService::class);

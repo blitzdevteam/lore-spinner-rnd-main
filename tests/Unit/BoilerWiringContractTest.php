@@ -150,7 +150,7 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
         ->toContain('Return only the complete corrected structured output');
 });
 
-it('persists and exposes a failed Boiler editorial audit before stopping the chain', function () {
+it('persists and exposes a failed Boiler editorial audit without stopping the chain', function () {
     $job = file_get_contents(app_path('Jobs/Adaptation/EditorialVerificationJob.php'));
     $command = file_get_contents(app_path('Console/Commands/InspectBoilerCommand.php'));
 
@@ -161,50 +161,51 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
         ->toContain('boiler.editorial_verification_failed')
         ->toContain("'revision_instructions' => \$revisions")
         ->toContain("\$session->update(['boiler_error' => mb_substr(\$message, 0, 2_000)])")
+        ->not->toContain('throw new RuntimeException($message)')
         ->and($command)
         ->toContain('Editorial Boiler audit:')
         ->toContain('Revision: ')
         ->toContain("\$result['verdict'] ?? null) === 'REVISE'");
 });
 
-it('repairs Architecture pacing and canonicalizes Phase 6 choice authority before Editorial', function () {
+it('canonicalizes Boiler Phase 4-6 identity without repair loops', function () {
     $architectureJob = file_get_contents(app_path('Jobs/Adaptation/SessionArchitectureJob.php'));
     $architectureCanonicalizer = file_get_contents(app_path('Ai/Adaptation/SessionArchitectureCanonicalizer.php'));
     $architectureValidator = file_get_contents(app_path('Ai/Adaptation/SessionArchitectureValidator.php'));
     $choiceJob = file_get_contents(app_path('Jobs/Adaptation/ChoiceDesignJob.php'));
     $choiceCanonicalizer = file_get_contents(app_path('Ai/Adaptation/ChoiceDesignCanonicalizer.php'));
     $consequenceJob = file_get_contents(app_path('Jobs/Adaptation/ConsequenceMappingJob.php'));
-    $architecturePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/session-architecture/repair-prompt.blade.php'));
-    $choicePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/choice-design/repair-prompt.blade.php'));
-    $consequencePrompt = file_get_contents(resource_path('views/ai/agents/adaptation/consequence-mapping/repair-prompt.blade.php'));
+    $consequenceCanonicalizer = file_get_contents(app_path('Ai/Adaptation/ConsequenceMapCanonicalizer.php'));
+    $sessionCloseJob = file_get_contents(app_path('Jobs/Adaptation/SessionCloseJob.php'));
 
     expect($architectureJob)
         ->toContain('SessionArchitectureCanonicalizer')
         ->toContain('SessionArchitectureValidator')
-        ->toContain('boiler.architecture_validation_failed')
-        ->toContain('session-architecture.repair-prompt')
-        ->and($architecturePrompt)
-        ->toContain('Exactly four rows use a')
+        ->not->toContain('MAX_VALIDATION_ATTEMPTS')
+        ->not->toContain('session-architecture.repair-prompt')
         ->and($architectureCanonicalizer)
+        ->toContain("'aligned' => true")
         ->toContain('Session-end hook authority')
         ->and($architectureValidator)
         ->toContain('The final Draft moment must own a BRANCHING Architecture slot')
         ->and($choiceJob)
         ->toContain('ChoiceDesignCanonicalizer')
-        ->toContain('boiler.choice_design_validation_failed')
-        ->toContain('choice-design.repair-prompt')
-        ->and($choicePrompt)
-        ->toContain('Draft CHOICE-role rows are candidate pressures')
+        ->not->toContain('MAX_VALIDATION_ATTEMPTS')
+        ->not->toContain('choice-design.repair-prompt')
         ->and($choiceCanonicalizer)
         ->toContain("'category'] ?? null) === 'SESSION_END_HOOK'")
         ->toContain("\$choices[\$sessionEndIndex]['moment_key'] = \$finalMomentKey")
         ->and($consequenceJob)
         ->toContain('ConsequenceMapCanonicalizer')
         ->toContain('ConsequenceMapValidator')
-        ->toContain('boiler.consequence_mapping_validation_failed')
-        ->toContain('consequence-mapping.repair-prompt')
-        ->and($consequencePrompt)
-        ->toContain('Phase 5 Choice Design is the sole authority');
+        ->not->toContain('MAX_VALIDATION_ATTEMPTS')
+        ->not->toContain('consequence-mapping.repair-prompt')
+        ->and($consequenceCanonicalizer)
+        ->toContain('freeform_guidelines')
+        ->toContain('moment_narrator_hook')
+        ->and($sessionCloseJob)
+        ->toContain('canonicalizeBoilerClose')
+        ->not->toContain('validateBoilerClose');
 });
 
 it('provides scoped commands for replaying only failed Editorial dependencies', function () {

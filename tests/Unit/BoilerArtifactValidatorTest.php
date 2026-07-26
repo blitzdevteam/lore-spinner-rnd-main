@@ -383,7 +383,7 @@ it('canonicalizes Phase 6 identity, dimension, moment, and path bindings from Ph
         ],
     ];
 
-    $canonical = (new ConsequenceMapCanonicalizer())->canonicalize($generated, $choiceDesign);
+    $canonical = (new ConsequenceMapCanonicalizer())->canonicalize($generated, $choiceDesign, boilerTestDraft());
     (new ConsequenceMapValidator())->validate($canonical, $choiceDesign, boilerTestDraft());
 
     expect($canonical['branching_consequences'][0])
@@ -427,6 +427,18 @@ it('does not infer canonical choice placement from unstructured Draft role prose
     $draft = boilerTestDraft();
     $draft['event_role_map'][0]['role'] = 'CHOICE';
     $draft['event_role_map'][0]['why'] = 'A load-bearing stealth versus confrontation methodology decision.';
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+    ]);
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [103],
+        'anchor_event_id' => 103,
+    ]);
     $choiceDesign = [
         'branching_choices' => [
             [
