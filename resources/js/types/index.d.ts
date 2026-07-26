@@ -162,5 +162,7 @@ export interface GameInterface {
     // Deferred turn processing (LLM runs afterResponse to avoid proxy 504s).
     turn_pending?: boolean;
     turn_error?: string | null;
+    opening_pending?: boolean;
+    opening_error?: string | null;
 }
 

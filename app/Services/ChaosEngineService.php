@@ -308,12 +308,40 @@ final class ChaosEngineService
             ->whereKey($game->current_playable_moment_id)
             ->first();
 
-        if (
-            $moment === null
-            || $moment->cut->id !== $game->current_playable_session_cut_id
-            || $moment->cut->session_adaptation_id !== $session->id
-        ) {
-            throw new RuntimeException('Game playable-moment pointer does not belong to the active session cut.');
+        $pointerHealthy = $moment !== null
+            && $moment->cut->id === $game->current_playable_session_cut_id
+            && $moment->cut->session_adaptation_id === $session->id;
+
+        if (! $pointerHealthy) {
+            // Soft-heal rather than kill the turn: rebind to the session's finalized
+            // standard cut and keep the player in a real room.
+            $cut = $session->playableCut()
+                ->where('status', 'finalized')
+                ->where('cut_key', 'standard')
+                ->first();
+            $healed = $cut?->moments()->orderBy('moment_order')->first();
+
+            if ($cut === null || $healed === null) {
+                throw new RuntimeException('Game playable-moment pointer does not belong to the active session cut.');
+            }
+
+            Log::channel('narration')->warning('boiler.moment_pointer_healed', [
+                'game_id' => $game->id,
+                'session_number' => $session->session_number,
+                'stale_moment_id' => $game->current_playable_moment_id,
+                'stale_cut_id' => $game->current_playable_session_cut_id,
+                'healed_moment_id' => $healed->id,
+                'healed_moment_key' => $healed->moment_key,
+            ]);
+
+            $game->update([
+                'current_playable_session_cut_id' => $cut->id,
+                'current_playable_moment_id' => $healed->id,
+                'playable_moment_turn_count' => 0,
+                'moment_footnote' => null,
+            ]);
+            $game->refresh();
+            $moment = $healed->load('cut');
         }
 
         $nextMoment = PlayableMoment::query()
@@ -341,6 +369,7 @@ final class ChaosEngineService
 
         return [
             'moment' => (array) $moment->scene_card,
+            'moment_key' => $moment->moment_key,
             'turn_count' => (int) $game->playable_moment_turn_count,
             'treasure_insight' => $footnote['text'] ?? null,
             'next_moment_preview' => $preview,
@@ -359,6 +388,8 @@ final class ChaosEngineService
         return implode("\n\n", [
             'ACTIVE PLAYABLE MOMENT (the only room you may perform now):',
             json_encode($context['moment'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
+            'REQUIRED moment_progress.moment_key (exact string): '
+                . (string) ($context['moment_key'] ?? data_get($context, 'moment.moment_key') ?? ''),
             'SOFT MOMENT TURN COUNT: ' . (int) ($context['turn_count'] ?? 0),
             'HIDDEN TREASURE INSIGHT (never quote or expose): '
                 . (($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)'),
@@ -797,7 +828,25 @@ final class ChaosEngineService
 
         $moment = $game->currentPlayableMoment()->first();
         if ($moment === null) {
-            throw new RuntimeException('Boiler narration returned missing or stale moment_progress.');
+            // Rare: pointer lost between prompt render and result parse. Hold progress
+            // without inventing a fake key — commit path will soft-repair onto the
+            // active row after resolveActiveMomentContext heals the pointer.
+            $progress = is_array($result['moment_progress'] ?? null)
+                ? $result['moment_progress']
+                : [];
+            $result['moment_progress'] = [
+                'moment_key' => (string) ($progress['moment_key'] ?? ''),
+                'exit_condition_met' => false,
+                'moment_footnote' => $isOpening
+                    ? null
+                    : (($progress['moment_footnote'] ?? null) ?: 'The player acted; answer the immediate pressure and keep the active room alive.'),
+            ];
+            Log::channel('narration')->warning('boiler.moment_row_missing_progress_held', [
+                'game_id' => $game->id,
+                'is_opening' => $isOpening,
+            ]);
+
+            return;
         }
 
         $progress = $result['moment_progress'] ?? null;

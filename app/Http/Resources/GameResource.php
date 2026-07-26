@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Actions\Game\ProcessGameOpeningAction;
 use App\Actions\Game\ProcessGameTurnAction;
 use App\Models\Game;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class GameResource extends BaseResource
     public function toArray(Request $request): array
     {
         $turnAction = app(ProcessGameTurnAction::class);
+        $openingAction = app(ProcessGameOpeningAction::class);
 
         return [
             'id'                       => $this->id,
@@ -37,6 +39,8 @@ class GameResource extends BaseResource
             'updated_at'               => $this->updated_at,
             'turn_pending'             => Cache::has($turnAction->pendingKey((string) $this->id)),
             'turn_error'               => Cache::get($turnAction->errorKey((string) $this->id)),
+            'opening_pending'          => Cache::has($openingAction->pendingKey((string) $this->id)),
+            'opening_error'            => Cache::get($openingAction->errorKey((string) $this->id)),
 
             // Relations
             'story'   => StoryResource::make($this->whenLoaded('story')),

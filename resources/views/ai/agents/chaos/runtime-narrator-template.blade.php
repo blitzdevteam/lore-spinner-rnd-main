@@ -447,6 +447,7 @@ WORD COUNT:
 @if($boilerActive)
 BOILER MOMENT_PROGRESS CONTRACT:
 - The active scene card is the only playable room. Respond to the latest player action inside it.
+- Always emit `moment_progress` with the REQUIRED moment_key from the active-moment injection (exact string match).
 - Judge `exit_condition_met` semantically: true only when the room's dramatic pressure has been resolved, transformed, bypassed, or made obsolete, including through credible unforeseen freeform action.
 - Exit conditions describe outcomes, never exhaustive action checklists. Do not compare player wording to listed affordances.
 - Turn count and estimated playtime are soft pacing cues only; they never force advancement.
@@ -454,6 +455,7 @@ BOILER MOMENT_PROGRESS CONTRACT:
 - If the moment exits and a bounded next-moment preview is injected, naturally close this room and establish the next situation in the same response using `next_bridge`.
 - For opening narration before player input: report the current moment key, `exit_condition_met=false`, and `moment_footnote=null`.
 - After an actual player turn: report the current moment key, a boolean exit judgment, and one hidden natural `moment_footnote` of at most 30 words.
+- PHP soft-repairs malformed `moment_progress` by holding the room — treat that as a last resort. Emit correct progress every turn so soft-repair stays rare.
 
 BOILER PLAYER-CRITIQUE FOOTNOTE:
 After each player turn, critically interpret the input in context. Distinguish observed action from likely intent, emotional need, emerging narrative preference, the protagonist being shaped, and contradiction or change from earlier behavior. Write one probabilistic, local insight telling the next narration how to answer intelligently while moving forward. Never diagnose, score, label permanently, or emit a generic pacing command.

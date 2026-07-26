@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User;
 
 use App\Actions\Game\CreateGameAction;
+use App\Actions\Game\ProcessGameOpeningAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Game\StoreGameRequest;
 use App\Models\Game;
@@ -15,13 +16,10 @@ use App\Models\User;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
 use App\Services\Adaptation\StoryGameResetService;
-use App\Services\Runtime\NarrationResultNormalizer;
-use App\Services\Runtime\PlayableMomentResolver;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Response;
-use Throwable;
 
 final class GameController extends Controller
 {
@@ -49,8 +47,7 @@ final class GameController extends Controller
 
     public function __construct(
         private readonly ChaosEngineService $engine,
-        private readonly PlayableMomentResolver $momentResolver,
-        private readonly NarrationResultNormalizer $resultNormalizer,
+        private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
     ) {}
 
@@ -105,6 +102,9 @@ final class GameController extends Controller
     /**
      * Fire the Chaos engine opening narration for a new game.
      * Called automatically via the cinematic opening sequence.
+     *
+     * Returns immediately; Sonnet runs after the response so proxies never
+     * 504 on a silent TTFB (same pattern as player turns).
      */
     public function begin(Game $game): RedirectResponse
     {
@@ -115,124 +115,29 @@ final class GameController extends Controller
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
         $firstSession = $story->adaptation?->sessionAdaptations?->firstWhere('session_number', 1);
 
-        if ($story->adaptation?->boiler_enabled) {
-            if ($firstSession === null) {
-                return to_route('user.games.show', $game)
-                    ->with('error', 'This Boiler story has no first session adaptation.');
-            }
-            $this->momentResolver->initializeForSession($game, $firstSession);
-            $game->refresh();
+        if ($story->adaptation?->boiler_enabled && $firstSession === null) {
+            return to_route('user.games.show', $game)
+                ->with('error', 'This Boiler story has no first session adaptation.');
         }
 
-        $sessionContext = $this->engine->loadSessionContext($story, 1, null, game: $game);
-
-        if ($sessionContext === null) {
+        if (
+            ! $story->adaptation?->boiler_enabled
+            && $this->engine->loadSessionContext($story, 1, null, game: $game) === null
+        ) {
             return to_route('user.games.show', $game)
                 ->with('error', 'This story has not been adapted yet. Re-run the adaptation pipeline before starting.');
         }
 
-        $emptyWorldState = $this->engine->emptyWorldState();
-        $emptyAlignment = $this->engine->emptyAlignmentScaffold();
+        $opening = $this->openingAction;
+        $gameId = $game->id;
+        Cache::put($opening->pendingKey($gameId), 'begin', 180);
+        Cache::forget($opening->errorKey($gameId));
 
-        $systemPrompt = $this->engine->renderSystemPrompt(
-            sessionContext:      $sessionContext,
-            worldState:          $emptyWorldState,
-            alignmentScaffold:   $emptyAlignment,
-            symbolicMemory:      null,
-            isSessionStart:      true,
-            isClimacticPrevious: false,
-            isClimacticThisTurn: false,
-        );
+        dispatch(function () use ($opening, $gameId): void {
+            $opening->handleBegin($gameId);
+        })->afterResponse();
 
-        try {
-            $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
-
-            $result = $this->engine->callAgent(
-                model: $game->model,
-                systemPrompt: $systemPrompt,
-                conversationHistory: [],
-                playerAction: null,
-                protagonist: $protagonist,
-                temperature: $this->engine->gameTemperatureFor($game->model),
-                game: $game,
-                isOpening: true,
-            );
-            $normalizedChoices = $this->resultNormalizer->choices(
-                $result,
-                $game->current_playable_moment_id !== null,
-            );
-            $normalizedChoices = $this->momentResolver->sanitizeSuggestionsForCurrentMoment(
-                $game,
-                $normalizedChoices,
-                $story->adaptation->sessionAdaptations,
-            );
-
-            $worldState = $this->engine->mergeStateDelta($emptyWorldState, $result['state_delta']);
-            $alignmentScaffold = $this->engine->mergeAlignmentDelta($emptyAlignment, $result['alignment_tally_delta']);
-            $symbolicMemory = $this->engine->appendMemory(null, $result['symbolic_memory_update']);
-
-            $branchCommit = $this->engine->resolveBranchCommit(
-                $result,
-                $game,
-                $story->adaptation?->sessionAdaptations,
-            );
-
-            $game->update([
-                'world_state'              => $worldState,
-                'alignment_scaffold'       => $alignmentScaffold,
-                'symbolic_memory'          => $symbolicMemory,
-                'is_climactic_choice'      => (bool) $result['is_climactic_choice'],
-                'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : null,
-                'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : null,
-                'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : null,
-                'current_session_complete' => $game->current_playable_moment_id !== null
-                    ? false
-                    : $result['session_complete'],
-            ]);
-
-            $game->prompts()->create([
-                'session_number' => 1,
-                'response' => $result['response'],
-                'choices' => $normalizedChoices,
-            ]);
-
-            GameSessionCompletion::updateOrCreate(
-                [
-                    'game_id'            => $game->id,
-                    'story_cycle_number' => $game->current_story_cycle_number,
-                    'session_number'     => 1,
-                ],
-                [
-                    'story_id'     => $story->id,
-                    'user_id'      => $game->user_id,
-                    'started_at'   => now(),
-                    'completed_at' => null,
-                ],
-            );
-
-            UserActivityDay::record($game->user_id);
-
-            Log::channel('narration')->info('game.begin', [
-                'game_id' => $game->id,
-                'story_id' => $story->id,
-                'model' => $game->model,
-                'session_complete' => $result['session_complete'],
-                'response_bytes' => mb_strlen($result['response']),
-            ]);
-
-            return to_route('user.games.show', $game);
-        } catch (Throwable $e) {
-            Log::channel('narration')->error('game.begin_failed', [
-                'game_id' => $game->id,
-                'story_id' => $story->id,
-                'model' => $game->model,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
-
-            return to_route('user.games.show', $game)
-                ->with('error', 'Opening narration hiccuped — please retry.');
-        }
+        return to_route('user.games.show', $game);
     }
 
     /**
@@ -304,10 +209,14 @@ final class GameController extends Controller
             $openingHandoff = $resolvedConsequencePath['next_session_opening'];
         }
 
-        // Load authored close design for the next session.
         $nextSA = $story->adaptation?->sessionAdaptations
             ?->firstWhere('session_number', $nextSessionNumber);
-        $sessionCloseDesign = $nextSA?->session_close_design;
+
+        if ($story->adaptation?->boiler_enabled && $nextSA === null) {
+            return to_route('user.games.show', $game)
+                ->with('error', 'The next Boiler session has not been finalized.');
+        }
+
         $boilerStateBeforeTransition = [
             'current_session_number' => $game->current_session_number,
             'current_session_complete' => $game->current_session_complete,
@@ -317,141 +226,29 @@ final class GameController extends Controller
             'moment_footnote' => $game->moment_footnote,
         ];
 
-        try {
-            if ($story->adaptation?->boiler_enabled) {
-                if ($nextSA === null) {
-                    throw new \RuntimeException('The next Boiler session has not been finalized.');
-                }
-                $this->momentResolver->initializeForSession($game, $nextSA);
-                $game->refresh();
-            }
+        $opening = $this->openingAction;
+        $gameId = $game->id;
+        Cache::put($opening->pendingKey($gameId), 'next_session', 180);
+        Cache::forget($opening->errorKey($gameId));
 
-            $sessionContext = $this->engine->loadSessionContext(
-                story:                   $story,
-                sessionNumber:           $nextSessionNumber,
-                openingHandoff:          $openingHandoff,
-                resolvedConsequencePath: $resolvedConsequencePath,
-                sessionCloseDesign:      $sessionCloseDesign,
-                game:                    $game,
+        dispatch(function () use (
+            $opening,
+            $gameId,
+            $nextSessionNumber,
+            $openingHandoff,
+            $resolvedConsequencePath,
+            $boilerStateBeforeTransition,
+        ): void {
+            $opening->handleNextSession(
+                $gameId,
+                $nextSessionNumber,
+                $openingHandoff,
+                $resolvedConsequencePath,
+                $boilerStateBeforeTransition,
             );
+        })->afterResponse();
 
-            if ($sessionContext === null) {
-                throw new \RuntimeException('The next session has not been adapted yet.');
-            }
-
-            $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
-            $carriedAlignment  = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
-            $carriedMemory     = $game->symbolic_memory;
-
-            $systemPrompt = $this->engine->renderSystemPrompt(
-                sessionContext:      $sessionContext,
-                worldState:          $carriedWorldState,
-                alignmentScaffold:   $carriedAlignment,
-                symbolicMemory:      $carriedMemory,
-                isSessionStart:      true,
-                isClimacticPrevious: false,
-                isClimacticThisTurn: false,
-            );
-
-            $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
-
-            $result = $this->engine->callAgent(
-                model: $game->model,
-                systemPrompt: $systemPrompt,
-                conversationHistory: [],
-                playerAction: null,
-                protagonist: $protagonist,
-                temperature: $this->engine->gameTemperatureFor($game->model),
-                worldState: $carriedWorldState,
-                game: $game,
-                isOpening: true,
-            );
-            $normalizedChoices = $this->resultNormalizer->choices(
-                $result,
-                $game->current_playable_moment_id !== null,
-            );
-            $normalizedChoices = $this->momentResolver->sanitizeSuggestionsForCurrentMoment(
-                $game,
-                $normalizedChoices,
-                $story->adaptation->sessionAdaptations,
-            );
-
-            $worldState = $this->engine->mergeStateDelta($carriedWorldState, $result['state_delta']);
-            $alignmentScaffold = $this->engine->mergeAlignmentDelta($carriedAlignment, $result['alignment_tally_delta']);
-            $symbolicMemory = $this->engine->appendMemory($carriedMemory, $result['symbolic_memory_update']);
-
-            $branchCommit = $this->engine->resolveBranchCommit(
-                $result,
-                $game,
-                $story->adaptation?->sessionAdaptations,
-            );
-
-            $game->update([
-                'current_session_number'   => $nextSessionNumber,
-                'current_session_complete' => $game->current_playable_moment_id !== null
-                    ? false
-                    : $result['session_complete'],
-                'world_state'              => $worldState,
-                'alignment_scaffold'       => $alignmentScaffold,
-                'symbolic_memory'          => $symbolicMemory,
-                'is_climactic_choice'      => (bool) $result['is_climactic_choice'],
-                'defining_choice_id'       => $branchCommit ? $branchCommit['defining_choice_id']   : $game->defining_choice_id,
-                'defining_path_label'      => $branchCommit ? $branchCommit['defining_path_label']  : $game->defining_path_label,
-                'defining_choice_line'     => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
-            ]);
-
-            $game->prompts()->create([
-                'session_number' => $nextSessionNumber,
-                'response' => $result['response'],
-                'choices' => $normalizedChoices,
-            ]);
-
-            GameSessionCompletion::where('game_id', $game->id)
-                ->where('story_cycle_number', $game->current_story_cycle_number)
-                ->where('session_number', $currentSessionNumber)
-                ->update(['completed_at' => now()]);
-
-            GameSessionCompletion::updateOrCreate(
-                [
-                    'game_id'            => $game->id,
-                    'story_cycle_number' => $game->current_story_cycle_number,
-                    'session_number'     => $nextSessionNumber,
-                ],
-                [
-                    'story_id'     => $story->id,
-                    'user_id'      => $game->user_id,
-                    'started_at'   => now(),
-                    'completed_at' => null,
-                ],
-            );
-
-            UserActivityDay::record($game->user_id);
-
-            Log::channel('narration')->info('game.next_session', [
-                'game_id' => $game->id,
-                'story_id' => $story->id,
-                'session_number' => $nextSessionNumber,
-                'model' => $game->model,
-                'session_complete' => $result['session_complete'],
-            ]);
-
-            return to_route('user.games.show', $game);
-        } catch (Throwable $e) {
-            if ($story->adaptation?->boiler_enabled) {
-                $game->update($boilerStateBeforeTransition);
-            }
-
-            Log::channel('narration')->error('game.next_session_failed', [
-                'game_id' => $game->id,
-                'session_number' => $nextSessionNumber,
-                'model' => $game->model,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
-
-            return to_route('user.games.show', $game)
-                ->with('error', 'Could not open the next session — please try again.');
-        }
+        return to_route('user.games.show', $game);
     }
 
     public function reset(Game $game): RedirectResponse

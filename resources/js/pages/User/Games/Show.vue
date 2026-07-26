@@ -165,14 +165,10 @@ const handleBegin = () => {
         {
             preserveScroll: false,
             onSuccess: () => {
-                shouldAnimate.value = true;
+                void pollForOpeningCompletion('begin');
             },
             onFinish: () => {
-                beginSettled.value = true;
-                isRetryingBegin.value = false;
-                nextTick(() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
+                // beginSettled flips when opening narration lands (or errors).
             },
         },
     );
@@ -182,6 +178,7 @@ const handleNextSession = () => {
     if (isStartingNextSession.value) return;
     tts.primeAudio();
     isStartingNextSession.value = true;
+    const priorSession = props.game.current_session_number ?? 1;
 
     router.post(
         `/user/games/${props.game.id}/next-session`,
@@ -189,13 +186,10 @@ const handleNextSession = () => {
         {
             preserveScroll: false,
             onSuccess: () => {
-                shouldAnimate.value = true;
+                void pollForOpeningCompletion('next', priorSession);
             },
             onFinish: () => {
-                isStartingNextSession.value = false;
-                nextTick(() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
+                // Cleared by the opening poller.
             },
         },
     );
@@ -269,6 +263,67 @@ const submitPrompt = (
     );
 };
 
+async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
+    const started = Date.now();
+    const maxMs = 180_000;
+
+    while (Date.now() - started < maxMs) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        await new Promise<void>((resolve) => {
+            router.reload({
+                only: ['game'],
+                preserveScroll: true,
+                onFinish: () => resolve(),
+            });
+        });
+
+        const openingError = props.game.opening_error;
+        const stillPending = props.game.opening_pending === true;
+
+        if (openingError) {
+            showCinematic.value = false;
+            beginSettled.value = true;
+            isRetryingBegin.value = false;
+            isStartingNextSession.value = false;
+            return;
+        }
+
+        if (kind === 'begin' && hasPrompts.value && !stillPending) {
+            beginSettled.value = true;
+            isRetryingBegin.value = false;
+            shouldAnimate.value = true;
+            nextTick(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            return;
+        }
+
+        if (
+            kind === 'next'
+            && !stillPending
+            && (props.game.current_session_number ?? 1) > (priorSession ?? 0)
+        ) {
+            isStartingNextSession.value = false;
+            shouldAnimate.value = true;
+            nextTick(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            return;
+        }
+
+        // Story-complete flash path: next-session finished the arc without a new opening.
+        if (kind === 'next' && !stillPending && showOutro.value) {
+            isStartingNextSession.value = false;
+            return;
+        }
+    }
+
+    beginSettled.value = true;
+    isRetryingBegin.value = false;
+    isStartingNextSession.value = false;
+}
+
 async function pollForTurnCompletion(sourcePromptId: string) {
     const started = Date.now();
     const maxMs = 180_000;
@@ -327,13 +382,20 @@ onMounted(() => {
         });
     }
 
-    // Resume polling after refresh if a deferred turn is still running.
+    // Resume polling after refresh if a deferred turn/opening is still running.
     if (props.game.turn_pending) {
         const awaiting = [...prompts.value].reverse().find((p) => !p.prompt);
         if (awaiting) {
             isSubmitting.value = true;
             pendingSelection.value[awaiting.id] = pendingSelection.value[awaiting.id] ?? '…';
             void pollForTurnCompletion(awaiting.id);
+        }
+    } else if (props.game.opening_pending) {
+        if (!hasPrompts.value) {
+            void pollForOpeningCompletion('begin');
+        } else {
+            isStartingNextSession.value = true;
+            void pollForOpeningCompletion('next', Math.max(0, (props.game.current_session_number ?? 1) - 1));
         }
     }
 });
@@ -371,9 +433,11 @@ onUnmounted(() => {
     />
 
     <!-- Begin failed — show retry -->
-    <div v-else-if="beginSettled && !hasPrompts" class="grid h-svh place-items-center bg-gray-950">
+    <div v-else-if="(beginSettled && !hasPrompts) || game.opening_error" class="grid h-svh place-items-center bg-gray-950">
         <div class="flex flex-col items-center gap-6 text-center">
-            <p class="text-sm text-gray-400">Opening narration hiccuped — please retry.</p>
+            <p class="text-sm text-gray-400">
+                {{ game.opening_error || 'Opening narration hiccuped — please retry.' }}
+            </p>
             <button
                 class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="isRetryingBegin"
