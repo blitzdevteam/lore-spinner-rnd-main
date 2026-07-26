@@ -131,9 +131,10 @@ return [
 
         'narration' => [
             // File alone is invisible on Laravel Cloud (ephemeral disk + Commands
-            // run on a different instance). Also mirror to stderr for Cloud Logs UI.
+            // run on a different instance). Mirror to stderr at narration level so
+            // Cloud Logs UI sees game.turn even when LOG_LEVEL is warning/error.
             'driver' => 'stack',
-            'channels' => ['narration-daily', 'stderr'],
+            'channels' => ['narration-daily', 'narration-stderr'],
             'ignore_exceptions' => false,
         ],
 
@@ -143,6 +144,17 @@ return [
             'level' => env('LOG_NARRATION_LEVEL', 'info'),
             'days' => env('LOG_NARRATION_DAYS', 14),
             'replace_placeholders' => true,
+        ],
+
+        'narration-stderr' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_NARRATION_LEVEL', 'info'),
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => 'php://stderr',
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'writer-lab' => [
