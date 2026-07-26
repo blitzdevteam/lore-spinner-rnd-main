@@ -58,6 +58,8 @@ final class ProcessGameTurnAction
 
         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
 
+        $startedAt = microtime(true);
+
         try {
             $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
             $resolvedConsequencePath = null;
