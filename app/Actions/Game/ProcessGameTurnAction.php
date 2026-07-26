@@ -167,6 +167,10 @@ final class ProcessGameTurnAction
                 'system_prompt_bytes' => strlen($systemPrompt),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
+                'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
+                'completion_tokens' => data_get($result, '_usage.completion_tokens'),
+                'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
+                'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
                 'deferred' => true,
             ]);
             NarrationMetricsStore::record([
@@ -181,6 +185,10 @@ final class ProcessGameTurnAction
                 'response_bytes' => strlen($result['response']),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
+                'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
+                'completion_tokens' => data_get($result, '_usage.completion_tokens'),
+                'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
+                'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {

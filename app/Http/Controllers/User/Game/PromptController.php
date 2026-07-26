@@ -64,10 +64,8 @@ final class PromptController extends Controller
             $gameId = $game->id;
             $userId = $user->id;
 
-            // Return the Inertia response immediately. Run Sonnet after the
-            // response is sent so proxies never 504 on a silent TTFB while the
-            // model is still generating — that was the "instant 504, refresh
-            // shows the turn" ghost.
+            // Return the Inertia response immediately. The model call runs after
+            // the response, so Cloudflare never waits on a silent LLM request.
             dispatch(function () use (
                 $lockName,
                 $lockOwner,

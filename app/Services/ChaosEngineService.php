@@ -15,6 +15,7 @@ use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use RuntimeException;
 
 /**
@@ -761,16 +762,24 @@ final class ChaosEngineService
         $schemaArray     = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
         $providerOptions = $this->providerOptionsFor($config);
 
-        // One Anthropic call. Cloudflare upstream is ~100s — keep the client
-        // timeout under that so we fail cleanly instead of ghost-committing
-        // after Cloudflare has already returned 504 to the browser.
+        // The browser response has already been sent before production game
+        // narration reaches this call. Do not reuse Cloudflare's HTTP timeout
+        // as the model timeout: Anthropic structured responses are buffered,
+        // so curl receives no bytes until the complete object is ready.
         $request = Prism::structured()
             ->using($config['provider'], $model)
             ->withSchema(new NativeObjectSchema($schemaArray))
-            ->withSystemPrompt($systemPrompt)
             ->withPrompt($promptText)
-            ->withClientOptions(['timeout' => 80, 'connect_timeout' => 10])
+            ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
+
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withSystemPrompts(
+                $this->anthropicSystemPrompts($systemPrompt),
+            );
+        } else {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
 
         // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
         // Omit sampling params; tone is governed by the runtime narrator system prompt.
@@ -810,6 +819,7 @@ final class ChaosEngineService
             'defining_choice_line'   => (string) ($structured['defining_choice_line'] ?? ''),
             'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
             'session_memory_update'  => (string) ($structured['session_memory_update'] ?? ''),
+            '_usage'                 => $response->usage->toArray(),
         ];
 
         $this->validateBoilerNarrationResult($result, $game, $isOpening);
@@ -1376,6 +1386,36 @@ final class ChaosEngineService
             'claude-opus-4-8',
             'claude-opus-4-7',
         ], true);
+    }
+
+    /**
+     * Keep the prompt text and order intact while placing one explicit cache
+     * breakpoint immediately before the first per-turn runtime injection.
+     *
+     * For the Speckled Band prompt this caches about 66KB (Sections 1-7).
+     * Sections 8+ still carry fresh memory, active-moment, and world-state data.
+     *
+     * @return array<int, SystemMessage>
+     */
+    private function anthropicSystemPrompts(string $systemPrompt): array
+    {
+        $runtimeSection = '### SECTION 8:';
+        $runtimeOffset = strpos($systemPrompt, $runtimeSection);
+
+        if ($runtimeOffset === false || $runtimeOffset === 0) {
+            return [new SystemMessage($systemPrompt)];
+        }
+
+        $staticPrefix = new SystemMessage(substr($systemPrompt, 0, $runtimeOffset));
+        $staticPrefix->withProviderOptions([
+            'cacheType' => 'ephemeral',
+            'cacheTtl' => '1h',
+        ]);
+
+        return [
+            $staticPrefix,
+            new SystemMessage(substr($systemPrompt, $runtimeOffset)),
+        ];
     }
 
     /**
