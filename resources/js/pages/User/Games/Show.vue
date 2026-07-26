@@ -30,8 +30,16 @@ const handleBack = () => {
     }
 };
 
-function visitLeavesThisGame(url: string): boolean {
-    const path = url.split('?')[0];
+function visitLeavesThisGame(url: string | { toString?: () => string; href?: string } | null | undefined): boolean {
+    const raw =
+        typeof url === 'string'
+            ? url
+            : typeof url?.href === 'string'
+              ? url.href
+              : typeof url?.toString === 'function'
+                ? url.toString()
+                : '';
+    const path = raw.split('?')[0] ?? '';
     return !path.startsWith(`/user/games/${props.game.id}`);
 }
 
@@ -236,16 +244,10 @@ const submitPrompt = (
     isSubmitting.value = true;
 
     const reloadGame = () => {
-        // After Cloudflare 504 / network failure the server may already have
-        // committed the turn. Reloading picks up the real latest prompt.
-        router.visit(`/user/games/${props.game.id}`, {
-            replace: true,
-            preserveScroll: false,
-            onFinish: () => {
-                isSubmitting.value = false;
-                pendingSelection.value = {};
-            },
-        });
+        // Full document reload after a failed/aborted turn so we never sit on a
+        // Cloudflare 504 HTML page or a half-applied Inertia state. If PHP
+        // somehow committed, the player sees the new turn; if not, they can retry.
+        window.location.assign(`/user/games/${props.game.id}`);
     };
 
     router.post(

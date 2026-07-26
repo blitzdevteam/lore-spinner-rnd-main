@@ -16,7 +16,6 @@ use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
 use RuntimeException;
-use Throwable;
 
 /**
  * Chaos Engine — shared AI narration logic for both the experimental
@@ -40,22 +39,11 @@ final class ChaosEngineService
 
     private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
 
-    // Base budget for prose + choices + scalars + JSON overhead, holding the
-    // three COMPLETE_LIST_STATE_FIELDS empty. See ChaosNarrationSchema: those
-    // three fields are re-emitted in full every turn and grow across a game,
-    // so they are budgeted separately in maxTokensFor() instead of folded
-    // into one fixed constant (that undercount is what caused the truncation
-    // soft-brick on long-running games — 2026-07-04 production audit).
-    private const MAX_TOKENS_BASE = 1_400;
-
-    // ~4 chars/token plus per-entry JSON quoting/comma overhead, rounded up.
-    private const MAX_TOKENS_PER_STATE_LIST_CHAR = 0.4;
-
-    private const MAX_TOKENS_FLOOR = 2_000;
-
-    // Hard ceiling so a runaway list (bad turn, adversarial input) still
-    // can't reserve an unbounded output buffer.
-    private const MAX_TOKENS_RETRY_CEILING = 8_000;
+    /**
+     * Fixed output ceiling for one narration turn (prose + suggestions + state_delta).
+     * No dynamic budgeting and no in-request truncation retry — one call, one budget.
+     */
+    private const NARRATION_MAX_TOKENS = 8_192;
 
     public const MODEL_CONFIG = [
         'gpt-5.5'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
@@ -742,15 +730,15 @@ final class ChaosEngineService
         $schemaArray     = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
         $providerOptions = $this->providerOptionsFor($config);
 
-        // Single Anthropic call only. Cloudflare upstream is ~100s; a second
-        // in-request retry (truncation → another 55s) is a guaranteed 504, and
-        // PHP often still commits after Cloudflare has already failed the browser.
+        // One Anthropic call. Cloudflare upstream is ~100s — keep the client
+        // timeout under that so we fail cleanly instead of ghost-committing
+        // after Cloudflare has already returned 504 to the browser.
         $request = Prism::structured()
             ->using($config['provider'], $model)
             ->withSchema(new NativeObjectSchema($schemaArray))
             ->withSystemPrompt($systemPrompt)
             ->withPrompt($promptText)
-            ->withClientOptions(['timeout' => 45, 'connect_timeout' => 10])
+            ->withClientOptions(['timeout' => 80, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
 
         // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
@@ -760,25 +748,10 @@ final class ChaosEngineService
         }
 
         if ($config['provider'] === 'anthropic') {
-            // Prefer a single generous budget over a truncated call + retry.
-            $request = $request->withMaxTokens(min(
-                self::MAX_TOKENS_RETRY_CEILING,
-                max($this->maxTokensFor($worldState), 4_000),
-            ));
+            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
         }
 
-        try {
-            $response = $request->asStructured();
-        } catch (Throwable $e) {
-            if ($config['provider'] === 'anthropic' && $this->looksLikeTruncation($e)) {
-                Log::channel('narration')->warning('narration.truncated_no_inline_retry', [
-                    'model' => $model,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            throw $e;
-        }
+        $response = $request->asStructured();
 
         $structured = $response->structured ?? [];
 
@@ -894,47 +867,6 @@ final class ChaosEngineService
                 'game_id' => $game->id,
             ]);
         }
-    }
-
-    /**
-     * Size the output token budget off the state the model must carry forward.
-     *
-     * conditions/items/unresolved_promises are re-emitted in full every turn
-     * (see COMPLETE_LIST_STATE_FIELDS), so their serialised size grows across
-     * a game. Budgeting a fixed constant for them undercounts late-game turns
-     * and causes a deterministic truncate-throw-retry-truncate loop. Early
-     * turns still get a small, fast-scheduling budget; only games that have
-     * accumulated real state pay for a larger one.
-     */
-    private function maxTokensFor(array $worldState): int
-    {
-        $carriedChars = 0;
-        foreach (self::COMPLETE_LIST_STATE_FIELDS as $key) {
-            foreach ((array) ($worldState[$key] ?? []) as $entry) {
-                $carriedChars += strlen((string) $entry);
-            }
-        }
-
-        $budget = self::MAX_TOKENS_BASE + (int) ceil($carriedChars * self::MAX_TOKENS_PER_STATE_LIST_CHAR);
-
-        return max(self::MAX_TOKENS_FLOOR, $budget);
-    }
-
-    /**
-     * Prism/Anthropic surfaces a truncated structured response as a decode
-     * failure, not a distinct exception type — match on message content.
-     * Conservative: only retries when the failure looks token-budget shaped,
-     * so a real schema/validation bug still surfaces immediately.
-     */
-    private function looksLikeTruncation(Throwable $e): bool
-    {
-        $message = strtolower($e->getMessage());
-
-        return str_contains($message, 'max_tokens')
-            || str_contains($message, 'maximum context length')
-            || str_contains($message, 'incomplete')
-            || str_contains($message, 'unterminated')
-            || (str_contains($message, 'json') && str_contains($message, 'decod'));
     }
 
     /**

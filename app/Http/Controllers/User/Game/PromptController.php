@@ -130,6 +130,19 @@ final class PromptController extends Controller
                 game: $game,
                 isOpening: false,
             );
+
+            // Cloudflare may already have closed the browser with a 504 while PHP
+            // kept generating. Never ghost-commit: leave the source unanswered so
+            // a retry is clean instead of "refresh shows the turn".
+            if (connection_aborted()) {
+                Log::channel('narration')->warning('game.turn_aborted_client_gone', [
+                    'game_id' => $game->id,
+                    'source_prompt_id' => $sourcePrompt->id,
+                ]);
+
+                throw new RuntimeException('Client disconnected before narration could be delivered.');
+            }
+
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
             if ($boilerActive) {
