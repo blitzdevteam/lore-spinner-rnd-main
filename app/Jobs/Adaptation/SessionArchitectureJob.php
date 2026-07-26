@@ -14,12 +14,15 @@ use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
 final class SessionArchitectureJob implements ShouldQueue
 {
     use Batchable, Queueable;
+
+    private const int MAX_VALIDATION_ATTEMPTS = 2;
 
     public int $tries = 1;
 
@@ -74,19 +77,72 @@ final class SessionArchitectureJob implements ShouldQueue
                 'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
             ])->render();
 
-            $architecture = (new SessionArchitectureAgent((bool) $adaptation->boiler_enabled))
-                ->prompt($prompt)
-                ->toArray();
-
-            if ($adaptation->boiler_enabled) {
-                $architecture = $canonicalizer->canonicalize($architecture, (array) $session->boiler_draft);
-                $validator->validate($architecture, (array) $session->boiler_draft);
-            }
+            $architecture = $adaptation->boiler_enabled
+                ? $this->generateValidatedArchitecture(
+                    $prompt,
+                    $canonicalizer,
+                    $validator,
+                    (array) $session->boiler_draft,
+                )
+                : (new SessionArchitectureAgent(false))->prompt($prompt)->toArray();
 
             $session->update(['session_architecture' => $architecture]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    private function generateValidatedArchitecture(
+        string $originalPrompt,
+        SessionArchitectureCanonicalizer $canonicalizer,
+        SessionArchitectureValidator $validator,
+        array $draft,
+    ): array {
+        $prompt = $originalPrompt;
+        $lastValidationError = null;
+
+        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
+            $architecture = (new SessionArchitectureAgent(true))->prompt($prompt)->toArray();
+            $architecture = $canonicalizer->canonicalize($architecture, $draft);
+
+            try {
+                $validator->validate($architecture, $draft);
+
+                if ($attempt > 1) {
+                    Log::info('boiler.architecture_corrected', [
+                        'story_id' => $this->story->id,
+                        'session_number' => $this->sessionNumber,
+                        'generation_attempt' => $attempt,
+                    ]);
+                }
+
+                return $architecture;
+            } catch (RuntimeException $validationError) {
+                $lastValidationError = $validationError;
+                Log::warning('boiler.architecture_validation_failed', [
+                    'story_id' => $this->story->id,
+                    'session_number' => $this->sessionNumber,
+                    'generation_attempt' => $attempt,
+                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
+                    'error' => $validationError->getMessage(),
+                ]);
+
+                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
+                    $prompt = view('ai.agents.adaptation.session-architecture.repair-prompt', [
+                        'validationError' => $validationError->getMessage(),
+                        'previousArchitecture' => $architecture,
+                        'originalPrompt' => $originalPrompt,
+                    ])->render();
+                }
+            }
+        }
+
+        throw $lastValidationError
+            ?? new RuntimeException('Session Architecture validation failed without an error.');
     }
 }

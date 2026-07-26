@@ -113,7 +113,7 @@ final class SessionCloseJob implements ShouldQueue
             $result['session_close_trigger_event_position'] = $triggerEvent->story_position;
 
             if ($adaptation->boiler_enabled) {
-                $result = $this->canonicalizeBoilerClose($result, (array) $session->boiler_draft);
+                $this->validateBoilerClose($result, (array) $session->boiler_draft);
             }
 
             $session->update(['session_close_design' => $result]);
@@ -126,33 +126,24 @@ final class SessionCloseJob implements ShouldQueue
     /**
      * @param  array<string, mixed>  $close
      * @param  array<string, mixed>  $draft
-     * @return array<string, mixed>
      */
-    private function canonicalizeBoilerClose(array $close, array $draft): array
+    private function validateBoilerClose(array $close, array $draft): void
     {
         $moments = collect((array) ($draft['moment_drafts'] ?? []))->sortBy('moment_order')->values();
         $finalMoment = $moments->last();
 
-        if (! is_array($finalMoment)) {
-            return $close;
+        if (! is_array($finalMoment) || ($close['closing_moment_key'] ?? null) !== ($finalMoment['moment_key'] ?? null)) {
+            throw new RuntimeException('Boiler Session Close must bind to the final ordered draft moment.');
         }
 
-        $close['closing_moment_key'] = $finalMoment['moment_key'] ?? null;
-        $sourceIds = array_map('intval', (array) ($finalMoment['source_event_ids'] ?? []));
-        $triggerId = (int) ($close['session_close_trigger_event_id'] ?? 0);
-
-        if ($sourceIds !== [] && ! in_array($triggerId, $sourceIds, true)) {
-            $close['session_close_trigger_event_id'] = $sourceIds[array_key_last($sourceIds)];
+        if (! in_array((int) ($close['session_close_trigger_event_id'] ?? 0), (array) ($finalMoment['source_event_ids'] ?? []), true)) {
+            throw new RuntimeException('Boiler session close trigger event must belong to the final ordered moment.');
         }
 
-        if (mb_trim((string) ($close['closing_moment_relationship'] ?? '')) === '') {
-            $close['closing_moment_relationship'] = 'Close the session inside the final playable moment.';
+        foreach (['closing_moment_relationship', 'next_bridge_guidance'] as $field) {
+            if (trim((string) ($close[$field] ?? '')) === '') {
+                throw new RuntimeException("Boiler Session Close requires {$field}.");
+            }
         }
-
-        if (mb_trim((string) ($close['next_bridge_guidance'] ?? '')) === '') {
-            $close['next_bridge_guidance'] = 'Carry unresolved pressure into the next session without inventing a new cut.';
-        }
-
-        return $close;
     }
 }

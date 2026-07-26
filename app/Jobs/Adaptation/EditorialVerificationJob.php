@@ -68,8 +68,6 @@ final class EditorialVerificationJob implements ShouldQueue
                 $session->update(['editorial_verification' => $verification]);
             }
 
-            // Match non-Boiler RED posture: one retry, then persist and continue.
-            // Boiler audit notes remain visible via boiler_error / InspectBoiler.
             if ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS') {
                 $revisions = collect((array) data_get($verification, 'boiler_audit.revision_instructions', []))
                     ->filter(fn ($instruction): bool => is_string($instruction) && mb_trim($instruction) !== '')
@@ -95,9 +93,11 @@ final class EditorialVerificationJob implements ShouldQueue
                     'revision_instructions' => $revisions,
                     'failed_checks' => $failedChecks,
                 ]);
-            } else {
-                $session->update(['boiler_error' => null]);
+
+                throw new RuntimeException($message);
             }
+
+            $session->update(['boiler_error' => null]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
