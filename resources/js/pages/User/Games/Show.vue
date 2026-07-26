@@ -266,9 +266,11 @@ const submitPrompt = (
 async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
     const started = Date.now();
     const maxMs = 180_000;
+    let delayMs = 400;
 
     while (Date.now() - started < maxMs) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        delayMs = Math.min(800, delayMs + 100);
 
         await new Promise<void>((resolve) => {
             router.reload({
@@ -327,9 +329,12 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
 async function pollForTurnCompletion(sourcePromptId: string) {
     const started = Date.now();
     const maxMs = 180_000;
+    let delayMs = 400;
 
     while (Date.now() - started < maxMs) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        // Start quick so a finished turn doesn't sit for 1.5s; ease up slightly to spare the server.
+        delayMs = Math.min(800, delayMs + 100);
 
         await new Promise<void>((resolve) => {
             router.reload({
