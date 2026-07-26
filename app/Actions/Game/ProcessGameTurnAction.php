@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
 use Illuminate\Support\Facades\Cache;
@@ -116,6 +117,7 @@ final class ProcessGameTurnAction
                 ? array_slice($history, -max(2, ($game->playable_moment_turn_count + 1) * 2))
                 : array_slice($history, -12);
 
+            $llmStartedAt = microtime(true);
             $result = $this->engine->callAgent(
                 model: $game->model,
                 systemPrompt: $systemPrompt,
@@ -127,6 +129,7 @@ final class ProcessGameTurnAction
                 game: $game,
                 isOpening: false,
             );
+            $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
             if ($boilerActive) {
@@ -151,6 +154,7 @@ final class ProcessGameTurnAction
             }
 
             UserActivityDay::record($userId);
+            $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
             Log::channel('narration')->info('game.turn', [
                 'game_id' => $game->id,
                 'story_id' => $story->id,
@@ -160,7 +164,23 @@ final class ProcessGameTurnAction
                 'boiler_active' => $boilerActive,
                 'player_input' => mb_substr($playerAction, 0, 120),
                 'response_bytes' => strlen($result['response']),
+                'system_prompt_bytes' => strlen($systemPrompt),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
                 'deferred' => true,
+            ]);
+            NarrationMetricsStore::record([
+                'kind' => 'turn',
+                'game_id' => $game->id,
+                'story_id' => $story->id,
+                'story_slug' => $story->slug,
+                'session_number' => $game->current_session_number,
+                'model' => $game->model,
+                'boiler_active' => $boilerActive,
+                'system_prompt_bytes' => strlen($systemPrompt),
+                'response_bytes' => strlen($result['response']),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {
@@ -170,6 +190,7 @@ final class ProcessGameTurnAction
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
                 'player_input' => mb_substr($playerAction, 0, 120),
+                'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'deferred' => true,
             ]);
             Cache::put($this->errorKey($gameId), 'Narration hiccuped — please retry this turn.', 60);

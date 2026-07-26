@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\GameSessionCompletion;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
 use Illuminate\Support\Facades\Cache;
@@ -46,6 +47,7 @@ final class ProcessGameOpeningAction
 
         Cache::put($this->pendingKey($gameId), 'begin', 180);
         Cache::forget($this->errorKey($gameId));
+        $startedAt = microtime(true);
 
         try {
             $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
@@ -76,6 +78,7 @@ final class ProcessGameOpeningAction
                 isClimacticThisTurn: false,
             );
 
+            $llmStartedAt = microtime(true);
             $result = $this->engine->callAgent(
                 model: $game->model,
                 systemPrompt: $systemPrompt,
@@ -86,6 +89,7 @@ final class ProcessGameOpeningAction
                 game: $game,
                 isOpening: true,
             );
+            $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices(
                 $result,
                 $game->current_playable_moment_id !== null,
