@@ -235,6 +235,19 @@ const submitPrompt = (
 ) => {
     isSubmitting.value = true;
 
+    const reloadGame = () => {
+        // After Cloudflare 504 / network failure the server may already have
+        // committed the turn. Reloading picks up the real latest prompt.
+        router.visit(`/user/games/${props.game.id}`, {
+            replace: true,
+            preserveScroll: false,
+            onFinish: () => {
+                isSubmitting.value = false;
+                pendingSelection.value = {};
+            },
+        });
+    };
+
     router.post(
         storePrompt(props.game.id),
         {
@@ -248,6 +261,12 @@ const submitPrompt = (
             preserveScroll: true,
             onSuccess: () => {
                 shouldAnimate.value = true;
+            },
+            onError: () => {
+                reloadGame();
+            },
+            onCancel: () => {
+                reloadGame();
             },
             onFinish: () => {
                 isSubmitting.value = false;

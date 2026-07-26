@@ -297,25 +297,24 @@ it('repairs missing or stale moment_progress onto the active moment', function (
         );
 });
 
-it('requires opening narration to keep the first moment active with no footnote', function () {
+it('repairs opening narration that wrongly includes a footnote', function () {
     $fixture = boilerResolverFixture();
     $engine = app(ChaosEngineService::class);
     $method = (new ReflectionClass($engine))->getMethod('validateBoilerNarrationResult');
 
-    $valid = [
+    $invalid = [
         'visible_suggestions' => [],
-        'choices' => [],
+        'choices' => ['legacy'],
         'moment_progress' => [
             'moment_key' => 'S1_M01',
-            'exit_condition_met' => false,
-            'moment_footnote' => null,
+            'exit_condition_met' => true,
+            'moment_footnote' => 'Opening narration must not critique a player who has not acted.',
         ],
     ];
-    $method->invokeArgs($engine, [&$valid, $fixture['game'], true]);
+    $method->invokeArgs($engine, [&$invalid, $fixture['game'], true]);
 
-    $invalid = $valid;
-    $invalid['moment_progress']['moment_footnote'] = 'Opening narration must not critique a player who has not acted.';
-
-    expect(fn () => $method->invokeArgs($engine, [&$invalid, $fixture['game'], true]))
-        ->toThrow(RuntimeException::class);
+    expect($invalid['moment_progress']['exit_condition_met'])->toBeFalse()
+        ->and($invalid['moment_progress']['moment_footnote'])->toBeNull()
+        ->and($invalid['choices'])->toBe([])
+        ->and($invalid['visible_suggestions'])->toBe([]);
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Runtime;
 
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 final class NarrationResultNormalizer
@@ -15,17 +16,29 @@ final class NarrationResultNormalizer
     public function choices(array $result, bool $boilerActive): array
     {
         if ($boilerActive) {
-            if (! array_key_exists('visible_suggestions', $result) || ! is_array($result['visible_suggestions'])) {
-                throw new RuntimeException('Boiler narration requires visible_suggestions, including an empty array when none are shown.');
+            $suggestions = $result['visible_suggestions'] ?? [];
+            if (! is_array($suggestions)) {
+                Log::channel('narration')->warning('boiler.visible_suggestions_normalized_empty', [
+                    'reason' => 'missing_or_non_array',
+                ]);
+
+                return [];
             }
 
-            if (count($result['visible_suggestions']) > 3) {
-                throw new RuntimeException('Boiler narration may return at most three visible suggestions.');
+            if (count($suggestions) > 3) {
+                Log::channel('narration')->warning('boiler.visible_suggestions_normalized_truncated', [
+                    'original_count' => count($suggestions),
+                ]);
+                $suggestions = array_slice($suggestions, 0, 3);
             }
 
-            return array_map(function ($suggestion): array {
+            $normalized = [];
+            foreach ($suggestions as $suggestion) {
                 if (! is_array($suggestion)) {
-                    throw new RuntimeException('Every visible suggestion must be an object.');
+                    Log::channel('narration')->warning('boiler.visible_suggestion_dropped', [
+                        'reason' => 'not_object',
+                    ]);
+                    continue;
                 }
 
                 $text = trim((string) ($suggestion['text'] ?? ''));
@@ -33,23 +46,40 @@ final class NarrationResultNormalizer
                 $pathLabel = strtoupper(trim((string) ($suggestion['canonical_path_label'] ?? '')));
 
                 if ($text === '' || mb_strlen($text) > 160) {
-                    throw new RuntimeException('Visible suggestion text is empty or too long.');
+                    Log::channel('narration')->warning('boiler.visible_suggestion_dropped', [
+                        'reason' => 'empty_or_too_long',
+                    ]);
+                    continue;
                 }
 
                 if (($choiceId === '') !== ($pathLabel === '')) {
-                    throw new RuntimeException('Visible suggestion canonical choice ID and path label must both be present or both be absent.');
+                    Log::channel('narration')->warning('boiler.visible_suggestion_demoted', [
+                        'reason' => 'half_mapped_identity',
+                        'canonical_choice_id' => $choiceId,
+                        'canonical_path_label' => $pathLabel,
+                    ]);
+                    $choiceId = '';
+                    $pathLabel = '';
                 }
 
                 if ($pathLabel !== '' && ! in_array($pathLabel, ['A', 'B', 'C'], true)) {
-                    throw new RuntimeException('Visible suggestion canonical path label must be A, B, or C.');
+                    Log::channel('narration')->warning('boiler.visible_suggestion_demoted', [
+                        'reason' => 'invalid_path_label',
+                        'canonical_choice_id' => $choiceId,
+                        'canonical_path_label' => $pathLabel,
+                    ]);
+                    $choiceId = '';
+                    $pathLabel = '';
                 }
 
-                return [
+                $normalized[] = [
                     'text' => $text,
                     'canonical_choice_id' => $choiceId !== '' ? $choiceId : null,
                     'canonical_path_label' => $pathLabel !== '' ? $pathLabel : null,
                 ];
-            }, $result['visible_suggestions']);
+            }
+
+            return $normalized;
         }
 
         $choices = $result['choices'] ?? [];

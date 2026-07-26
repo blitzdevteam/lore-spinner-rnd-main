@@ -66,8 +66,8 @@ it('normalizes legacy choices and Boiler suggestion objects without changing can
         ]);
 });
 
-it('rejects more than three visible suggestions', function () {
-    (new NarrationResultNormalizer())->choices([
+it('truncates more than three visible suggestions instead of failing the turn', function () {
+    $choices = (new NarrationResultNormalizer())->choices([
         'visible_suggestions' => [
             ['text' => 'One'],
             ['text' => 'Two'],
@@ -75,7 +75,50 @@ it('rejects more than three visible suggestions', function () {
             ['text' => 'Four'],
         ],
     ], true);
-})->throws(RuntimeException::class);
+
+    expect($choices)->toHaveCount(3)
+        ->and($choices[0]['text'])->toBe('One')
+        ->and($choices[2]['text'])->toBe('Three');
+});
+
+it('demotes half-mapped or invalid path suggestions to freeform text', function () {
+    $choices = (new NarrationResultNormalizer())->choices([
+        'visible_suggestions' => [
+            [
+                'text' => 'Half mapped',
+                'canonical_choice_id' => 'S1_C1',
+            ],
+            [
+                'text' => 'Bad path',
+                'canonical_choice_id' => 'S1_C1',
+                'canonical_path_label' => 'Z',
+            ],
+            [
+                'text' => 'Keep me',
+                'canonical_choice_id' => 'S1_C1',
+                'canonical_path_label' => 'A',
+            ],
+        ],
+    ], true);
+
+    expect($choices)->toBe([
+        [
+            'text' => 'Half mapped',
+            'canonical_choice_id' => null,
+            'canonical_path_label' => null,
+        ],
+        [
+            'text' => 'Bad path',
+            'canonical_choice_id' => null,
+            'canonical_path_label' => null,
+        ],
+        [
+            'text' => 'Keep me',
+            'canonical_choice_id' => 'S1_C1',
+            'canonical_path_label' => 'A',
+        ],
+    ]);
+});
 
 it('validates Boiler and legacy prompt structures with separate contracts', function () {
     $runtimeTokens = implode("\n", [

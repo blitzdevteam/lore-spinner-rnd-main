@@ -41,7 +41,9 @@ final class PromptController extends Controller
         $turnLock = Cache::lock("game-turn:{$game->id}:{$sourcePromptId}", 120);
 
         if (! $turnLock->get()) {
-            return back()->with('error', 'That turn is already being processed.');
+            // Likely a duplicate submit while the first request is still finishing
+            // (common when Cloudflare has already 504'd the browser).
+            return to_route('user.games.show', $game);
         }
 
         $playerAction = $promptText;
@@ -53,7 +55,8 @@ final class PromptController extends Controller
                 ->first();
 
             if ($sourcePrompt === null || $game->prompts()->latest()->value('id') !== $sourcePrompt->id) {
-                return back()->with('error', 'That prompt is no longer awaiting an answer.');
+                // Turn already committed — typical after a Cloudflare 504 while PHP finished.
+                return to_route('user.games.show', $game);
             }
 
             [$storedPromptValue, $playerAction, $explicitBranch] = $this->validateSubmittedAction(

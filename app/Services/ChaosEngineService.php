@@ -742,17 +742,15 @@ final class ChaosEngineService
         $schemaArray     = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
         $providerOptions = $this->providerOptionsFor($config);
 
-        // 55s keeps the full round-trip (Cloudflare→Laravel→Anthropic→Laravel→Cloudflare)
-        // safely below Cloudflare's 100s upstream timeout. Server-side retries are
-        // removed: if the call times out, the controller catches the exception and
-        // shows the player a retry prompt, which fires a fresh HTTP request and
-        // resets Cloudflare's timer — no 504s.
+        // Single Anthropic call only. Cloudflare upstream is ~100s; a second
+        // in-request retry (truncation → another 55s) is a guaranteed 504, and
+        // PHP often still commits after Cloudflare has already failed the browser.
         $request = Prism::structured()
             ->using($config['provider'], $model)
             ->withSchema(new NativeObjectSchema($schemaArray))
             ->withSystemPrompt($systemPrompt)
             ->withPrompt($promptText)
-            ->withClientOptions(['timeout' => 55])
+            ->withClientOptions(['timeout' => 45, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
 
         // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
@@ -762,18 +760,24 @@ final class ChaosEngineService
         }
 
         if ($config['provider'] === 'anthropic') {
-            $request = $request->withMaxTokens($this->maxTokensFor($worldState));
+            // Prefer a single generous budget over a truncated call + retry.
+            $request = $request->withMaxTokens(min(
+                self::MAX_TOKENS_RETRY_CEILING,
+                max($this->maxTokensFor($worldState), 4_000),
+            ));
         }
 
         try {
             $response = $request->asStructured();
         } catch (Throwable $e) {
             if ($config['provider'] === 'anthropic' && $this->looksLikeTruncation($e)) {
-                $request  = $request->withMaxTokens(self::MAX_TOKENS_RETRY_CEILING);
-                $response = $request->asStructured();
-            } else {
-                throw $e;
+                Log::channel('narration')->warning('narration.truncated_no_inline_retry', [
+                    'model' => $model,
+                    'message' => $e->getMessage(),
+                ]);
             }
+
+            throw $e;
         }
 
         $structured = $response->structured ?? [];
@@ -850,24 +854,45 @@ final class ChaosEngineService
             ]);
         }
 
-        if (! is_array($result['visible_suggestions'] ?? null) || count($result['visible_suggestions']) > 3) {
-            throw new RuntimeException('Boiler narration must return visible_suggestions with zero to three entries.');
+        if (! is_array($result['visible_suggestions'] ?? null)) {
+            $result['visible_suggestions'] = [];
+            Log::channel('narration')->warning('boiler.visible_suggestions_defaulted', [
+                'game_id' => $game->id,
+            ]);
+        } elseif (count($result['visible_suggestions']) > 3) {
+            $result['visible_suggestions'] = array_slice($result['visible_suggestions'], 0, 3);
+            Log::channel('narration')->warning('boiler.visible_suggestions_truncated', [
+                'game_id' => $game->id,
+            ]);
         }
+
         if ((array) ($result['choices'] ?? []) !== []) {
-            throw new RuntimeException('Boiler narration must not emit legacy choices alongside visible_suggestions.');
+            // Legacy choices are ignored in Boiler mode rather than killing the turn.
+            $result['choices'] = [];
+            Log::channel('narration')->warning('boiler.legacy_choices_stripped', [
+                'game_id' => $game->id,
+            ]);
         }
 
         $footnote = $progress['moment_footnote'] ?? null;
         if ($isOpening) {
             if ($progress['exit_condition_met'] !== false || $footnote !== null) {
-                throw new RuntimeException('Boiler opening narration must report exit_condition_met=false and a null footnote.');
+                $result['moment_progress']['exit_condition_met'] = false;
+                $result['moment_progress']['moment_footnote'] = null;
+                Log::channel('narration')->warning('boiler.opening_progress_repaired', [
+                    'game_id' => $game->id,
+                ]);
             }
 
             return;
         }
 
         if (! is_string($footnote) || trim($footnote) === '') {
-            throw new RuntimeException('Boiler player turns require one hidden natural moment footnote.');
+            $result['moment_progress']['moment_footnote'] =
+                'The player acted; answer the immediate pressure and keep the active room alive.';
+            Log::channel('narration')->warning('boiler.moment_footnote_defaulted', [
+                'game_id' => $game->id,
+            ]);
         }
     }
 
