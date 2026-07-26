@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     'prism_server' => [
         // The middleware that will be applied to the Prism Server routes.
@@ -18,15 +20,8 @@ return [
             'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
             'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
             'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
-            // Null here so Prism 0.99.x hasNativeStructuredOutputSupport() returns false.
-            // laravel/ai always passes use_tool_calling:true for Anthropic schema requests,
-            // so Prism falls through to ToolStructuredStrategy, which builds
-            // tools[].input_schema (permissive schema validator — tolerates title, ignores
-            // the top-level `name` key added by Schema::toSchema()).
-            // NativeOutputFormatStructuredStrategy is NOT used here because it sends
-            // output_config.format.schema verbatim and Anthropic rejects the `name` key.
-            // The `<parameter> XML` leak from old Claude tool-calling is not present in
-            // claude-opus-4-8 with forced tool_choice — tool_use blocks are returned cleanly.
+            // Optional Anthropic beta features only. Prism 0.100+ uses the GA
+            // output_config.format API for structured output without a beta header.
             'anthropic_beta' => env('ANTHROPIC_BETA', null),
         ],
         'ollama' => [

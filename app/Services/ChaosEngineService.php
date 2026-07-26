@@ -34,30 +34,18 @@ use RuntimeException;
  */
 final class ChaosEngineService
 {
-    private const COMPLETE_LIST_STATE_FIELDS = ['conditions', 'items', 'unresolved_promises'];
-
-    private const KEYED_DELTA_STATE_FIELDS = ['object_states', 'relationship_updates', 'world_flags'];
-
-    private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
-
-    /**
-     * Fixed output ceiling for one narration turn (prose + suggestions + state_delta).
-     * No dynamic budgeting and no in-request truncation retry — one call, one budget.
-     */
-    private const NARRATION_MAX_TOKENS = 8_192;
-
     public const MODEL_CONFIG = [
-        'gpt-5.5'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'gpt-5.4'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'gpt-5.4-mini'      => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'gpt-5.2'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'gpt-4.1'           => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'chat-latest'       => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
-        'claude-opus-4-8'   => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
-        'claude-opus-4-7'   => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
-        'claude-sonnet-5'   => ['provider' => 'anthropic', 'reasoning_effort' => null],
+        'gpt-5.5' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'gpt-5.4' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'gpt-5.4-mini' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'gpt-5.2' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'gpt-4.1' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'chat-latest' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'claude-opus-4-8' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
+        'claude-opus-4-7' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
+        'claude-sonnet-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-sonnet-4-6' => ['provider' => 'anthropic', 'temperature' => 0.9,  'reasoning_effort' => null],
-        'claude-haiku-4-5'  => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
+        'claude-haiku-4-5' => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
     ];
 
     // public const DEFAULT_MODEL = 'claude-haiku-4-5';
@@ -68,6 +56,27 @@ final class ChaosEngineService
 
     /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     public const GAME_TEMPERATURE = 0.6;
+
+    private const COMPLETE_LIST_STATE_FIELDS = ['conditions', 'items', 'unresolved_promises'];
+
+    private const KEYED_DELTA_STATE_FIELDS = ['object_states', 'relationship_updates', 'world_flags'];
+
+    private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
+
+    private const SPARSE_STATE_DELTA_CONTRACT = <<<'TEXT'
+RUNTIME STATE OUTPUT — SPARSE AND NON-DESTRUCTIVE:
+- In state_delta, null means unchanged. Never repeat unchanged world state.
+- conditions, items, and unresolved_promises are complete replacement lists only when they changed; [] explicitly clears the list.
+- object_states, relationship_updates, and world_flags contain changed keyed entries only.
+- knowledge, notes, player_style, and emotional_ledger_entries contain new entries only.
+- If uncertain whether state changed, return null. Narration must continue; state bookkeeping must never block play.
+TEXT;
+
+    /**
+     * Fixed output ceiling for one narration turn (prose + suggestions + state_delta).
+     * No dynamic budgeting and no in-request truncation retry — one call, one budget.
+     */
+    private const NARRATION_MAX_TOKENS = 8_192;
 
     public function __construct(private SessionEventLoader $eventLoader) {}
 
@@ -129,8 +138,7 @@ final class ChaosEngineService
         ?array $resolvedConsequencePath = null,
         ?array $sessionCloseDesign = null,
         ?Game $game = null,
-    ): ?array
-    {
+    ): ?array {
         /** @var StoryAdaptation|null $adaptation */
         $adaptation = $story->adaptation;
 
@@ -166,7 +174,7 @@ final class ChaosEngineService
         // fall back to arc_progression.opens_with. Session 1 stays empty (N/A).
         $resolvedHandoff = $this->normalizeOpeningScene($openingHandoff);
         if ($resolvedHandoff === '') {
-            $arcRow          = $this->findArcProgressionRow($adaptation, $sessionNumber);
+            $arcRow = $this->findArcProgressionRow($adaptation, $sessionNumber);
             $resolvedHandoff = $this->normalizeOpeningScene($arcRow['opens_with'] ?? '');
         }
 
@@ -174,18 +182,18 @@ final class ChaosEngineService
         $activeMomentContext = $this->resolveActiveMomentContext($game, $sessionAdaptation);
 
         return [
-            'session_number'          => $sessionNumber,
-            'total_sessions'          => $totalSessions,
-            'cold_open'               => $this->normalizeOpeningScene($entry['cold_open'] ?? ''),
-            'opening_handoff'         => $resolvedHandoff,
-            'emotional_promise'       => trim((string) ($entry['emotional_promise'] ?? '')),
-            'must_reintroduce'        => trim((string) ($entry['format_specific_cut']['must_reintroduce'] ?? '')),
-            'runtime_prompt'          => (string) $sessionAdaptation->runtime_narrator_prompt,
-            'alignment_labels'        => (array) ($storyMap['alignment_labels'] ?? []),
-            'full_session_events'     => $events,
+            'session_number' => $sessionNumber,
+            'total_sessions' => $totalSessions,
+            'cold_open' => $this->normalizeOpeningScene($entry['cold_open'] ?? ''),
+            'opening_handoff' => $resolvedHandoff,
+            'emotional_promise' => mb_trim((string) ($entry['emotional_promise'] ?? '')),
+            'must_reintroduce' => mb_trim((string) ($entry['format_specific_cut']['must_reintroduce'] ?? '')),
+            'runtime_prompt' => (string) $sessionAdaptation->runtime_narrator_prompt,
+            'alignment_labels' => (array) ($storyMap['alignment_labels'] ?? []),
+            'full_session_events' => $events,
             'resolved_consequence_path' => $resolvedConsequencePath,
-            'session_close_design'    => $sessionCloseDesign,
-            'active_moment_context'   => $activeMomentContext,
+            'session_close_design' => $sessionCloseDesign,
+            'active_moment_context' => $activeMomentContext,
         ];
     }
 
@@ -212,8 +220,8 @@ final class ChaosEngineService
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
-        $symbolicBlock = trim((string) $symbolicMemory) !== ''
-            ? trim((string) $symbolicMemory)
+        $symbolicBlock = mb_trim((string) $symbolicMemory) !== ''
+            ? mb_trim((string) $symbolicMemory)
             : '(No symbolic memory yet. The protagonist is still becoming.)';
 
         $alignmentBlock = $this->renderAlignmentTilt(
@@ -235,8 +243,8 @@ final class ChaosEngineService
         }
 
         $worldStateBlock = $this->renderTieredWorldState(
-            worldState:    $worldState,
-            isClimactic:   $isClimacticPrevious,
+            worldState: $worldState,
+            isClimactic: $isClimacticPrevious,
             sessionEvents: $stateScopeEvents,
         );
 
@@ -259,12 +267,12 @@ final class ChaosEngineService
 
         if ($isSessionStart) {
             $prompt = strtr($prompt, [
-                '[SYMBOLIC_MEMORY_INJECTION_POINT]'    => $symbolicBlock,
-                '[ALIGNMENT_TILT_INJECTION_POINT]'     => $alignmentBlock,
-                '[OPENING_SCENE_INJECTION_POINT]'      => $this->buildOpeningSection($sessionContext),
+                '[SYMBOLIC_MEMORY_INJECTION_POINT]' => $symbolicBlock,
+                '[ALIGNMENT_TILT_INJECTION_POINT]' => $alignmentBlock,
+                '[OPENING_SCENE_INJECTION_POINT]' => $this->buildOpeningSection($sessionContext),
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
-                '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
-                '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
+                '[CONSEQUENCE_ECHO_INJECTION_POINT]' => $consequenceBlock,
+                '[SESSION_CLOSE_INJECTION_POINT]' => $closeBlock,
                 '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
             ]);
         } else {
@@ -272,27 +280,460 @@ final class ChaosEngineService
             // injection point token and replace the whole span with a single continuation marker.
             // D8 v2 template uses '### SECTION 13:' heading format.
             $sec13Anchor = '### SECTION 13:';
-            $injToken    = '[OPENING_SCENE_INJECTION_POINT]';
-            $sec13Start  = strpos($prompt, $sec13Anchor);
-            $injPos      = strpos($prompt, $injToken);
+            $injToken = '[OPENING_SCENE_INJECTION_POINT]';
+            $sec13Start = mb_strpos($prompt, $sec13Anchor);
+            $injPos = mb_strpos($prompt, $injToken);
 
             if ($sec13Start !== false && $injPos !== false && $injPos > $sec13Start) {
-                $prompt = substr($prompt, 0, $sec13Start)
-                    . '(Continuation turn — opening already delivered. Resume from conversation history; do not re-cold-open.)'
-                    . substr($prompt, $injPos + strlen($injToken));
+                $prompt = mb_substr($prompt, 0, $sec13Start)
+                    .'(Continuation turn — opening already delivered. Resume from conversation history; do not re-cold-open.)'
+                    .mb_substr($prompt, $injPos + mb_strlen($injToken));
             }
 
             $prompt = strtr($prompt, [
-                '[SYMBOLIC_MEMORY_INJECTION_POINT]'    => $symbolicBlock,
-                '[ALIGNMENT_TILT_INJECTION_POINT]'     => $alignmentBlock,
+                '[SYMBOLIC_MEMORY_INJECTION_POINT]' => $symbolicBlock,
+                '[ALIGNMENT_TILT_INJECTION_POINT]' => $alignmentBlock,
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
-                '[CONSEQUENCE_ECHO_INJECTION_POINT]'   => $consequenceBlock,
-                '[SESSION_CLOSE_INJECTION_POINT]'      => $closeBlock,
+                '[CONSEQUENCE_ECHO_INJECTION_POINT]' => $consequenceBlock,
+                '[SESSION_CLOSE_INJECTION_POINT]' => $closeBlock,
                 '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
             ]);
         }
 
         return $prompt;
+    }
+
+    /**
+     * Extract the session number from a choice_id like "S2_C3" → 2.
+     *
+     * Centralised here so PromptController and GameController don't duplicate
+     * this parsing logic — it belongs in the engine, not controller layer.
+     */
+    public function extractSessionNumber(string $choiceId): int
+    {
+        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 1;
+    }
+
+    /**
+     * Resolve the consequence path for a given defining choice using a direct
+     * choice_id + path_label lookup against the consequence map.
+     *
+     * V2.3.3: Text matching and fallback_to_first_path are removed entirely.
+     * The label (A/B/C) is now stored on `games.defining_path_label` and
+     * passed in here directly. An invalid or missing label logs a warning and
+     * returns null — the consequence echo is simply omitted rather than
+     * applying a wrong branch.
+     *
+     * @param  array<string, mixed>  $consequenceMap  session_adaptations.choice_consequence_map
+     * @return array<string, mixed>|null
+     */
+    public function resolveConsequencePath(
+        string $definingChoiceId,
+        string $definingPathLabel,
+        array $consequenceMap,
+    ): ?array {
+        $pathLabel = mb_strtoupper(mb_trim($definingPathLabel));
+
+        if ($definingChoiceId === '' || $pathLabel === '') {
+            return null;
+        }
+
+        $branchingEntry = null;
+        foreach ((array) ($consequenceMap['branching_consequences'] ?? []) as $bc) {
+            if (mb_strtolower((string) ($bc['choice_id'] ?? '')) === mb_strtolower($definingChoiceId)) {
+                $branchingEntry = $bc;
+                break;
+            }
+        }
+
+        if ($branchingEntry === null) {
+            Log::warning('consequence_path.choice_not_found', [
+                'choice_id' => $definingChoiceId,
+                'path_label' => $pathLabel,
+            ]);
+
+            return null;
+        }
+
+        $matchedPath = null;
+        foreach ((array) ($branchingEntry['paths'] ?? []) as $path) {
+            if (mb_strtoupper((string) ($path['label'] ?? '')) === $pathLabel) {
+                $matchedPath = $path;
+                break;
+            }
+        }
+
+        if ($matchedPath === null) {
+            Log::warning('consequence_path.label_not_found', [
+                'choice_id' => $definingChoiceId,
+                'path_label' => $pathLabel,
+                'available_labels' => array_map(
+                    fn ($p) => ($p['label'] ?? '?'),
+                    (array) ($branchingEntry['paths'] ?? [])
+                ),
+            ]);
+
+            return null;
+        }
+
+        $freeform = null;
+        foreach ((array) ($consequenceMap['freeform_guidelines'] ?? []) as $fg) {
+            if (
+                mb_strtolower((string) ($fg['choice_id'] ?? '')) === mb_strtolower($definingChoiceId)
+                && mb_strtoupper((string) ($fg['path_label'] ?? '')) === $pathLabel
+            ) {
+                $freeform = $fg;
+                break;
+            }
+        }
+
+        return array_merge($matchedPath, $freeform ?? []);
+    }
+
+    /**
+     * Validate and return the branch triple to commit, or null if nothing should
+     * be committed this turn.
+     *
+     * Rules (atomic — all three fields are committed together or not at all):
+     *   - Empty choice_id: expressive/emergent/folded-back turn → return null
+     *     (caller preserves prior triple unchanged).
+     *   - Non-empty choice_id + invalid/missing label (not A/B/C, or not in
+     *     the authored options for that choice): log branch_commit.invalid_label
+     *     and return null (prior triple preserved — never pair a new choice_id
+     *     with a stale or guessed label).
+     *   - Non-empty choice_id + valid label: return the triple.
+     *
+     * @param  array<string, mixed>  $result  callAgent() return value
+     * @param  \Illuminate\Database\Eloquent\Collection<int, SessionAdaptation>|null  $sessionAdaptations
+     * @return array{defining_choice_id:string, defining_path_label:string, defining_choice_line:string}|null
+     */
+    public function resolveBranchCommit(
+        array $result,
+        Game $game,
+        ?object $sessionAdaptations,
+    ): ?array {
+        $newChoiceId = mb_trim((string) ($result['defining_choice_id'] ?? ''));
+
+        if ($newChoiceId === '') {
+            return null;
+        }
+
+        $pathLabel = mb_strtoupper(mb_trim((string) ($result['defining_path_label'] ?? '')));
+
+        if (! in_array($pathLabel, ['A', 'B', 'C'], true)) {
+            Log::warning('branch_commit.invalid_label', [
+                'game_id' => $game->id,
+                'choice_id' => $newChoiceId,
+                'raw_label' => $result['defining_path_label'] ?? '',
+                'note' => 'Label is not A/B/C — branch triple not committed; prior state preserved.',
+            ]);
+
+            return null;
+        }
+
+        // Validate label exists in the authored options for this choice's own session.
+        if ($sessionAdaptations !== null) {
+            $choiceSession = $this->extractSessionNumber($newChoiceId);
+            $targetSA = $sessionAdaptations->firstWhere('session_number', $choiceSession);
+            $authoredLabels = [];
+
+            if ($targetSA && ! empty($targetSA->session_choice_design['branching_choices'])) {
+                foreach ((array) $targetSA->session_choice_design['branching_choices'] as $bc) {
+                    if (mb_strtolower((string) ($bc['choice_id'] ?? '')) === mb_strtolower($newChoiceId)) {
+                        $authoredLabels = array_map(
+                            fn ($opt) => mb_strtoupper((string) ($opt['label'] ?? '')),
+                            (array) ($bc['options'] ?? [])
+                        );
+                        break;
+                    }
+                }
+            }
+
+            if ($authoredLabels !== [] && ! in_array($pathLabel, $authoredLabels, true)) {
+                Log::warning('branch_commit.invalid_label', [
+                    'game_id' => $game->id,
+                    'choice_id' => $newChoiceId,
+                    'raw_label' => $result['defining_path_label'] ?? '',
+                    'authored_labels' => $authoredLabels,
+                    'note' => 'Label not found in authored options — branch triple not committed; prior state preserved.',
+                ]);
+
+                return null;
+            }
+        }
+
+        $newLine = mb_trim((string) ($result['defining_choice_line'] ?? ''));
+
+        return [
+            'defining_choice_id' => $newChoiceId,
+            'defining_path_label' => $pathLabel,
+            'defining_choice_line' => $newLine !== '' ? $newLine : null,
+        ];
+    }
+
+    /**
+     * Call the Chaos narration agent via Prism. Retries once on failure.
+     *
+     * Pass $playerAction = null for the opening turn (session start).
+     * Pass the string 'Continue the story forward.' for the continue button.
+     *
+     * @param  array<int, array{role:string, text:string}>  $conversationHistory
+     * @return array{
+     *     response:string,
+     *     choices:array<int,string>,
+     *     visible_suggestions:array<int,mixed>|null,
+     *     moment_progress:array<string,mixed>|null,
+     *     session_complete:bool,
+     *     state_delta:array<string,mixed>,
+     *     alignment_tally_delta: array{chaotic:int, lawful:int, neutral:int},
+     *     is_climactic_choice:bool,
+     *     defining_choice_id:string,
+     *     defining_path_label:string,
+     *     defining_choice_line:string,
+     *     symbolic_memory_update:string,
+     *     session_memory_update:string,
+     *     _usage?:array<string,mixed>,
+     *     _output_metrics?:array<string,int>,
+     * }
+     */
+    public function callAgent(
+        string $model,
+        string $systemPrompt,
+        array $conversationHistory,
+        ?string $playerAction,
+        string $protagonist,
+        float $temperature = 1.0,
+        array $worldState = [],
+        ?Game $game = null,
+        bool $isOpening = false,
+    ): array {
+        $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
+        $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
+
+        $promptText = view('ai.agents.chaos.turn-prompt', [
+            'conversationHistory' => $conversationHistory,
+            'playerAction' => $playerAction,
+            'protagonist' => $protagonist,
+        ])->render();
+
+        $schemaArray = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
+        $providerOptions = $this->providerOptionsFor($config);
+
+        // The browser response has already been sent before production game
+        // narration reaches this call. Do not reuse Cloudflare's HTTP timeout
+        // as the model timeout: Anthropic structured responses are buffered,
+        // so curl receives no bytes until the complete object is ready.
+        $request = Prism::structured()
+            ->using($config['provider'], $model)
+            ->withSchema(new NativeObjectSchema($schemaArray))
+            ->withPrompt($promptText)
+            ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
+            ->withProviderOptions($providerOptions);
+
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withSystemPrompts(
+                $this->anthropicSystemPrompts($systemPrompt),
+            );
+        } else {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
+
+        // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
+        // Omit sampling params; tone is governed by the runtime narrator system prompt.
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $request = $request->usingTemperature($temperature);
+        }
+
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
+        }
+
+        $response = $request->asStructured();
+
+        /** @var array<string, mixed> $structured */
+        $structured = $response->structured ?? [];
+
+        $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
+
+        $result = [
+            'response' => (string) ($structured['response'] ?? ''),
+            'choices' => (array) ($structured['choices'] ?? []),
+            'visible_suggestions' => array_key_exists('visible_suggestions', $structured)
+                ? (array) $structured['visible_suggestions']
+                : null,
+            'moment_progress' => isset($structured['moment_progress'])
+                ? (array) $structured['moment_progress']
+                : null,
+            'session_complete' => (bool) ($structured['session_complete'] ?? false),
+            'state_delta' => (array) ($structured['state_delta'] ?? []),
+            'alignment_tally_delta' => [
+                'chaotic' => (int) ($alignment['chaotic'] ?? 0),
+                'lawful' => (int) ($alignment['lawful'] ?? 0),
+                'neutral' => (int) ($alignment['neutral'] ?? 0),
+            ],
+            'is_climactic_choice' => (bool) ($structured['is_climactic_choice'] ?? false),
+            'defining_choice_id' => (string) ($structured['defining_choice_id'] ?? ''),
+            'defining_path_label' => mb_strtoupper(mb_trim((string) ($structured['defining_path_label'] ?? ''))),
+            'defining_choice_line' => (string) ($structured['defining_choice_line'] ?? ''),
+            'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
+            'session_memory_update' => (string) ($structured['session_memory_update'] ?? ''),
+            '_usage' => $response->usage->toArray(),
+            '_output_metrics' => $this->structuredOutputMetrics($structured),
+        ];
+
+        $this->validateBoilerNarrationResult($result, $game, $isOpening);
+
+        return $result;
+    }
+
+    /**
+     * Merge a state_delta into persisted world_state.
+     *
+     * @param  array<string, mixed>  $previous
+     * @param  array<string, mixed>  $delta
+     * @return array<string, mixed>
+     */
+    public function mergeStateDelta(array $previous, array $delta): array
+    {
+        $merged = $this->emptyWorldState();
+
+        $merged['location'] = mb_trim((string) ($delta['location'] ?? '')) !== ''
+            ? (string) $delta['location']
+            : (string) ($previous['location'] ?? '');
+
+        foreach (self::COMPLETE_LIST_STATE_FIELDS as $key) {
+            $value = $delta[$key] ?? null;
+            $merged[$key] = is_array($value) && $this->isStringList($value)
+                ? $this->cleanStringList($value)
+                : $this->cleanStringList($previous[$key] ?? []);
+        }
+
+        foreach (self::KEYED_DELTA_STATE_FIELDS as $key) {
+            $value = $delta[$key] ?? null;
+            $merged[$key] = is_array($value)
+                ? $this->mergeKeyedStateList((array) ($previous[$key] ?? []), $value)
+                : $this->cleanStringList($previous[$key] ?? []);
+        }
+
+        foreach (self::APPEND_ONLY_STATE_FIELDS as $key) {
+            $value = $delta[$key] ?? null;
+            $merged[$key] = is_array($value)
+                ? $this->appendUniqueStringList((array) ($previous[$key] ?? []), $value)
+                : $this->cleanStringList($previous[$key] ?? []);
+        }
+
+        $previousLedger = (array) ($previous['emotional_ledger'] ?? []);
+        $newLedger = [];
+        foreach ((array) ($delta['emotional_ledger_entries'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $category = mb_trim((string) ($entry['category'] ?? ''));
+            $text = mb_trim((string) ($entry['entry'] ?? ''));
+            if ($category === '' || $text === '') {
+                continue;
+            }
+            $newLedger[] = ['category' => $category, 'entry' => $text];
+        }
+
+        $merged['emotional_ledger'] = array_values(array_merge($previousLedger, $newLedger));
+
+        return $merged;
+    }
+
+    /**
+     * @param  array{chaotic:int, lawful:int, neutral:int}  $previous
+     * @param  array{chaotic:int, lawful:int, neutral:int}  $delta
+     * @return array{chaotic:int, lawful:int, neutral:int}
+     */
+    public function mergeAlignmentDelta(array $previous, array $delta): array
+    {
+        return [
+            'chaotic' => max(0, (int) ($previous['chaotic'] ?? 0) + (int) ($delta['chaotic'] ?? 0)),
+            'lawful' => max(0, (int) ($previous['lawful'] ?? 0) + (int) ($delta['lawful'] ?? 0)),
+            'neutral' => max(0, (int) ($previous['neutral'] ?? 0) + (int) ($delta['neutral'] ?? 0)),
+        ];
+    }
+
+    public function appendMemory(?string $existing, string $update): ?string
+    {
+        $update = mb_trim($update);
+        if ($update === '') {
+            return $existing;
+        }
+
+        return $existing ? mb_trim($existing)."\n".$update : $update;
+    }
+
+    /**
+     * @param  array<int, array{role:string, text:string}>  $history
+     * @return array<int, array{role:string, text:string}>
+     */
+    public function appendNarratorTurn(array $history, string $responseHtml): array
+    {
+        $history[] = ['role' => 'narrator', 'text' => $this->stripHtml($responseHtml)];
+
+        return $history;
+    }
+
+    /**
+     * @param  array<int, array{role:string, text:string}>  $history
+     * @return array<int, array{role:string, text:string}>
+     */
+    public function appendPlayerTurn(array $history, string $action, string $protagonist = 'the protagonist'): array
+    {
+        $history[] = ['role' => 'player', 'text' => $action, 'protagonist' => $protagonist];
+
+        return $history;
+    }
+
+    public function stripHtml(string $html): string
+    {
+        return mb_trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    /**
+     * @return array{
+     *   location:string,
+     *   conditions:array<int,string>,
+     *   items:array<int,string>,
+     *   object_states:array<int,string>,
+     *   relationship_updates:array<int,string>,
+     *   world_flags:array<int,string>,
+     *   knowledge:array<int,string>,
+     *   notes:array<int,string>,
+     *   player_style:array<int,string>,
+     *   unresolved_promises:array<int,string>,
+     *   emotional_ledger:array<int, array{category:string, entry:string}>,
+     * }
+     */
+    public function emptyWorldState(): array
+    {
+        return [
+            'location' => '',
+            'conditions' => [],
+            'items' => [],
+            'object_states' => [],
+            'relationship_updates' => [],
+            'world_flags' => [],
+            'knowledge' => [],
+            'notes' => [],
+            'player_style' => [],
+            'unresolved_promises' => [],
+            'emotional_ledger' => [],
+        ];
+    }
+
+    /**
+     * @return array{chaotic:int, lawful:int, neutral:int}
+     */
+    public function emptyAlignmentScaffold(): array
+    {
+        return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
     }
 
     /**
@@ -390,181 +831,13 @@ final class ChaosEngineService
             'ACTIVE PLAYABLE MOMENT (the only room you may perform now):',
             json_encode($context['moment'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
             'REQUIRED moment_progress.moment_key (exact string): '
-                . (string) ($context['moment_key'] ?? data_get($context, 'moment.moment_key') ?? ''),
-            'SOFT MOMENT TURN COUNT: ' . (int) ($context['turn_count'] ?? 0),
+                .(string) ($context['moment_key'] ?? data_get($context, 'moment.moment_key') ?? ''),
+            'SOFT MOMENT TURN COUNT: '.(int) ($context['turn_count'] ?? 0),
             'HIDDEN TREASURE INSIGHT (never quote or expose): '
-                . (($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)'),
+                .(($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)'),
             'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
             json_encode($context['next_moment_preview'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null',
         ]);
-    }
-
-    /**
-     * Extract the session number from a choice_id like "S2_C3" → 2.
-     *
-     * Centralised here so PromptController and GameController don't duplicate
-     * this parsing logic — it belongs in the engine, not controller layer.
-     */
-    public function extractSessionNumber(string $choiceId): int
-    {
-        if (preg_match('/^S(\d+)_/i', $choiceId, $matches)) {
-            return (int) $matches[1];
-        }
-
-        return 1;
-    }
-
-    /**
-     * Resolve the consequence path for a given defining choice using a direct
-     * choice_id + path_label lookup against the consequence map.
-     *
-     * V2.3.3: Text matching and fallback_to_first_path are removed entirely.
-     * The label (A/B/C) is now stored on `games.defining_path_label` and
-     * passed in here directly. An invalid or missing label logs a warning and
-     * returns null — the consequence echo is simply omitted rather than
-     * applying a wrong branch.
-     *
-     * @param  array<string, mixed>  $consequenceMap  session_adaptations.choice_consequence_map
-     * @return array<string, mixed>|null
-     */
-    public function resolveConsequencePath(
-        string $definingChoiceId,
-        string $definingPathLabel,
-        array $consequenceMap,
-    ): ?array {
-        $pathLabel = strtoupper(trim($definingPathLabel));
-
-        if ($definingChoiceId === '' || $pathLabel === '') {
-            return null;
-        }
-
-        $branchingEntry = null;
-        foreach ((array) ($consequenceMap['branching_consequences'] ?? []) as $bc) {
-            if (strtolower((string) ($bc['choice_id'] ?? '')) === strtolower($definingChoiceId)) {
-                $branchingEntry = $bc;
-                break;
-            }
-        }
-
-        if ($branchingEntry === null) {
-            Log::warning('consequence_path.choice_not_found', [
-                'choice_id'  => $definingChoiceId,
-                'path_label' => $pathLabel,
-            ]);
-            return null;
-        }
-
-        $matchedPath = null;
-        foreach ((array) ($branchingEntry['paths'] ?? []) as $path) {
-            if (strtoupper((string) ($path['label'] ?? '')) === $pathLabel) {
-                $matchedPath = $path;
-                break;
-            }
-        }
-
-        if ($matchedPath === null) {
-            Log::warning('consequence_path.label_not_found', [
-                'choice_id'        => $definingChoiceId,
-                'path_label'       => $pathLabel,
-                'available_labels' => array_map(
-                    fn ($p) => ($p['label'] ?? '?'),
-                    (array) ($branchingEntry['paths'] ?? [])
-                ),
-            ]);
-            return null;
-        }
-
-        $freeform = null;
-        foreach ((array) ($consequenceMap['freeform_guidelines'] ?? []) as $fg) {
-            if (
-                strtolower((string) ($fg['choice_id'] ?? '')) === strtolower($definingChoiceId)
-                && strtoupper((string) ($fg['path_label'] ?? '')) === $pathLabel
-            ) {
-                $freeform = $fg;
-                break;
-            }
-        }
-
-        return array_merge($matchedPath, $freeform ?? []);
-    }
-
-    /**
-     * Validate and return the branch triple to commit, or null if nothing should
-     * be committed this turn.
-     *
-     * Rules (atomic — all three fields are committed together or not at all):
-     *   - Empty choice_id: expressive/emergent/folded-back turn → return null
-     *     (caller preserves prior triple unchanged).
-     *   - Non-empty choice_id + invalid/missing label (not A/B/C, or not in
-     *     the authored options for that choice): log branch_commit.invalid_label
-     *     and return null (prior triple preserved — never pair a new choice_id
-     *     with a stale or guessed label).
-     *   - Non-empty choice_id + valid label: return the triple.
-     *
-     * @param  array<string, mixed>  $result            callAgent() return value
-     * @param  \Illuminate\Database\Eloquent\Collection<int, SessionAdaptation>|null  $sessionAdaptations
-     * @return array{defining_choice_id:string, defining_path_label:string, defining_choice_line:string}|null
-     */
-    public function resolveBranchCommit(
-        array $result,
-        Game $game,
-        ?object $sessionAdaptations,
-    ): ?array {
-        $newChoiceId = trim((string) ($result['defining_choice_id'] ?? ''));
-
-        if ($newChoiceId === '') {
-            return null;
-        }
-
-        $pathLabel = strtoupper(trim((string) ($result['defining_path_label'] ?? '')));
-
-        if (! in_array($pathLabel, ['A', 'B', 'C'], true)) {
-            Log::warning('branch_commit.invalid_label', [
-                'game_id'   => $game->id,
-                'choice_id' => $newChoiceId,
-                'raw_label' => $result['defining_path_label'] ?? '',
-                'note'      => 'Label is not A/B/C — branch triple not committed; prior state preserved.',
-            ]);
-            return null;
-        }
-
-        // Validate label exists in the authored options for this choice's own session.
-        if ($sessionAdaptations !== null) {
-            $choiceSession = $this->extractSessionNumber($newChoiceId);
-            $targetSA      = $sessionAdaptations->firstWhere('session_number', $choiceSession);
-            $authoredLabels = [];
-
-            if ($targetSA && ! empty($targetSA->session_choice_design['branching_choices'])) {
-                foreach ((array) $targetSA->session_choice_design['branching_choices'] as $bc) {
-                    if (strtolower((string) ($bc['choice_id'] ?? '')) === strtolower($newChoiceId)) {
-                        $authoredLabels = array_map(
-                            fn ($opt) => strtoupper((string) ($opt['label'] ?? '')),
-                            (array) ($bc['options'] ?? [])
-                        );
-                        break;
-                    }
-                }
-            }
-
-            if ($authoredLabels !== [] && ! in_array($pathLabel, $authoredLabels, true)) {
-                Log::warning('branch_commit.invalid_label', [
-                    'game_id'         => $game->id,
-                    'choice_id'       => $newChoiceId,
-                    'raw_label'       => $result['defining_path_label'] ?? '',
-                    'authored_labels' => $authoredLabels,
-                    'note'            => 'Label not found in authored options — branch triple not committed; prior state preserved.',
-                ]);
-                return null;
-            }
-        }
-
-        $newLine = trim((string) ($result['defining_choice_line'] ?? ''));
-
-        return [
-            'defining_choice_id'   => $newChoiceId,
-            'defining_path_label'  => $pathLabel,
-            'defining_choice_line' => $newLine !== '' ? $newLine : null,
-        ];
     }
 
     /**
@@ -587,26 +860,26 @@ final class ChaosEngineService
         $lines = ['ACTIVE CONSEQUENCE GUIDANCE (player\'s prior defining choice):'];
 
         if (! empty($path['current_session_echo'])) {
-            $lines[] = 'Echo this session: ' . $path['current_session_echo'];
+            $lines[] = 'Echo this session: '.$path['current_session_echo'];
         }
         if (! empty($path['next_session_payoff'])) {
-            $lines[] = 'Honour this session: ' . $path['next_session_payoff'];
+            $lines[] = 'Honour this session: '.$path['next_session_payoff'];
         }
         if (! empty($path['narrator_behavior'])) {
-            $lines[] = 'Narrator behaviour going forward: ' . $path['narrator_behavior'];
+            $lines[] = 'Narrator behaviour going forward: '.$path['narrator_behavior'];
         }
         if (! empty($path['consequence_visibility']['what_changes'])) {
-            $vis     = $path['consequence_visibility'];
-            $target  = (int) ($vis['when_visible_target_responses'] ?? 2);
-            $lines[] = 'Make visible within ' . $target . ' responses: ' . $vis['what_changes']
-                . ' (' . ($vis['how_player_sees_it'] ?? '') . ')';
+            $vis = $path['consequence_visibility'];
+            $target = (int) ($vis['when_visible_target_responses'] ?? 2);
+            $lines[] = 'Make visible within '.$target.' responses: '.$vis['what_changes']
+                .' ('.($vis['how_player_sees_it'] ?? '').')';
         }
         if (! empty($path['fold_back_acknowledge'])) {
-            $lines[] = 'Fold-back — acknowledge: "' . $path['fold_back_acknowledge']
-                . '" → redirect: "' . ($path['fold_back_redirect'] ?? '') . '"';
+            $lines[] = 'Fold-back — acknowledge: "'.$path['fold_back_acknowledge']
+                .'" → redirect: "'.($path['fold_back_redirect'] ?? '').'"';
         }
         if (! empty($path['hard_limits'])) {
-            $lines[] = 'Hard limits at this node: ' . implode(' / ', (array) $path['hard_limits']);
+            $lines[] = 'Hard limits at this node: '.implode(' / ', (array) $path['hard_limits']);
         }
 
         return implode("\n", $lines);
@@ -646,15 +919,15 @@ final class ChaosEngineService
         if ($choice !== null) {
             $lines[] = '';
             $lines[] = 'SESSION-END CHOICE — present these three options:';
-            $lines[] = 'Q: ' . ($choice['choice_question'] ?? '');
+            $lines[] = 'Q: '.($choice['choice_question'] ?? '');
             foreach (['option_a', 'option_b', 'option_c'] as $opt) {
                 if (! empty($choice[$opt]['text'])) {
-                    $lines[] = '  ' . strtoupper(str_replace('_', ' ', $opt)) . ': ' . $choice[$opt]['text'];
+                    $lines[] = '  '.mb_strtoupper(str_replace('_', ' ', $opt)).': '.$choice[$opt]['text'];
                 }
             }
             if (! empty($choice['final_line'])) {
                 $lines[] = '';
-                $lines[] = 'FINAL LINE (last words of this session): ' . $choice['final_line'];
+                $lines[] = 'FINAL LINE (last words of this session): '.$choice['final_line'];
             }
         }
 
@@ -676,11 +949,11 @@ final class ChaosEngineService
      */
     private function buildOpeningSection(array $sessionContext): string
     {
-        $sessionNumber    = (int) ($sessionContext['session_number'] ?? 1);
-        $coldOpen         = (string) ($sessionContext['cold_open'] ?? '');
-        $openingHandoff   = (string) ($sessionContext['opening_handoff'] ?? '');
+        $sessionNumber = (int) ($sessionContext['session_number'] ?? 1);
+        $coldOpen = (string) ($sessionContext['cold_open'] ?? '');
+        $openingHandoff = (string) ($sessionContext['opening_handoff'] ?? '');
         $emotionalPromise = (string) ($sessionContext['emotional_promise'] ?? '');
-        $mustReintroduce  = (string) ($sessionContext['must_reintroduce'] ?? '');
+        $mustReintroduce = (string) ($sessionContext['must_reintroduce'] ?? '');
 
         $lines = [];
 
@@ -706,7 +979,7 @@ final class ChaosEngineService
         // Emotional promise — the engagement hook for this session.
         if ($emotionalPromise !== '') {
             $lines[] = '';
-            $lines[] = 'EMOTIONAL PROMISE: ' . $emotionalPromise;
+            $lines[] = 'EMOTIONAL PROMISE: '.$emotionalPromise;
         }
 
         // Cut material that must resurface through action, not exposition.
@@ -717,114 +990,6 @@ final class ChaosEngineService
         }
 
         return implode("\n", $lines);
-    }
-
-    /**
-     * Call the Chaos narration agent via Prism. Retries once on failure.
-     *
-     * Pass $playerAction = null for the opening turn (session start).
-     * Pass the string 'Continue the story forward.' for the continue button.
-     *
-     * @param  array<int, array{role:string, text:string}>  $conversationHistory
-     * @return array{
-     *     response:string,
-     *     choices:array<int,string>,
-     *     session_complete:bool,
-     *     state_delta:array<string,mixed>,
-     *     alignment_tally_delta: array{chaotic:int, lawful:int, neutral:int},
-     *     is_climactic_choice:bool,
-     *     defining_choice_id:string,
-     *     defining_path_label:string,
-     *     defining_choice_line:string,
-     *     symbolic_memory_update:string,
-     *     session_memory_update:string,
-     * }
-     */
-    public function callAgent(
-        string $model,
-        string $systemPrompt,
-        array $conversationHistory,
-        ?string $playerAction,
-        string $protagonist,
-        float $temperature = 1.0,
-        array $worldState = [],
-        ?Game $game = null,
-        bool $isOpening = false,
-    ): array {
-        $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
-
-        $promptText = view('ai.agents.chaos.turn-prompt', [
-            'conversationHistory' => $conversationHistory,
-            'playerAction'        => $playerAction,
-            'protagonist'         => $protagonist,
-        ])->render();
-
-        $schemaArray     = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
-        $providerOptions = $this->providerOptionsFor($config);
-
-        // The browser response has already been sent before production game
-        // narration reaches this call. Do not reuse Cloudflare's HTTP timeout
-        // as the model timeout: Anthropic structured responses are buffered,
-        // so curl receives no bytes until the complete object is ready.
-        $request = Prism::structured()
-            ->using($config['provider'], $model)
-            ->withSchema(new NativeObjectSchema($schemaArray))
-            ->withPrompt($promptText)
-            ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
-            ->withProviderOptions($providerOptions);
-
-        if ($config['provider'] === 'anthropic') {
-            $request = $request->withSystemPrompts(
-                $this->anthropicSystemPrompts($systemPrompt),
-            );
-        } else {
-            $request = $request->withSystemPrompt($systemPrompt);
-        }
-
-        // Sonnet 5 / Opus 4.7+ reject non-default temperature, top_p, top_k (400).
-        // Omit sampling params; tone is governed by the runtime narrator system prompt.
-        if ($this->modelAcceptsSamplingParams($model)) {
-            $request = $request->usingTemperature($temperature);
-        }
-
-        if ($config['provider'] === 'anthropic') {
-            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
-        }
-
-        $response = $request->asStructured();
-
-        $structured = $response->structured ?? [];
-
-        $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
-
-        $result = [
-            'response'               => (string) ($structured['response'] ?? ''),
-            'choices'                => (array)  ($structured['choices'] ?? []),
-            'visible_suggestions'    => array_key_exists('visible_suggestions', $structured)
-                ? (array) $structured['visible_suggestions']
-                : null,
-            'moment_progress'        => isset($structured['moment_progress'])
-                ? (array) $structured['moment_progress']
-                : null,
-            'session_complete'       => (bool)   ($structured['session_complete'] ?? false),
-            'state_delta'            => (array)  ($structured['state_delta'] ?? []),
-            'alignment_tally_delta'  => [
-                'chaotic' => (int) ($alignment['chaotic'] ?? 0),
-                'lawful'  => (int) ($alignment['lawful'] ?? 0),
-                'neutral' => (int) ($alignment['neutral'] ?? 0),
-            ],
-            'is_climactic_choice'    => (bool)   ($structured['is_climactic_choice'] ?? false),
-            'defining_choice_id'     => (string) ($structured['defining_choice_id'] ?? ''),
-            'defining_path_label'    => strtoupper(trim((string) ($structured['defining_path_label'] ?? ''))),
-            'defining_choice_line'   => (string) ($structured['defining_choice_line'] ?? ''),
-            'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
-            'session_memory_update'  => (string) ($structured['session_memory_update'] ?? ''),
-            '_usage'                 => $response->usage->toArray(),
-        ];
-
-        $this->validateBoilerNarrationResult($result, $game, $isOpening);
-
-        return $result;
     }
 
     /**
@@ -919,159 +1084,13 @@ final class ChaosEngineService
             return;
         }
 
-        if (! is_string($footnote) || trim($footnote) === '') {
+        if (! is_string($footnote) || mb_trim($footnote) === '') {
             $result['moment_progress']['moment_footnote'] =
                 'The player acted; answer the immediate pressure and keep the active room alive.';
             Log::channel('narration')->warning('boiler.moment_footnote_defaulted', [
                 'game_id' => $game->id,
             ]);
         }
-    }
-
-    /**
-     * Merge a state_delta into persisted world_state.
-     *
-     * @param  array<string, mixed>  $previous
-     * @param  array<string, mixed>  $delta
-     * @return array<string, mixed>
-     */
-    public function mergeStateDelta(array $previous, array $delta): array
-    {
-        $merged = $this->emptyWorldState();
-
-        $merged['location'] = trim((string) ($delta['location'] ?? '')) !== ''
-            ? (string) $delta['location']
-            : (string) ($previous['location'] ?? '');
-
-        foreach (self::COMPLETE_LIST_STATE_FIELDS as $key) {
-            $value = $delta[$key] ?? null;
-            $merged[$key] = is_array($value)
-                ? $this->cleanStringList($value)
-                : $this->cleanStringList($previous[$key] ?? []);
-        }
-
-        foreach (self::KEYED_DELTA_STATE_FIELDS as $key) {
-            $value = $delta[$key] ?? null;
-            $merged[$key] = is_array($value)
-                ? $this->mergeKeyedStateList((array) ($previous[$key] ?? []), $value)
-                : $this->cleanStringList($previous[$key] ?? []);
-        }
-
-        foreach (self::APPEND_ONLY_STATE_FIELDS as $key) {
-            $value = $delta[$key] ?? null;
-            $merged[$key] = is_array($value)
-                ? $this->appendUniqueStringList((array) ($previous[$key] ?? []), $value)
-                : $this->cleanStringList($previous[$key] ?? []);
-        }
-
-        $previousLedger = (array) ($previous['emotional_ledger'] ?? []);
-        $newLedger      = [];
-        foreach ((array) ($delta['emotional_ledger_entries'] ?? []) as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-            $category = trim((string) ($entry['category'] ?? ''));
-            $text     = trim((string) ($entry['entry'] ?? ''));
-            if ($category === '' || $text === '') {
-                continue;
-            }
-            $newLedger[] = ['category' => $category, 'entry' => $text];
-        }
-
-        $merged['emotional_ledger'] = array_values(array_merge($previousLedger, $newLedger));
-
-        return $merged;
-    }
-
-    /**
-     * @param  array{chaotic:int, lawful:int, neutral:int}  $previous
-     * @param  array{chaotic:int, lawful:int, neutral:int}  $delta
-     * @return array{chaotic:int, lawful:int, neutral:int}
-     */
-    public function mergeAlignmentDelta(array $previous, array $delta): array
-    {
-        return [
-            'chaotic' => max(0, (int) ($previous['chaotic'] ?? 0) + (int) ($delta['chaotic'] ?? 0)),
-            'lawful'  => max(0, (int) ($previous['lawful'] ?? 0) + (int) ($delta['lawful'] ?? 0)),
-            'neutral' => max(0, (int) ($previous['neutral'] ?? 0) + (int) ($delta['neutral'] ?? 0)),
-        ];
-    }
-
-    public function appendMemory(?string $existing, string $update): ?string
-    {
-        $update = trim($update);
-        if ($update === '') {
-            return $existing;
-        }
-
-        return $existing ? trim($existing) . "\n" . $update : $update;
-    }
-
-    /**
-     * @param  array<int, array{role:string, text:string}>  $history
-     * @return array<int, array{role:string, text:string}>
-     */
-    public function appendNarratorTurn(array $history, string $responseHtml): array
-    {
-        $history[] = ['role' => 'narrator', 'text' => $this->stripHtml($responseHtml)];
-
-        return $history;
-    }
-
-    /**
-     * @param  array<int, array{role:string, text:string}>  $history
-     * @return array<int, array{role:string, text:string}>
-     */
-    public function appendPlayerTurn(array $history, string $action, string $protagonist = 'the protagonist'): array
-    {
-        $history[] = ['role' => 'player', 'text' => $action, 'protagonist' => $protagonist];
-
-        return $history;
-    }
-
-    public function stripHtml(string $html): string
-    {
-        return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-    }
-
-    /**
-     * @return array{
-     *   location:string,
-     *   conditions:array<int,string>,
-     *   items:array<int,string>,
-     *   object_states:array<int,string>,
-     *   relationship_updates:array<int,string>,
-     *   world_flags:array<int,string>,
-     *   knowledge:array<int,string>,
-     *   notes:array<int,string>,
-     *   player_style:array<int,string>,
-     *   unresolved_promises:array<int,string>,
-     *   emotional_ledger:array<int, array{category:string, entry:string}>,
-     * }
-     */
-    public function emptyWorldState(): array
-    {
-        return [
-            'location'             => '',
-            'conditions'           => [],
-            'items'                => [],
-            'object_states'        => [],
-            'relationship_updates' => [],
-            'world_flags'          => [],
-            'knowledge'            => [],
-            'notes'                => [],
-            'player_style'         => [],
-            'unresolved_promises'  => [],
-            'emotional_ledger'     => [],
-        ];
-    }
-
-    /**
-     * @return array{chaotic:int, lawful:int, neutral:int}
-     */
-    public function emptyAlignmentScaffold(): array
-    {
-        return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
     }
 
     // -------------------------------------------------------------------------
@@ -1085,7 +1104,7 @@ final class ChaosEngineService
     private function renderAlignmentTilt(array $alignmentLabels, array $scaffold): string
     {
         $chaotic = (int) ($scaffold['chaotic'] ?? 0);
-        $lawful  = (int) ($scaffold['lawful'] ?? 0);
+        $lawful = (int) ($scaffold['lawful'] ?? 0);
         $neutral = (int) ($scaffold['neutral'] ?? 0);
 
         $total = $chaotic + $lawful + $neutral;
@@ -1093,43 +1112,43 @@ final class ChaosEngineService
             return 'No player tendency has declared itself yet. Keep all story-native tonal registers available without naming alignment.';
         }
 
-        $dominant  = 'mixed';
+        $dominant = 'mixed';
         $threshold = (int) ceil($total * 0.4);
-        $top       = max($chaotic, $lawful, $neutral);
-        $tieCount  = (int) ($chaotic === $top) + (int) ($lawful === $top) + (int) ($neutral === $top);
+        $top = max($chaotic, $lawful, $neutral);
+        $tieCount = (int) ($chaotic === $top) + (int) ($lawful === $top) + (int) ($neutral === $top);
 
         if ($tieCount === 1 && $top >= $threshold) {
             $dominant = match (true) {
                 $chaotic === $top => 'chaotic',
-                $lawful === $top  => 'lawful',
-                default           => 'neutral',
+                $lawful === $top => 'lawful',
+                default => 'neutral',
             };
         }
 
-        $label          = null;
-        $description    = null;
+        $label = null;
+        $description = null;
         $voiceSignature = null;
         foreach ($alignmentLabels as $row) {
-            $mapsTo = strtolower((string) ($row['maps_to_internal'] ?? ''));
+            $mapsTo = mb_strtolower((string) ($row['maps_to_internal'] ?? ''));
             if ($mapsTo === $dominant) {
-                $label          = (string) ($row['label'] ?? '');
-                $description    = (string) ($row['narrative_consequences'] ?? ($row['description'] ?? ''));
+                $label = (string) ($row['label'] ?? '');
+                $description = (string) ($row['narrative_consequences'] ?? ($row['description'] ?? ''));
                 $voiceSignature = (string) ($row['voice_signature'] ?? '');
                 break;
             }
         }
 
         if ($label === null || $label === '') {
-            return 'The player\'s alignment has tilted, but no story-native label is configured for "' . $dominant
-                . '". Narrate without surfacing the alignment, but lean toward this tendency in tone.';
+            return 'The player\'s alignment has tilted, but no story-native label is configured for "'.$dominant
+                .'". Narrate without surfacing the alignment, but lean toward this tendency in tone.';
         }
 
-        $lines   = ['STORY-NATIVE ALIGNMENT TILT: "' . $label . '" (hidden — never surface the literal label or any RPG terminology).'];
+        $lines = ['STORY-NATIVE ALIGNMENT TILT: "'.$label.'" (hidden — never surface the literal label or any RPG terminology).'];
         if ($description !== '') {
-            $lines[] = 'Behavioural shape: ' . $description;
+            $lines[] = 'Behavioural shape: '.$description;
         }
         if ($voiceSignature !== '') {
-            $lines[] = 'Voice signature: ' . $voiceSignature;
+            $lines[] = 'Voice signature: '.$voiceSignature;
         }
         $lines[] = 'Tune the narrator\'s voice toward this tendency, but never call it out.';
 
@@ -1159,14 +1178,14 @@ final class ChaosEngineService
      */
     private function formatTier1(array $w): string
     {
-        $lines    = ['PERSISTENT STATE — TIER 1 (always loaded):'];
-        $location = trim((string) ($w['location'] ?? ''));
-        $lines[]  = 'Location: ' . ($location !== '' ? $location : '(unset)');
-        $lines[]  = 'Items: ' . $this->joinList((array) ($w['items'] ?? []));
-        $lines[]  = 'Conditions: ' . $this->joinList((array) ($w['conditions'] ?? []));
-        $lines[]  = 'Knowledge: ' . $this->joinList((array) ($w['knowledge'] ?? []));
-        $lines[]  = 'Notes: ' . $this->joinList((array) ($w['notes'] ?? []));
-        $lines[]  = 'Player style: ' . $this->joinList((array) ($w['player_style'] ?? []));
+        $lines = ['PERSISTENT STATE — TIER 1 (always loaded):'];
+        $location = mb_trim((string) ($w['location'] ?? ''));
+        $lines[] = 'Location: '.($location !== '' ? $location : '(unset)');
+        $lines[] = 'Items: '.$this->joinList((array) ($w['items'] ?? []));
+        $lines[] = 'Conditions: '.$this->joinList((array) ($w['conditions'] ?? []));
+        $lines[] = 'Knowledge: '.$this->joinList((array) ($w['knowledge'] ?? []));
+        $lines[] = 'Notes: '.$this->joinList((array) ($w['notes'] ?? []));
+        $lines[] = 'Player style: '.$this->joinList((array) ($w['player_style'] ?? []));
 
         return implode("\n", $lines);
     }
@@ -1177,39 +1196,39 @@ final class ChaosEngineService
      */
     private function formatTier2(array $w, array $sessionEvents): string
     {
-        $haystack = strtolower(implode(' ', array_map(
-            static fn ($e) => (string) ($e['title'] ?? '') . ' ' . (string) ($e['content'] ?? ''),
+        $haystack = mb_strtolower(implode(' ', array_map(
+            static fn ($e) => (string) ($e['title'] ?? '').' '.(string) ($e['content'] ?? ''),
             $sessionEvents,
         )));
 
-        $allObjects       = (array) ($w['object_states'] ?? []);
+        $allObjects = (array) ($w['object_states'] ?? []);
         $allRelationships = (array) ($w['relationship_updates'] ?? []);
-        $allFlags         = (array) ($w['world_flags'] ?? []);
+        $allFlags = (array) ($w['world_flags'] ?? []);
 
-        $object               = $this->filterByHaystack($allObjects, $haystack);
-        $relationships        = $this->filterByHaystack($allRelationships, $haystack);
-        $flags                = $this->filterByHaystack($allFlags, $haystack);
-        $dormantObjects       = array_values(array_diff($allObjects, $object));
+        $object = $this->filterByHaystack($allObjects, $haystack);
+        $relationships = $this->filterByHaystack($allRelationships, $haystack);
+        $flags = $this->filterByHaystack($allFlags, $haystack);
+        $dormantObjects = array_values(array_diff($allObjects, $object));
         $dormantRelationships = array_values(array_diff($allRelationships, $relationships));
-        $dormantFlags         = array_values(array_diff($allFlags, $flags));
-        $promises             = (array) ($w['unresolved_promises'] ?? []);
+        $dormantFlags = array_values(array_diff($allFlags, $flags));
+        $promises = (array) ($w['unresolved_promises'] ?? []);
 
-        $ledger       = (array) ($w['emotional_ledger'] ?? []);
+        $ledger = (array) ($w['emotional_ledger'] ?? []);
         $recentLedger = array_slice($ledger, -6);
-        $ledgerLines  = array_map(
+        $ledgerLines = array_map(
             static fn (array $entry) => sprintf('%s: %s', $entry['category'] ?? 'note', $entry['entry'] ?? ''),
             array_filter($recentLedger, static fn ($e) => is_array($e)),
         );
 
-        $lines   = ['PERSISTENT STATE — TIER 2 (scene-connected):'];
-        $lines[] = 'Object states: ' . $this->joinList($object);
-        $lines[] = 'Relationships: ' . $this->joinList($relationships);
-        $lines[] = 'World flags: ' . $this->joinList($flags);
-        $lines[] = 'Other carried object states: ' . $this->joinList($dormantObjects);
-        $lines[] = 'Other carried relationships: ' . $this->joinList($dormantRelationships);
-        $lines[] = 'Other carried world flags: ' . $this->joinList($dormantFlags);
-        $lines[] = 'Unresolved promises: ' . $this->joinList($promises);
-        $lines[] = 'Recent emotional ledger: ' . $this->joinList($ledgerLines);
+        $lines = ['PERSISTENT STATE — TIER 2 (scene-connected):'];
+        $lines[] = 'Object states: '.$this->joinList($object);
+        $lines[] = 'Relationships: '.$this->joinList($relationships);
+        $lines[] = 'World flags: '.$this->joinList($flags);
+        $lines[] = 'Other carried object states: '.$this->joinList($dormantObjects);
+        $lines[] = 'Other carried relationships: '.$this->joinList($dormantRelationships);
+        $lines[] = 'Other carried world flags: '.$this->joinList($dormantFlags);
+        $lines[] = 'Unresolved promises: '.$this->joinList($promises);
+        $lines[] = 'Recent emotional ledger: '.$this->joinList($ledgerLines);
 
         return implode("\n", $lines);
     }
@@ -1219,17 +1238,17 @@ final class ChaosEngineService
      */
     private function formatTier3(array $w): string
     {
-        $ledger    = (array) ($w['emotional_ledger'] ?? []);
+        $ledger = (array) ($w['emotional_ledger'] ?? []);
         $allLedger = array_map(
             static fn (array $entry) => sprintf('%s: %s', $entry['category'] ?? 'note', $entry['entry'] ?? ''),
             array_filter($ledger, static fn ($e) => is_array($e)),
         );
 
-        $lines   = ['PERSISTENT STATE — TIER 3 (climactic load — previous turn resolved a moral-weight or session-end choice):'];
-        $lines[] = 'All object states: ' . $this->joinList((array) ($w['object_states'] ?? []));
-        $lines[] = 'All relationships: ' . $this->joinList((array) ($w['relationship_updates'] ?? []));
-        $lines[] = 'All world flags: ' . $this->joinList((array) ($w['world_flags'] ?? []));
-        $lines[] = 'Full emotional ledger: ' . $this->joinList($allLedger);
+        $lines = ['PERSISTENT STATE — TIER 3 (climactic load — previous turn resolved a moral-weight or session-end choice):'];
+        $lines[] = 'All object states: '.$this->joinList((array) ($w['object_states'] ?? []));
+        $lines[] = 'All relationships: '.$this->joinList((array) ($w['relationship_updates'] ?? []));
+        $lines[] = 'All world flags: '.$this->joinList((array) ($w['world_flags'] ?? []));
+        $lines[] = 'Full emotional ledger: '.$this->joinList($allLedger);
 
         return implode("\n", $lines);
     }
@@ -1246,7 +1265,7 @@ final class ChaosEngineService
 
         $filtered = [];
         foreach ($entries as $entry) {
-            $name = strtolower((string) (explode(':', (string) $entry, 2)[0] ?? ''));
+            $name = mb_strtolower((string) (explode(':', (string) $entry, 2)[0] ?? ''));
             if ($name !== '' && str_contains($haystack, $name)) {
                 $filtered[] = $entry;
             }
@@ -1266,15 +1285,38 @@ final class ChaosEngineService
     }
 
     /**
-     * @param  mixed  $value
      * @return array<int, string>
      */
     private function cleanStringList(mixed $value): array
     {
-        return array_values(array_filter(
-            array_map(static fn ($item) => trim((string) $item), (array) $value),
-            static fn (string $item) => $item !== '',
-        ));
+        $clean = [];
+
+        foreach ((array) $value as $item) {
+            if (! is_string($item) && ! is_numeric($item)) {
+                continue;
+            }
+
+            $item = mb_trim((string) $item);
+            if ($item !== '') {
+                $clean[] = $item;
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @param  array<mixed>  $value
+     */
+    private function isStringList(array $value): bool
+    {
+        foreach ($value as $item) {
+            if (! is_string($item)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1285,7 +1327,7 @@ final class ChaosEngineService
     private function mergeKeyedStateList(array $previous, array $delta): array
     {
         $entriesByKey = [];
-        $orderedKeys  = [];
+        $orderedKeys = [];
 
         foreach (array_merge($this->cleanStringList($previous), $this->cleanStringList($delta)) as $entry) {
             $key = $this->stateEntryKey($entry);
@@ -1305,9 +1347,9 @@ final class ChaosEngineService
 
     private function stateEntryKey(string $entry): string
     {
-        $name = trim((string) (explode(':', $entry, 2)[0] ?? $entry));
+        $name = mb_trim((string) (explode(':', $entry, 2)[0] ?? $entry));
 
-        return strtolower($name !== '' ? $name : $entry);
+        return mb_strtolower($name !== '' ? $name : $entry);
     }
 
     /**
@@ -1317,18 +1359,18 @@ final class ChaosEngineService
      */
     private function appendUniqueStringList(array $previous, array $delta): array
     {
-        $seen   = [];
+        $seen = [];
         $merged = [];
 
         foreach (array_merge($this->cleanStringList($previous), $this->cleanStringList($delta)) as $entry) {
-            $key = strtolower($entry);
+            $key = mb_strtolower($entry);
 
             if (isset($seen[$key])) {
                 continue;
             }
 
             $seen[$key] = true;
-            $merged[]   = $entry;
+            $merged[] = $entry;
         }
 
         return $merged;
@@ -1366,9 +1408,9 @@ final class ChaosEngineService
 
     private function normalizeOpeningScene(mixed $value): string
     {
-        $text = trim((string) $value);
+        $text = mb_trim((string) $value);
 
-        return in_array(strtolower($text), ['n/a', 'na', 'none', 'null', '(none)'], true)
+        return in_array(mb_strtolower($text), ['n/a', 'na', 'none', 'null', '(none)'], true)
             ? ''
             : $text;
     }
@@ -1400,13 +1442,13 @@ final class ChaosEngineService
     private function anthropicSystemPrompts(string $systemPrompt): array
     {
         $runtimeSection = '### SECTION 8:';
-        $runtimeOffset = strpos($systemPrompt, $runtimeSection);
+        $runtimeOffset = mb_strpos($systemPrompt, $runtimeSection);
 
         if ($runtimeOffset === false || $runtimeOffset === 0) {
             return [new SystemMessage($systemPrompt)];
         }
 
-        $staticPrefix = new SystemMessage(substr($systemPrompt, 0, $runtimeOffset));
+        $staticPrefix = new SystemMessage(mb_substr($systemPrompt, 0, $runtimeOffset));
         $staticPrefix->withProviderOptions([
             'cacheType' => 'ephemeral',
             'cacheTtl' => '1h',
@@ -1414,8 +1456,44 @@ final class ChaosEngineService
 
         return [
             $staticPrefix,
-            new SystemMessage(substr($systemPrompt, $runtimeOffset)),
+            new SystemMessage(mb_substr($systemPrompt, $runtimeOffset)),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $structured
+     * @return array<string, int>
+     */
+    private function structuredOutputMetrics(array $structured): array
+    {
+        return [
+            'structured_response_bytes' => $this->jsonBytes($structured),
+            'narration_field_bytes' => mb_strlen((string) ($structured['response'] ?? ''), '8bit'),
+            'state_delta_bytes' => $this->jsonBytes($structured['state_delta'] ?? null),
+            'suggestions_bytes' => $this->jsonBytes([
+                'choices' => $structured['choices'] ?? null,
+                'visible_suggestions' => $structured['visible_suggestions'] ?? null,
+            ]),
+            'moment_progress_bytes' => $this->jsonBytes($structured['moment_progress'] ?? null),
+            'alignment_bytes' => $this->jsonBytes($structured['alignment_tally_delta'] ?? null),
+            'branch_metadata_bytes' => $this->jsonBytes([
+                'is_climactic_choice' => $structured['is_climactic_choice'] ?? null,
+                'defining_choice_id' => $structured['defining_choice_id'] ?? null,
+                'defining_path_label' => $structured['defining_path_label'] ?? null,
+                'defining_choice_line' => $structured['defining_choice_line'] ?? null,
+            ]),
+            'memory_update_bytes' => $this->jsonBytes([
+                'symbolic_memory_update' => $structured['symbolic_memory_update'] ?? null,
+                'session_memory_update' => $structured['session_memory_update'] ?? null,
+            ]),
+        ];
+    }
+
+    private function jsonBytes(mixed $value): int
+    {
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return is_string($json) ? mb_strlen($json, '8bit') : 0;
     }
 
     /**

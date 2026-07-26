@@ -108,8 +108,8 @@ final class ProcessGameTurnAction
 
             if ($explicitBranch !== null) {
                 $systemPrompt .= "\n\nVALIDATED PLAYER SELECTION (authoritative): "
-                    . $explicitBranch['defining_choice_id'] . ' path ' . $explicitBranch['defining_path_label']
-                    . '. Resolve this selected authored path; do not infer a different one.';
+                    .$explicitBranch['defining_choice_id'].' path '.$explicitBranch['defining_path_label']
+                    .'. Resolve this selected authored path; do not infer a different one.';
             }
 
             $boilerActive = $game->current_playable_moment_id !== null;
@@ -163,14 +163,15 @@ final class ProcessGameTurnAction
                 'source_prompt_id' => $sourcePrompt->id,
                 'boiler_active' => $boilerActive,
                 'player_input' => mb_substr($playerAction, 0, 120),
-                'response_bytes' => strlen($result['response']),
-                'system_prompt_bytes' => strlen($systemPrompt),
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
                 'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
                 'completion_tokens' => data_get($result, '_usage.completion_tokens'),
                 'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
                 'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
                 'deferred' => true,
             ]);
             NarrationMetricsStore::record([
@@ -181,14 +182,15 @@ final class ProcessGameTurnAction
                 'session_number' => $game->current_session_number,
                 'model' => $game->model,
                 'boiler_active' => $boilerActive,
-                'system_prompt_bytes' => strlen($systemPrompt),
-                'response_bytes' => strlen($result['response']),
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
                 'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
                 'completion_tokens' => data_get($result, '_usage.completion_tokens'),
                 'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
                 'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {

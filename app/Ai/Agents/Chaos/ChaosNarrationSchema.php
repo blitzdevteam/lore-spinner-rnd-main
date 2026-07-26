@@ -20,7 +20,7 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
  *   - session_complete         true only when the session's dramatic question
  *                              has resolved and the next-session seed has been
  *                              planted in narration.
- *   - state_delta              the full persistent world state AFTER this turn:
+ *   - state_delta              sparse persistent world-state changes this turn:
  *                                location / conditions / items
  *                                object_states              (Name: state)
  *                                relationship_updates       (NPC: shift)
@@ -62,28 +62,31 @@ final class ChaosNarrationSchema
 
             'choices' => $schema
                 ->array()
+                ->required()
                 ->title('Choices')
-                ->description('Legacy zero-to-three suggested action strings. Boiler prompts emit visible_suggestions instead. Never emit both.')
+                ->description('Legacy zero-to-three suggested action strings. Boiler prompts emit visible_suggestions instead. Return [] in Boiler mode; never emit both.')
                 ->items($schema->string()->required()),
 
             'visible_suggestions' => $schema
                 ->array()
+                ->required()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only zero-to-three contextual suggestions. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment.')
+                ->description('Boiler-only zero-to-three contextual suggestions. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
                         'text' => $schema->string()->required()->title('Suggestion Text'),
-                        'canonical_choice_id' => $schema->string()->title('Canonical Choice ID'),
-                        'canonical_path_label' => $schema->string()->title('Canonical Path Label'),
+                        'canonical_choice_id' => $schema->string()->required()->title('Canonical Choice ID')->description('Empty string for a freeform suggestion.'),
+                        'canonical_path_label' => $schema->string()->required()->title('Canonical Path Label')->description('A, B, or C for a mapped suggestion; empty string otherwise.'),
                     ])->required()->withoutAdditionalProperties()
                 ),
 
             'moment_progress' => $schema->object([
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),
                 'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
-                'moment_footnote' => $schema->string()->title('Hidden Moment Footnote')
-                    ->description('After player input: one natural probabilistic player-critique sentence of at most 30 words. Omit for opening narration.'),
-            ])->withoutAdditionalProperties()->title('Boiler Moment Progress'),
+                'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
+                    ->description('After player input: one natural probabilistic player-critique sentence of at most 30 words. Empty string for opening narration or outside Boiler mode.'),
+            ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
+                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, and moment_footnote="". Runtime safely holds the active room if this block is malformed.'),
 
             'session_complete' => $schema
                 ->boolean()
@@ -95,77 +98,88 @@ final class ChaosNarrationSchema
                 'location' => $schema
                     ->string()
                     ->required()
+                    ->nullable()
                     ->title('Location')
-                    ->description('Current sub-location. Empty string if unchanged from previous turn.'),
+                    ->description('New current sub-location only when it changed this turn. Return null when unchanged.'),
 
                 'conditions' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Conditions')
-                    ->description('Complete current list of the protagonist\'s active physical/mental conditions. Carry forward, plus add new, minus resolved. Empty array if none.')
+                    ->description('Complete replacement list only when active physical/mental conditions changed this turn. Return null when unchanged. Return [] only when the last active condition ended.')
                     ->items($schema->string()->required()),
 
                 'items' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Items')
-                    ->description('Complete current list of items the protagonist holds. Carry forward, plus gained, minus lost.')
+                    ->description('Complete replacement list only when held items changed this turn. Return null when unchanged. Return [] only when the protagonist now holds nothing.')
                     ->items($schema->string()->required()),
 
                 'object_states' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Object States')
-                    ->description('Changed natural-language states for named objects from the Phase 2 Task 6A inventory. Each entry: "Object Name: qualitative state". Include only objects that changed this turn; the runtime carries forward unchanged named objects. Empty array if nothing changed.')
+                    ->description('Only changed natural-language states for named objects from the Phase 2 Task 6A inventory. Each entry: "Object Name: qualitative state". Return null when no object changed; runtime carries forward all unchanged named objects.')
                     ->items($schema->string()->required()),
 
                 'relationship_updates' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Relationship Updates')
-                    ->description('Changed natural-language relationship states for named NPCs from the Phase 2 Task 6B registry. Each entry: "NPC Name: relationship shift in plain English (no numeric scores)". Include only NPCs whose relationship state shifted this turn; the runtime carries forward unchanged named NPCs. Empty array if nothing shifted.')
+                    ->description('Only changed natural-language relationship states for named NPCs from the Phase 2 Task 6B registry. Each entry: "NPC Name: relationship shift in plain English (no numeric scores)". Return null when nothing shifted; runtime carries forward unchanged NPCs.')
                     ->items($schema->string()->required()),
 
                 'world_flags' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('World Flags')
-                    ->description('Changed world-level flags from Phase 2 Task 6C. Each entry: "Flag Name: new value". Include only flags that changed this turn; the runtime carries forward unchanged flags. Empty array if no flag changed.')
+                    ->description('Only changed world-level flags from Phase 2 Task 6C. Each entry: "Flag Name: new value". Return null when no flag changed; runtime carries forward unchanged flags.')
                     ->items($schema->string()->required()),
 
                 'knowledge' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Knowledge')
-                    ->description('New durable facts the protagonist has learned from their own action this turn. The runtime appends and deduplicates these facts. Empty array if nothing new was learned.')
+                    ->description('Only new durable facts learned from the player action this turn. Return null when nothing new was learned. Runtime appends and deduplicates.')
                     ->items($schema->string()->required()),
 
                 'notes' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Notes')
-                    ->description('New emergent facts that should survive turns (promises made, bargains struck, things released). The runtime appends and deduplicates these notes. Empty array if none.')
+                    ->description('Only new emergent facts from this turn that should persist (promises made, bargains struck, things released). Return null when there are none. Runtime appends and deduplicates.')
                     ->items($schema->string()->required()),
 
                 'player_style' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Player Style')
-                    ->description('Newly observed behavioural patterns from this turn. Subtle, never exposed to the player. The runtime appends and deduplicates these observations. Empty array if nothing new.')
+                    ->description('Only newly observed behavioural patterns from this turn. Return null when nothing new was observed. Runtime appends and deduplicates.')
                     ->items($schema->string()->required()),
 
                 'unresolved_promises' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Unresolved Promises')
-                    ->description('Complete current list of promises made and not yet kept or broken. Carry forward still-open promises, add new promises, remove kept or broken promises. Empty array if none.')
+                    ->description('Complete replacement list only when unresolved promises changed this turn. Return null when unchanged. Return [] only when all promises are now resolved.')
                     ->items($schema->string()->required()),
 
                 'emotional_ledger_entries' => $schema
                     ->array()
                     ->required()
+                    ->nullable()
                     ->title('Emotional Ledger Entries')
-                    ->description('New entries to append to the player historical archive. Each entry tagged with one of the Phase 2 Task 6D category names.')
+                    ->description('Only new entries from this turn to append to the player historical archive. Return null when there are none.')
                     ->items(
                         $schema->object([
                             'category' => $schema->string()->required()->title('Category')->description('Must match a Phase 2 Task 6D archive category (e.g. defining_moral_choices, npcs_helped_or_harmed, promises_made, secrets_discovered).'),
@@ -175,8 +189,8 @@ final class ChaosNarrationSchema
             ])
                 ->required()
                 ->withoutAdditionalProperties()
-                ->title('State Delta (Literary Memory — V2 in place)')
-                ->description('The full persistent world state AFTER this turn. Runtime stores it on chaos_sessions.world_state and passes it back next turn. Every field is required; carry forward what has not changed.'),
+                ->title('Sparse State Delta (Literary Memory — V2 in place)')
+                ->description('Sparse changes from this turn only. Every property is present for native schema stability, but null means unchanged. Runtime safely preserves prior state for null or malformed values. Never repeat unchanged state.'),
 
             'alignment_tally_delta' => $schema->object([
                 'chaotic' => $schema->number()->required()->title('Chaotic')->description('Hidden internal counter increment. 0 or positive integer. NEVER appears in the response field.'),
@@ -212,13 +226,13 @@ final class ChaosNarrationSchema
                 ->string()
                 ->required()
                 ->title('Symbolic Memory Update')
-                ->description('A single short natural-language paragraph (1-3 sentences) that summarises what the protagonist has become through their choices so far. Appended to chaos_sessions.symbolic_memory and re-injected at [SYMBOLIC_MEMORY_INJECTION_POINT] next turn. Empty string if the protagonist\'s interior weather has not shifted notably.'),
+                ->description('A single short natural-language paragraph (1-3 sentences) only when the protagonist\'s interior weather shifted notably this turn. Runtime appends it to symbolic memory. Empty string otherwise.'),
 
             'session_memory_update' => $schema
                 ->string()
                 ->required()
                 ->title('Session Memory Update')
-                ->description('A single short natural-language sentence describing the most narratively important thing that happened this turn. Empty string if nothing notable happened.'),
+                ->description('One short sentence only when something narratively important happened this turn. Empty string otherwise.'),
         ];
     }
 }

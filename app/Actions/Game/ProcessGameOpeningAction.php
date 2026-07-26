@@ -149,14 +149,15 @@ final class ProcessGameOpeningAction
                 'story_id' => $story->id,
                 'model' => $game->model,
                 'session_complete' => $result['session_complete'],
-                'response_bytes' => mb_strlen($result['response']),
-                'system_prompt_bytes' => strlen($systemPrompt),
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
                 'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
                 'completion_tokens' => data_get($result, '_usage.completion_tokens'),
                 'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
                 'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
                 'deferred' => true,
             ]);
             NarrationMetricsStore::record([
@@ -167,14 +168,15 @@ final class ProcessGameOpeningAction
                 'session_number' => 1,
                 'model' => $game->model,
                 'boiler_active' => $game->current_playable_moment_id !== null,
-                'system_prompt_bytes' => strlen($systemPrompt),
-                'response_bytes' => strlen($result['response']),
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
                 'llm_elapsed_ms' => $llmElapsedMs,
                 'elapsed_ms' => $elapsedMs,
                 'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
                 'completion_tokens' => data_get($result, '_usage.completion_tokens'),
                 'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
                 'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {
@@ -209,6 +211,7 @@ final class ProcessGameOpeningAction
 
         Cache::put($this->pendingKey($gameId), 'next_session', 180);
         Cache::forget($this->errorKey($gameId));
+        $startedAt = microtime(true);
 
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
 
@@ -252,6 +255,7 @@ final class ProcessGameOpeningAction
                 isClimacticThisTurn: false,
             );
 
+            $llmStartedAt = microtime(true);
             $result = $this->engine->callAgent(
                 model: $game->model,
                 systemPrompt: $systemPrompt,
@@ -263,6 +267,7 @@ final class ProcessGameOpeningAction
                 game: $game,
                 isOpening: true,
             );
+            $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices(
                 $result,
                 $game->current_playable_moment_id !== null,
@@ -324,13 +329,41 @@ final class ProcessGameOpeningAction
             );
 
             UserActivityDay::record($game->user_id);
+            $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
             Log::channel('narration')->info('game.next_session', [
                 'game_id' => $game->id,
                 'story_id' => $story->id,
                 'session_number' => $nextSessionNumber,
                 'model' => $game->model,
                 'session_complete' => $result['session_complete'],
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
+                'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
+                'completion_tokens' => data_get($result, '_usage.completion_tokens'),
+                'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
+                'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
                 'deferred' => true,
+            ]);
+            NarrationMetricsStore::record([
+                'kind' => 'next_session',
+                'game_id' => $game->id,
+                'story_id' => $story->id,
+                'story_slug' => $story->slug,
+                'session_number' => $nextSessionNumber,
+                'model' => $game->model,
+                'boiler_active' => $game->current_playable_moment_id !== null,
+                'system_prompt_bytes' => mb_strlen($systemPrompt, '8bit'),
+                'response_bytes' => mb_strlen($result['response'], '8bit'),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
+                'prompt_tokens' => data_get($result, '_usage.prompt_tokens'),
+                'completion_tokens' => data_get($result, '_usage.completion_tokens'),
+                'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
+                'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
+                ...((array) ($result['_output_metrics'] ?? [])),
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {
