@@ -130,6 +130,14 @@ return [
         ],
 
         'narration' => [
+            // File alone is invisible on Laravel Cloud (ephemeral disk + Commands
+            // run on a different instance). Also mirror to stderr for Cloud Logs UI.
+            'driver' => 'stack',
+            'channels' => ['narration-daily', 'stderr'],
+            'ignore_exceptions' => false,
+        ],
+
+        'narration-daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/narration.log'),
             'level' => env('LOG_NARRATION_LEVEL', 'info'),
