@@ -143,13 +143,30 @@ final class ProcessGameOpeningAction
             );
 
             UserActivityDay::record($game->user_id);
+            $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
             Log::channel('narration')->info('game.begin', [
                 'game_id' => $game->id,
                 'story_id' => $story->id,
                 'model' => $game->model,
                 'session_complete' => $result['session_complete'],
                 'response_bytes' => mb_strlen($result['response']),
+                'system_prompt_bytes' => strlen($systemPrompt),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
                 'deferred' => true,
+            ]);
+            NarrationMetricsStore::record([
+                'kind' => 'begin',
+                'game_id' => $game->id,
+                'story_id' => $story->id,
+                'story_slug' => $story->slug,
+                'session_number' => 1,
+                'model' => $game->model,
+                'boiler_active' => $game->current_playable_moment_id !== null,
+                'system_prompt_bytes' => strlen($systemPrompt),
+                'response_bytes' => strlen($result['response']),
+                'llm_elapsed_ms' => $llmElapsedMs,
+                'elapsed_ms' => $elapsedMs,
             ]);
             Cache::forget($this->errorKey($gameId));
         } catch (Throwable $e) {
