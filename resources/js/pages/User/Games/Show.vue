@@ -243,13 +243,6 @@ const submitPrompt = (
 ) => {
     isSubmitting.value = true;
 
-    const reloadGame = () => {
-        // Full document reload after a failed/aborted turn so we never sit on a
-        // Cloudflare 504 HTML page or a half-applied Inertia state. If PHP
-        // somehow committed, the player sees the new turn; if not, they can retry.
-        window.location.assign(`/user/games/${props.game.id}`);
-    };
-
     router.post(
         storePrompt(props.game.id),
         {
@@ -262,25 +255,88 @@ const submitPrompt = (
         {
             preserveScroll: true,
             onSuccess: () => {
-                shouldAnimate.value = true;
+                void pollForTurnCompletion(options.promptId);
             },
             onError: () => {
-                reloadGame();
-            },
-            onCancel: () => {
-                reloadGame();
-            },
-            onFinish: () => {
                 isSubmitting.value = false;
                 pendingSelection.value = {};
-
-                nextTick(() => {
-                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                });
+                window.location.assign(`/user/games/${props.game.id}`);
+            },
+            onFinish: () => {
+                // Keep isSubmitting true while the deferred LLM finishes; the poller clears it.
             },
         },
     );
 };
+
+async function pollForTurnCompletion(sourcePromptId: string) {
+    const started = Date.now();
+    const maxMs = 180_000;
+
+    while (Date.now() - started < maxMs) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        await new Promise<void>((resolve) => {
+            router.reload({
+                only: ['game'],
+                preserveScroll: true,
+                onFinish: () => resolve(),
+            });
+        });
+
+        const source = prompts.value.find((p) => p.id === sourcePromptId);
+        const turnError = props.game.turn_error;
+        const stillPending = props.game.turn_pending === true;
+
+        if (turnError) {
+            isSubmitting.value = false;
+            pendingSelection.value = {};
+            return;
+        }
+
+        if (source?.prompt && !stillPending) {
+            isSubmitting.value = false;
+            pendingSelection.value = {};
+            shouldAnimate.value = true;
+            nextTick(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            });
+            return;
+        }
+    }
+
+    isSubmitting.value = false;
+    pendingSelection.value = {};
+}
+
+onMounted(() => {
+    removeNavigationListener = router.on('before', (event) => {
+        try {
+            if (visitLeavesThisGame(event.detail?.visit?.url)) {
+                tts.dismiss();
+            }
+        } catch {
+            // Never break Inertia navigation.
+        }
+    });
+
+    if (hasPrompts.value) {
+        showCinematic.value = false;
+        nextTick(() => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        });
+    }
+
+    // Resume polling after refresh if a deferred turn is still running.
+    if (props.game.turn_pending) {
+        const awaiting = [...prompts.value].reverse().find((p) => !p.prompt);
+        if (awaiting) {
+            isSubmitting.value = true;
+            pendingSelection.value[awaiting.id] = pendingSelection.value[awaiting.id] ?? '…';
+            void pollForTurnCompletion(awaiting.id);
+        }
+    }
+});
 
 const handleCinemaPrepare = () => {
     handleBegin();
@@ -296,21 +352,6 @@ const handleRetryBegin = () => {
 const handleCinematicDone = () => {
     showCinematic.value = false;
 };
-
-onMounted(() => {
-    removeNavigationListener = router.on('before', (event) => {
-        if (visitLeavesThisGame(event.detail.visit.url)) {
-            tts.dismiss();
-        }
-    });
-
-    if (hasPrompts.value) {
-        showCinematic.value = false;
-        nextTick(() => {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        });
-    }
-});
 
 onUnmounted(() => {
     removeNavigationListener?.();
@@ -377,6 +418,10 @@ onUnmounted(() => {
         </template>
 
         <template #game>
+            <p v-if="game.turn_error" class="mb-4 text-center text-sm text-red-300/90">
+                {{ game.turn_error }}
+            </p>
+
             <GameplayChatCard
                 v-for="prompt in prompts"
                 :key="prompt.id"

@@ -1,0 +1,297 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Actions\Game;
+
+use App\Models\Game;
+use App\Models\Prompt;
+use App\Models\UserActivityDay;
+use App\Services\ChaosEngineService;
+use App\Services\Runtime\NarrationResultNormalizer;
+use App\Services\Runtime\PlayableMomentResolver;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
+use Throwable;
+
+/**
+ * Runs the slow narration LLM + commit outside the HTTP response cycle so
+ * Cloudflare/proxies never sit on a silent TTFB and return an instant 504
+ * while PHP is still generating.
+ */
+final class ProcessGameTurnAction
+{
+    private const CONTINUE_MARKER = '__continue__';
+
+    public function __construct(
+        private readonly ChaosEngineService $engine,
+        private readonly PlayableMomentResolver $momentResolver,
+        private readonly NarrationResultNormalizer $resultNormalizer,
+    ) {}
+
+    /**
+     * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
+     */
+    public function handle(
+        string $gameId,
+        string $sourcePromptId,
+        string $storedPromptValue,
+        string $playerAction,
+        ?array $explicitBranch,
+        int $userId,
+    ): void {
+        $game = Game::query()->find($gameId);
+        if ($game === null) {
+            return;
+        }
+
+        $sourcePrompt = $game->prompts()
+            ->whereKey($sourcePromptId)
+            ->whereNull('prompt')
+            ->first();
+
+        if ($sourcePrompt === null) {
+            return;
+        }
+
+        Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
+
+        try {
+            $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
+            $resolvedConsequencePath = null;
+            if (! empty($game->defining_choice_id) && ! empty($game->defining_path_label)) {
+                $priorSessionNumber = $this->engine->extractSessionNumber($game->defining_choice_id);
+                $priorSession = $story->adaptation?->sessionAdaptations
+                    ?->firstWhere('session_number', $priorSessionNumber);
+                if ($priorSession && ! empty($priorSession->choice_consequence_map)) {
+                    $resolvedConsequencePath = $this->engine->resolveConsequencePath(
+                        $game->defining_choice_id,
+                        $game->defining_path_label,
+                        $priorSession->choice_consequence_map,
+                    );
+                }
+            }
+
+            $currentSession = $story->adaptation?->sessionAdaptations
+                ?->firstWhere('session_number', (int) ($game->current_session_number ?? 1));
+            $sessionContext = $this->engine->loadSessionContext(
+                story: $story,
+                sessionNumber: (int) ($game->current_session_number ?? 1),
+                openingHandoff: null,
+                resolvedConsequencePath: $resolvedConsequencePath,
+                sessionCloseDesign: $currentSession?->session_close_design,
+                game: $game,
+            );
+
+            if ($sessionContext === null) {
+                throw new RuntimeException('This story session has not been adapted yet.');
+            }
+
+            $history = $this->buildConversationHistory($game, $story);
+            $worldState = $game->world_state ?? $this->engine->emptyWorldState();
+            $alignment = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
+            $isClimactic = (bool) $game->is_climactic_choice;
+            $systemPrompt = $this->engine->renderSystemPrompt(
+                sessionContext: $sessionContext,
+                worldState: $worldState,
+                alignmentScaffold: $alignment,
+                symbolicMemory: $game->symbolic_memory,
+                isSessionStart: false,
+                isClimacticPrevious: $isClimactic,
+                isClimacticThisTurn: $isClimactic,
+            );
+
+            if ($explicitBranch !== null) {
+                $systemPrompt .= "\n\nVALIDATED PLAYER SELECTION (authoritative): "
+                    . $explicitBranch['defining_choice_id'] . ' path ' . $explicitBranch['defining_path_label']
+                    . '. Resolve this selected authored path; do not infer a different one.';
+            }
+
+            $boilerActive = $game->current_playable_moment_id !== null;
+            $historyWindow = $boilerActive
+                ? array_slice($history, -max(2, ($game->playable_moment_turn_count + 1) * 2))
+                : array_slice($history, -12);
+
+            $result = $this->engine->callAgent(
+                model: $game->model,
+                systemPrompt: $systemPrompt,
+                conversationHistory: $historyWindow,
+                playerAction: $playerAction,
+                protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                temperature: $this->engine->gameTemperatureFor($game->model),
+                worldState: $worldState,
+                game: $game,
+                isOpening: false,
+            );
+            $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
+
+            if ($boilerActive) {
+                $this->momentResolver->applyPlayerTurn(
+                    $game,
+                    $sourcePrompt,
+                    $storedPromptValue,
+                    $result,
+                    $normalizedChoices,
+                    $story->adaptation->sessionAdaptations,
+                    $explicitBranch,
+                );
+            } else {
+                $this->commitLegacyTurn(
+                    $game,
+                    $sourcePrompt,
+                    $storedPromptValue,
+                    $result,
+                    $normalizedChoices,
+                    $story->adaptation?->sessionAdaptations,
+                );
+            }
+
+            UserActivityDay::record($userId);
+            Log::channel('narration')->info('game.turn', [
+                'game_id' => $game->id,
+                'story_id' => $story->id,
+                'session_number' => $game->current_session_number,
+                'model' => $game->model,
+                'source_prompt_id' => $sourcePrompt->id,
+                'boiler_active' => $boilerActive,
+                'player_input' => mb_substr($playerAction, 0, 120),
+                'response_bytes' => strlen($result['response']),
+                'deferred' => true,
+            ]);
+            Cache::forget($this->errorKey($gameId));
+        } catch (Throwable $e) {
+            Log::channel('narration')->error('game.turn_failed', [
+                'game_id' => $gameId,
+                'source_prompt_id' => $sourcePromptId,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'player_input' => mb_substr($playerAction, 0, 120),
+                'deferred' => true,
+            ]);
+            Cache::put($this->errorKey($gameId), 'Narration hiccuped — please retry this turn.', 60);
+            throw $e;
+        } finally {
+            Cache::forget($this->pendingKey($gameId));
+        }
+    }
+
+    public function pendingKey(string $gameId): string
+    {
+        return "game-turn-pending:{$gameId}";
+    }
+
+    public function errorKey(string $gameId): string
+    {
+        return "game-turn-error:{$gameId}";
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @param  array<int, string|array<string, mixed>>  $normalizedChoices
+     */
+    private function commitLegacyTurn(
+        Game $game,
+        Prompt $sourcePrompt,
+        string $storedPromptValue,
+        array $result,
+        array $normalizedChoices,
+        ?object $sessionAdaptations,
+    ): void {
+        DB::transaction(function () use (
+            $game,
+            $sourcePrompt,
+            $storedPromptValue,
+            $result,
+            $normalizedChoices,
+            $sessionAdaptations,
+        ): void {
+            $lockedGame = Game::query()->whereKey($game->id)->lockForUpdate()->firstOrFail();
+            $lockedSource = Prompt::query()
+                ->whereKey($sourcePrompt->id)
+                ->where('game_id', $lockedGame->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (
+                Prompt::query()
+                    ->where('game_id', $lockedGame->id)
+                    ->where('source_prompt_id', $lockedSource->id)
+                    ->exists()
+            ) {
+                return;
+            }
+
+            if ($lockedSource->prompt !== null) {
+                throw new RuntimeException('The source prompt has already been answered.');
+            }
+
+            $worldState = $this->engine->mergeStateDelta(
+                $lockedGame->world_state ?? $this->engine->emptyWorldState(),
+                (array) $result['state_delta'],
+            );
+            $alignment = $this->engine->mergeAlignmentDelta(
+                $lockedGame->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold(),
+                (array) $result['alignment_tally_delta'],
+            );
+            $memory = $this->engine->appendMemory(
+                $lockedGame->symbolic_memory,
+                (string) $result['symbolic_memory_update'],
+            );
+            $branchCommit = $this->engine->resolveBranchCommit(
+                $result,
+                $lockedGame,
+                $sessionAdaptations,
+            );
+
+            $lockedSource->update(['prompt' => $storedPromptValue]);
+            $lockedGame->update([
+                'world_state' => $worldState,
+                'alignment_scaffold' => $alignment,
+                'symbolic_memory' => $memory,
+                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
+                'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : $lockedGame->defining_choice_id,
+                'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $lockedGame->defining_path_label,
+                'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $lockedGame->defining_choice_line,
+                'current_session_complete' => (bool) $result['session_complete'],
+            ]);
+            $lockedGame->prompts()->create([
+                'source_prompt_id' => $lockedSource->id,
+                'session_number' => $lockedGame->current_session_number,
+                'response' => $result['response'],
+                'choices' => $normalizedChoices,
+            ]);
+        });
+    }
+
+    /**
+     * @return array<int, array{role:string, text:string, protagonist?:string}>
+     */
+    private function buildConversationHistory(Game $game, mixed $story): array
+    {
+        $history = [];
+        $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
+
+        $prompts = $game->prompts()
+            ->where('session_number', $game->current_session_number)
+            ->oldest()
+            ->get();
+
+        foreach ($prompts as $p) {
+            if ($p->response) {
+                $history[] = [
+                    'role' => 'narrator',
+                    'text' => $this->engine->stripHtml($p->response),
+                ];
+            }
+            if ($p->prompt && $p->prompt !== self::CONTINUE_MARKER) {
+                $history[] = ['role' => 'player', 'text' => $p->prompt, 'protagonist' => $protagonist];
+            } elseif ($p->prompt === self::CONTINUE_MARKER) {
+                $history[] = ['role' => 'player', 'text' => 'Continue the story forward.', 'protagonist' => $protagonist];
+            }
+        }
+
+        return $history;
+    }
+}

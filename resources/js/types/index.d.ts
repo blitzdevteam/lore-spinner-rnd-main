@@ -158,5 +158,9 @@ export interface GameInterface {
     // Cold-open UX: story-native chat-bar placeholder for the player's very first move.
     // Null when D10 has not been run for this story (graceful degradation → empty bar).
     first_input_hint?: string | null;
+
+    // Deferred turn processing (LLM runs afterResponse to avoid proxy 504s).
+    turn_pending?: boolean;
+    turn_error?: string | null;
 }
 
