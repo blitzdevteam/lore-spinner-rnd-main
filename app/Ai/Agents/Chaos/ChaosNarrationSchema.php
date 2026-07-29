@@ -84,9 +84,9 @@ final class ChaosNarrationSchema
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),
                 'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
                 'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
-                    ->description('After player input: one natural probabilistic player-critique sentence of at most 30 words. Empty string for opening narration or outside Boiler mode.'),
+                    ->description('REQUIRED after every player turn: one non-empty natural probabilistic player-critique sentence of at most 30 words for the next narrator. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders — the model must produce this.'),
             ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
-                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, and moment_footnote="". Runtime safely holds the active room if this block is malformed.'),
+                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
 
             'session_complete' => $schema
                 ->boolean()

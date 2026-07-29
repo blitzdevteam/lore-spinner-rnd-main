@@ -122,8 +122,16 @@ final class ProcessGameOpeningAction
                     : $result['session_complete'],
             ]);
 
+            $openingMomentKey = $game->current_playable_moment_id !== null
+                ? $game->currentPlayableMoment()->value('moment_key')
+                : null;
+
             $game->prompts()->create([
                 'session_number' => 1,
+                'moment_key' => $openingMomentKey,
+                'exit_condition_met' => $openingMomentKey !== null ? false : null,
+                'moment_result' => null,
+                'moment_footnote' => null,
                 'response' => $result['response'],
                 'choices' => $normalizedChoices,
             ]);
@@ -303,8 +311,16 @@ final class ProcessGameOpeningAction
                 'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
             ]);
 
+            $openingMomentKey = $game->current_playable_moment_id !== null
+                ? $game->currentPlayableMoment()->value('moment_key')
+                : null;
+
             $game->prompts()->create([
                 'session_number' => $nextSessionNumber,
+                'moment_key' => $openingMomentKey,
+                'exit_condition_met' => $openingMomentKey !== null ? false : null,
+                'moment_result' => null,
+                'moment_footnote' => null,
                 'response' => $result['response'],
                 'choices' => $normalizedChoices,
             ]);

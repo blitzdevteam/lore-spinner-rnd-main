@@ -305,9 +305,11 @@ it('commits a turn after soft-repairing missing moment_progress and empty footno
         ->and($fixture['source']->fresh()->prompt)->toBe('Probe the room.')
         ->and($game->playable_moment_turn_count)->toBe(1)
         ->and($game->current_playable_moment_id)->toBe($fixture['first']->id)
-        ->and($game->moment_footnote['text'] ?? null)->toBe(
-            'The player acted; answer the immediate pressure and keep the active room alive.'
-        );
+        ->and($game->moment_footnote['text'] ?? null)->toBeNull()
+        ->and($response->moment_key)->toBe('S1_M01')
+        ->and($response->exit_condition_met)->toBeFalse()
+        ->and($response->moment_result)->toBe('retained')
+        ->and($response->moment_footnote)->toBeNull();
 });
 
 it('repairs missing or stale moment_progress onto the active moment', function () {
@@ -364,4 +366,305 @@ it('repairs opening narration that wrongly includes a footnote', function () {
         ->and($invalid['moment_progress']['moment_footnote'])->toBeNull()
         ->and($invalid['choices'])->toBe([])
         ->and($invalid['visible_suggestions'])->toBe([]);
+});
+
+it('does not invent a PHP footnote default when the player-turn footnote is empty', function () {
+    $fixture = boilerResolverFixture();
+    $engine = app(ChaosEngineService::class);
+    $method = (new ReflectionClass($engine))->getMethod('validateBoilerNarrationResult');
+
+    $result = [
+        'visible_suggestions' => [],
+        'choices' => [],
+        'moment_progress' => [
+            'moment_key' => 'S1_M01',
+            'exit_condition_met' => false,
+            'moment_footnote' => '',
+        ],
+    ];
+    $method->invokeArgs($engine, [&$result, $fixture['game'], false]);
+
+    expect($result['moment_progress']['moment_footnote'])->toBeNull();
+});
+
+it('injects budget, gravity, exit, forbidden, and next_bridge into the active-moment block', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M01',
+            'title' => 'The room',
+            'choice_ids' => ['S1_C1'],
+            'exit_condition' => 'The shard is understood.',
+            'forbidden_expansions' => ['Do not stage the vigil.'],
+            'next_bridge' => 'Carry the secret into the corridor.',
+            'turn_budget' => [
+                'target_turns' => 2,
+                'gravity_after' => 3,
+            ],
+        ],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                [
+                    'choice_id' => 'S1_C1',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Ask plainly'],
+                        ['label' => 'B', 'text' => 'Wait'],
+                        ['label' => 'C', 'text' => 'Leave'],
+                    ],
+                ],
+            ],
+            'emotional_choices' => [],
+        ],
+    ]);
+    $fixture['game']->update(['playable_moment_turn_count' => 3]);
+
+    $engine = app(ChaosEngineService::class);
+    $resolve = (new ReflectionClass($engine))->getMethod('resolveActiveMomentContext');
+    $build = (new ReflectionClass($engine))->getMethod('buildActiveMomentBlock');
+
+    $context = $resolve->invoke($engine, $fixture['game']->fresh(), $fixture['session']->fresh());
+    $block = $build->invoke($engine, $context);
+
+    expect($context['pacing_state'])->toBe('AT GRAVITY')
+        ->and($context['target_turns'])->toBe(2)
+        ->and($context['gravity_after'])->toBe(3)
+        ->and($context['turn_count'])->toBe(3)
+        ->and($block)->toContain('Pacing state: AT GRAVITY')
+        ->and($block)->toContain('Target turns: 2')
+        ->and($block)->toContain('Gravity begins: 3')
+        ->and($block)->toContain('EXIT CONDITION')
+        ->and($block)->toContain('The shard is understood.')
+        ->and($block)->toContain('FORBIDDEN EXPANSIONS')
+        ->and($block)->toContain('Do not stage the vigil.')
+        ->and($block)->toContain('NEXT BRIDGE')
+        ->and($block)->toContain('Carry the secret into the corridor.')
+        ->and($block)->toContain('DECISIVE PROGRESSION NOW')
+        ->and($block)->toContain('Ask plainly')
+        ->and($block)->toContain('REQUIRED: emit valid moment_progress');
+});
+
+it('persists model-produced moment fields on the response prompt each player turn', function () {
+    $fixture = boilerResolverFixture();
+    $resolver = app(PlayableMomentResolver::class);
+    $footnote = 'The player seeks proof before commitment; answer with one revealing resistance, then return the shard pressure.';
+
+    $response = $resolver->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Inspect the shard.',
+        boilerResolverResult('S1_M01', false, $footnote),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($response->moment_key)->toBe('S1_M01')
+        ->and($response->exit_condition_met)->toBeFalse()
+        ->and($response->moment_result)->toBe('retained')
+        ->and($response->moment_footnote)->toBe($footnote)
+        ->and($fixture['game']->fresh()->moment_footnote['text'] ?? null)->toBe($footnote);
+});
+
+it('keeps authored mappings on exit turns by sanitizing against the pre-exit moment', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M01',
+            'choice_ids' => ['S1_C1'],
+            'next_moment_key' => 'S1_M02',
+        ],
+    ]);
+    $fixture['second']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M02',
+            'choice_ids' => [],
+        ],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                [
+                    'choice_id' => 'S1_C1',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Path A'],
+                        ['label' => 'B', 'text' => 'Path B'],
+                        ['label' => 'C', 'text' => 'Path C'],
+                    ],
+                ],
+            ],
+            'emotional_choices' => [],
+        ],
+    ]);
+
+    $resolver = app(PlayableMomentResolver::class);
+    $response = $resolver->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Take path A.',
+        boilerResolverResult(
+            'S1_M01',
+            true,
+            'The choice lands; close this room and bridge into the next pressure without restating the invitation.',
+        ),
+        [
+            [
+                'text' => 'Path A wording',
+                'canonical_choice_id' => 'S1_C1',
+                'canonical_path_label' => 'A',
+            ],
+        ],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($response->choices)->toBe([
+        [
+            'text' => 'Path A wording',
+            'canonical_choice_id' => 'S1_C1',
+            'canonical_path_label' => 'A',
+        ],
+    ])
+        ->and($response->moment_result)->toBe('advanced')
+        ->and($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('blocks session complete until an authored session-ending choice is resolved', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M02',
+            'choice_ids' => ['S1_C4'],
+        ],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                [
+                    'choice_id' => 'S1_C4',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Close with mercy'],
+                        ['label' => 'B', 'text' => 'Close with steel'],
+                        ['label' => 'C', 'text' => 'Close with silence'],
+                    ],
+                ],
+            ],
+            'emotional_choices' => [],
+        ],
+    ]);
+    $fixture['game']->update([
+        'current_playable_moment_id' => $fixture['second']->id,
+        'playable_moment_turn_count' => 1,
+    ]);
+
+    $resolver = app(PlayableMomentResolver::class);
+    $sessions = $fixture['adaptation']->sessionAdaptations()->get();
+
+    $blocked = $resolver->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'I think we are done.',
+        boilerResolverResult(
+            'S1_M02',
+            true,
+            'The room feels finished in prose, but the authored ending choice has not yet been taken.',
+        ),
+        [],
+        $sessions,
+    );
+
+    expect($fixture['game']->fresh()->current_session_complete)->toBeFalse()
+        ->and($blocked->moment_result)->toBe('retained');
+
+    $endingSource = $fixture['game']->fresh()->prompts()->create([
+        'session_number' => 1,
+        'response' => '<p>Still the last room.</p>',
+        'choices' => [],
+    ]);
+
+    $completed = $resolver->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $endingSource,
+        'Close with silence.',
+        array_merge(
+            boilerResolverResult(
+                'S1_M02',
+                true,
+                'The ending choice is taken; let the session rest on the earned close without inventing another beat.',
+            ),
+            [
+                'defining_choice_id' => 'S1_C4',
+                'defining_path_label' => 'C',
+                'defining_choice_line' => 'Silence closes the case.',
+            ],
+        ),
+        [],
+        $sessions,
+        [
+            'defining_choice_id' => 'S1_C4',
+            'defining_path_label' => 'C',
+            'defining_choice_line' => 'Silence closes the case.',
+        ],
+    );
+
+    expect($fixture['game']->fresh()->current_session_complete)->toBeTrue()
+        ->and($completed->moment_result)->toBe('completed');
+});
+
+it('skips near-duplicate symbolic_memory and player_style appends', function () {
+    $engine = app(ChaosEngineService::class);
+
+    $first = $engine->appendMemory(null, 'Instinct: press for proof before trusting the room.');
+    $duped = $engine->appendMemory($first, 'Instinct: press for proof before trusting the room.');
+    $spaced = $engine->appendMemory($first, 'Instinct:   press for proof before trusting the room.');
+
+    expect($duped)->toBe($first)
+        ->and($spaced)->toBe($first);
+
+    $merged = $engine->mergeStateDelta(
+        [
+            ...$engine->emptyWorldState(),
+            'player_style' => ['Presses for proof'],
+        ],
+        [
+            'location' => null,
+            'conditions' => null,
+            'items' => null,
+            'object_states' => null,
+            'relationship_updates' => null,
+            'world_flags' => null,
+            'knowledge' => null,
+            'notes' => null,
+            'player_style' => ['presses for proof', 'Presses for proof'],
+            'unresolved_promises' => null,
+            'emotional_ledger_entries' => null,
+        ],
+    );
+
+    expect($merged['player_style'])->toBe(['Presses for proof']);
+});
+
+it('soft-holds malformed progress without inventing an exit and without a second agent call', function () {
+    $fixture = boilerResolverFixture();
+    $engine = app(ChaosEngineService::class);
+    $method = (new ReflectionClass($engine))->getMethod('validateBoilerNarrationResult');
+
+    $result = [
+        'visible_suggestions' => [],
+        'choices' => [],
+        'moment_progress' => [
+            'moment_key' => 'WRONG_KEY',
+            'exit_condition_met' => true,
+            'moment_footnote' => 'Keep pressure local while the metadata is repaired.',
+        ],
+    ];
+    $method->invokeArgs($engine, [&$result, $fixture['game'], false]);
+
+    expect($result['moment_progress']['moment_key'])->toBe('S1_M01')
+        ->and($result['moment_progress']['exit_condition_met'])->toBeFalse()
+        ->and($result['moment_progress']['moment_footnote'])->toBe(
+            'Keep pressure local while the metadata is repaired.'
+        );
+
+    // Soft structural hold is in-process only — there is no second callAgent for Boiler repair.
+    expect((new ReflectionClass($engine))->hasMethod('callAgent'))->toBeTrue();
 });

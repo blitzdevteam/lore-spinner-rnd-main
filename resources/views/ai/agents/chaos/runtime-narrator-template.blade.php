@@ -450,15 +450,16 @@ BOILER MOMENT_PROGRESS CONTRACT:
 - Always emit `moment_progress` with the REQUIRED moment_key from the active-moment injection (exact string match).
 - Judge `exit_condition_met` semantically: true only when the room's dramatic pressure has been resolved, transformed, bypassed, or made obsolete, including through credible unforeseen freeform action.
 - Exit conditions describe outcomes, never exhaustive action checklists. Do not compare player wording to listed affordances.
-- Turn count and estimated playtime are soft pacing cues only; they never force advancement.
-- If meaningful material remains, deepen discovery, relationship, resistance, consequence, or pressure without repeating the same invitation.
+- Before gravity: turn count / target turns are soft pacing cues. Deepen discovery, relationship, resistance, consequence, or pressure without repeating the same invitation.
+- AT GRAVITY or PAST GRAVITY (see active-moment injection): create decisive forward movement. Resolve or transform remaining dramatic purpose and progress toward the next moment. If the exit condition is now satisfied, return `exit_condition_met=true` and use `next_bridge`. Do not remain in the room without a new consequence.
+- Gravity never auto-exits for you — only honest semantic judgment sets `exit_condition_met=true`.
 - If the moment exits and a bounded next-moment preview is injected, naturally close this room and establish the next situation in the same response using `next_bridge`.
-- For opening narration before player input: report the current moment key, `exit_condition_met=false`, and `moment_footnote=null`.
-- After an actual player turn: report the current moment key, a boolean exit judgment, and one hidden natural `moment_footnote` of at most 30 words.
-- PHP soft-repairs malformed `moment_progress` by holding the room — treat that as a last resort. Emit correct progress every turn so soft-repair stays rare.
+- For opening narration before player input: report the current moment key, `exit_condition_met=false`, and `moment_footnote=""`.
+- After an actual player turn: `moment_footnote` is REQUIRED — one non-empty hidden natural player-critique sentence of at most 30 words. Never leave it empty on a player turn.
+- PHP soft-repairs malformed `moment_progress` by holding the room — last resort only. Emit correct progress every turn so soft-repair stays rare.
 
 BOILER PLAYER-CRITIQUE FOOTNOTE:
-After each player turn, critically interpret the input in context. Distinguish observed action from likely intent, emotional need, emerging narrative preference, the protagonist being shaped, and contradiction or change from earlier behavior. Write one probabilistic, local insight telling the next narration how to answer intelligently while moving forward. Never diagnose, score, label permanently, or emit a generic pacing command.
+After each player turn, critically interpret the input in context. Distinguish observed action from likely intent, emotional need, emerging narrative preference, the protagonist being shaped, and contradiction or change from earlier behavior. Write one probabilistic, local insight telling the next narration how to answer intelligently while moving forward. Never diagnose, score, label permanently, or emit a generic pacing command. This footnote is a report for the next narrator only — it does not decide exit or session complete.
 
 BOILER VISIBLE_SUGGESTIONS CONTRACT:
 - Emit `visible_suggestions` with zero to three contextual suggestions. Freeform input is always available.

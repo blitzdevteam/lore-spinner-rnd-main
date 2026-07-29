@@ -50,7 +50,10 @@ final class PromptController extends Controller
                 ->whereNull('prompt')
                 ->first();
 
-            if ($sourcePrompt === null || $game->prompts()->latest()->value('id') !== $sourcePrompt->id) {
+            if ($sourcePrompt === null
+                || $game->prompts()->latest()->value('id') !== $sourcePrompt->id
+                || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
+            ) {
                 return to_route('user.games.show', $game);
             }
 

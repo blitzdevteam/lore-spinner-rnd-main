@@ -666,7 +666,29 @@ TEXT;
             return $existing;
         }
 
-        return $existing ? mb_trim($existing)."\n".$update : $update;
+        if ($existing === null || mb_trim($existing) === '') {
+            return $update;
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", mb_trim($existing)) ?: [];
+        $recent = array_slice($lines, -8);
+        $normalizedUpdate = $this->normalizeMemoryLine($update);
+
+        foreach ($recent as $line) {
+            if ($this->normalizeMemoryLine((string) $line) === $normalizedUpdate) {
+                return $existing;
+            }
+        }
+
+        return mb_trim($existing)."\n".$update;
+    }
+
+    private function normalizeMemoryLine(string $line): string
+    {
+        $line = mb_strtolower(mb_trim($line));
+        $line = preg_replace('/\s+/u', ' ', $line) ?? $line;
+
+        return $line;
     }
 
     /**
@@ -797,6 +819,7 @@ TEXT;
         }
 
         $nextCard = (array) ($nextMoment?->scene_card ?? []);
+        $card = (array) $moment->scene_card;
         $preview = $nextMoment === null ? null : [
             'moment_key' => $nextMoment->moment_key,
             'title' => $nextCard['title'] ?? '',
@@ -806,16 +829,83 @@ TEXT;
             'player_affordances' => $nextCard['player_affordances'] ?? [],
             'choice_ids' => $nextCard['choice_ids'] ?? [],
             'canon_must_keep' => $nextCard['canon_must_keep'] ?? [],
-            'next_bridge' => data_get($moment->scene_card, 'next_bridge'),
+            'next_bridge' => data_get($card, 'next_bridge'),
         ];
 
+        $targetTurns = (int) data_get($card, 'turn_budget.target_turns', 0);
+        $gravityAfter = (int) data_get($card, 'turn_budget.gravity_after', 0);
+        $turnCount = (int) $game->playable_moment_turn_count;
+        $pacingState = 'UNDER TARGET';
+        if ($gravityAfter > 0 && $turnCount >= $gravityAfter) {
+            $pacingState = $turnCount > $gravityAfter ? 'PAST GRAVITY' : 'AT GRAVITY';
+        } elseif ($targetTurns > 0 && $turnCount >= $targetTurns) {
+            $pacingState = 'AT GRAVITY';
+        }
+
+        $authoredOptions = $this->authoredOptionsForMoment($session, (array) data_get($card, 'choice_ids', []));
+
         return [
-            'moment' => (array) $moment->scene_card,
+            'moment' => $card,
             'moment_key' => $moment->moment_key,
-            'turn_count' => (int) $game->playable_moment_turn_count,
+            'turn_count' => $turnCount,
+            'target_turns' => $targetTurns,
+            'gravity_after' => $gravityAfter,
+            'pacing_state' => $pacingState,
+            'exit_condition' => (string) ($card['exit_condition'] ?? ''),
+            'forbidden_expansions' => (array) ($card['forbidden_expansions'] ?? []),
+            'next_bridge' => (string) data_get($card, 'next_bridge', ''),
+            'authored_options' => $authoredOptions,
             'treasure_insight' => $footnote['text'] ?? null,
             'next_moment_preview' => $preview,
         ];
+    }
+
+    /**
+     * @param  array<int, mixed>  $choiceIds
+     * @return array<int, array{choice_id:string, options:array<int, array{label:string, text:string}>}>
+     */
+    private function authoredOptionsForMoment(SessionAdaptation $session, array $choiceIds): array
+    {
+        $out = [];
+        $design = (array) ($session->session_choice_design ?? []);
+
+        foreach ($choiceIds as $choiceId) {
+            $id = (string) $choiceId;
+            if ($id === '') {
+                continue;
+            }
+
+            $match = null;
+            foreach (['branching_choices', 'emotional_choices'] as $bucket) {
+                $found = collect((array) ($design[$bucket] ?? []))->firstWhere('choice_id', $id);
+                if (is_array($found)) {
+                    $match = $found;
+                    break;
+                }
+            }
+
+            if ($match === null) {
+                continue;
+            }
+
+            $options = [];
+            foreach ((array) ($match['options'] ?? []) as $option) {
+                if (! is_array($option)) {
+                    continue;
+                }
+                $options[] = [
+                    'label' => strtoupper((string) ($option['label'] ?? '')),
+                    'text' => (string) ($option['text'] ?? ''),
+                ];
+            }
+
+            $out[] = [
+                'choice_id' => $id,
+                'options' => $options,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -827,17 +917,68 @@ TEXT;
             return '';
         }
 
-        return implode("\n\n", [
+        $momentKey = (string) ($context['moment_key'] ?? data_get($context, 'moment.moment_key') ?? '');
+        $turnCount = (int) ($context['turn_count'] ?? 0);
+        $targetTurns = (int) ($context['target_turns'] ?? 0);
+        $gravityAfter = (int) ($context['gravity_after'] ?? 0);
+        $pacingState = (string) ($context['pacing_state'] ?? 'UNDER TARGET');
+        $exitCondition = mb_trim((string) ($context['exit_condition'] ?? ''));
+        $forbidden = array_values(array_filter(array_map(
+            static fn ($line): string => mb_trim((string) $line),
+            (array) ($context['forbidden_expansions'] ?? []),
+        )));
+        $nextBridge = mb_trim((string) ($context['next_bridge'] ?? ''));
+        $authoredOptions = (array) ($context['authored_options'] ?? []);
+
+        $lines = [
             'ACTIVE PLAYABLE MOMENT (the only room you may perform now):',
-            json_encode($context['moment'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
-            'REQUIRED moment_progress.moment_key (exact string): '
-                .(string) ($context['moment_key'] ?? data_get($context, 'moment.moment_key') ?? ''),
-            'SOFT MOMENT TURN COUNT: '.(int) ($context['turn_count'] ?? 0),
-            'HIDDEN TREASURE INSIGHT (never quote or expose): '
-                .(($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)'),
-            'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
-            json_encode($context['next_moment_preview'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null',
-        ]);
+            "Current moment: {$momentKey}",
+            "Completed turns in this moment: {$turnCount}",
+            "Target turns: {$targetTurns}",
+            "Gravity begins: {$gravityAfter}",
+            "Pacing state: {$pacingState}",
+            'REQUIRED moment_progress.moment_key (exact string): '.$momentKey,
+            'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, and after player input a non-empty moment_footnote ≤30 words).',
+        ];
+
+        if ($exitCondition !== '') {
+            $lines[] = 'EXIT CONDITION (semantic — outcomes, not a checklist): '.$exitCondition;
+        }
+
+        if ($forbidden !== []) {
+            $lines[] = 'STORYGUARD — FORBIDDEN EXPANSIONS (do not do these):';
+            foreach ($forbidden as $rule) {
+                $lines[] = '- '.$rule;
+            }
+        }
+
+        if ($nextBridge !== '') {
+            $lines[] = 'NEXT BRIDGE (use only when exit_condition_met=true): '.$nextBridge;
+        }
+
+        if ($authoredOptions !== []) {
+            $lines[] = 'AUTHORED OPTIONS BOUND TO THIS MOMENT (map visible_suggestions identities only to these when you map):';
+            $lines[] = json_encode($authoredOptions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
+        }
+
+        if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {
+            $lines[] = implode("\n", [
+                'PACING DIRECTIVE — DECISIVE PROGRESSION NOW:',
+                'You must now create decisive forward movement.',
+                'Respond to the player, resolve or transform this moment\'s remaining dramatic purpose, and progress toward the next moment.',
+                'If the exit condition is now semantically satisfied, return exit_condition_met=true and use next_bridge to transition.',
+                'Do not repeat established material or remain in this room without a new consequence.',
+            ]);
+        }
+
+        $lines[] = 'FULL SCENE CARD (reference):';
+        $lines[] = json_encode($context['moment'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+        $lines[] = 'HIDDEN TREASURE INSIGHT / PRIOR FOOTNOTE (never quote or expose): '
+            .(($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)');
+        $lines[] = 'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):';
+        $lines[] = json_encode($context['next_moment_preview'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null';
+
+        return implode("\n\n", $lines);
     }
 
     /**
@@ -1009,12 +1150,13 @@ TEXT;
             $progress = is_array($result['moment_progress'] ?? null)
                 ? $result['moment_progress']
                 : [];
+            $rawFootnote = $progress['moment_footnote'] ?? null;
             $result['moment_progress'] = [
                 'moment_key' => (string) ($progress['moment_key'] ?? ''),
                 'exit_condition_met' => false,
                 'moment_footnote' => $isOpening
                     ? null
-                    : (($progress['moment_footnote'] ?? null) ?: 'The player acted; answer the immediate pressure and keep the active room alive.'),
+                    : (is_string($rawFootnote) && mb_trim($rawFootnote) !== '' ? $rawFootnote : null),
             ];
             Log::channel('narration')->warning('boiler.moment_row_missing_progress_held', [
                 'game_id' => $game->id,
@@ -1030,6 +1172,8 @@ TEXT;
             && is_bool($progress['exit_condition_met']);
 
         if (! is_array($progress) || ! $keyMatches || ! $exitIsBool) {
+            // Soft structural fallback — rare malformed metadata only.
+            // Hold the room; never invent earned exits; never reject the player turn.
             $hadProgressObject = is_array($progress);
             $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
             $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
@@ -1084,10 +1228,11 @@ TEXT;
             return;
         }
 
+        // Footnote must be model-produced after player turns. Never invent a PHP
+        // placeholder — log only so soft structural hold stays metadata-only.
         if (! is_string($footnote) || mb_trim($footnote) === '') {
-            $result['moment_progress']['moment_footnote'] =
-                'The player acted; answer the immediate pressure and keep the active room alive.';
-            Log::channel('narration')->warning('boiler.moment_footnote_defaulted', [
+            $result['moment_progress']['moment_footnote'] = null;
+            Log::channel('narration')->warning('boiler.moment_footnote_missing', [
                 'game_id' => $game->id,
             ]);
         }
@@ -1363,7 +1508,7 @@ TEXT;
         $merged = [];
 
         foreach (array_merge($this->cleanStringList($previous), $this->cleanStringList($delta)) as $entry) {
-            $key = mb_strtolower($entry);
+            $key = preg_replace('/\s+/u', ' ', mb_strtolower(mb_trim($entry))) ?? mb_strtolower($entry);
 
             if (isset($seen[$key])) {
                 continue;

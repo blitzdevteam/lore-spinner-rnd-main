@@ -15,6 +15,10 @@ use Illuminate\Support\Carbon;
  * @property string $game_id
  * @property string|null $source_prompt_id
  * @property int|null $session_number
+ * @property string|null $moment_key
+ * @property bool|null $exit_condition_met
+ * @property string|null $moment_result
+ * @property string|null $moment_footnote
  * @property string $response
  * @property array $choices
  * @property string|null $prompt
@@ -34,6 +38,7 @@ final class Prompt extends Model
 
     protected $casts = [
         'choices' => 'array',
+        'exit_condition_met' => 'boolean',
     ];
 
     /**

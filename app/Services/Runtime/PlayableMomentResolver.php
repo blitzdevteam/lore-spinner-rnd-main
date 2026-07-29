@@ -118,8 +118,9 @@ final class PlayableMomentResolver
                 || ($progress['moment_key'] ?? null) !== $currentMoment->moment_key
                 || ! is_bool($progress['exit_condition_met'] ?? null)
             ) {
-                // Soft-repair like ChaosEngineService::validateBoilerNarrationResult —
-                // never kill a turn that already produced narration over progress shape.
+                // Soft structural fallback — rare malformed metadata only.
+                // Never invent earned exits; never kill the player turn; never second callAgent.
+                // Progression is prompt-contract led, not this repair path.
                 $hadProgressObject = is_array($progress);
                 $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
                 $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
@@ -148,9 +149,12 @@ final class PlayableMomentResolver
             }
             $resultingMoment = $nextMoment ?? $currentMoment;
 
+            // Sanitize mapped suggestions against the pre-exit (current) moment so
+            // authored choice maps for the room being resolved are not demoted when
+            // the pointer advances in the same response.
             $normalizedChoices = $this->sanitizeMappedSuggestions(
                 $normalizedChoices,
-                $resultingMoment,
+                $currentMoment,
                 $sessionAdaptations,
                 $lockedGame->id,
             );
@@ -196,7 +200,23 @@ final class PlayableMomentResolver
                 (string) ($progress['moment_footnote'] ?? ''),
                 $lockedGame->id,
             );
+
+            $committedChoiceId = $explicitBranch['defining_choice_id']
+                ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
             $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
+            if ($isFinalExit && ! $this->authoredSessionEndingChoiceResolved($currentMoment, $committedChoiceId)) {
+                $isFinalExit = false;
+                Log::channel('narration')->info('boiler.session_complete_blocked_awaiting_ending_choice', [
+                    'game_id' => $lockedGame->id,
+                    'moment_key' => $currentMoment->moment_key,
+                    'committed_choice_id' => $committedChoiceId,
+                    'required_choice_ids' => (array) data_get($currentMoment->scene_card, 'choice_ids', []),
+                ]);
+            }
+
+            $momentResult = $isFinalExit
+                ? 'completed'
+                : ($nextMoment !== null ? 'advanced' : 'retained');
 
             $lockedSource->update(['prompt' => $storedPromptValue]);
             $lockedGame->update([
@@ -213,7 +233,7 @@ final class PlayableMomentResolver
                     : $lockedGame->playable_moment_turn_count + 1,
                 'moment_footnote' => [
                     'moment_key' => $resultingMoment->moment_key,
-                    'text' => $footnote,
+                    'text' => $footnote !== '' ? $footnote : null,
                     'source_prompt_id' => $lockedSource->id,
                 ],
                 'current_session_complete' => $isFinalExit,
@@ -222,6 +242,10 @@ final class PlayableMomentResolver
             $responsePrompt = $lockedGame->prompts()->create([
                 'source_prompt_id' => $lockedSource->id,
                 'session_number' => $lockedGame->current_session_number,
+                'moment_key' => $currentMoment->moment_key,
+                'exit_condition_met' => (bool) $progress['exit_condition_met'],
+                'moment_result' => $momentResult,
+                'moment_footnote' => $footnote !== '' ? $footnote : null,
                 'response' => $result['response'],
                 'choices' => $normalizedChoices,
             ]);
@@ -233,13 +257,35 @@ final class PlayableMomentResolver
                 'moment_key' => $currentMoment->moment_key,
                 'anchor_event_id' => $currentMoment->anchor_event_id,
                 'exit_condition_met' => $progress['exit_condition_met'],
-                'result' => $isFinalExit ? 'completed' : ($nextMoment !== null ? 'advanced' : 'retained'),
+                'result' => $momentResult,
                 'next_moment_key' => $nextMoment?->moment_key,
-                'moment_footnote' => $footnote,
+                'moment_footnote' => $footnote !== '' ? $footnote : null,
             ]);
 
             return $responsePrompt;
         });
+    }
+
+    /**
+     * Last-moment authored choice_ids must resolve before session complete.
+     * Empty choice_ids on the final card means no authored gate.
+     */
+    private function authoredSessionEndingChoiceResolved(
+        PlayableMoment $finalMoment,
+        ?string $committedChoiceId,
+    ): bool {
+        $required = array_values(array_filter(
+            array_map(static fn ($id): string => (string) $id, (array) data_get($finalMoment->scene_card, 'choice_ids', [])),
+            static fn (string $id): bool => $id !== '',
+        ));
+
+        if ($required === []) {
+            return true;
+        }
+
+        $committed = mb_trim((string) $committedChoiceId);
+
+        return $committed !== '' && in_array($committed, $required, true);
     }
 
     /**
@@ -361,11 +407,11 @@ final class PlayableMomentResolver
     {
         $words = preg_split('/\s+/u', trim($footnote), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if ($words === []) {
-            Log::channel('narration')->warning('boiler.moment_footnote_defaulted_on_commit', [
+            Log::channel('narration')->warning('boiler.moment_footnote_missing_on_commit', [
                 'game_id' => $gameId,
             ]);
 
-            return 'The player acted; answer the immediate pressure and keep the active room alive.';
+            return '';
         }
 
         if (count($words) > 30) {

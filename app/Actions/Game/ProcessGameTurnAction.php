@@ -53,7 +53,10 @@ final class ProcessGameTurnAction
             ->whereNull('prompt')
             ->first();
 
-        if ($sourcePrompt === null) {
+        if (
+            $sourcePrompt === null
+            || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
+        ) {
             return;
         }
 
