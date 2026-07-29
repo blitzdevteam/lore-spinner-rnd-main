@@ -32,6 +32,7 @@ CANONICAL FINAL PLAYABLE MOMENTS:
 {{ json_encode($boilerMoments, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
 Run the complete Boiler audit. `production_status` is PASS only when every Boiler item passes.
+Allowed roles: PLAY, PULSE, CHOICE, REACTION, MONTAGE, ECHO, CUT, and Finalize PRESSURE for unused Draft CHOICE. Never ban MONTAGE.
 
 @endif
 SESSION NUMBER: {{ $sessionNumber }}

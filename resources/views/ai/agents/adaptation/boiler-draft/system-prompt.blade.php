@@ -30,7 +30,8 @@ The moment source-event lists form a strict partition of the directly playable m
 Each moment must:
 
 - use only events assigned to this session;
-- have one in-moment anchor event;
+- have a non-empty `source_event_ids` array of integer event IDs — never `[]`, never omit the field;
+- have one in-moment anchor event that appears inside that moment's `source_event_ids`;
 - make the player's plausible role, knowledge boundary, and sphere of influence explicit through affordances, canon, variance, and forbidden expansions;
 - contain local source extracts that preserve author-specific language and image;
 - contain a live pressure and a player desire;

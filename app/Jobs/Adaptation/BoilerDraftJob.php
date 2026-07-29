@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\BoilerDraftCanonicalizer;
 use App\Ai\Adaptation\BoilerDraftContextBuilder;
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Agents\Adaptation\BoilerDraftAgent;
@@ -44,6 +45,7 @@ final class BoilerDraftJob implements ShouldQueue
      */
     public function handle(
         BoilerDraftContextBuilder $contextBuilder,
+        BoilerDraftCanonicalizer $canonicalizer,
         BoilerDraftValidator $validator,
         SessionEventLoader $eventLoader,
     ): void {
@@ -86,6 +88,7 @@ final class BoilerDraftJob implements ShouldQueue
             ])->render();
             $result = $this->generateValidatedDraft(
                 $originalPrompt,
+                $canonicalizer,
                 $validator,
                 $session,
                 (array) $adaptation->story_session_map,
@@ -138,6 +141,7 @@ final class BoilerDraftJob implements ShouldQueue
      */
     private function generateValidatedDraft(
         string $originalPrompt,
+        BoilerDraftCanonicalizer $canonicalizer,
         BoilerDraftValidator $validator,
         SessionAdaptation $session,
         array $storyMap,
@@ -148,7 +152,9 @@ final class BoilerDraftJob implements ShouldQueue
         $lastValidationError = null;
 
         for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $result = (new BoilerDraftAgent)->prompt($prompt)->toArray();
+            $result = $canonicalizer->canonicalize(
+                (new BoilerDraftAgent)->prompt($prompt)->toArray()
+            );
 
             try {
                 $validator->validate($result, $session, $storyMap, $events);

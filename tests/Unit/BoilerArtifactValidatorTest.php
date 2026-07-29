@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Ai\Adaptation\BoilerDraftCanonicalizer;
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
@@ -147,6 +148,55 @@ it('rejects protected breathing-room material cut without reintroduction', funct
         boilerTestEvents(),
     );
 })->throws(RuntimeException::class);
+
+it('fills empty moment source_event_ids from event_role_map bindings', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][0]['source_event_ids'] = [];
+
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+
+    expect($canonicalized['moment_drafts'][0]['source_event_ids'])->toBe([101]);
+
+    (new BoilerDraftValidator())->validate(
+        $canonicalized,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+});
+
+it('rejects empty source_event_ids when role map cannot recover them', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][0]['source_event_ids'] = [];
+    $draft['moment_drafts'][0]['anchor_event_id'] = null;
+    $draft['event_role_map'][0]['role'] = 'ECHO';
+    $draft['event_role_map'][0]['included_moment_key'] = '';
+    $draft['event_role_map'][0]['reintroduction_note'] = 'The shard returns through dialogue later.';
+
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+
+    expect($canonicalized['moment_drafts'][0]['source_event_ids'] ?? [])->toBe([]);
+
+    (new BoilerDraftValidator())->validate(
+        $canonicalized,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+})->throws(RuntimeException::class, 'Boiler moment S1_M01 requires source_event_ids.');
+
+it('fills empty source_event_ids from the moment anchor when roles do not bind', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][0]['source_event_ids'] = [];
+    $draft['event_role_map'][0]['included_moment_key'] = '';
+    $draft['event_role_map'][0]['role'] = 'ECHO';
+    $draft['event_role_map'][0]['reintroduction_note'] = 'Returns later.';
+
+    // Anchor alone recovers the ID; role map deliberately unbound.
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+
+    expect($canonicalized['moment_drafts'][0]['source_event_ids'])->toBe([101]);
+});
 
 it('rejects an event assigned to more than one moment', function () {
     $draft = boilerTestDraft();

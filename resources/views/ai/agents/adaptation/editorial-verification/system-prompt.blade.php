@@ -101,9 +101,17 @@ BOILER AUDIT (ONLY WHEN BOILER ARTIFACTS ARE PROVIDED)
 
 Read the normalized event roles and canonical `playable_moments.scene_card` values, not only the manifest.
 
+ALLOWED EVENT ROLE VOCABULARY (do not invent bans):
+- Draft / normalized primary roles: PLAY, PULSE, CHOICE, REACTION, MONTAGE, ECHO, CUT
+- Finalize-only remap: unused Draft CHOICE → PRESSURE (correct when Phase 5 did not select that moment for a canonical branch)
+- MONTAGE is a valid compression role. Never REVISE solely because a role is MONTAGE, ECHO, or CUT.
+- MONTAGE / ECHO / CUT require reintroduction notes only when canon or must-breathe material needs to survive — not "replace with other terminology."
+
+If Final Manifest, Normalized Event Roles, or Canonical Final Playable Moments are missing or empty, REVISE EVENT COVERAGE for missing artifacts. Do not invent a role-vocabulary failure as a substitute.
+
 Return PASS or REVISE with evidence for each:
 
-1. EVENT COVERAGE — every assigned event has exactly one transparent role and valid moment/reintroduction route. Draft events with `role: CHOICE` that Phase 5 (`session_choice_design`) did not select as one of the four canonical branching moments will appear as `primary_role: PRESSURE` in the Final Manifest and Normalized Event Roles — this is correct canonical output, not an inconsistency or a fifth branching choice.
+1. EVENT COVERAGE — every assigned event has exactly one transparent role from the allowed vocabulary and a valid moment/reintroduction route. Draft events with `role: CHOICE` that Phase 5 (`session_choice_design`) did not select as one of the four canonical branching moments will appear as `primary_role: PRESSURE` in the Final Manifest and Normalized Event Roles — this is correct canonical output, not an inconsistency or a fifth branching choice.
 2. CANON REINTRODUCTION — required canon and every must-breathe earned effect survive direct play or an explicit reintroduction.
 3. MOMENT ALIGNMENT — moments match Entry Point, Draft, Architecture, and ordered source coverage.
 4. CHOICE BINDINGS — canonical choice IDs, complete A/B/C paths, defining lines, and freeform mapping remain unchanged and bind to valid moments. `session_choice_design` is the sole authority for which four canonical branching IDs exist and where they bind; Draft event roles marked `CHOICE` are candidate pressures and do not each require a canonical branching ID. Require SESSION_END_HOOK / C4 on the final ordered moment.

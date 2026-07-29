@@ -223,3 +223,25 @@ it('provides scoped commands for replaying only failed Editorial dependencies', 
         ->toContain('new RuntimeNarratorAssemblyJob')
         ->toContain('new AdaptationStatusReconciliationJob');
 });
+
+it('allowlists MONTAGE in Editorial Boiler audit and fills Draft source IDs before validate', function () {
+    $editorialSystem = file_get_contents(resource_path('views/ai/agents/adaptation/editorial-verification/system-prompt.blade.php'));
+    $editorialPrompt = file_get_contents(resource_path('views/ai/agents/adaptation/editorial-verification/prompt.blade.php'));
+    $draftSystem = file_get_contents(resource_path('views/ai/agents/adaptation/boiler-draft/system-prompt.blade.php'));
+    $draftRepair = file_get_contents(resource_path('views/ai/agents/adaptation/boiler-draft/repair-prompt.blade.php'));
+    $draftJob = file_get_contents(app_path('Jobs/Adaptation/BoilerDraftJob.php'));
+
+    expect($editorialSystem)
+        ->toContain('ALLOWED EVENT ROLE VOCABULARY')
+        ->toContain('MONTAGE')
+        ->toContain('Never REVISE solely because a role is MONTAGE')
+        ->and($editorialPrompt)
+        ->toContain('Never ban MONTAGE')
+        ->and($draftSystem)
+        ->toContain('non-empty `source_event_ids`')
+        ->and($draftRepair)
+        ->toContain('fill each empty moment from the events whose `event_role_map[]')
+        ->and($draftJob)
+        ->toContain('BoilerDraftCanonicalizer')
+        ->toContain('$canonicalizer->canonicalize');
+});

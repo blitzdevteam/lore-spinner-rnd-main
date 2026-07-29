@@ -17,10 +17,13 @@ Mandatory final checks:
 
 1. `moment_drafts` contains exactly the approved target count.
 2. Moment keys are contiguous exact identifiers: `S{session_number}_M01`, `S{session_number}_M02`, and so on.
-3. Each event ID occurs in `source_event_ids` for at most one moment.
-4. Each event role's non-empty `included_moment_key` exactly matches the unique moment containing that event.
-5. Every playable-promise arc value exactly copies a generated moment key.
-6. `final_cash_out` exactly equals the final ordered moment key.
-7. The first moment still contains the Entry Point start event.
+3. Every moment has a non-empty `source_event_ids` integer array — never `[]`.
+4. Each event ID occurs in `source_event_ids` for at most one moment.
+5. Each event role's non-empty `included_moment_key` exactly matches the unique moment containing that event.
+6. Every playable-promise arc value exactly copies a generated moment key.
+7. `final_cash_out` exactly equals the final ordered moment key.
+8. The first moment still contains the Entry Point start event.
+
+If the error is missing `source_event_ids`, fill each empty moment from the events whose `event_role_map[].included_moment_key` equals that moment key. Do not leave any moment with an empty source list.
 
 Return only the complete corrected structured output matching the schema.
