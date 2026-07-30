@@ -11,7 +11,7 @@ defineSlots<{
 <template>
     <button
         type="button"
-        class="story-play-glass-btn group relative box-border size-[2.8125rem] shrink-0 overflow-hidden rounded-[1.6875rem] border border-solid border-transparent bg-[rgba(255,255,255,0.04)] outline-none backdrop-blur-[3px] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:translate-y-0"
+        class="story-play-glass-btn group relative box-border size-[45px] shrink-0 overflow-hidden rounded-[27px] border border-solid border-transparent bg-[rgba(255,255,255,0.04)] outline-none backdrop-blur-[3px] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black active:translate-y-0"
         :aria-label="ariaLabel"
     >
         <span

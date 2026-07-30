@@ -17,7 +17,7 @@ import xenBannerBg from '@/assets/story/xen.png';
                         aria-hidden="true"
                     />
                     <p
-                        class="xen-banner__text relative z-[1] text-center font-[Inter] text-[1.125rem] font-normal leading-[1.625rem] tracking-[2.52px] text-white"
+                        class="xen-banner__text relative z-[1] text-center font-[Inter] text-[0.75rem] font-normal leading-[1.25rem] tracking-[1.5px] text-white md:text-[0.95rem] md:leading-[1.625rem] md:tracking-[2.52px]"
                     >
                         Written by humans. Powered by your imagination. Brought to life by
                         <span class="text-primary">Xen</span>

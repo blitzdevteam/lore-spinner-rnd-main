@@ -18,19 +18,19 @@
     --container-gap: max(0px, calc((100vw - var(--container)) / 2));
     --color-background: #000000;
 
-    /* Teal slate — accent #6FAFBA at 500; CTA fills on 700–950 */
+    /* Teal slate — accent #59C1CA at 500; CTA fills on 700–950 */
     --color-primary-50:  #f3f7f8;
     --color-primary-100: #e8f0f2;
     --color-primary-200: #d1e4e8;
     --color-primary-300: #8fcbd3;
     --color-primary-400: #7eb8c4;
-    --color-primary-500: #6fafba;
+    --color-primary-500: #59c1ca;
     --color-primary-600: #5a96a1;
     --color-primary-700: #1e5058;
     --color-primary-800: #163f46;
     --color-primary-900: #133840;
     --color-primary-950: #102c32;
-    --color-primary: #6fafba;
+    --color-primary: #59c1ca;
 
     --color-cta-fill: #163f46;
     --color-cta-hover: #1e5058;
@@ -104,7 +104,7 @@ body {
  * Vertical rhythm between major homepage blocks (matches Figma section padding).
  */
 .home-section-y {
-    @apply py-10 md:py-[60px];
+    @apply py-10 md:py-[30px];
 }
 
 /**

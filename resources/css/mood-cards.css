@@ -8,6 +8,11 @@
         border-color 0.3s ease,
         box-shadow 0.3s ease;
 }
+@media (max-width: 748px) {
+    .mood-card {
+        margin: 10px !important;
+    }
+}
 
 .mood-icon-orbit {
     transition: box-shadow 0.3s ease;

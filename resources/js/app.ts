@@ -1,5 +1,6 @@
 // CSS
 import '../css/app.css';
+import '../css/fonts/abhaya-libre/abhaya-libre.css';
 import '../css/fonts/gill-sans/gill-sans.css';
 import '../css/fonts/source-sans-3/source-sans-3.css';
 
@@ -22,14 +23,14 @@ import Checkbox from 'primevue/checkbox';
 import Divider from 'primevue/divider';
 import Drawer from 'primevue/drawer';
 import IconField from 'primevue/iconfield';
+import Inplace from 'primevue/inplace';
 import InputIcon from 'primevue/inputicon';
 import InputMask from 'primevue/inputmask';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
+import Rating from 'primevue/rating';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
-import Rating from 'primevue/rating';
-import Inplace from 'primevue/inplace';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

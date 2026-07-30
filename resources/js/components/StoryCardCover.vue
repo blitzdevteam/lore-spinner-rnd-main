@@ -57,6 +57,7 @@ function onImageError(): void {
     overflow: hidden;
     flex-shrink: 0;
     background: #0c0c0c;
+    border-radius: 10px !important
 }
 
 .story-card-cover__img {

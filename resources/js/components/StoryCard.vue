@@ -68,13 +68,25 @@ const isInteractive = computed(() => resolvedCta.value !== 'coming-soon');
 const hasReveal = computed(() => props.themes.length > 0 || Boolean(props.teaser));
 
 const coverComponent = computed(() => {
-    if (props.isDesktopHover && isInteractive.value) return Link;
+    if (isInteractive.value) return Link;
     if (!props.isDesktopHover) return 'button';
     return 'div';
 });
 
+const infoComponent = computed(() => {
+    if (props.isDesktopHover) return 'div';
+    if (isInteractive.value) return Link;
+    return 'button';
+});
+
 function onCoverActivate(): void {
-    if (!props.isDesktopHover) {
+    if (!props.isDesktopHover && !isInteractive.value) {
+        emit('preview');
+    }
+}
+
+function onInfoActivate(): void {
+    if (!props.isDesktopHover && !isInteractive.value) {
         emit('preview');
     }
 }
@@ -82,57 +94,52 @@ function onCoverActivate(): void {
 
 <template>
     <article
-        class="story-card group min-w-0 h-full transition-opacity duration-200"
+        class="story-card group min-w-0 transition-opacity duration-200"
         :class="dimmed ? 'opacity-[0.35]' : 'opacity-100'"
         :data-mood="mood || undefined"
     >
         <div class="story-card__frame">
             <component
                 :is="coverComponent"
-                :href="isDesktopHover && isInteractive ? storyUrl : undefined"
+                :href="isInteractive ? storyUrl : undefined"
                 type="button"
                 class="story-card__cover-link block min-w-0 border-0 bg-transparent p-0 text-left outline-none"
                 :class="!isDesktopHover && 'cursor-pointer'"
-                :aria-label="!isDesktopHover ? `Preview ${title}` : undefined"
+                :aria-label="!isDesktopHover ? (isInteractive ? `Open ${title}` : `Preview ${title}`) : undefined"
                 @click="onCoverActivate"
             >
-                <StoryCardCover :src="coverImage" :title="title" />
+                <div class="story-card__cover-wrap p-1">
+                    <StoryCardCover :src="coverImage" :title="title" :zoom-on-hover="false" />
+
+                    <div v-if="hasReveal && isDesktopHover" class="story-card__cover-hover" aria-hidden="true">
+                        <div class="story-card__cover-hover-inner">
+                            <div v-if="themes.length" class="story-card__themes">
+                                <template v-for="(theme, i) in themes" :key="theme">
+                                    <span v-if="i > 0" class="story-card__theme-dot" aria-hidden="true">•</span>
+                                    <span class="story-card__theme">{{ theme }}</span>
+                                </template>
+                            </div>
+                            <p v-if="teaser" class="story-card__teaser">{{ teaser }}</p>
+                        </div>
+                    </div>
+                </div>
             </component>
 
             <div class="story-card__body">
                 <component
-                    :is="!isDesktopHover ? 'button' : 'div'"
+                    :is="infoComponent"
+                    :href="!isDesktopHover && isInteractive ? storyUrl : undefined"
                     type="button"
                     class="story-card__info min-w-0 border-0 bg-transparent p-0 text-left outline-none"
                     :class="!isDesktopHover && 'cursor-pointer'"
-                    :aria-label="!isDesktopHover ? `Preview ${title}` : undefined"
-                    @click="!isDesktopHover && emit('preview')"
+                    :aria-label="!isDesktopHover ? (isInteractive ? `Open ${title}` : `Preview ${title}`) : undefined"
+                    @click="onInfoActivate"
                 >
                     <h3 class="story-card__title">{{ title }}</h3>
                 </component>
 
-                <div
-                    v-if="hasReveal"
-                    class="story-card__reveal"
-                    :class="themes.length && 'story-card__reveal--with-themes'"
-                >
-                    <div class="story-card__reveal-inner">
-                        <div v-if="themes.length" class="story-card__themes">
-                            <template v-for="(theme, i) in themes" :key="theme">
-                                <span v-if="i > 0" class="story-card__theme-dot" aria-hidden="true">•</span>
-                                <span class="story-card__theme">{{ theme }}</span>
-                            </template>
-                        </div>
-                        <p v-if="teaser" class="story-card__teaser">{{ teaser }}</p>
-                    </div>
-                </div>
-
                 <div class="story-card__cta">
-                    <Link
-                        v-if="isInteractive"
-                        :href="storyUrl"
-                        class="story-card__btn story-card__btn--active"
-                    >
+                    <Link v-if="isInteractive" :href="storyUrl" class="story-card__btn story-card__btn--active">
                         {{ ctaLabel }}
                     </Link>
                     <div v-else class="story-card__btn story-card__btn--disabled">
@@ -147,7 +154,6 @@ function onCoverActivate(): void {
 <style scoped>
 .story-card__frame {
     display: flex;
-    height: 100%;
     flex-direction: column;
     overflow: hidden;
     border-radius: var(--story-card-radius);
@@ -160,6 +166,11 @@ function onCoverActivate(): void {
 }
 
 @media (min-width: 1024px) {
+    .story-card.group:hover {
+        position: relative;
+        z-index: 2;
+    }
+
     .group:hover .story-card__frame {
         border-color: rgba(255, 255, 255, 0.1);
         box-shadow: var(--story-card-shadow-hover);
@@ -170,15 +181,47 @@ function onCoverActivate(): void {
     text-decoration: none;
 }
 
+.story-card__cover-wrap {
+    position: relative;
+}
+
+.story-card__cover-hover {
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 0.0625rem;
+    bottom: 0.0625rem;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    padding: 1.5rem 0.75rem 0.75rem;
+    border-radius: 0 0 10px 10px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 15%, rgba(0, 0, 0, 0.55) 60%, transparent 100%);
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+        opacity var(--story-card-hover-duration) var(--story-card-ease),
+        transform var(--story-card-hover-duration) var(--story-card-ease);
+}
+
+.story-card__cover-hover-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+}
+
+@media (min-width: 1024px) {
+    .group:hover .story-card__cover-hover {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .story-card__body {
     display: flex;
-    flex: 1;
     flex-direction: column;
-    justify-content: space-between;
     gap: var(--story-card-body-gap);
-    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x)
-        calc(var(--story-card-body-pad-y) + 0.125rem);
-    min-height: 0;
+    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x) calc(var(--story-card-body-pad-y) + 0.125rem);
 }
 
 .story-card__info {
@@ -197,26 +240,6 @@ function onCoverActivate(): void {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-/* Fixed 2-line slot so grid rows never resize on hover (avoids crush between cards). */
-.story-card__reveal {
-    flex-shrink: 0;
-    height: 2.4375rem;
-    opacity: 0;
-    transition: opacity var(--story-card-hover-duration) var(--story-card-ease);
-}
-
-.story-card__reveal--with-themes {
-    height: 4rem;
-}
-
-.story-card__reveal-inner {
-    overflow: hidden;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
 }
 
 .story-card__themes {
@@ -238,6 +261,10 @@ function onCoverActivate(): void {
     color: var(--color-primary, #6fafba);
 }
 
+.story-card__cover-hover .story-card__theme {
+    color: #7ec8d4;
+}
+
 .story-card__teaser {
     margin: 0;
     font-size: 0.8125rem;
@@ -245,47 +272,54 @@ function onCoverActivate(): void {
     color: rgba(255, 255, 255, 0.52);
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-@media (min-width: 1024px) {
-    .group:hover .story-card__reveal {
-        opacity: 1;
-    }
+.story-card__cover-hover .story-card__teaser {
+    color: rgba(255, 255, 255, 0.88);
+    -webkit-line-clamp: 4;
 }
 
 .story-card__cta {
     flex-shrink: 0;
-    margin-top: 0.125rem;
 }
 
 .story-card__btn {
     display: flex;
-    height: var(--story-card-btn-height);
+    box-sizing: border-box;
+    height: 2.125rem;
     width: 100%;
     align-items: center;
     justify-content: center;
     border-radius: var(--story-card-btn-radius);
-    font-size: 0.9375rem;
+    font-size: 0.9rem;
     font-weight: 600;
     line-height: 1;
     text-decoration: none;
-    transition: background 180ms ease, color 180ms ease;
+    transition:
+        border-color 180ms ease,
+        background-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease;
 }
 
 .story-card__btn--active {
-    background: var(--story-card-btn-bg);
+    border: 0.5px solid #59c1ca;
+    background: #0e1f22;
     color: var(--story-card-btn-text);
 }
 
 .story-card__btn--active:hover {
-    background: var(--story-card-btn-bg-hover);
+    border-color: #8fcbd3;
+    background: #163f46;
+    transform: translateY(-1px);
 }
 
 .story-card__btn--active:active {
     background: var(--story-card-btn-bg-active);
+    transform: translateY(0);
 }
 
 .story-card__btn--disabled {

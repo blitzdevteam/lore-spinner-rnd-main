@@ -11,12 +11,13 @@ require __DIR__.'/routes/writer.php';
 
 // Manager — login as writer (accessible only while manager is authenticated)
 Route::middleware(['auth:manager'])
-    ->get('manager/writers/{writer}/login-as', App\Http\Controllers\Manager\LoginAsWriterController::class)
+    ->get('manager/writers/{writer}/login-as', Controllers\Manager\LoginAsWriterController::class)
     ->name('manager.login-as-writer');
 
 // ─── Public marketing surfaces — page views tracked for Visits metric ────────
 Route::middleware(RecordPageView::class)->group(function (): void {
     Route::get('/', Controllers\IndexController::class)->name('index');
+    Route::get('about-us', Controllers\AboutUsController::class)->name('about-us');
 
     Route::resource('creators', Controllers\CreatorController::class)
         ->scoped(['creator' => 'username'])
@@ -43,11 +44,11 @@ Route::get('feedback/screenshot/{path}', [Controllers\FeedbackController::class,
 // To revert: remove this block and delete app/Http/Controllers/ChaosMode/,
 // app/Ai/Agents/Chaos/, resources/views/ai/agents/chaos/, and resources/js/pages/ChaosMode.vue
 Route::prefix('chaos-mode')->name('chaos-mode.')->group(function () {
-    Route::get('/', [App\Http\Controllers\ChaosMode\ChaosModeController::class, 'show'])->name('show');
-    Route::post('/start', [App\Http\Controllers\ChaosMode\ChaosModeController::class, 'start'])->name('start');
-    Route::post('/turn', [App\Http\Controllers\ChaosMode\ChaosModeController::class, 'turn'])->name('turn');
-    Route::post('/continue', [App\Http\Controllers\ChaosMode\ChaosModeController::class, 'continueSession'])->name('continue');
-    Route::get('/{chaosSession}/tts/{turnIndex}', App\Http\Controllers\ChaosMode\ChaosTtsController::class)->name('tts');
+    Route::get('/', [Controllers\ChaosMode\ChaosModeController::class, 'show'])->name('show');
+    Route::post('/start', [Controllers\ChaosMode\ChaosModeController::class, 'start'])->name('start');
+    Route::post('/turn', [Controllers\ChaosMode\ChaosModeController::class, 'turn'])->name('turn');
+    Route::post('/continue', [Controllers\ChaosMode\ChaosModeController::class, 'continueSession'])->name('continue');
+    Route::get('/{chaosSession}/tts/{turnIndex}', Controllers\ChaosMode\ChaosTtsController::class)->name('tts');
 });
 
 Route::get('expansion-status', function () {

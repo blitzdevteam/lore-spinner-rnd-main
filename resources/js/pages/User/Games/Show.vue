@@ -53,6 +53,10 @@ const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
 
 const prompts = computed(() => props.game.prompts ?? []);
+const latestPromptId = computed(() => {
+    const latestPrompt = prompts.value[prompts.value.length - 1];
+    return latestPrompt ? String(latestPrompt.id) : null;
+});
 const hasPrompts = computed(() => prompts.value.length > 0);
 const sessionComplete = computed(() => props.game.current_session_complete === true);
 const isLastSession = computed(() => {
@@ -464,6 +468,7 @@ onUnmounted(() => {
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
+        :latest-prompt-id="latestPromptId"
         :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"
         :journal-meta="journalMeta"

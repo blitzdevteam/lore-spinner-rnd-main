@@ -33,6 +33,7 @@
     "dependencies": {
         "@inertiajs/vue3": "^2.1.0",
         "@primeuix/themes": "^2.0.0",
+        "@visual-tracer/core": "^0.2.1",
         "@vueuse/core": "^12.8.2",
         "html2canvas": "^1.4.1",
         "html2canvas-pro": "^2.0.4",

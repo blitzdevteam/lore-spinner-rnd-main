@@ -244,14 +244,14 @@ function onCoverTouchEnd(e: TouchEvent) {
                                 <Link
                                     v-if="storyIsInteractive(story) && story.slug"
                                     :href="storyShow(story.slug).url"
-                                    class="flex h-12 w-full items-center justify-center rounded-xl bg-cta-fill text-[1.0625rem] font-semibold text-cta-text no-underline transition-colors hover:bg-cta-hover active:bg-cta-active"
+                                    class="flex h-[2.125rem] w-full items-center justify-center rounded-[0.3125rem] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] px-2.5 text-[0.9rem] font-normal text-white no-underline transition-colors hover:border-[#8fcbd3] hover:bg-[#163f46]"
                                     @click="close"
                                 >
                                     {{ storyCtaLabel(story) }}
                                 </Link>
                                 <div
                                     v-else
-                                    class="flex h-12 w-full cursor-default items-center justify-center rounded-xl border border-white/[0.09] bg-white/[0.035] text-[1.0625rem] font-medium text-white/30"
+                                    class="flex h-[2.125rem] w-full cursor-default items-center justify-center rounded-[0.3125rem] border-[0.5px] border-[#8f8f8f] bg-transparent px-2.5 text-[0.9rem] font-normal text-[#8f8f8f]"
                                 >
                                     {{ storyCtaLabel(story) }}
                                 </div>

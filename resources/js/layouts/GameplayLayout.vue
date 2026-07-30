@@ -25,6 +25,7 @@ const props = withDefaults(
     defineProps<{
         inputDisabled?: boolean;
         gameId?: string;
+        latestPromptId?: string | null;
         coverUrl?: string | null;
         journalMeta?: JournalMeta;
         storySlug?: string | null;
@@ -36,7 +37,16 @@ const props = withDefaults(
          */
         nudgeTrigger?: number;
     }>(),
-    { inputDisabled: false, gameId: undefined, coverUrl: undefined, journalMeta: undefined, storySlug: undefined, inputPlaceholder: '', nudgeTrigger: 0 },
+    {
+        inputDisabled: false,
+        gameId: undefined,
+        latestPromptId: undefined,
+        coverUrl: undefined,
+        journalMeta: undefined,
+        storySlug: undefined,
+        inputPlaceholder: '',
+        nudgeTrigger: 0,
+    },
 );
 
 const auroraProps = computed(() => buildAuroraProps(props.storySlug));
@@ -144,6 +154,12 @@ const toggleAutoplay = () => {
 };
 
 const toggleMedia = () => {
+    if (!tts.isActive.value && props.gameId && props.latestPromptId) {
+        tts.primeAudio();
+        tts.play(props.gameId, props.latestPromptId);
+        return;
+    }
+
     tts.mediaCollapsed.value = !tts.mediaCollapsed.value;
 };
 
@@ -304,7 +320,10 @@ const handleInputSubmit = (prompt: string) => {
                     <div class="p-3">
                         <slot name="header" />
                     </div>
-                    <div class="mx-auto flex max-w-3xl flex-col gap-8 p-3 pb-32">
+                    <div
+                        class="mx-auto flex max-w-3xl flex-col gap-8 p-3"
+                        :class="isMobile ? 'pb-42' : 'pb-32'"
+                    >
                         <slot name="game" />
                     </div>
                     <div
