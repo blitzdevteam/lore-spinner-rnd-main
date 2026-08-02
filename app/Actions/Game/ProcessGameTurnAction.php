@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\NarrationAudioService;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
@@ -30,6 +31,7 @@ final class ProcessGameTurnAction
         private readonly ChaosEngineService $engine,
         private readonly PlayableMomentResolver $momentResolver,
         private readonly NarrationResultNormalizer $resultNormalizer,
+        private readonly NarrationAudioService $audio,
     ) {}
 
     /**
@@ -62,6 +64,7 @@ final class ProcessGameTurnAction
 
         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
 
+        $narration = null;
         $startedAt = microtime(true);
 
         try {
@@ -136,7 +139,7 @@ final class ProcessGameTurnAction
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
             if ($boilerActive) {
-                $this->momentResolver->applyPlayerTurn(
+                $narration = $this->momentResolver->applyPlayerTurn(
                     $game,
                     $sourcePrompt,
                     $storedPromptValue,
@@ -146,7 +149,7 @@ final class ProcessGameTurnAction
                     $explicitBranch,
                 );
             } else {
-                $this->commitLegacyTurn(
+                $narration = $this->commitLegacyTurn(
                     $game,
                     $sourcePrompt,
                     $storedPromptValue,
@@ -211,6 +214,14 @@ final class ProcessGameTurnAction
         } finally {
             Cache::forget($this->pendingKey($gameId));
         }
+
+        // Render the narration audio while the player is still reading the text.
+        // Deliberately after the pending flag is cleared so the UI is not held
+        // back by the voice provider.
+        if ($game !== null && $narration instanceof Prompt) {
+            $this->audio->markPending($narration);
+            $this->audio->generate($game, $narration);
+        }
     }
 
     public function pendingKey(string $gameId): string
@@ -234,15 +245,15 @@ final class ProcessGameTurnAction
         array $result,
         array $normalizedChoices,
         ?object $sessionAdaptations,
-    ): void {
-        DB::transaction(function () use (
+    ): ?Prompt {
+        return DB::transaction(function () use (
             $game,
             $sourcePrompt,
             $storedPromptValue,
             $result,
             $normalizedChoices,
             $sessionAdaptations,
-        ): void {
+        ): ?Prompt {
             $lockedGame = Game::query()->whereKey($game->id)->lockForUpdate()->firstOrFail();
             $lockedSource = Prompt::query()
                 ->whereKey($sourcePrompt->id)
@@ -256,7 +267,7 @@ final class ProcessGameTurnAction
                     ->where('source_prompt_id', $lockedSource->id)
                     ->exists()
             ) {
-                return;
+                return null;
             }
 
             if ($lockedSource->prompt !== null) {
@@ -292,7 +303,8 @@ final class ProcessGameTurnAction
                 'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $lockedGame->defining_choice_line,
                 'current_session_complete' => (bool) $result['session_complete'],
             ]);
-            $lockedGame->prompts()->create([
+
+            return $lockedGame->prompts()->create([
                 'source_prompt_id' => $lockedSource->id,
                 'session_number' => $lockedGame->current_session_number,
                 'response' => $result['response'],

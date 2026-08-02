@@ -4,99 +4,82 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\User\Game;
 
-use App\ChaosMode\ChaosStoryConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\Prompt;
-use Illuminate\Support\Facades\Http;
+use App\Services\NarrationAudioService;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Serves narration audio for a prompt.
+ *
+ * Cache hit  → BinaryFileResponse from disk (full byte-range support, which
+ *              iOS Safari needs for duration display and seeking).
+ * Cache miss → 202 + a background render. The provider takes far longer than
+ *              the gateway allows, so the request never waits on it; the client
+ *              re-requests until the mp3 is on disk.
+ */
 final class TextToSpeechController extends Controller
 {
-    public function __invoke(Game $game, Prompt $prompt): BinaryFileResponse
+    public function __construct(private readonly NarrationAudioService $audio) {}
+
+    public function __invoke(Game $game, Prompt $prompt): Response
     {
         abort_unless($prompt->game_id === $game->id, 404);
         abort_unless(filled($prompt->response), 404);
 
-        $provider = (string) config('services.tts_provider', 'elevenlabs');
-        $path = "tts/{$provider}/{$prompt->id}.mp3";
-
-        if (! Storage::disk('local')->exists($path)) {
-            $storySlug = $game->story?->slug ?? '';
-
-            match ($provider) {
-                'deepgram' => $this->generateDeepgram($prompt, $path),
-                default    => $this->generateElevenLabs($prompt, $path, ChaosStoryConfig::ttsVoiceId($storySlug)),
-            };
+        if ($this->audio->isReady($prompt)) {
+            return $this->serve($prompt);
         }
 
-        return new BinaryFileResponse(Storage::disk('local')->path($path), 200, [
-            'Content-Type' => 'audio/mpeg',
-            'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, max-age=86400',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        $failure = $this->audio->failure($prompt);
+
+        if ($failure !== null) {
+            return response()->json(['status' => 'failed', 'message' => $failure], 503);
+        }
+
+        if (! $this->audio->isGenerating($prompt)) {
+            $this->audio->markPending($prompt);
+            $this->renderAfterResponse((string) $game->id, (string) $prompt->id);
+        }
+
+        return response()->json(['status' => 'generating'], 202)
+            ->header('Retry-After', '2')
+            ->header('Cache-Control', 'no-store');
     }
 
-    private function generateElevenLabs(Prompt $prompt, string $path, string $voiceId = ''): void
+    private function renderAfterResponse(string $gameId, string $promptId): void
     {
-        $text    = strip_tags($prompt->response);
-        $voiceId = $voiceId !== '' ? $voiceId : (string) config('services.elevenlabs.voice_id');
-        $apiKey  = config('services.elevenlabs.api_key');
+        dispatch(function () use ($gameId, $promptId): void {
+            $game = Game::query()->find($gameId);
+            $prompt = Prompt::query()->whereKey($promptId)->first();
 
-        abort_unless(filled($apiKey), 503, 'Voice generation is not configured.');
+            if ($game === null || $prompt === null) {
+                return;
+            }
 
-        $response = Http::withHeaders([
-            'xi-api-key' => $apiKey,
-        ])->timeout(120)->post("https://api.elevenlabs.io/v1/text-to-speech/{$voiceId}/stream?output_format=mp3_44100_128", [
-            'text' => $text,
-            'model_id' => config('services.elevenlabs.model_id', 'eleven_v3'),
-            'voice_settings' => [
-                'stability' => 0.50,
-                'similarity_boost' => 0.75,
-                'style' => 0.0,
-                'speed' => 1.0,
-            ],
-        ]);
-
-        if (! $response->successful()) {
-            logger()->warning('ElevenLabs TTS failed', [
-                'status' => $response->status(),
-                'prompt_id' => $prompt->id,
-            ]);
-
-            abort($response->status() === 403 ? 502 : $response->status(), 'Voice generation unavailable.');
-        }
-
-        Storage::disk('local')->put($path, $response->body());
+            app(NarrationAudioService::class)->generate($game, $prompt);
+        })->afterResponse();
     }
 
-    private function generateDeepgram(Prompt $prompt, string $path): void
+    private function serve(Prompt $prompt): BinaryFileResponse
     {
-        $text = strip_tags($prompt->response);
-        $apiKey = (string) config('services.deepgram.api_key');
-        $voiceModel = (string) config('services.deepgram.voice_model', 'aura-2-thalia-en');
+        $response = new BinaryFileResponse(
+            Storage::disk('local')->path($this->audio->path($prompt)),
+            200,
+            [
+                'Content-Type' => 'audio/mpeg',
+                'Accept-Ranges' => 'bytes',
+                'Cache-Control' => 'private, max-age=86400',
+                'X-Content-Type-Options' => 'nosniff',
+                'X-Accel-Buffering' => 'no',
+            ]
+        );
 
-        abort_unless(filled($apiKey), 503, 'Deepgram voice generation is not configured.');
+        $response->setAutoLastModified();
 
-        // Deepgram TTS REST endpoint — returns audio/mpeg directly
-        $response = Http::withHeaders([
-            'Authorization' => "Token {$apiKey}",
-            'Content-Type'  => 'application/json',
-        ])->timeout(60)->post("https://api.deepgram.com/v1/speak?model={$voiceModel}&encoding=mp3", [
-            'text' => $text,
-        ]);
-
-        if (! $response->successful()) {
-            logger()->warning('Deepgram TTS failed', [
-                'status' => $response->status(),
-                'prompt_id' => $prompt->id,
-            ]);
-
-            abort($response->status() === 403 ? 502 : $response->status(), 'Voice generation unavailable.');
-        }
-
-        Storage::disk('local')->put($path, $response->body());
+        return $response;
     }
 }

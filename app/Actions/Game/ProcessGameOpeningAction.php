@@ -6,8 +6,10 @@ namespace App\Actions\Game;
 
 use App\Models\Game;
 use App\Models\GameSessionCompletion;
+use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\NarrationAudioService;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
@@ -26,6 +28,7 @@ final class ProcessGameOpeningAction
         private readonly ChaosEngineService $engine,
         private readonly PlayableMomentResolver $momentResolver,
         private readonly NarrationResultNormalizer $resultNormalizer,
+        private readonly NarrationAudioService $audio,
     ) {}
 
     public function pendingKey(string $gameId): string
@@ -47,6 +50,7 @@ final class ProcessGameOpeningAction
 
         Cache::put($this->pendingKey($gameId), 'begin', 180);
         Cache::forget($this->errorKey($gameId));
+        $narration = null;
         $startedAt = microtime(true);
 
         try {
@@ -126,7 +130,7 @@ final class ProcessGameOpeningAction
                 ? $game->currentPlayableMoment()->value('moment_key')
                 : null;
 
-            $game->prompts()->create([
+            $narration = $game->prompts()->create([
                 'session_number' => 1,
                 'moment_key' => $openingMomentKey,
                 'exit_condition_met' => $openingMomentKey !== null ? false : null,
@@ -199,6 +203,8 @@ final class ProcessGameOpeningAction
         } finally {
             Cache::forget($this->pendingKey($gameId));
         }
+
+        $this->renderNarrationAudio($game, $narration);
     }
 
     /**
@@ -219,6 +225,7 @@ final class ProcessGameOpeningAction
 
         Cache::put($this->pendingKey($gameId), 'next_session', 180);
         Cache::forget($this->errorKey($gameId));
+        $narration = null;
         $startedAt = microtime(true);
 
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
@@ -315,7 +322,7 @@ final class ProcessGameOpeningAction
                 ? $game->currentPlayableMoment()->value('moment_key')
                 : null;
 
-            $game->prompts()->create([
+            $narration = $game->prompts()->create([
                 'session_number' => $nextSessionNumber,
                 'moment_key' => $openingMomentKey,
                 'exit_condition_met' => $openingMomentKey !== null ? false : null,
@@ -399,5 +406,22 @@ final class ProcessGameOpeningAction
         } finally {
             Cache::forget($this->pendingKey($gameId));
         }
+
+        $this->renderNarrationAudio($game, $narration);
+    }
+
+    /**
+     * Render the opening narration's audio while the player is still reading.
+     * Runs after the pending flag is cleared so the voice provider never holds
+     * the UI back.
+     */
+    private function renderNarrationAudio(?Game $game, ?Prompt $narration): void
+    {
+        if ($game === null || $narration === null) {
+            return;
+        }
+
+        $this->audio->markPending($narration);
+        $this->audio->generate($game, $narration);
     }
 }

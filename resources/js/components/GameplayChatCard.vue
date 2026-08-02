@@ -123,9 +123,18 @@ const handleNarrationClick = () => {
     }
 };
 
+// Start typing and, in parallel, warm the narration audio so it is downloaded
+// by the time the text finishes.
+const beginNarration = (response: string) => {
+    typewriter.start(response);
+    if (gameplaySettings.autoplay) {
+        tts.prefetch(props.gameId, props.prompt.id);
+    }
+};
+
 onMounted(() => {
     if (props.animate && props.isLatest && props.prompt.response) {
-        typewriter.start(props.prompt.response);
+        beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
     }
@@ -136,7 +145,7 @@ watch(
     (newVal) => {
         if (!newVal) return;
         if (props.animate && props.isLatest) {
-            typewriter.start(newVal);
+            beginNarration(newVal);
         } else {
             typewriter.complete(newVal);
         }
@@ -147,7 +156,7 @@ watch(
     () => props.animate,
     (animate, wasAnimate) => {
         if (!animate || wasAnimate || !props.isLatest || !props.prompt.response) return;
-        typewriter.start(props.prompt.response);
+        beginNarration(props.prompt.response);
     },
 );
 

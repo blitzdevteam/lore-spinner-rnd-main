@@ -6,7 +6,14 @@ const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
 const SILENT_WAV =
     'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
+// The endpoint answers 202 while the voice provider is still rendering a turn,
+// which can take a couple of minutes for a long narration.
+const NARRATION_POLL_INTERVAL_MS = 2000;
+const NARRATION_MAX_WAIT_MS = 240_000;
+
 const audioCache = new Map<string, HTMLAudioElement>();
+const objectUrls = new Map<string, string>();
+const inFlightUrls = new Map<string, Promise<string>>();
 
 const isPlaying = ref(false);
 const isLoading = ref(false);
@@ -29,6 +36,11 @@ function collapseMediaPlayer() {
 }
 
 let currentAudio: HTMLAudioElement | null = null;
+
+// The narration `currentAudio` belongs to. Kept separate from activeKey, which
+// is a UI concern that moves ahead of the element while a turn is queued.
+let currentKey: string | null = null;
+
 let rafId: number | null = null;
 let unlockAudio: HTMLAudioElement | null = null;
 let audioUnlocked = false;
@@ -39,6 +51,14 @@ let pendingAutoplay: { gameId: string; promptId: string } | null = null;
 // We pre-claim a fresh element on every user gesture so the subsequent async
 // autoplay call can reuse it (src-swap preserves iOS activation).
 let primedAudio: HTMLAudioElement | null = null;
+
+// Key whose element is claimed but has no real source yet, because the mp3 is
+// still downloading. Calling play() on it would fail with NotSupportedError.
+let awaitingSourceKey: string | null = null;
+
+// Identifies the newest playback request. Anything that silences audio bumps it,
+// so a download that lands afterwards knows not to start on its own.
+let playToken = 0;
 
 // ── Web Audio API unlock ──────────────────────────────────────────────────────
 // On iOS Safari, audio playback permission is per-page once ANY audio element
@@ -128,12 +148,41 @@ function isAutoplayBlocked(err: unknown): boolean {
     return err instanceof DOMException && err.name === 'NotAllowedError';
 }
 
+/**
+ * Only one narration may ever be audible. Every cached turn keeps its own
+ * element, so a previous turn can still be mid-playback when a new one takes
+ * over — pausing `currentAudio` alone would leave it running.
+ */
+function silenceOthers(keep: HTMLAudioElement | null) {
+    const rewind = (audio: HTMLAudioElement) => {
+        if (!audio.paused) audio.pause();
+        if (audio.currentTime) audio.currentTime = 0;
+    };
+
+    for (const audio of audioCache.values()) {
+        if (audio !== keep) rewind(audio);
+    }
+
+    if (currentAudio && currentAudio !== keep) rewind(currentAudio);
+}
+
 function queuePendingAutoplay(gameId: string, promptId: string) {
+    // The UI is about to point at this turn, so nothing from an earlier one may
+    // keep playing underneath it. A retry of the current turn keeps its position.
+    // Ordered before the queue is recorded because stop() clears the queue.
+    const key = `${gameId}:${promptId}`;
+    if (currentKey !== key) {
+        stop();
+        currentAudio = null;
+        currentKey = null;
+    }
+
     pendingAutoplay = { gameId, promptId };
+
     // Show a pending-play indicator on the relevant card while we wait for the
     // AudioContext to be unlocked via a user gesture.
     revealMediaPlayer();
-    activeKey.value = `${gameId}:${promptId}`;
+    activeKey.value = key;
     isLoading.value = true;
 }
 
@@ -213,12 +262,21 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
     if ((audio as any).__ttsListenersAttached) return;
     (audio as any).__ttsListenersAttached = true;
 
+    // Handlers write shared state, so an element from an earlier turn being
+    // silenced must not report over the turn that replaced it.
+    const isCurrent = () => currentKey === key;
+
     audio.addEventListener('canplay', () => {
+        if (!isCurrent()) return;
         isLoading.value = false;
         duration.value = audio.duration || 0;
         console.debug('[TTS] canplay', key, 'duration', duration.value);
     });
     audio.addEventListener('playing', () => {
+        if (!isCurrent()) {
+            audio.pause(); // a stale turn must never be audible
+            return;
+        }
         isPlaying.value = true;
         isLoading.value = false;
         duration.value = audio.duration || 0;
@@ -227,6 +285,7 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
         updateTime();
     });
     audio.addEventListener('ended', () => {
+        if (!isCurrent()) return;
         if (isLooping.value && currentAudio) {
             currentAudio.currentTime = 0;
             currentAudio.play().catch(() => {
@@ -239,17 +298,20 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
         console.debug('[TTS] ended', key);
     });
     audio.addEventListener('pause', () => {
+        if (!isCurrent()) return;
         isPlaying.value = false;
         stopTimeUpdates();
         console.debug('[TTS] pause', key);
     });
     audio.addEventListener('error', (e) => {
+        if (!isCurrent()) return;
         isPlaying.value = false;
         isLoading.value = false;
         stopTimeUpdates();
         console.warn('[TTS] error', key, (e.target as HTMLAudioElement).error);
     });
     audio.addEventListener('loadedmetadata', () => {
+        if (!isCurrent()) return;
         duration.value = audio.duration || 0;
         console.debug('[TTS] loadedmetadata', key, 'duration', duration.value);
     });
@@ -257,8 +319,78 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
         console.warn('[TTS] stalled', key);
     });
     audio.addEventListener('waiting', () => {
+        if (!isCurrent()) return;
         isLoading.value = true;
         console.debug('[TTS] waiting (buffering)', key);
+    });
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Download a narration mp3, waiting out the server-side render.
+ *
+ * The audio element is never pointed at the endpoint directly: a cache miss
+ * takes far longer than the gateway timeout, which surfaced as a 504 followed
+ * by a MediaError "Format error" instead of narration.
+ */
+async function downloadNarration(endpoint: string): Promise<Blob> {
+    const deadline = Date.now() + NARRATION_MAX_WAIT_MS;
+
+    while (Date.now() < deadline) {
+        const response = await fetch(endpoint, { headers: { Accept: 'audio/mpeg' } });
+
+        if (response.status === 202) {
+            await delay(NARRATION_POLL_INTERVAL_MS);
+            continue;
+        }
+
+        if (!response.ok) {
+            throw new Error(`narration request failed (${response.status})`);
+        }
+
+        const blob = await response.blob();
+
+        // A redirect to the login page would otherwise reach the audio element as HTML.
+        if (!blob.type.startsWith('audio/')) {
+            throw new Error(`unexpected narration content type "${blob.type || 'unknown'}"`);
+        }
+
+        return blob;
+    }
+
+    throw new Error('narration render timed out');
+}
+
+function narrationUrl(gameId: string, promptId: string): Promise<string> {
+    const key = `${gameId}:${promptId}`;
+    const ready = objectUrls.get(key);
+    if (ready) return Promise.resolve(ready);
+
+    const pending = inFlightUrls.get(key);
+    if (pending) return pending;
+
+    const request = downloadNarration(`/user/games/${gameId}/tts/${promptId}`)
+        .then((blob) => {
+            const url = URL.createObjectURL(blob);
+            objectUrls.set(key, url);
+            return url;
+        })
+        .finally(() => {
+            inFlightUrls.delete(key);
+        });
+
+    inFlightUrls.set(key, request);
+
+    return request;
+}
+
+/** Warm the cache (and kick off the server-side render) without playing. */
+function prefetch(gameId: string, promptId: string) {
+    narrationUrl(gameId, promptId).catch((err) => {
+        console.debug('[TTS] prefetch failed', `${gameId}:${promptId}`, err);
     });
 }
 
@@ -280,8 +412,10 @@ function play(gameId: string, promptId: string) {
         return;
     }
 
-    if (currentAudio && activeKey.value === key && !currentAudio.ended) {
+    if (currentAudio && currentKey === key && !currentAudio.ended) {
+        if (awaitingSourceKey === key) return; // download in flight, spinner already up
         if (currentAudio.paused) {
+            silenceOthers(currentAudio);
             isLoading.value = true;
             revealMediaPlayer();
             currentAudio.play().catch((err) => {
@@ -296,7 +430,9 @@ function play(gameId: string, promptId: string) {
 
     if (audioCache.has(key)) {
         currentAudio = audioCache.get(key)!;
+        currentKey = key;
         activeKey.value = key;
+        silenceOthers(currentAudio);
         currentAudio.currentTime = 0;
         applyAudioSettings(currentAudio);
         isLoading.value = true;
@@ -309,38 +445,68 @@ function play(gameId: string, promptId: string) {
     isLoading.value = true;
     console.debug('[TTS] fetching', key);
 
-    const url = `/user/games/${gameId}/tts/${promptId}`;
-    let audio: HTMLAudioElement;
-
-    if (primedAudio) {
-        // Reuse the element pre-activated during the last user gesture.
-        // iOS Safari preserves the activation after a src-swap + load(), so the
-        // subsequent play() call is permitted even outside the gesture stack.
-        audio = primedAudio;
-        primedAudio = null;
-        audio.src = url;
-        audio.load();
-    } else {
-        audio = new Audio(url);
-        audio.preload = 'auto';
-    }
+    // Claim the element pre-activated during the last user gesture *now*, while
+    // we may still be inside the gesture stack. iOS Safari keeps that activation
+    // across a later src-swap + load(), so the deferred play() is permitted.
+    const audio = primedAudio ?? new Audio();
+    primedAudio = null;
+    audio.preload = 'auto';
 
     configureAudioElement(audio);
     applyAudioSettings(audio);
-    attachListeners(audio, key);
-    audioCache.set(key, audio);
     currentAudio = audio;
+    currentKey = key;
     activeKey.value = key;
-    audio.play().catch((err) => {
-        handlePlayRejected(key, err, gameId, promptId);
-    });
+    awaitingSourceKey = key;
+    const token = ++playToken;
+
+    narrationUrl(gameId, promptId)
+        .then((url) => {
+            if (currentKey !== key) return; // the player moved on while it rendered
+
+            // Exactly one src assignment on this element, and listeners go on
+            // straight after it, so the silent unlock clip it may still be
+            // holding cannot report events against this narration.
+            audio.src = url;
+            audio.load();
+            attachListeners(audio, key);
+            audioCache.set(key, audio);
+            awaitingSourceKey = null;
+
+            // Paused or stopped while this downloaded — hand over the loaded
+            // element but leave it silent.
+            if (token !== playToken) {
+                isLoading.value = false;
+                return;
+            }
+
+            // A turn that was already playing can have run all the way to this
+            // point while the new one downloaded.
+            silenceOthers(audio);
+
+            return audio.play().catch((err) => {
+                handlePlayRejected(key, err, gameId, promptId);
+            });
+        })
+        .catch((err) => {
+            console.warn('[TTS] unavailable', key, err);
+            if (currentKey === key) {
+                isLoading.value = false;
+            }
+        })
+        .finally(() => {
+            if (awaitingSourceKey === key) {
+                awaitingSourceKey = null;
+            }
+        });
 }
 
 function stop() {
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-    }
+    // A queued turn left behind here would be replayed by the next unrelated
+    // gesture, since every gesture primes audio and primeAudio() flushes.
+    pendingAutoplay = null;
+    playToken++;
+    silenceOthers(null); // rewinds every element, current one included
     isPlaying.value = false;
     isLoading.value = false;
     currentTime.value = 0;
@@ -349,7 +515,9 @@ function stop() {
 
 function dismiss() {
     pendingAutoplay = null;
+    awaitingSourceKey = null;
     stop();
+    currentKey = null;
     activeKey.value = null;
 }
 
@@ -357,6 +525,7 @@ function dismiss() {
 function resetForNewStory() {
     dismiss();
     currentAudio = null;
+    currentKey = null;
     for (const audio of audioCache.values()) {
         audio.pause();
         audio.currentTime = 0;
@@ -364,22 +533,38 @@ function resetForNewStory() {
         audio.load();
     }
     audioCache.clear();
+    for (const url of objectUrls.values()) {
+        URL.revokeObjectURL(url);
+    }
+    objectUrls.clear();
+    inFlightUrls.clear();
     playedKeys.clear();
     duration.value = 0;
     mediaCollapsed.value = false;
 }
 
 function pause() {
+    // Pausing means silence: drop any queued turn and cancel a download that
+    // would otherwise start playing the moment it lands.
+    pendingAutoplay = null;
+    playToken++;
+    isLoading.value = false;
+
+    // Keep the current turn's position, but leave nothing else running.
+    silenceOthers(currentAudio);
     if (currentAudio && !currentAudio.paused) {
         currentAudio.pause();
     }
+    isPlaying.value = false;
 }
 
 function resume() {
+    if (awaitingSourceKey !== null) return;
     if (currentAudio && currentAudio.paused && !currentAudio.ended) {
+        silenceOthers(currentAudio);
         isLoading.value = true;
         currentAudio.play().catch((err) => {
-            const key = activeKey.value ?? 'unknown';
+            const key = currentKey ?? activeKey.value ?? 'unknown';
             const [gameId = '', promptId = ''] = key.split(':');
             handlePlayRejected(key, err, gameId, promptId);
         });
@@ -387,20 +572,22 @@ function resume() {
 }
 
 function togglePause() {
-    if (isPlaying.value) {
+    // Pressing pause mid-load has to cancel the pending start, otherwise
+    // priming for a resume would flush it straight back into playback.
+    if (isPlaying.value || isLoading.value) {
         pause();
-    } else {
-        primeAudio();
-        resume();
+        return;
     }
+    primeAudio();
+    resume();
 }
 
 function toggle(gameId: string, promptId: string) {
     primeAudio();
     const key = `${gameId}:${promptId}`;
-    if (isPlaying.value && activeKey.value === key) {
+    if (currentKey === key && isPlaying.value) {
         pause();
-    } else if (activeKey.value === key && currentAudio && !currentAudio.ended) {
+    } else if (currentKey === key && currentAudio && !currentAudio.ended) {
         revealMediaPlayer();
         resume();
     } else {
@@ -494,6 +681,7 @@ export function useTextToSpeech() {
         revealMediaPlayer,
         collapseMediaPlayer,
         play,
+        prefetch,
         stop,
         dismiss,
         resetForNewStory,
