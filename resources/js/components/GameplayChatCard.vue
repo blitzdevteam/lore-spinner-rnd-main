@@ -63,9 +63,11 @@ const showCustomAction = computed(() => {
     return !normalizedChoices.value.some((choice) => choice.text === effectiveSelection.value);
 });
 
-// Continue is always available when the player can interact and a response exists
+// Continue is always available when the player can interact and a response exists.
+// In Boiler this means "let the story move without me steering" — a legitimate,
+// low-effort way to stay in the scene rather than being forced to invent an action.
 const showContinueButton = computed(() => {
-    return !props.usesPlayableMoments && canInteract.value && !!props.prompt.response;
+    return canInteract.value && !!props.prompt.response;
 });
 
 const renderedResponse = computed(() => {
@@ -173,10 +175,10 @@ watch(
     },
 );
 
-// Nudge trigger: fire once when choice buttons first become visible on this card.
-// This is the single most reliable signal that the player can now act.
+// Nudge trigger: fire once when this card first becomes actionable. Not conditioned
+// on listed choices — the player can always act by speaking or writing.
 const choicesVisible = computed(
-    () => !!props.isLatest && canInteract.value && showChoicesAndActions.value && hasChoices.value,
+    () => !!props.isLatest && canInteract.value && showChoicesAndActions.value && !!props.prompt.response,
 );
 
 watch(choicesVisible, (visible, wasVisible) => {
@@ -278,12 +280,13 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <p class="text-sm font-normal sm:text-[15px]">{{ choice.text }}</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Off-path note -->
-            <div v-if="canInteract" class="flex flex-col gap-0.5">
-                <p class="text-base text-secondary-300">Want To Go Off-Path?</p>
-                <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Write Your Own Choice.</p>
-            </div>
+        <!-- Off-path note — shown whenever the player can act, with or without
+             listed suggestions, so freeform never looks like a fallback -->
+        <div v-if="canInteract && showChoicesAndActions" class="flex flex-col gap-0.5">
+            <p class="text-base text-secondary-300">Want To Go Off-Path?</p>
+            <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Write Your Own Choice.</p>
         </div>
     </div>
 </template>

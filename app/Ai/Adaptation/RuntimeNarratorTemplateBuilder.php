@@ -53,6 +53,27 @@ final class RuntimeNarratorTemplateBuilder
     public function __construct(private SessionEventLoader $eventLoader) {}
 
     /**
+     * Soften [BRACKETED_TOKENS] in authored prose that gets rendered into the
+     * prompt verbatim. The runtime validator rejects unknown control tokens, so
+     * an incidental bracket in generated guidance must never block assembly.
+     *
+     * @param  array<mixed>  $value
+     * @return array<mixed>
+     */
+    private static function withoutBracketTokens(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = self::withoutBracketTokens($item);
+            } elseif (is_string($item)) {
+                $value[$key] = preg_replace('/\[([A-Z][A-Z0-9_]*)\]/', '($1)', $item) ?? $item;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
      * Build the cached runtime narrator prompt for a given session adaptation.
      *
      * Always returns a string — adaptation is never blocked by prompt size or
@@ -302,8 +323,8 @@ final class RuntimeNarratorTemplateBuilder
             'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
             'postureShifts' => (array) ($choiceDesign['posture_shifts'] ?? []),
 
-            'consequenceMaps' => (array) ($consequenceMap['branching_consequences'] ?? []),
-            'freeformGuidelines' => (array) ($consequenceMap['freeform_guidelines'] ?? []),
+            'consequenceMaps' => self::withoutBracketTokens((array) ($consequenceMap['branching_consequences'] ?? [])),
+            'freeformGuidelines' => self::withoutBracketTokens((array) ($consequenceMap['freeform_guidelines'] ?? [])),
 
             'editorialStatus' => (string) (
                 data_get($session->editorial_verification, 'final_verdict.production_status')

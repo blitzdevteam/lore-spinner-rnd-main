@@ -119,8 +119,12 @@ final class ProcessGameTurnAction
             }
 
             $boilerActive = $game->current_playable_moment_id !== null;
+            // Boiler scales the window with time spent in the active room, but never
+            // below the legacy floor: the turn count resets when the pointer advances,
+            // and a narrator that only remembers one exchange cannot honour what the
+            // player did in the room they just left.
             $historyWindow = $boilerActive
-                ? array_slice($history, -max(2, ($game->playable_moment_turn_count + 1) * 2))
+                ? array_slice($history, -max(12, ($game->playable_moment_turn_count + 1) * 2))
                 : array_slice($history, -12);
 
             $llmStartedAt = microtime(true);

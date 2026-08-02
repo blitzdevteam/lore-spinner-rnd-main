@@ -134,12 +134,14 @@ final class PromptController extends Controller
         $suggestionIndex = $request->input('suggestion_index');
 
         if ($suggestionIndex === null) {
-            $isLegacyContinue = $game->current_playable_moment_id === null
-                && $submittedText === self::CONTINUE_MARKER;
+            // Continue is valid in both modes: it lets the player stay in the scene
+            // without being required to invent an action. Boiler treats it as an
+            // ordinary turn — the active room still governs what happens next.
+            $isContinueMarker = $submittedText === self::CONTINUE_MARKER;
 
             return [
-                $isLegacyContinue ? self::CONTINUE_MARKER : $submittedText,
-                $isLegacyContinue ? 'Continue the story forward.' : $submittedText,
+                $submittedText,
+                $isContinueMarker ? 'Continue the story forward.' : $submittedText,
                 null,
             ];
         }
