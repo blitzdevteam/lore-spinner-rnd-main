@@ -541,7 +541,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Loading skeleton while AI generates the next response -->
-            <div v-if="isSubmitting" class="py-8">
+            <div v-if="isSubmitting && !streamedNarration" class="py-8">
                 <div class="flex animate-pulse flex-col gap-4">
                     <div class="h-4 w-full rounded bg-gray-700/50"></div>
                     <div class="h-4 w-5/6 rounded bg-gray-700/50"></div>
