@@ -597,8 +597,6 @@ TEXT;
             'protagonist' => $protagonist,
         ])->render();
 
-        $streamedResponse = '';
-
         try {
             $streamSystemPrompt = $systemPrompt."\n\n"
                 .'STREAM MODE: output only the cinematic narration body as HTML. '
@@ -626,7 +624,6 @@ TEXT;
                     continue;
                 }
 
-                $streamedResponse .= $event->delta;
                 $streamStore->append($gameId, $sourcePromptId, $event->delta);
             }
         } catch (Throwable $e) {
@@ -650,10 +647,6 @@ TEXT;
             $game,
             $isOpening,
         );
-
-        if (mb_trim($streamedResponse) !== '') {
-            $result['response'] = $streamedResponse;
-        }
 
         return $result;
     }
