@@ -12,9 +12,12 @@ use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Services\Adaptation\SessionEventLoader;
+use App\Services\Runtime\GameTurnStreamStore;
+use App\Services\Runtime\StreamingNarrationJsonParser;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use RuntimeException;
 
@@ -557,34 +560,87 @@ TEXT;
         /** @var array<string, mixed> $structured */
         $structured = $response->structured ?? [];
 
-        $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
+        $result = $this->normalizeStructuredResult($structured);
+        $result['_usage'] = $response->usage->toArray();
+        $result['_output_metrics'] = $this->structuredOutputMetrics($structured);
 
-        $result = [
-            'response' => (string) ($structured['response'] ?? ''),
-            'choices' => (array) ($structured['choices'] ?? []),
-            'visible_suggestions' => array_key_exists('visible_suggestions', $structured)
-                ? (array) $structured['visible_suggestions']
-                : null,
-            'moment_progress' => isset($structured['moment_progress'])
-                ? (array) $structured['moment_progress']
-                : null,
-            'session_complete' => (bool) ($structured['session_complete'] ?? false),
-            'state_delta' => (array) ($structured['state_delta'] ?? []),
-            'alignment_tally_delta' => [
-                'chaotic' => (int) ($alignment['chaotic'] ?? 0),
-                'lawful' => (int) ($alignment['lawful'] ?? 0),
-                'neutral' => (int) ($alignment['neutral'] ?? 0),
-            ],
-            'is_climactic_choice' => (bool) ($structured['is_climactic_choice'] ?? false),
-            'defining_choice_id' => (string) ($structured['defining_choice_id'] ?? ''),
-            'defining_path_label' => mb_strtoupper(mb_trim((string) ($structured['defining_path_label'] ?? ''))),
-            'defining_choice_line' => (string) ($structured['defining_choice_line'] ?? ''),
-            'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
-            'session_memory_update' => (string) ($structured['session_memory_update'] ?? ''),
-            '_usage' => $response->usage->toArray(),
-            '_output_metrics' => $this->structuredOutputMetrics($structured),
-        ];
+        $this->validateBoilerNarrationResult($result, $game, $isOpening);
 
+        return $result;
+    }
+
+    /**
+     * Stream the JSON narration envelope while publishing only its response field.
+     * Structured output remains authoritative; invalid streamed JSON falls back to
+     * the buffered request without committing partial state.
+     *
+     * @param  array<int, array{role:string, text:string}>  $conversationHistory
+     * @return array<string,mixed>
+     */
+    public function streamAgent(
+        string $model,
+        string $systemPrompt,
+        array $conversationHistory,
+        ?string $playerAction,
+        string $protagonist,
+        float $temperature,
+        array $worldState,
+        ?Game $game,
+        bool $isOpening,
+        GameTurnStreamStore $streamStore,
+        string $gameId,
+        string $sourcePromptId,
+    ): array {
+        $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
+        $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT."\n\n"
+            .'Return ONLY one valid JSON object using the complete ChaosNarrationSchema contract. '
+            .'The response field must be the first property and contain the HTML narration string. '
+            .'Do not use markdown fences or commentary outside the JSON object.';
+        $promptText = view('ai.agents.chaos.turn-prompt', [
+            'conversationHistory' => $conversationHistory,
+            'playerAction' => $playerAction,
+            'protagonist' => $protagonist,
+        ])->render();
+        $request = Prism::text()
+            ->using($config['provider'], $model)
+            ->withPrompt($promptText)
+            ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
+            ->withProviderOptions($this->providerOptionsFor($config));
+
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withSystemPrompts($this->anthropicSystemPrompts($systemPrompt));
+        } else {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $request = $request->usingTemperature($temperature);
+        }
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
+        }
+
+        $parser = new StreamingNarrationJsonParser;
+        foreach ($request->asStream() as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $streamStore->append($gameId, $sourcePromptId, $parser->push($event->delta));
+            }
+        }
+        $structured = $parser->finish();
+        if ($structured === null) {
+            return $this->callAgent(
+                $model,
+                $systemPrompt,
+                $conversationHistory,
+                $playerAction,
+                $protagonist,
+                $temperature,
+                $worldState,
+                $game,
+                $isOpening,
+            );
+        }
+
+        $result = $this->normalizeStructuredResult($structured);
         $this->validateBoilerNarrationResult($result, $game, $isOpening);
 
         return $result;
@@ -683,14 +739,6 @@ TEXT;
         return mb_trim($existing)."\n".$update;
     }
 
-    private function normalizeMemoryLine(string $line): string
-    {
-        $line = mb_strtolower(mb_trim($line));
-        $line = preg_replace('/\s+/u', ' ', $line) ?? $line;
-
-        return $line;
-    }
-
     /**
      * @param  array<int, array{role:string, text:string}>  $history
      * @return array<int, array{role:string, text:string}>
@@ -756,6 +804,47 @@ TEXT;
     public function emptyAlignmentScaffold(): array
     {
         return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
+    }
+
+    /**
+     * @param  array<string,mixed>  $structured
+     * @return array<string,mixed>
+     */
+    private function normalizeStructuredResult(array $structured): array
+    {
+        $alignment = (array) ($structured['alignment_tally_delta'] ?? []);
+
+        return [
+            'response' => (string) ($structured['response'] ?? ''),
+            'choices' => (array) ($structured['choices'] ?? []),
+            'visible_suggestions' => array_key_exists('visible_suggestions', $structured)
+                ? (array) $structured['visible_suggestions']
+                : null,
+            'moment_progress' => isset($structured['moment_progress'])
+                ? (array) $structured['moment_progress']
+                : null,
+            'session_complete' => (bool) ($structured['session_complete'] ?? false),
+            'state_delta' => (array) ($structured['state_delta'] ?? []),
+            'alignment_tally_delta' => [
+                'chaotic' => (int) ($alignment['chaotic'] ?? 0),
+                'lawful' => (int) ($alignment['lawful'] ?? 0),
+                'neutral' => (int) ($alignment['neutral'] ?? 0),
+            ],
+            'is_climactic_choice' => (bool) ($structured['is_climactic_choice'] ?? false),
+            'defining_choice_id' => (string) ($structured['defining_choice_id'] ?? ''),
+            'defining_path_label' => mb_strtoupper(mb_trim((string) ($structured['defining_path_label'] ?? ''))),
+            'defining_choice_line' => (string) ($structured['defining_choice_line'] ?? ''),
+            'symbolic_memory_update' => (string) ($structured['symbolic_memory_update'] ?? ''),
+            'session_memory_update' => (string) ($structured['session_memory_update'] ?? ''),
+        ];
+    }
+
+    private function normalizeMemoryLine(string $line): string
+    {
+        $line = mb_strtolower(mb_trim($line));
+        $line = preg_replace('/\s+/u', ' ', $line) ?? $line;
+
+        return $line;
     }
 
     /**
@@ -894,7 +983,7 @@ TEXT;
                     continue;
                 }
                 $options[] = [
-                    'label' => strtoupper((string) ($option['label'] ?? '')),
+                    'label' => mb_strtoupper((string) ($option['label'] ?? '')),
                     'text' => (string) ($option['text'] ?? ''),
                 ];
             }
