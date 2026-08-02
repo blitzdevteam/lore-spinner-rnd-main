@@ -19,12 +19,16 @@ use RuntimeException;
  * template at `ai.agents.chaos.runtime-narrator-template` into a single
  * string cached on `session_adaptations.runtime_narrator_prompt`.
  *
- * V2.3 size behaviour (warn-not-fail):
- *   - Compression cascade runs first/last/titles × full/drop-quotes (6 passes).
+ * Size behaviour (warn-not-fail):
+ *   - The cap is set high enough that authored guidance is expected to survive
+ *     intact. Compression is a last resort, not part of normal operation.
+ *   - Event bodies, voice guard and story guard are never compressed. Only two
+ *     things degrade, in this order: authored per-path detail (which has a
+ *     runtime equivalent for the resolved path), then voice example quotes.
  *   - If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
  *   - If no pass fits, the most-compressed version is returned anyway with a
  *     warning logged — adaptation is NEVER blocked by prompt size.
- *   - WARN_MARGIN_CHARS triggers an early warning when within ~15k of the cap.
+ *   - WARN_MARGIN_CHARS triggers an early warning when within 15k of the cap.
  *
  * V2.3 anchor / token checks (warn-not-fail):
  *   - Missing voice_anchor / anchor_card / runtime_self_check → warning logged,
@@ -39,16 +43,23 @@ use RuntimeException;
 final class RuntimeNarratorTemplateBuilder
 {
     /**
-     * Target cap for the cached runtime narrator prompt (D8 v2 — 65 k chars).
+     * Ceiling for the cached runtime narrator prompt, ~48k tokens.
+     *
+     * Sized so a large authored cut keeps its full voice guard, story guard and
+     * per-path authored detail rather than compressing any of it away — losing
+     * that guidance costs more than the tokens do. Narration runs on a 200k
+     * context model, so this leaves ample room for history and world state.
+     *
      * Prompts over this cap are logged as warnings but still persisted.
      */
-    public const MAX_PROMPT_CHARS = 128_000;
+    public const MAX_PROMPT_CHARS = 192_000;
 
     /**
-     * Early-warning threshold — ~15k below the cap.
-     * Prompts between this value and MAX_PROMPT_CHARS get a near-cap log entry.
+     * Early-warning threshold — 15k below the cap. Prompts between this value
+     * and MAX_PROMPT_CHARS get a near-cap log entry, which is the signal that a
+     * session is approaching the point where detail would start degrading.
      */
-    public const WARN_MARGIN_CHARS = 50_000;
+    public const WARN_MARGIN_CHARS = self::MAX_PROMPT_CHARS - 15_000;
 
     /**
      * Detail levels for the authored per-path blocks (freeform manifest and
@@ -83,15 +94,12 @@ final class RuntimeNarratorTemplateBuilder
     /**
      * Project the authored freeform manifest down to the detail level that fits.
      *
-     * `full` keeps what only the static manifest can teach: the spirit of each
-     * path, the kind of freeform that belongs there, and the authored fold-back
-     * moves. `compact` keeps the fold-back triplet alone — the part with no
-     * runtime equivalent. `none` omits the manifest; the hardcoded Freedom
-     * Contract still governs, only the per-path detail is lost.
-     *
-     * `narrator_behavior` and `hard_limits` are deliberately absent at every
-     * level: ChaosEngineService::buildConsequenceEchoBlock() already injects both
-     * at runtime for the path the player actually resolved.
+     * `full` is the expected level and loses nothing the author wrote. `compact`
+     * keeps the spirit, the freeform that belongs at each path, and the fold-back
+     * moves, dropping only the two fields that
+     * ChaosEngineService::buildConsequenceEchoBlock() re-injects at runtime for
+     * the path the player actually resolved. `none` omits the manifest entirely;
+     * the hardcoded Freedom Contract still governs, only per-path detail is lost.
      *
      * @param  array<int, array<string, mixed>>  $guidelines
      * @return array<int, array<string, mixed>>
@@ -106,14 +114,16 @@ final class RuntimeNarratorTemplateBuilder
             $projected = [
                 'choice_id' => $g['choice_id'] ?? '',
                 'path_label' => $g['path_label'] ?? '',
+                'spirit' => $g['spirit'] ?? '',
+                'freeform_alignment_input' => $g['freeform_alignment_input'] ?? '',
                 'fold_back_acknowledge' => $g['fold_back_acknowledge'] ?? '',
                 'fold_back_redirect' => $g['fold_back_redirect'] ?? '',
                 'fold_back_arrive_at' => $g['fold_back_arrive_at'] ?? '',
             ];
 
             if ($level === 'full') {
-                $projected['spirit'] = $g['spirit'] ?? '';
-                $projected['freeform_alignment_input'] = $g['freeform_alignment_input'] ?? '';
+                $projected['narrator_behavior'] = $g['narrator_behavior'] ?? '';
+                $projected['hard_limits'] = (array) ($g['hard_limits'] ?? []);
             }
 
             return $projected;
@@ -123,8 +133,8 @@ final class RuntimeNarratorTemplateBuilder
     /**
      * Project consequence visibility down to the detail level that fits.
      *
-     * `current_session_echo` is deliberately absent at every level — the runtime
-     * consequence echo block already carries it for the resolved path.
+     * `current_session_echo` is kept at `full` and dropped from `compact`, where
+     * the runtime consequence echo block still carries it for the resolved path.
      *
      * @param  array<int, array<string, mixed>>  $branchingConsequences
      * @return array<int, array<string, mixed>>
@@ -156,6 +166,7 @@ final class RuntimeNarratorTemplateBuilder
 
                 $paths[] = [
                     'label' => $path['label'] ?? '',
+                    'current_session_echo' => $level === 'full' ? ($path['current_session_echo'] ?? '') : '',
                     'consequence_visibility' => $projectedVisibility,
                 ];
             }
@@ -178,9 +189,10 @@ final class RuntimeNarratorTemplateBuilder
      * missing anchor fields. Issues are logged as warnings so they are visible
      * without stopping the pipeline.
      *
-     * Compression cascade (D8 v2 priority — 6 passes):
-     *   full × full → compressed_source × full → titles_only × full
-     *   full × drop_quotes → compressed_source × drop_quotes → titles_only × drop_quotes
+     * Compression cascade, least to most lossy — source events are never
+     * compressed, so the only live dimensions are authored detail and voice
+     * quotes:
+     *   authored full → compact → none, then the same three with quotes dropped.
      *
      * If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
      * If all passes exceed the cap the most-compressed version is returned with

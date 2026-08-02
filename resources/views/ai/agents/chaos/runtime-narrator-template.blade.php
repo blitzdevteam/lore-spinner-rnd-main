@@ -387,7 +387,7 @@ POSTURE SHIFTS:
 CONSEQUENCE VISIBILITY — when a resolved path must become something the player can PERCEIVE (never announced as bookkeeping):
 @foreach($consequenceMaps as $cm)
 @foreach($cm['paths'] ?? [] as $p)
-- {{ $cm['choice_id'] ?? '' }}/{{ $p['label'] ?? '' }}: {{ data_get($p, 'consequence_visibility.what_changes') }}@if(data_get($p, 'consequence_visibility.how_player_sees_it')) — the player sees it through {{ data_get($p, 'consequence_visibility.how_player_sees_it') }}@endif, within {{ data_get($p, 'consequence_visibility.when_visible_target_responses') ?: 2 }}-{{ data_get($p, 'consequence_visibility.when_visible_max_responses') ?: 3 }} responses.
+- {{ $cm['choice_id'] ?? '' }}/{{ $p['label'] ?? '' }}: {{ data_get($p, 'consequence_visibility.what_changes') }}@if(data_get($p, 'consequence_visibility.how_player_sees_it')) — the player sees it through {{ data_get($p, 'consequence_visibility.how_player_sees_it') }}@endif, within {{ data_get($p, 'consequence_visibility.when_visible_target_responses') ?: 2 }}-{{ data_get($p, 'consequence_visibility.when_visible_max_responses') ?: 3 }} responses.@if(!empty($p['current_session_echo'])) Echo this session: {{ $p['current_session_echo'] }}@endif
 @endforeach
 @endforeach
 @endif
@@ -535,6 +535,12 @@ AUTHORED FREEFORM MANIFEST (per authored path — match freeform by spirit, and 
 
 @if(!empty($g['freeform_alignment_input']))
   Freeform that belongs here: {{ $g['freeform_alignment_input'] }}
+@endif
+@if(!empty($g['narrator_behavior']))
+  Carry forward afterwards: {{ $g['narrator_behavior'] }}
+@endif
+@if(!empty($g['hard_limits']))
+  Hard limits at this node: {{ implode(' / ', $g['hard_limits']) }}
 @endif
   Fold back → acknowledge: {{ $g['fold_back_acknowledge'] ?? '' }} | redirect: {{ $g['fold_back_redirect'] ?? '' }} | arrive at: {{ $g['fold_back_arrive_at'] ?? '' }}
 @endforeach
