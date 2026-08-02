@@ -268,6 +268,7 @@ final class ProcessGameOpeningAction
                 isSessionStart: true,
                 isClimacticPrevious: false,
                 isClimacticThisTurn: false,
+                isEpisodeTransition: true,
             );
 
             $llmStartedAt = microtime(true);

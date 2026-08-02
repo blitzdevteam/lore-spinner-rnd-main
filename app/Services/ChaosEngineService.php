@@ -220,6 +220,12 @@ TEXT;
      * isSessionStart=false → Section 13 block is replaced with a single continuation
      *                        line so the narrator does not re-open on mid-session turns.
      *
+     * isEpisodeTransition=true → the opening turn of session 2+, where the carried
+     *                        world state, alignment and symbolic memory cross an
+     *                        episode boundary. Tier 3 loads here for the same reason
+     *                        it loads after a climactic turn: the narrator needs the
+     *                        full registry and history to honour what carried over.
+     *
      * @param  array<string, mixed>  $sessionContext
      * @param  array<string, mixed>  $worldState
      * @param  array{chaotic:int, lawful:int, neutral:int}  $alignmentScaffold
@@ -232,6 +238,7 @@ TEXT;
         bool $isSessionStart,
         bool $isClimacticPrevious,
         bool $isClimacticThisTurn = false,
+        bool $isEpisodeTransition = false,
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
@@ -251,7 +258,7 @@ TEXT;
         // session to background, which is the opposite of a world that remembers.
         $worldStateBlock = $this->renderTieredWorldState(
             worldState: $worldState,
-            isClimactic: $isClimacticPrevious,
+            isClimactic: $isClimacticPrevious || $isEpisodeTransition,
             sessionEvents: (array) ($sessionContext['full_session_events'] ?? []),
         );
 
@@ -1465,7 +1472,7 @@ TEXT;
             array_filter($ledger, static fn ($e) => is_array($e)),
         );
 
-        $lines = ['PERSISTENT STATE — TIER 3 (climactic load — previous turn resolved a moral-weight or session-end choice):'];
+        $lines = ['PERSISTENT STATE — TIER 3 (full load — an episode boundary, or the previous turn resolved a moral-weight or session-end choice):'];
         $lines[] = 'All object states: '.$this->joinList((array) ($w['object_states'] ?? []));
         $lines[] = 'All relationships: '.$this->joinList((array) ($w['relationship_updates'] ?? []));
         $lines[] = 'All world flags: '.$this->joinList((array) ($w['world_flags'] ?? []));
