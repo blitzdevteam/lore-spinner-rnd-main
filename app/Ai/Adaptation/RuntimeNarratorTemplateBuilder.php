@@ -50,6 +50,13 @@ final class RuntimeNarratorTemplateBuilder
      */
     public const WARN_MARGIN_CHARS = 50_000;
 
+    /**
+     * Detail levels for the authored per-path blocks (freeform manifest and
+     * consequence visibility), most to least detailed. Sessions with a large
+     * authored cut shed this detail to stay under the cap.
+     */
+    private const AUTHORED_DETAIL_LEVELS = ['full', 'compact', 'none'];
+
     public function __construct(private SessionEventLoader $eventLoader) {}
 
     /**
@@ -71,6 +78,97 @@ final class RuntimeNarratorTemplateBuilder
         }
 
         return $value;
+    }
+
+    /**
+     * Project the authored freeform manifest down to the detail level that fits.
+     *
+     * `full` keeps what only the static manifest can teach: the spirit of each
+     * path, the kind of freeform that belongs there, and the authored fold-back
+     * moves. `compact` keeps the fold-back triplet alone — the part with no
+     * runtime equivalent. `none` omits the manifest; the hardcoded Freedom
+     * Contract still governs, only the per-path detail is lost.
+     *
+     * `narrator_behavior` and `hard_limits` are deliberately absent at every
+     * level: ChaosEngineService::buildConsequenceEchoBlock() already injects both
+     * at runtime for the path the player actually resolved.
+     *
+     * @param  array<int, array<string, mixed>>  $guidelines
+     * @return array<int, array<string, mixed>>
+     */
+    private function projectFreeformGuidelines(array $guidelines, string $level): array
+    {
+        if ($level === 'none') {
+            return [];
+        }
+
+        return array_values(array_map(static function (array $g) use ($level): array {
+            $projected = [
+                'choice_id' => $g['choice_id'] ?? '',
+                'path_label' => $g['path_label'] ?? '',
+                'fold_back_acknowledge' => $g['fold_back_acknowledge'] ?? '',
+                'fold_back_redirect' => $g['fold_back_redirect'] ?? '',
+                'fold_back_arrive_at' => $g['fold_back_arrive_at'] ?? '',
+            ];
+
+            if ($level === 'full') {
+                $projected['spirit'] = $g['spirit'] ?? '';
+                $projected['freeform_alignment_input'] = $g['freeform_alignment_input'] ?? '';
+            }
+
+            return $projected;
+        }, array_filter($guidelines, 'is_array')));
+    }
+
+    /**
+     * Project consequence visibility down to the detail level that fits.
+     *
+     * `current_session_echo` is deliberately absent at every level — the runtime
+     * consequence echo block already carries it for the resolved path.
+     *
+     * @param  array<int, array<string, mixed>>  $branchingConsequences
+     * @return array<int, array<string, mixed>>
+     */
+    private function projectConsequenceVisibility(array $branchingConsequences, string $level): array
+    {
+        if ($level === 'none') {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_filter($branchingConsequences, 'is_array') as $consequence) {
+            $paths = [];
+            foreach (array_filter((array) ($consequence['paths'] ?? []), 'is_array') as $path) {
+                $visibility = (array) ($path['consequence_visibility'] ?? []);
+                $whatChanges = (string) ($visibility['what_changes'] ?? '');
+                if ($whatChanges === '') {
+                    continue;
+                }
+
+                $projectedVisibility = [
+                    'what_changes' => $whatChanges,
+                    'when_visible_target_responses' => $visibility['when_visible_target_responses'] ?? 2,
+                    'when_visible_max_responses' => $visibility['when_visible_max_responses'] ?? 3,
+                ];
+                if ($level === 'full') {
+                    $projectedVisibility['how_player_sees_it'] = $visibility['how_player_sees_it'] ?? '';
+                }
+
+                $paths[] = [
+                    'label' => $path['label'] ?? '',
+                    'consequence_visibility' => $projectedVisibility,
+                ];
+            }
+
+            if ($paths !== []) {
+                $out[] = [
+                    'choice_id' => $consequence['choice_id'] ?? '',
+                    'paths' => $paths,
+                ];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -145,29 +243,34 @@ final class RuntimeNarratorTemplateBuilder
         ];
 
         $lastRendered    = '';
-        $lastCompression = 'full+full';
+        $lastCompression = 'full+full+full';
 
         foreach ($compressionAttempts as $sourceMode => $sourceFn) {
             foreach ($voiceCompression as $voiceMode => $voiceFn) {
-                $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut);
-                $charCount       = mb_strlen($rendered);
-                $lastRendered    = $rendered;
-                $lastCompression = "{$sourceMode}+{$voiceMode}";
+                // Authored per-path detail degrades BEFORE voice example quotes:
+                // voice fidelity is the product, and the agency doctrine itself is
+                // hardcoded in the template — only the authored detail is at risk.
+                foreach (self::AUTHORED_DETAIL_LEVELS as $authoredDetail) {
+                    $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut, $authoredDetail);
+                    $charCount       = mb_strlen($rendered);
+                    $lastRendered    = $rendered;
+                    $lastCompression = "{$sourceMode}+{$voiceMode}+authored_{$authoredDetail}";
 
-                if ($charCount <= self::MAX_PROMPT_CHARS) {
-                    if ($charCount >= self::WARN_MARGIN_CHARS) {
-                        \Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
-                            'story_id'       => $story->id,
-                            'session_number' => $session->session_number,
-                            'char_count'     => $charCount,
-                            'cap'            => self::MAX_PROMPT_CHARS,
-                            'compression'    => $lastCompression,
-                            'headroom'       => self::MAX_PROMPT_CHARS - $charCount,
-                        ]);
+                    if ($charCount <= self::MAX_PROMPT_CHARS) {
+                        if ($charCount >= self::WARN_MARGIN_CHARS) {
+                            \Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
+                                'story_id'       => $story->id,
+                                'session_number' => $session->session_number,
+                                'char_count'     => $charCount,
+                                'cap'            => self::MAX_PROMPT_CHARS,
+                                'compression'    => $lastCompression,
+                                'headroom'       => self::MAX_PROMPT_CHARS - $charCount,
+                            ]);
+                        }
+                        $this->warnIfPromptHasIssues($rendered, $story, $session);
+
+                        return $rendered;
                     }
-                    $this->warnIfPromptHasIssues($rendered, $story, $session);
-
-                    return $rendered;
                 }
             }
         }
@@ -251,6 +354,7 @@ final class RuntimeNarratorTemplateBuilder
         array $sessionEvents,
         array $voiceProfile,
         ?PlayableSessionCut $cut,
+        string $authoredDetail = 'full',
     ): string
     {
         $adaptation = $session->storyAdaptation;
@@ -323,8 +427,18 @@ final class RuntimeNarratorTemplateBuilder
             'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
             'postureShifts' => (array) ($choiceDesign['posture_shifts'] ?? []),
 
-            'consequenceMaps' => self::withoutBracketTokens((array) ($consequenceMap['branching_consequences'] ?? [])),
-            'freeformGuidelines' => self::withoutBracketTokens((array) ($consequenceMap['freeform_guidelines'] ?? [])),
+            'consequenceMaps' => self::withoutBracketTokens(
+                $this->projectConsequenceVisibility(
+                    (array) ($consequenceMap['branching_consequences'] ?? []),
+                    $authoredDetail,
+                )
+            ),
+            'freeformGuidelines' => self::withoutBracketTokens(
+                $this->projectFreeformGuidelines(
+                    (array) ($consequenceMap['freeform_guidelines'] ?? []),
+                    $authoredDetail,
+                )
+            ),
 
             'editorialStatus' => (string) (
                 data_get($session->editorial_verification, 'final_verdict.production_status')

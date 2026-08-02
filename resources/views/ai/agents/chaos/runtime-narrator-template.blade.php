@@ -299,8 +299,8 @@ DORMANT FUTURE NPC KEYS: {{ implode(' / ', $persistentState['dormant_npcs']) }}
 DORMANT FUTURE WORLD FLAG KEYS: {{ implode(' / ', $persistentState['dormant_world_flags']) }}
 @endif
 
-TIER 2: SCENE-RELEVANT (emotional ledger, adjacent locations, action history connected to current scene | injected at runtime below):
-TIER 3: TRANSITIONS / CLIMAX ONLY (full NPC registry, complete action history, alignment cumulative | injected at runtime below):
+TIER 2: SCENE-RELEVANT (emotional ledger, adjacent locations, action history connected to current scene). Not printed here — the engine injects it in the PERSISTENT STATE block at the very end of this prompt, after the Voice Anchor.
+TIER 3: EPISODE TRANSITIONS AND CLIMACTIC MOMENTS ONLY (full NPC registry, complete action history, alignment cumulative). Not printed here, and absent entirely on ordinary turns — when it loads, it appears in that same end-of-prompt PERSISTENT STATE block.
 
 PLAYER HISTORICAL ARCHIVE: log entries in these categories when triggered:
 @foreach($persistentState['player_historical_archive_categories'] ?? [] as $cat)
@@ -387,7 +387,7 @@ POSTURE SHIFTS:
 CONSEQUENCE VISIBILITY — when a resolved path must become something the player can PERCEIVE (never announced as bookkeeping):
 @foreach($consequenceMaps as $cm)
 @foreach($cm['paths'] ?? [] as $p)
-- {{ $cm['choice_id'] ?? '' }}/{{ $p['label'] ?? '' }}: {{ data_get($p, 'consequence_visibility.what_changes') }} — the player sees it through {{ data_get($p, 'consequence_visibility.how_player_sees_it') }}, within {{ data_get($p, 'consequence_visibility.when_visible_target_responses') ?: 2 }}-{{ data_get($p, 'consequence_visibility.when_visible_max_responses') ?: 3 }} responses. Echo this session: {{ $p['current_session_echo'] ?? '' }}
+- {{ $cm['choice_id'] ?? '' }}/{{ $p['label'] ?? '' }}: {{ data_get($p, 'consequence_visibility.what_changes') }}@if(data_get($p, 'consequence_visibility.how_player_sees_it')) — the player sees it through {{ data_get($p, 'consequence_visibility.how_player_sees_it') }}@endif, within {{ data_get($p, 'consequence_visibility.when_visible_target_responses') ?: 2 }}-{{ data_get($p, 'consequence_visibility.when_visible_max_responses') ?: 3 }} responses.
 @endforeach
 @endforeach
 @endif
@@ -531,11 +531,10 @@ The player must ALWAYS feel heard, even when redirected. Never "you can't do tha
 @if(!empty($freeformGuidelines))
 AUTHORED FREEFORM MANIFEST (per authored path — match freeform by spirit, and fold back with these exact in-world moves):
 @foreach($freeformGuidelines as $g)
-- {{ $g['choice_id'] ?? '' }}/{{ $g['path_label'] ?? '' }} — spirit: {{ $g['spirit'] ?? '' }}
-  Freeform that belongs here: {{ $g['freeform_alignment_input'] ?? '' }}
-  Carry forward afterwards: {{ $g['narrator_behavior'] ?? '' }}
-@if(!empty($g['hard_limits']))
-  Hard limits at this node: {{ implode(' / ', $g['hard_limits']) }}
+- {{ $g['choice_id'] ?? '' }}/{{ $g['path_label'] ?? '' }}@if(!empty($g['spirit'])) — spirit: {{ $g['spirit'] }}@endif
+
+@if(!empty($g['freeform_alignment_input']))
+  Freeform that belongs here: {{ $g['freeform_alignment_input'] }}
 @endif
   Fold back → acknowledge: {{ $g['fold_back_acknowledge'] ?? '' }} | redirect: {{ $g['fold_back_redirect'] ?? '' }} | arrive at: {{ $g['fold_back_arrive_at'] ?? '' }}
 @endforeach
@@ -577,7 +576,7 @@ This section sits last on purpose. It is the closest thing to your output, so it
 
 Then deliver.
 
-Below this line at runtime, the engine injects the current world state (Tier 1: location, items, conditions, NPC dispositions; Tier 2: scene-relevant relationships; Tier 3: climactic/episode-boundary symbolic notes). The final block injected is the conversation history and the player's most recent action.
+Below this line at runtime, the engine injects the current world state: Tier 1 (location, items, conditions, knowledge, notes, observed player style) always; Tier 2 (scene-connected object states, relationships, world flags, unresolved promises, recent emotional ledger) always; Tier 3 (all object states, all relationships, all world flags, the full emotional ledger) only at an episode boundary or on the turn after a moral-weight or session-end choice resolved. The final block injected is the conversation history and the player's most recent action.
 
 [WORLD_STATE_TIERED_INJECTION_POINT]
 
