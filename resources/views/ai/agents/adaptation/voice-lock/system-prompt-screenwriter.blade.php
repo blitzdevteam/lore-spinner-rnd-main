@@ -374,8 +374,7 @@ Assemble all six tasks into one VOICE PROFILE DOCUMENT. Then produce structured 
 - Task 3 → `voice_anchor[]` (array of objects: `{mode, source, techniques, prose}`) ★ RUNTIME-CRITICAL
 - Task 4 → `anchor_card[]` (array of strings: the 8–12 binary/local commands) ★ RUNTIME-CRITICAL
 - Task 5 → `runtime_self_check[]` (array of strings: the ordered check steps) ★ RUNTIME-CRITICAL
-- Task 6 → `fourteen_point_audit_protocol` (QA protocol: does NOT ship to runtime)
-- TOP-LEVEL `voice_decay_prevention_protocol` (NOT inside `author_voice_dna_profile`)
+- Task 6 → `build_time_qa_protocol` (QA protocol: does NOT ship to runtime)
 - Set `profile_type` to `SCREENWRITER`
 
 ---
