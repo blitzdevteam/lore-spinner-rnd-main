@@ -1672,11 +1672,40 @@ TEXT;
 
     private function normalizeOpeningScene(mixed $value): string
     {
-        $text = mb_trim((string) $value);
+        $text = $this->stripAuthoringMarkers(mb_trim((string) $value));
 
         return in_array(mb_strtolower($text), ['n/a', 'na', 'none', 'null', '(none)'], true)
             ? ''
             : $text;
+    }
+
+    /**
+     * Strip Phase 3 authoring scaffolding from authored opening prose.
+     *
+     * The Phase 3 OUTPUT blocks are fenced with banner lines ("=== COLD OPEN: Title |
+     * Session 1 ===" ... "=== CUT POINT === hands to ..."), and the agent sometimes
+     * copies them into the prose field alongside the prose. Harmless while the narrator
+     * paraphrased the slot; player-visible now that the cold open is delivered verbatim.
+     *
+     * Everything from a CUT POINT banner onward is pipeline metadata addressed to the
+     * next phase, never player-facing, so it is dropped along with the banner.
+     */
+    private function stripAuthoringMarkers(string $text): string
+    {
+        if (! str_contains($text, '==')) {
+            return $text;
+        }
+
+        // Drop the CUT POINT banner and everything after it.
+        $text = (string) preg_replace('/^[ \t]*={2,}[ \t]*CUT POINT\b.*$/imsu', '', $text);
+
+        // Drop remaining full-line banners ("=== COLD OPEN: ... ===").
+        $text = (string) preg_replace('/^[ \t]*={2,}.*?={2,}[ \t]*$/mu', '', $text);
+
+        // Collapse the blank lines the removals leave behind.
+        $text = (string) preg_replace("/\n{3,}/u", "\n\n", $text);
+
+        return mb_trim($text);
     }
 
     /**

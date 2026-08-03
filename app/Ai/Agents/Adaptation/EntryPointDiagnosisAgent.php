@@ -132,6 +132,7 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                 ->title('Cold Open')
                 ->description(
                     'Second-person present tense cold open prose, 120-180 words, in the author\'s voice. This is the player\'s first impression and it ships to them exactly as written here — it is performed verbatim at runtime, never re-written by the narrator.' . "\n\n" .
+                    'PLAYER-FACING PROSE ONLY. No banner or fence lines (never "=== COLD OPEN: ... ===" or any "===" marker), no title, no session label, no cut-point line, no bracketed placeholders, no editorial notes. The field begins with the first word the player reads and ends with the final question mark of the first choice. The cut point belongs in entry_point.cut_point.' . "\n\n" .
                     'REQUIRED FORMULAS (all four, no exceptions, every source format):' . "\n" .
                     '• BODY DROP-IN: the first clause contains you/your and a physical sensation. No date, year, season, clock time, weather, or place name before the player is in their body.' . "\n" .
                     '• IDENTITY IN NARRATION: the protagonist is named in the narrator\'s own voice addressed to the player ("You are [NAME]..." or an equivalent with the same weight), at a moment of pressure. A character speaking the name in dialogue does NOT satisfy this.' . "\n" .

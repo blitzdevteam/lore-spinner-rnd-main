@@ -238,12 +238,18 @@ Constraints:
 - Run the RUNTIME SELF-CHECK on your draft before finalizing: scan for em dashes (the em dash character and --): if the Voice Anchor exemplars contain none, delete every one; if the author uses them, verify each surviving em dash appears in a construction the exemplars actually model and at near the author's documented frequency, not as a default connector; cut cognitive lead-ins; replace AI-substitute collocations; no 3+ same-word sentence openers; respect speech ceilings; match the nearest exemplar's texture.
 - ~120–180 words to the choice. Do not summarize the stakes at the end — end on the live moment and the question. (No "you must now decide whether…" essay-line.)
 
-OUTPUT:
-```
-=== COLD OPEN: [TITLE] | Session [N] ===
-[The cold-open prose, second-person present, ending at the first choice question.]
-=== CUT POINT === [hands to Phase 4 SETUP beat]
-```
+OUTPUT — the `cold_open` field contains PLAYER-FACING PROSE ONLY:
+
+The prose in `cold_open` is delivered to the player verbatim at runtime. It is read aloud and displayed exactly as written, with nothing removed. So the field must contain the prose and nothing else:
+
+- NO banner or fence lines. Never write `=== COLD OPEN: [TITLE] | Session [N] ===` or any `===` marker into the field. The player would read it.
+- NO title, session label, word count, or heading.
+- NO cut point line. The cut point is pipeline metadata for Phase 4 and belongs in `entry_point.cut_point`, never in the prose.
+- NO bracketed placeholders, editorial notes, or commentary about the prose.
+
+The field starts with the first word the player reads and ends with the final question mark of the first choice. Nothing before it, nothing after it.
+
+Record the cut point separately in `entry_point.cut_point` (Task 1).
 
 ---
 
