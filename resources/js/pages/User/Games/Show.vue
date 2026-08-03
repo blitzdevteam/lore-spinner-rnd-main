@@ -52,6 +52,7 @@ const isStartingNextSession = ref(false);
 const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
 const isStreamingTurn = ref(false);
+const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 
 watch(
@@ -64,6 +65,13 @@ watch(
 );
 
 const prompts = computed(() => localPrompts.value);
+const hasVisibleStreamedResponse = computed(() => {
+    if (!streamingPromptId.value) return false;
+
+    const streamingPrompt = prompts.value.find((prompt) => prompt.id === streamingPromptId.value);
+
+    return !!streamingPrompt?.response && stripHtml(streamingPrompt.response).length > 0;
+});
 const latestPromptId = computed(() => {
     const latestPrompt = prompts.value[prompts.value.length - 1];
     return latestPrompt ? String(latestPrompt.id) : null;
@@ -268,6 +276,19 @@ function appendToStreamingPrompt(promptId: string, text: string) {
     );
 }
 
+function commitStreamedPrompt(
+    streamingPromptId: string,
+    sourcePromptId: string,
+    sourcePromptValue: string,
+    responsePrompt: PromptInterface,
+) {
+    localPrompts.value = localPrompts.value
+        .map((item) => (item.id === sourcePromptId ? { ...item, prompt: sourcePromptValue } : item))
+        .filter((item) => item.id !== streamingPromptId);
+
+    localPrompts.value = [...localPrompts.value, responsePrompt];
+}
+
 async function streamPrompt(
     prompt: string,
     options: {
@@ -281,11 +302,12 @@ async function streamPrompt(
     isStreamingTurn.value = true;
     shouldAnimate.value = false;
 
-    const streamingPromptId = `stream-${options.promptId}`;
+    const activeStreamingPromptId = `stream-${options.promptId}`;
+    streamingPromptId.value = activeStreamingPromptId;
     localPrompts.value = [
-        ...localPrompts.value.filter((item) => item.id !== streamingPromptId),
+        ...localPrompts.value.filter((item) => item.id !== activeStreamingPromptId),
         {
-            id: streamingPromptId,
+            id: activeStreamingPromptId,
             game_id: props.game.id,
             session_number: props.game.current_session_number ?? null,
             prompt: null,
@@ -324,61 +346,79 @@ async function streamPrompt(
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let completed = false;
+
+        const handleStreamEvent = (line: string) => {
+            if (!line.trim()) return;
+
+            const event = JSON.parse(line) as {
+                event: 'ready' | 'delta' | 'done' | 'error';
+                text?: string;
+                message?: string;
+                source_prompt_id?: string;
+                source_prompt_value?: string;
+                prompt?: PromptInterface;
+            };
+
+            if (event.event === 'delta' && event.text) {
+                appendToStreamingPrompt(activeStreamingPromptId, event.text);
+                nextTick(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                });
+            }
+
+            if (event.event === 'done' && event.prompt) {
+                commitStreamedPrompt(
+                    activeStreamingPromptId,
+                    event.source_prompt_id ?? options.promptId,
+                    event.source_prompt_value ?? prompt,
+                    event.prompt,
+                );
+                completed = true;
+                isSubmitting.value = false;
+                isStreamingTurn.value = false;
+                streamingPromptId.value = null;
+                pendingSelection.value = {};
+                nextTick(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                });
+                router.reload({ only: ['game'] });
+            }
+
+            if (event.event === 'error') {
+                throw new Error(event.message ?? 'Narration hiccuped');
+            }
+        };
 
         while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
+            if (done) {
+                buffer += decoder.decode();
+                break;
+            }
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             buffer = lines.pop() ?? '';
 
             for (const line of lines) {
-                if (!line.trim()) continue;
-                const event = JSON.parse(line) as {
-                    event: 'ready' | 'delta' | 'done' | 'error';
-                    text?: string;
-                    message?: string;
-                    source_prompt_id?: string;
-                    source_prompt_value?: string;
-                    prompt?: PromptInterface;
-                };
-
-                if (event.event === 'delta' && event.text) {
-                    appendToStreamingPrompt(streamingPromptId, event.text);
-                    nextTick(() => {
-                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    });
-                }
-
-                if (event.event === 'done' && event.prompt) {
-                    localPrompts.value = localPrompts.value
-                        .map((item) =>
-                            item.id === event.source_prompt_id
-                                ? { ...item, prompt: event.source_prompt_value ?? prompt }
-                                : item,
-                        )
-                        .filter((item) => item.id !== streamingPromptId);
-                    localPrompts.value = [...localPrompts.value, event.prompt];
-                    isSubmitting.value = false;
-                    isStreamingTurn.value = false;
-                    pendingSelection.value = {};
-                    nextTick(() => {
-                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    });
-                    router.reload({ only: ['game'] });
-                }
-
-                if (event.event === 'error') {
-                    throw new Error(event.message ?? 'Narration hiccuped');
-                }
+                handleStreamEvent(line);
             }
+        }
+
+        if (buffer.trim()) {
+            handleStreamEvent(buffer);
+        }
+
+        if (!completed) {
+            throw new Error('Turn stream ended before choices were committed.');
         }
     } catch {
         isSubmitting.value = false;
         isStreamingTurn.value = false;
+        streamingPromptId.value = null;
         pendingSelection.value = {};
-        localPrompts.value = localPrompts.value.filter((item) => item.id !== streamingPromptId);
+        localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
         router.reload({ only: ['game'] });
     }
 }
@@ -650,7 +690,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Loading skeleton while AI generates the next response -->
-            <div v-if="isSubmitting" class="py-8">
+            <div v-if="isSubmitting && !hasVisibleStreamedResponse" class="py-8">
                 <div class="flex animate-pulse flex-col gap-4">
                     <div class="h-4 w-full rounded bg-gray-700/50"></div>
                     <div class="h-4 w-5/6 rounded bg-gray-700/50"></div>
