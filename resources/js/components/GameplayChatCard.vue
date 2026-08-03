@@ -24,6 +24,14 @@ const props = defineProps<{
     isSubmitting?: boolean;
     animate?: boolean;
     usesPlayableMoments?: boolean;
+    /**
+     * Onboarding staging (first two turns of a game only).
+     * choicesLocked → turn 1: no buttons at all, the player must type or speak.
+     * freeformLocked → turn 2: buttons only, the chat bar is disabled.
+     * Both false from turn 3 on, which is the normal game.
+     */
+    choicesLocked?: boolean;
+    freeformLocked?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -66,8 +74,10 @@ const showCustomAction = computed(() => {
 // Continue is always available when the player can interact and a response exists.
 // In Boiler this means "let the story move without me steering" — a legitimate,
 // low-effort way to stay in the scene rather than being forced to invent an action.
+// Suppressed on the choices-locked turn: that turn exists to teach that typing is
+// a real move, and Continue would let the player skip the lesson.
 const showContinueButton = computed(() => {
-    return canInteract.value && !!props.prompt.response;
+    return canInteract.value && !!props.prompt.response && !props.choicesLocked;
 });
 
 const renderedResponse = computed(() => {
@@ -83,6 +93,14 @@ const showChoicesAndActions = computed(() => {
     }
     return true;
 });
+
+const showChoiceList = computed(() => hasChoices.value && showChoicesAndActions.value && !props.choicesLocked);
+
+// Turn 1 of a game: no buttons, so the note becomes an instruction rather than an aside.
+const showTypeItPrompt = computed(() => !!props.choicesLocked && canInteract.value && showChoicesAndActions.value);
+
+// Turn 2 of a game: the chat bar is disabled, so the off-path invitation would be a lie.
+const showFreeformNote = computed(() => canInteract.value && showChoicesAndActions.value && !props.freeformLocked && !props.choicesLocked);
 
 const getChoiceClass = (choice: string) => {
     const base = 'choice-glass flex min-h-[52px] items-center gap-2 rounded-lg border px-2 py-2 transition-all duration-300 sm:min-h-[60px] sm:gap-2.5 sm:py-1';
@@ -259,7 +277,7 @@ watch(choicesVisible, (visible, wasVisible) => {
         </div>
 
         <!-- ── Choices ── -->
-        <div v-if="hasChoices && showChoicesAndActions" class="flex flex-col gap-4">
+        <div v-if="showChoiceList" class="flex flex-col gap-4">
             <GameplayOrnamentDivider v-if="canInteract" label="Make a choice" color="#ffbe58" />
 
             <div class="flex flex-col gap-2.5">
@@ -282,9 +300,19 @@ watch(choicesVisible, (visible, wasVisible) => {
             </div>
         </div>
 
+        <!-- Turn 1 of a game — no buttons on purpose. The player learns that their
+             own words are a move before they are ever shown a list to pick from. -->
+        <div v-if="showTypeItPrompt" class="flex flex-col gap-4">
+            <GameplayOrnamentDivider label="Your move" color="#ffbe58" />
+            <div class="flex flex-col gap-0.5">
+                <p class="text-base text-secondary-300">This One Is Yours To Write.</p>
+                <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Type What You Do Next.</p>
+            </div>
+        </div>
+
         <!-- Off-path note — shown whenever the player can act, with or without
              listed suggestions, so freeform never looks like a fallback -->
-        <div v-if="canInteract && showChoicesAndActions" class="flex flex-col gap-0.5">
+        <div v-if="showFreeformNote" class="flex flex-col gap-0.5">
             <p class="text-base text-secondary-300">Want To Go Off-Path?</p>
             <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Write Your Own Choice.</p>
         </div>

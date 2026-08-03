@@ -35,8 +35,14 @@ const props = withDefaults(
          * Any change starts (or restarts) the escalating twinkle loop.
          */
         nudgeTrigger?: number;
+        /**
+         * The bar is disabled by design rather than because the AI is working
+         * (onboarding turn 2, where the player picks from the listed options).
+         * Suppresses the orbit glow so the UI does not read as "thinking".
+         */
+        inputLockedByDesign?: boolean;
     }>(),
-    { inputDisabled: false, gameId: undefined, coverUrl: undefined, journalMeta: undefined, storySlug: undefined, inputPlaceholder: '', nudgeTrigger: 0 },
+    { inputDisabled: false, gameId: undefined, coverUrl: undefined, journalMeta: undefined, storySlug: undefined, inputPlaceholder: '', nudgeTrigger: 0, inputLockedByDesign: false },
 );
 
 const auroraProps = computed(() => buildAuroraProps(props.storySlug));
@@ -70,11 +76,11 @@ watch(
 );
 
 watch(
-    () => props.inputDisabled,
-    (disabled) => {
+    [() => props.inputDisabled, () => props.inputLockedByDesign],
+    ([disabled, lockedByDesign]) => {
         if (disabled) {
             nudge.stop();
-            inputGlowVariant.value = 'orbit';
+            inputGlowVariant.value = lockedByDesign ? undefined : 'orbit';
         } else {
             inputGlowVariant.value = undefined;
         }
