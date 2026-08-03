@@ -277,6 +277,7 @@ TEXT;
             : '';
         $activeMomentBlock = $this->buildActiveMomentBlock(
             $sessionContext['active_moment_context'] ?? null,
+            $isSessionStart,
         );
 
         if ($isSessionStart) {
@@ -933,7 +934,7 @@ TEXT;
     /**
      * @param  array<string, mixed>|null  $context
      */
-    private function buildActiveMomentBlock(?array $context): string
+    private function buildActiveMomentBlock(?array $context, bool $isSessionStart = false): string
     {
         if ($context === null) {
             return '';
@@ -1011,8 +1012,20 @@ TEXT;
             ]);
         }
 
-        $lines[] = 'FULL SCENE CARD (reference):';
-        $lines[] = json_encode($context['moment'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+        // On the session-start turn the authored cold open is the opening prose, and it is
+        // delivered verbatim. The card's own opening image and verbatim source extracts are a
+        // second, competing opening for the same beat — leaving them visible is what let the
+        // narrator open on the source's first line instead of the authored one. Everything
+        // else on the card (exit condition, budgets, canon walls, affordances) still applies.
+        $sceneCard = (array) ($context['moment'] ?? []);
+        if ($isSessionStart) {
+            unset($sceneCard['opening_image'], $sceneCard['source_extracts']);
+        }
+
+        $lines[] = $isSessionStart
+            ? 'FULL SCENE CARD (reference — opening_image and source_extracts withheld this turn; the authored cold open in Section 13 is the opening prose):'
+            : 'FULL SCENE CARD (reference):';
+        $lines[] = json_encode($sceneCard, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
         $lines[] = implode("\n", [
             'READ OF THE PLAYER, CARRIED FORWARD FROM THE LAST TURN (private — never quote, expose, or confirm):',
             ($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)',
@@ -1149,22 +1162,45 @@ TEXT;
 
         // Sessions 2+: prepend the continuity handoff from the previous session close.
         if ($sessionNumber > 1 && $openingHandoff !== '') {
-            $lines[] = 'SESSION HANDOFF (what the previous session left behind):';
+            $lines[] = 'SESSION HANDOFF (what the previous session left behind — context you must honour, NOT text to recite):';
             $lines[] = $openingHandoff;
+            $lines[] = '';
+            $lines[] = 'The authored cold open below still opens this session verbatim. Let the handoff inform what the player already knows and carries; never let it displace, precede, or paraphrase the authored opening prose.';
             $lines[] = '';
         }
 
         // Full Phase 3 authored cold open — always present for every session.
+        //
+        // DELIVERY IS VERBATIM. This mirrors the authored-close contract in Section 16:
+        // the designed first words of a session are protected the same way the designed
+        // last words are. Without this the narrator treats Section 13 as a starting
+        // position and re-composes the opening from the Section 12 source text, which
+        // drops the authored body drop-in and the in-prose identity reveal.
         if ($coldOpen !== '') {
-            $lines[] = 'COLD OPEN — begin here, not before:';
+            $lines[] = 'AUTHORED COLD OPEN — DELIVER THIS TEXT VERBATIM AS YOUR OPENING PROSE:';
             $lines[] = $coldOpen;
+            $lines[] = '';
+            $lines[] = implode("\n", [
+                'COLD OPEN DELIVERY CONTRACT (this turn only):',
+                '- Reproduce the text above word for word as the opening prose of this response. Do not rewrite, re-order, paraphrase, trim, expand, or "improve" it.',
+                '- It is already written in the author\'s voice and already carries the designed opening formulas: the player lands inside their own body in the first sentence, the protagonist\'s identity arrives in the prose at a moment of weight, it runs in second-person present tense, and it ends on the first real choice. Any rewrite breaks at least one of these.',
+                '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
+                '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
+                '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE — rhythm, diction, compression — and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
+                '- After the final line above, stop the prose and hand off: the closing question is the agency handoff for this turn. Attach the authored options as your visible_suggestions.',
+                '- The only text you may add is what is required to satisfy this turn\'s structured output contract (choices/suggestions and progress fields).',
+            ]);
         }
 
         // FIRST-3-MINUTES OPENING PROTOCOL — injected on session-start turn 1 only.
         // Present in V2.2 Section 13 as static template text; restored here as a runtime
         // injection so no re-assembly is needed and the clock never leaks to later turns.
+        //
+        // Scoped to AFTER the authored cold open: the "under 30 words" clause was being
+        // read as licence to compress the 120-180 word authored open printed directly
+        // above it. The clock governs what follows the open, never the open itself.
         $lines[] = '';
-        $lines[] = 'FIRST-3-MINUTES OPENING PROTOCOL (turn 1 only — not every turn): On this opening turn and the first few tiered responses at session start, deliver the beat-map opening sequence: location and situation in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
+        $lines[] = 'FIRST-3-MINUTES PROTOCOL (applies to the turns AFTER the authored cold open — never to the cold open itself, which is delivered verbatim at its authored length): once the opening has landed, keep the first few tiered responses tight — situation established in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
 
         // Emotional promise — the engagement hook for this session.
         if ($emotionalPromise !== '') {

@@ -132,7 +132,8 @@ The player must learn WHO they are without being told like a database record. Th
 That is four facts stacked as labels. It tells; it does not place. Replace it with EARNED identity:
 
 - **Body before name.** Open inside the protagonist's physical experience. The player should be feeling before they are named.
-- **Name at a moment of weight.** Reveal the name attached to a stake or a turn, not as a standalone label. ("You are Akira Kawasaki. And this is the last building you will ever enter as yourself.")
+- **Name at a moment of weight, in the NARRATION.** Reveal the name attached to a stake or a turn, not as a standalone label. ("You are Akira Kawasaki. And this is the last building you will ever enter as yourself.")
+- **Dialogue does not count.** Another character saying the protagonist's name is NOT an identity reveal. `"Very sorry to knock you up, Watson," says he` tells the player a name was spoken near them; it does not tell them they ARE that person. The reveal must land in the narrator's own prose, addressed to the player as **you** — the `you are [NAME]` moment, or a construction that does the same work with the same force. If the only place the name appears is inside quotation marks, the reveal has not happened and you must add it.
 - **Role and history through what the body knows.** Convey profession/past via muscle memory, instinct, what the protagonist notices and how — not a biography. (A diver's hand goes to the regulator by reflex; the player learns what they are by what they automatically do.)
 - **One loaded detail, not a catalog.** A scar, bare feet, a cracked lens at the sternum — a single physical detail that carries weight, never a wardrobe list.
 
@@ -174,6 +175,8 @@ The banned anti-pattern is the **soft tutorial choice**:
 REQUIREMENTS:
 1. **Engages the core stakes** established in Tasks 1–3 — the protagonist's central want or threat, not a detour.
 2. **A real fork with weight** — ideally a decision that feels binary (cross the threshold or don't) with a genuine **third option nobody expects**. Per the standard: press the buzzer, walk away, or the thing no one anticipates.
+2A. **Three actions, not three attitudes.** Each option must name a DIFFERENT physical action with a different outcome in the world. If all three options end with the protagonist doing the same thing in a different mood, it is a tone picker, not a choice. BANNED: "Do you go down with Holmes at once?" answered by *rise warmly* / *rise composedly* / *rise after one question* — all three are "go downstairs," and the `Tracks` labels differing does not make them a fork. Test it: write the world-state one beat after each option. If the three states are identical apart from tone, redesign the choice — or the entry point is wrong (Task 1).
+2B. **Not a yes/no on following someone else.** If the question is whether the protagonist accepts an invitation, a briefing, or an instruction from another character, the protagonist is not the agent of this scene. That is a cutscene with a confirm button. Find the decision that is genuinely theirs.
 3. **No correct answer.** Each option a legitimate human value, not a difficulty setting.
 4. **Arrives within ~300 words** of the cold open's first word.
 5. **Identity-defining.** The choice sets the register the player carries through the session — it tells them what kind of person they are choosing to be.
@@ -210,20 +213,24 @@ CONSTRAINTS: max 80 chars. Written in this story's world and voice — not gener
 
 Now write the actual cold-open prose. Second-person present tense. Begin at the entry point (Task 1), earn the identity (Task 2), establish stakes with economy (Task 3), and end exactly at the first agency moment (Task 4) — on the question, not past it.
 
-**SCREENPLAY-TO-BODY RULES** (SCREENPLAY sources only — apply even when `prefer_literal_opening=true`):
+**BODY DROP-IN RULES** (ALL sources — screenplay and novel alike — and they apply even when `prefer_literal_opening=true`):
 
-When `prefer_literal_opening=true` you keep the **moment** (same event, same beat). You do **not** copy screenplay camera grammar into player-facing prose.
+These are product formulas, not format advice. A novel source is not exempt: third-person past-tense narration converted to "you" is exactly as disembodied as a camera direction, and "preserve the author's texture" never means transcribe the author's grammar. Keep the **moment** (same event, same beat) and rewrite the **delivery** into the player's body.
 
 - **First two sentences = body.** Sentences 1–2 must contain **you/your** and deliver physical sensation, reflex, breath, motion, or pressure. If those sentences could appear as a screenplay action line without the protagonist present, rewrite them.
   - FAIL: two or more establishing lines describing the environment or third-party action, followed by `Your eyes open` or equivalent. The player arrives late to their own body.
   - PASS: the player's body is present in sentence 1 — sensation, reflex, or physical situation — before anything else is described.
 - **No camera-only opener.** BANNED: 2+ consecutive sentences with no **you/your** before the protagonist is embodied.
 - **Witness beats stay agentive.** When the protagonist observes another character or a scene event, frame it through their own body while watching — breath, hands, position, reflex. The player is never a disembodied camera watching the event happen to someone else.
-- **Camera-to-body shift.** Exterior action lines (`She crosses the room`) become interior sensation + agency (`You cross the room — the floor still warm underfoot`). Keep the image; move it inside the body.
+- **Camera-to-body shift.** Exterior action lines (`She crosses the room`) become interior sensation + agency (`You cross the room, the floor still warm underfoot`). Keep the image; move it inside the body.
+- **No frame before the body.** BANNED as an opening clause: a date, a year, a season, a clock time, a weather report, or a place name arriving before the player is inside their body. `It is early in April in the year '83, and you wake...` FAILS — the player reads a calendar before they read themselves. Put the sensation first and let the frame arrive after it, or drop the frame.
+- **Present tense throughout.** Second person, present tense, no exceptions. If the source is past tense, convert every verb. Past-tense bleed anywhere in the cold open is a failure, not a stylistic echo.
 
-Before finalizing: count consecutive sentences without **you/your** in the first 80 words. If 2 or more in a row, rewrite.
+Before finalizing: count consecutive sentences without **you/your** in the first 80 words. If 2 or more in a row, rewrite. Then check the very first clause: if it contains no **you/your**, rewrite it.
 
-**IDENTITY IN PROSE (required):** The cold open must execute the protagonist introduction designed in Task 2. Not just plan it. Do not leave the player as an unnamed "you" for the full cold open unless the name has already appeared earlier in the same prose. The name must arrive at a moment of pressure, recognition, command, refusal, or consequence — not as a résumé line. If the draft ends and the protagonist is still unnamed, return to Task 2's reveal line and place it in the prose at the weight-bearing moment identified there.
+**IDENTITY IN PROSE (required):** The cold open must execute the protagonist introduction designed in Task 2. Not just plan it. Do not leave the player as an unnamed "you" for the full cold open. The name must arrive at a moment of pressure, recognition, command, refusal, or consequence — not as a résumé line. If the draft ends and the protagonist is still unnamed, return to Task 2's reveal line and place it in the prose at the weight-bearing moment identified there.
+
+The name must appear in the NARRATION, not only in dialogue. Scan your draft: if every occurrence of the protagonist's name sits inside quotation marks, the player has not been told who they are — they have overheard someone say a name. Add the narrator-voice reveal (`You are [NAME]...`, or an equivalent that carries the same weight in this author's register) at the pressure point. This is a hard requirement of the product, not a stylistic preference, and it holds for every source format.
 
 Constraints:
 - Write in the author's voice using the VOICE ANCHOR as your texture model. Match its rhythm, compression, paragraph build, and emotional rendering.
@@ -246,7 +253,7 @@ OUTPUT the Emotional Promise (consumed by D4): one word + one sentence naming wh
 
 FORMAT-AGNOSTIC NOTES (apply per source):
 - **Screenplay (1B v3):** the source opening is usually already compressed, visual, and playable. Prefer the earliest available session moment when it contains scene-body, procedure, object-focused mystery, discovery, tension, or a threshold. Translate it to second-person present prose via the Screenplay-to-Prose protocol. Do not move forward merely to find a louder hook. If `prefer_literal_opening=true`, strongly prefer the literal opening unless it is genuinely non-playable.
-- **Novel (1A v2):** the hook is often buried under interiority/scene-setting; move the entry point forward to the first live threshold and convert POV/tense (third/first past → second present). Preserve the author's prose texture near-verbatim.
+- **Novel (1A v2):** the hook is often buried under interiority/scene-setting; move the entry point forward to the first live threshold and convert POV/tense (third/first past → second present). Preserve the author's prose TEXTURE — rhythm, diction, compression, register. "Texture" never means transcription: do not carry the author's sentence order, framing clauses, or narration grammar across. A pronoun-swapped copy of the source paragraph is a failure of this phase, however faithful it sounds. The Body Drop-In rules in Task 5 outrank texture preservation wherever the two conflict.
 
 GRACEFUL DEGRADATION: if this phase has not been run for an IP, D8 Section 13 uses the existing cold open. This phase only ever improves the slot; it never blocks it.
 
@@ -258,12 +265,15 @@ STOP. Do not pass to Phase 4 until all are YES:
 
 0. **Agency gate?** Is the protagonist PRESENT in their own body at the entry point and able to act in the first beat — not a spectator to someone else's event? If the opening watches a striking thing happen TO the world while the player does nothing, it FAILS — return to Task 1.
 1. **Body first?** Does the player feel something physical in the first two sentences?
-1B. **Embodied from line 1?** (SCREENPLAY sources) Do the first two sentences contain **you/your** and physical sensation — not camera-only fragments? Are there zero consecutive 2+ non-you sentences in the first 80 words? Was the literal **moment** kept but the **shot list** rewritten per Task 5 Screenplay-to-Body rules? If any of these FAIL, revise Task 5 — do not adjust the entry point.
+1B. **Embodied from line 1?** (ALL sources) Does the FIRST CLAUSE contain **you/your**? Do the first two sentences deliver physical sensation rather than framing? Are there zero runs of 2+ consecutive non-you sentences in the first 80 words? Is there no date, year, season, clock time, or weather opening the piece ahead of the body? Was the literal **moment** kept but the delivery rewritten per Task 5 Body Drop-In rules? If any of these FAIL, revise Task 5 — do not adjust the entry point.
+
+1C. **Present tense throughout?** (ALL sources) Scan every verb in the cold open. Any past-tense narration is a failure — revise Task 5.
 1A. **Screenplay opening honored?** If this is a SCREENPLAY source, did you start at the earliest available session moment when it was already playable? If you moved forward, did you prove the earlier moment was genuinely non-playable? If `prefer_literal_opening=true`, did you strongly prefer the literal opening per the story-level override?
 2. **Identity earned, not dumped?** Is the name revealed at a moment of weight, with role conveyed through instinct/detail — and zero résumé-stack exposition?
-2A. **Identity present in prose?** Does the final `cold_open` prose itself reveal the protagonist's name or unmistakable identity in a pressure-bearing moment — not only discussed in Task 2 metadata? If the prose ends with the player still unnamed, revise Task 5.
+2A. **Identity present in the NARRATION?** Does the final `cold_open` prose reveal the protagonist's name in the narrator's own voice, addressed to the player as **you**, at a pressure-bearing moment — not only in Task 2 metadata and not only inside a line of dialogue? Strip every quoted line from the draft and re-read what remains: if the name is gone, this gate FAILS. Revise Task 5.
 3. **Stakes as present pressure?** Are the stakes felt as live pressure, not explained?
 4. **First choice powerful and stakes-tied?** Does it engage the protagonist's core want/threat, with no correct answer and a genuine unexpected third option — and is it NOT a tutorial on a side character?
+4A. **Three distinct actions?** Do the three options describe three different physical actions producing three different world states — not one action in three moods? Is the question something other than a yes/no on following another character's lead? If either fails, redesign per Task 4 rules 2A/2B.
 5. **Within ~300 words?** Does the choice arrive on time?
 6. **In voice?** Does the prose pass the Self-Check and read like the Voice Anchor — not generic premium prose? Blind test: side by side with a source passage, is it attributable to this author?
 7. **Ends on the live moment?** Does it stop at the question, with no end-of-passage stakes-summary essay-line?

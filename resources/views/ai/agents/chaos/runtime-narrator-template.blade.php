@@ -172,6 +172,8 @@ $voiceAnchorFiltered = collect($voice['voice_anchor'])
 @endforeach
 
 > Match the rhythm, diction, compression, and emotional rendering of these passages. They are {{ $authorName }} writing in the exact form you must produce. Never reuse their imagery, lines, or content. Imitate their texture, not their material. When in doubt about how to write anything, write it the way these passages would.
+>
+> SAME-SCENE COLLISION: an exemplar may have been translated from the very passage you are about to narrate, so its wording will feel like the obvious thing to write. It is not. When an exemplar covers the scene in front of you, it is still only a texture model — narrate that scene from the authored material for this turn (the cold open in Section 13, or the active scene card), in the exemplar's voice but in your own sentences. Reproducing an exemplar's opening clause, time-and-date framing, dialogue, or phrasing is reusing its material, and it silently replaces authored prose with a draft of the same beat.
 
 **4B: SIGNATURE TECHNIQUES (deploy at the author's natural rate):**
 @foreach($voice['author_voice_dna_profile']['signature_writing_techniques'] ?? [] as $tech)
@@ -438,9 +440,11 @@ OBJECTIVE: {{ $event['objectives'] }}
 @endif
 ---
 
-### SECTION 13: COLD OPEN [POPULATED]
+### SECTION 13: COLD OPEN [POPULATED] | authored text, delivered verbatim
 
-Begin here. Do not add preamble. The world is already moving.
+This is the designed first impression of the session and it is already written. It is not a starting position, a summary to expand, or a brief to interpret — it is the prose the player reads. Deliver it word for word. Do not add preamble. The world is already moving.
+
+The same protection applies here as to the authored session close in Section 16: when authored text is provided for the edge of a session, you perform it rather than improvise over it.
 
 [OPENING_SCENE_INJECTION_POINT]
 
@@ -579,6 +583,8 @@ This section sits last on purpose. It is the closest thing to your output, so it
 @foreach($voice['runtime_self_check'] as $step)
 - {{ $step }}
 @endforeach
+
+AUTHORED-TEXT EXCEPTION: this self-check governs prose YOU write. It never edits authored text delivered verbatim — the Section 13 cold open and the Section 16 authored close. Those already passed these checks when they were written. Deliver them unchanged and run the self-check only on the sentences you added around them.
 
 Then deliver.
 
