@@ -46,7 +46,6 @@ const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
 const streamedNarration = ref('');
 let turnStream: EventSource | undefined;
-let streamPreviewClosed = false;
 
 const prompts = computed(() => props.game.prompts ?? []);
 const latestPromptId = computed(() => {
@@ -263,28 +262,16 @@ const submitPrompt = (
 function openTurnStream(sourcePromptId: string) {
     turnStream?.close();
     streamedNarration.value = '';
-    streamPreviewClosed = false;
     turnStream = new EventSource(`/user/games/${props.game.id}/turn-stream/${encodeURIComponent(sourcePromptId)}`);
 
     turnStream.addEventListener('chunk', (event) => {
         const payload = JSON.parse((event as MessageEvent).data) as { text?: string };
-        const chunk = payload.text ?? '';
-        if (chunk === '' || streamPreviewClosed) {
-            return;
-        }
-
-        const codeFenceIndex = chunk.indexOf('```');
-        if (codeFenceIndex >= 0) {
-            streamedNarration.value += chunk.slice(0, codeFenceIndex);
-            streamPreviewClosed = true;
-            return;
-        }
-
-        streamedNarration.value += chunk;
+        streamedNarration.value += payload.text ?? '';
     });
     turnStream.addEventListener('final', () => {
         turnStream?.close();
         turnStream = undefined;
+        streamedNarration.value = '';
     });
     turnStream.addEventListener('error', () => {
         turnStream?.close();
@@ -305,7 +292,6 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
             router.reload({
                 only: ['game'],
                 preserveScroll: true,
-                preserveState: true,
                 onFinish: () => resolve(),
             });
         });
@@ -366,7 +352,6 @@ async function pollForTurnCompletion(sourcePromptId: string) {
             router.reload({
                 only: ['game'],
                 preserveScroll: true,
-                preserveState: true,
                 onFinish: () => resolve(),
             });
         });
@@ -378,16 +363,12 @@ async function pollForTurnCompletion(sourcePromptId: string) {
         if (turnError) {
             isSubmitting.value = false;
             pendingSelection.value = {};
-            streamedNarration.value = '';
-            streamPreviewClosed = false;
             return;
         }
 
         if (source?.prompt && !stillPending) {
             isSubmitting.value = false;
             pendingSelection.value = {};
-            streamedNarration.value = '';
-            streamPreviewClosed = false;
             shouldAnimate.value = true;
             nextTick(() => {
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -398,8 +379,6 @@ async function pollForTurnCompletion(sourcePromptId: string) {
 
     isSubmitting.value = false;
     pendingSelection.value = {};
-    streamedNarration.value = '';
-    streamPreviewClosed = false;
 }
 
 onMounted(() => {
