@@ -6,7 +6,7 @@ import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import { GameInterface, PromptChoice } from '@/types';
+import { GameInterface, PromptChoice, PromptInterface } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -51,8 +51,19 @@ const isRetryingBegin = ref(false);
 const isStartingNextSession = ref(false);
 const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
+const isStreamingTurn = ref(false);
+const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 
-const prompts = computed(() => props.game.prompts ?? []);
+watch(
+    () => props.game.prompts,
+    (nextPrompts) => {
+        if (isStreamingTurn.value) return;
+        localPrompts.value = [...(nextPrompts ?? [])];
+    },
+    { deep: true },
+);
+
+const prompts = computed(() => localPrompts.value);
 const latestPromptId = computed(() => {
     const latestPrompt = prompts.value[prompts.value.length - 1];
     return latestPrompt ? String(latestPrompt.id) : null;
@@ -239,33 +250,138 @@ const submitPrompt = (
         canonicalPathLabel?: 'A' | 'B' | 'C' | null;
     },
 ) => {
-    isSubmitting.value = true;
-
-    router.post(
-        storePrompt(props.game.id),
-        {
-            prompt,
-            prompt_id: options.promptId,
-            suggestion_index: options.suggestionIndex,
-            canonical_choice_id: options.canonicalChoiceId ?? null,
-            canonical_path_label: options.canonicalPathLabel ?? null,
-        },
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                void pollForTurnCompletion(options.promptId);
-            },
-            onError: () => {
-                isSubmitting.value = false;
-                pendingSelection.value = {};
-                window.location.assign(`/user/games/${props.game.id}`);
-            },
-            onFinish: () => {
-                // Keep isSubmitting true while the deferred LLM finishes; the poller clears it.
-            },
-        },
-    );
+    void streamPrompt(prompt, options);
 };
+
+function csrfToken(): string {
+    const cookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+    return cookie ? decodeURIComponent(cookie) : '';
+}
+
+function appendToStreamingPrompt(promptId: string, text: string) {
+    localPrompts.value = localPrompts.value.map((item) =>
+        item.id === promptId ? { ...item, response: `${item.response ?? ''}${text}` } : item,
+    );
+}
+
+async function streamPrompt(
+    prompt: string,
+    options: {
+        promptId: string;
+        suggestionIndex?: number;
+        canonicalChoiceId?: string | null;
+        canonicalPathLabel?: 'A' | 'B' | 'C' | null;
+    },
+) {
+    isSubmitting.value = true;
+    isStreamingTurn.value = true;
+    shouldAnimate.value = false;
+
+    const streamingPromptId = `stream-${options.promptId}`;
+    localPrompts.value = [
+        ...localPrompts.value.filter((item) => item.id !== streamingPromptId),
+        {
+            id: streamingPromptId,
+            game_id: props.game.id,
+            session_number: props.game.current_session_number ?? null,
+            prompt: null,
+            response: '',
+            choices: [],
+            created_at: null,
+            updated_at: null,
+        },
+    ];
+
+    try {
+        const route = storePrompt(props.game.id);
+        const response = await fetch(typeof route === 'string' ? route : route.url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/x-ndjson',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': csrfToken(),
+            },
+            body: JSON.stringify({
+                prompt,
+                prompt_id: options.promptId,
+                suggestion_index: options.suggestionIndex,
+                canonical_choice_id: options.canonicalChoiceId ?? null,
+                canonical_path_label: options.canonicalPathLabel ?? null,
+                stream: true,
+            }),
+        });
+
+        if (!response.ok || !response.body) {
+            throw new Error(`Turn stream failed with HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const event = JSON.parse(line) as {
+                    event: 'ready' | 'delta' | 'done' | 'error';
+                    text?: string;
+                    message?: string;
+                    source_prompt_id?: string;
+                    source_prompt_value?: string;
+                    prompt?: PromptInterface;
+                };
+
+                if (event.event === 'delta' && event.text) {
+                    appendToStreamingPrompt(streamingPromptId, event.text);
+                    nextTick(() => {
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    });
+                }
+
+                if (event.event === 'done' && event.prompt) {
+                    localPrompts.value = localPrompts.value
+                        .map((item) =>
+                            item.id === event.source_prompt_id
+                                ? { ...item, prompt: event.source_prompt_value ?? prompt }
+                                : item,
+                        )
+                        .filter((item) => item.id !== streamingPromptId);
+                    localPrompts.value = [...localPrompts.value, event.prompt];
+                    isSubmitting.value = false;
+                    isStreamingTurn.value = false;
+                    pendingSelection.value = {};
+                    nextTick(() => {
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    });
+                    router.reload({ only: ['game'] });
+                }
+
+                if (event.event === 'error') {
+                    throw new Error(event.message ?? 'Narration hiccuped');
+                }
+            }
+        }
+    } catch {
+        isSubmitting.value = false;
+        isStreamingTurn.value = false;
+        pendingSelection.value = {};
+        localPrompts.value = localPrompts.value.filter((item) => item.id !== streamingPromptId);
+        router.reload({ only: ['game'] });
+    }
+}
 
 async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
     const started = Date.now();
@@ -279,7 +395,6 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         await new Promise<void>((resolve) => {
             router.reload({
                 only: ['game'],
-                preserveScroll: true,
                 onFinish: () => resolve(),
             });
         });
@@ -343,7 +458,6 @@ async function pollForTurnCompletion(sourcePromptId: string) {
         await new Promise<void>((resolve) => {
             router.reload({
                 only: ['game'],
-                preserveScroll: true,
                 onFinish: () => resolve(),
             });
         });

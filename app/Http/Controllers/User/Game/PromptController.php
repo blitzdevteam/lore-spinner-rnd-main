@@ -7,15 +7,19 @@ namespace App\Http\Controllers\User\Game;
 use App\Actions\Game\ProcessGameTurnAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Game\Prompt\StorePromptRequest;
+use App\Http\Resources\PromptResource;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\ChaosEngineService;
+use Illuminate\Cache\Lock;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 final class PromptController extends Controller
@@ -31,7 +35,7 @@ final class PromptController extends Controller
         #[CurrentUser] User $user,
         Game $game,
         StorePromptRequest $request,
-    ): RedirectResponse {
+    ): RedirectResponse|StreamedResponse {
         $promptText = $request->string('prompt')->toString();
         $sourcePromptId = $request->string('prompt_id')->toString();
         $lockName = "game-turn:{$game->id}:{$sourcePromptId}";
@@ -62,6 +66,24 @@ final class PromptController extends Controller
                 $game,
                 $sourcePrompt,
             );
+
+            if ($this->wantsStreamingTurn($request)) {
+                Cache::put($this->processGameTurn->pendingKey($game->id), $sourcePromptId, 180);
+                Cache::forget($this->processGameTurn->errorKey($game->id));
+                $deferred = true;
+
+                return $this->streamTurn(
+                    request: $request,
+                    game: $game,
+                    lock: $turnLock,
+                    lockName: $lockName,
+                    sourcePromptId: $sourcePromptId,
+                    storedPromptValue: $storedPromptValue,
+                    playerAction: $playerAction,
+                    explicitBranch: $explicitBranch,
+                    userId: $user->id,
+                );
+            }
 
             $lockOwner = $turnLock->owner();
             $gameId = $game->id;
@@ -118,6 +140,96 @@ final class PromptController extends Controller
                 $turnLock->release();
             }
         }
+    }
+
+    /**
+     * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
+     */
+    private function streamTurn(
+        Request $request,
+        Game $game,
+        Lock $lock,
+        string $lockName,
+        string $sourcePromptId,
+        string $storedPromptValue,
+        string $playerAction,
+        ?array $explicitBranch,
+        int $userId,
+    ): StreamedResponse {
+        return response()->stream(function () use (
+            $request,
+            $game,
+            $lock,
+            $lockName,
+            $sourcePromptId,
+            $storedPromptValue,
+            $playerAction,
+            $explicitBranch,
+            $userId,
+        ): void {
+            $send = static function (string $event, array $payload = []): void {
+                echo json_encode(
+                    ['event' => $event, ...$payload],
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                )."\n";
+
+                if (ob_get_level() > 0) {
+                    @ob_flush();
+                }
+                flush();
+            };
+
+            $send('ready');
+
+            try {
+                $responsePrompt = $this->processGameTurn->handleStreaming(
+                    gameId: (string) $game->id,
+                    sourcePromptId: $sourcePromptId,
+                    storedPromptValue: $storedPromptValue,
+                    playerAction: $playerAction,
+                    explicitBranch: $explicitBranch,
+                    userId: $userId,
+                    onResponseDelta: function (string $delta) use ($send): void {
+                        $send('delta', ['text' => $delta]);
+                    },
+                );
+
+                if ($responsePrompt === null) {
+                    throw new RuntimeException('The turn could not be processed.');
+                }
+
+                $send('done', [
+                    'source_prompt_id' => $sourcePromptId,
+                    'source_prompt_value' => $storedPromptValue,
+                    'prompt' => (new PromptResource($responsePrompt))->resolve($request),
+                ]);
+            } catch (Throwable $e) {
+                Log::channel('narration')->error('game.turn_stream_failed', [
+                    'game_id' => $game->id,
+                    'source_prompt_id' => $sourcePromptId,
+                    'lock_name' => $lockName,
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                    'player_input' => mb_substr($playerAction, 0, 120),
+                ]);
+
+                $send('error', [
+                    'message' => 'Narration hiccuped — please retry this turn.',
+                ]);
+            } finally {
+                $lock->release();
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-transform',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    private function wantsStreamingTurn(StorePromptRequest $request): bool
+    {
+        return str_contains((string) $request->headers->get('Accept'), 'application/x-ndjson')
+            || $request->boolean('stream');
     }
 
     /**
@@ -182,7 +294,7 @@ final class PromptController extends Controller
         }
 
         $choiceId = (string) $storedChoiceId;
-        $pathLabel = strtoupper((string) ($storedPathLabel ?? ''));
+        $pathLabel = mb_strtoupper((string) ($storedPathLabel ?? ''));
         $momentChoiceIds = (array) data_get($game->currentPlayableMoment?->scene_card, 'choice_ids', []);
 
         if (! in_array($choiceId, $momentChoiceIds, true)) {
@@ -203,7 +315,7 @@ final class PromptController extends Controller
             ->firstWhere('choice_id', $choiceId);
         if (is_array($branchingChoice)) {
             $option = collect((array) ($branchingChoice['options'] ?? []))
-                ->first(fn ($option): bool => strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+                ->first(fn ($option): bool => mb_strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
 
             if (! is_array($option)) {
                 return $this->demoteSubmittedMapping(
@@ -232,7 +344,7 @@ final class PromptController extends Controller
             ->firstWhere('choice_id', $choiceId);
         if (is_array($emotionalChoice)) {
             $option = collect((array) ($emotionalChoice['options'] ?? []))
-                ->first(fn ($option): bool => strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+                ->first(fn ($option): bool => mb_strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
 
             if (! is_array($option)) {
                 return $this->demoteSubmittedMapping(
