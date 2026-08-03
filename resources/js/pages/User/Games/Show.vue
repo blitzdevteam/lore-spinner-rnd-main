@@ -362,9 +362,6 @@ async function streamPrompt(
 
             if (event.event === 'delta' && event.text) {
                 appendToStreamingPrompt(activeStreamingPromptId, event.text);
-                nextTick(() => {
-                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                });
             }
 
             if (event.event === 'done' && event.prompt) {
