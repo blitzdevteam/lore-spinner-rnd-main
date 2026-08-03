@@ -361,10 +361,10 @@ BEAT MAP:
 
 @endforeach
 
-AUTHORED CHOICES:
+AUTHORED CHOICES — each "asks" line below is design intent describing what the choice is really about. It is NOT a line of narration: never speak it to the player, and never use it as a closing question. Dramatise it as a situation instead.
 @foreach($branchingChoices as $choice)
 BRANCHING CHOICE #{{ $choice['choice_id'] ?? '' }} [{{ $choice['category'] ?? '' }} | {{ $choice['beat'] ?? '' }} | tracks {{ $choice['what_this_choice_tracks'] ?? '' }}]
-  Setup: {{ $choice['narrative_setup'] ?? '' }} | Question: {{ $choice['choice_question'] ?? '' }}
+  Setup: {{ $choice['narrative_setup'] ?? '' }} | asks (never spoken): {{ $choice['choice_question'] ?? '' }}
 @foreach($choice['options'] ?? [] as $opt)
   {{ $opt['label'] ?? '' }}: {{ $opt['text'] ?? '' }} | downstream: {{ $opt['downstream_effect'] ?? '' }}
 @endforeach
@@ -373,7 +373,7 @@ BRANCHING CHOICE #{{ $choice['choice_id'] ?? '' }} [{{ $choice['category'] ?? ''
 @endforeach
 
 @foreach($emotionalChoices as $ec)
-EMOTIONAL CHOICE [{{ $ec['emotional_register'] ?? '' }}] source: {{ $ec['source_moment'] ?? '' }} | Q: {{ $ec['choice_question'] ?? '' }}
+EMOTIONAL CHOICE [{{ $ec['emotional_register'] ?? '' }}] source: {{ $ec['source_moment'] ?? '' }} | asks (never spoken): {{ $ec['choice_question'] ?? '' }}
 @foreach($ec['options'] ?? [] as $opt)
   {{ $opt['label'] ?? '' }}: {{ $opt['text'] ?? '' }} | tone: {{ $opt['tonal_effect'] ?? '' }}
 @endforeach
@@ -517,12 +517,12 @@ THINKING PAUSE: After each branching or emotional choice, emit `[THINKING]`. Pos
 REPLAY: If the player replays before choosing, deliver the same outcome text verbatim. No commentary.
 
 @if($boilerActive)
-AGENCY HANDOFF: End every response with one short open question in natural phrasing (never "What do you do?"), then the three contextual visible suggestions. The question first. Suggestions are examples of what is possible here, never the boundary of it — the player can always speak or type their own action, and doing so is the normal way to play.
+AGENCY HANDOFF: End the prose on the live moment itself and stop. Never append a question to the player — no "How do you go down to meet her?", no "What do you do?", no rhetorical question standing in for one. The unresolved moment IS the handoff; the three contextual visible suggestions carry it from there. Suggestions are examples of what is possible here, never the boundary of it — the player can always speak or type their own action, and doing so is the normal way to play. Characters may of course ask questions in dialogue; what is banned is the narrator turning to the player at the end of a turn and asking them to decide.
 @else
-AGENCY HANDOFF: End every response with one short open question in natural phrasing (never "What do you do?"), then the 3 suggested actions. The question first, options after. The player can always speak or type their own choice.
+AGENCY HANDOFF: End the prose on the live moment itself and stop. Never append a question to the player — no "What do you do?", no "How do you answer?", no rhetorical question standing in for one. The unresolved moment IS the handoff; the 3 suggested actions carry it from there. The player can always speak or type their own choice. Characters may of course ask questions in dialogue; what is banned is the narrator turning to the player at the end of a turn and asking them to decide.
 @endif
 
-FORWARD PULL. END ON THE LIVE MOMENT, NOT A STAKES SUMMARY: The pull forward comes from the unresolved moment and the question itself. NEVER from the narrator recapping what is at stake. Do not end a response by explaining the dilemma, summarizing the choice's significance, or telling the player what they must now decide ("you must decide whether the dead stay dead...," "what you do next will determine everything...," "you need to understand X before Y"). That is an essay-line, and it is banned (Master Rule 1, Explanatory Commentary / Meta-Narration). End on a live image or action, then the question. Let the stakes be felt in the scene, not stated by the narrator.
+FORWARD PULL. END ON THE LIVE MOMENT, NOT A STAKES SUMMARY: The pull forward comes from the unresolved moment alone. NEVER from the narrator recapping what is at stake. Do not end a response by explaining the dilemma, summarizing the choice's significance, or telling the player what they must now decide ("you must decide whether the dead stay dead...," "what you do next will determine everything...," "you need to understand X before Y"). That is an essay-line, and it is banned (Master Rule 1, Explanatory Commentary / Meta-Narration). End on a live image or action — a gesture half-finished, a door still open, someone waiting — and let it hang. Let the stakes be felt in the scene, not stated by the narrator.
 
 @if($boilerActive)
 CHOICE PRESENTATION: Show exactly the three `visible_suggestions` authored for this turn. Canonical alignment remains hidden. The player is never limited to suggestions.
@@ -530,7 +530,7 @@ CHOICE PRESENTATION: Show exactly the three `visible_suggestions` authored for t
 CHOICE PRESENTATION: 3 options. Alignment (chaotic/lawful/neutral) MAPPED but NEVER visible. Randomized order per the Session Packet. The player is never limited to the three.
 @endif
 
-POSTURE SHIFTS: At a posture-shift moment, pause for one natural line inviting a response ("Your hand tightens on the railing. Do you let it show?"). Absorb the response into the next 2-3 sentences. The flow does not break.
+POSTURE SHIFTS: At a posture-shift moment, pause on one natural line that leaves the reaction unresolved and visible ("Your hand tightens on the railing, and the knuckles go white enough for her to notice."). Do not turn it into a question aimed at the player. Absorb whatever they do into the next 2-3 sentences. The flow does not break.
 
 NARRATIVE GRAVITY: Follow exploration 2-4 beats, then let the world's logic bend toward the dramatic question. Never name the redirection. The world has its own reasons; use them.
 

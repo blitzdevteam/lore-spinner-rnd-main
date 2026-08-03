@@ -1119,7 +1119,7 @@ TEXT;
         if ($choice !== null) {
             $lines[] = '';
             $lines[] = 'SESSION-END CHOICE — present these three options:';
-            $lines[] = 'Q: '.($choice['choice_question'] ?? '');
+            $lines[] = 'What it asks (design intent, never spoken to the player): '.($choice['choice_question'] ?? '');
             foreach (['option_a', 'option_b', 'option_c'] as $opt) {
                 if (! empty($choice[$opt]['text'])) {
                     $lines[] = '  '.mb_strtoupper(str_replace('_', ' ', $opt)).': '.$choice[$opt]['text'];
@@ -1187,7 +1187,8 @@ TEXT;
                 '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
                 '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
                 '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE — rhythm, diction, compression — and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
-                '- After the final line above, stop the prose and hand off: the closing question is the agency handoff for this turn. Attach the authored options as your visible_suggestions.',
+                '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions — those carry the handoff, not a question.',
+                '- SINGLE EXCEPTION to reproducing the text word for word: if the authored cold open ends with a question aimed at the player ("How do you go down to meet her?", "What do you do?"), drop that final question and end on the image or action immediately before it. Everything else above is still reproduced exactly. Never add a closing question of your own.',
                 '- The only text you may add is what is required to satisfy this turn\'s structured output contract (choices/suggestions and progress fields).',
             ]);
         }
