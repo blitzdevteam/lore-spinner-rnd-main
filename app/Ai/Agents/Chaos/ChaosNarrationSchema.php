@@ -71,7 +71,7 @@ final class ChaosNarrationSchema
                 ->array()
                 ->required()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only zero-to-three contextual suggestions. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
+                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / provocation / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
                         'text' => $schema->string()->required()->title('Suggestion Text'),
