@@ -59,9 +59,6 @@ Route::prefix('user')->name('user.')->group(function (): void {
             Route::singleton('games.prompt', User\Game\PromptController::class)
                 ->creatable()
                 ->only(['store']);
-            Route::get('games/{game}/turn-stream/{prompt}', User\Game\TurnStreamController::class)
-                ->whereUlid('game')
-                ->name('games.turn-stream');
 
             Route::get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
                 ->name('games.tts');

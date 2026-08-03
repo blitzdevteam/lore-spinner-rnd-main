@@ -8,7 +8,6 @@ use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
-use App\Services\Runtime\GameTurnStreamStore;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
@@ -31,7 +30,6 @@ final class ProcessGameTurnAction
         private readonly ChaosEngineService $engine,
         private readonly PlayableMomentResolver $momentResolver,
         private readonly NarrationResultNormalizer $resultNormalizer,
-        private readonly GameTurnStreamStore $streamStore,
     ) {}
 
     /**
@@ -59,13 +57,10 @@ final class ProcessGameTurnAction
             $sourcePrompt === null
             || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
         ) {
-            $this->streamStore->fail($gameId, $sourcePromptId, 'This turn is no longer available.');
-
             return;
         }
 
         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
-        $this->streamStore->start($gameId, $sourcePromptId);
 
         $startedAt = microtime(true);
 
@@ -126,7 +121,7 @@ final class ProcessGameTurnAction
                 : array_slice($history, -12);
 
             $llmStartedAt = microtime(true);
-            $result = $this->engine->streamAgent(
+            $result = $this->engine->callAgent(
                 model: $game->model,
                 systemPrompt: $systemPrompt,
                 conversationHistory: $historyWindow,
@@ -136,9 +131,6 @@ final class ProcessGameTurnAction
                 worldState: $worldState,
                 game: $game,
                 isOpening: false,
-                streamStore: $this->streamStore,
-                gameId: $gameId,
-                sourcePromptId: $sourcePromptId,
             );
             $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
@@ -163,7 +155,6 @@ final class ProcessGameTurnAction
                     $story->adaptation?->sessionAdaptations,
                 );
             }
-            $this->streamStore->complete($gameId, $sourcePromptId);
 
             UserActivityDay::record($userId);
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
@@ -216,7 +207,6 @@ final class ProcessGameTurnAction
                 'deferred' => true,
             ]);
             Cache::put($this->errorKey($gameId), 'Narration hiccuped — please retry this turn.', 60);
-            $this->streamStore->fail($gameId, $sourcePromptId, 'Narration hiccuped — please retry this turn.');
             throw $e;
         } finally {
             Cache::forget($this->pendingKey($gameId));

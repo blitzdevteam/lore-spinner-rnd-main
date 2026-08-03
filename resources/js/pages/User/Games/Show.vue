@@ -31,7 +31,14 @@ const handleBack = () => {
 };
 
 function visitLeavesThisGame(url: string | { toString?: () => string; href?: string } | null | undefined): boolean {
-    const raw = typeof url === 'string' ? url : typeof url?.href === 'string' ? url.href : typeof url?.toString === 'function' ? url.toString() : '';
+    const raw =
+        typeof url === 'string'
+            ? url
+            : typeof url?.href === 'string'
+              ? url.href
+              : typeof url?.toString === 'function'
+                ? url.toString()
+                : '';
     const path = raw.split('?')[0] ?? '';
     return !path.startsWith(`/user/games/${props.game.id}`);
 }
@@ -44,8 +51,6 @@ const isRetryingBegin = ref(false);
 const isStartingNextSession = ref(false);
 const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
-const streamedNarration = ref('');
-let turnStream: EventSource | undefined;
 
 const prompts = computed(() => props.game.prompts ?? []);
 const latestPromptId = computed(() => {
@@ -73,10 +78,7 @@ const journalMeta = computed(() => ({
 function stripHtml(html: string): string {
     const input = typeof html === 'string' ? html : '';
     if (typeof document === 'undefined') {
-        return input
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+        return input.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
     const el = document.createElement('div');
     el.innerHTML = input;
@@ -103,26 +105,29 @@ const cameFromCinematic = ref(!hasPrompts.value);
 const openingNarrationPlayed = ref(false);
 
 // Auto-play the first narration while the showcard is still visible (or when begin finishes).
-watch([() => prompts.value[0]?.response, shouldAnimate], () => {
-    if (openingNarrationPlayed.value) return;
+watch(
+    [() => prompts.value[0]?.response, shouldAnimate],
+    () => {
+        if (openingNarrationPlayed.value) return;
 
-    const response = prompts.value[0]?.response;
-    if (!response) return;
+        const response = prompts.value[0]?.response;
+        if (!response) return;
 
-    const isOpeningTurn = prompts.value.length === 1;
-    const shouldPlayFirst = cameFromCinematic.value || (shouldAnimate.value && isOpeningTurn);
-    if (!shouldPlayFirst) return;
-    if (!gameplaySettings.autoplay) {
+        const isOpeningTurn = prompts.value.length === 1;
+        const shouldPlayFirst = cameFromCinematic.value || (shouldAnimate.value && isOpeningTurn);
+        if (!shouldPlayFirst) return;
+        if (!gameplaySettings.autoplay) {
+            cameFromCinematic.value = false;
+            return;
+        }
+
+        const first = prompts.value[0];
+        if (!first) return;
         cameFromCinematic.value = false;
-        return;
-    }
-
-    const first = prompts.value[0];
-    if (!first) return;
-    cameFromCinematic.value = false;
-    openingNarrationPlayed.value = true;
-    tts.play(String(props.game.id), String(first.id));
-});
+        openingNarrationPlayed.value = true;
+        tts.play(String(props.game.id), String(first.id));
+    },
+);
 
 // Subsequent-prompt autoplay is owned by the typewriter-completion watcher in
 // GameplayChatCard.vue — it fires once text is fully generated, same on all platforms.
@@ -138,7 +143,11 @@ const canSubmitInput = computed(() => {
 // Once they act (typed or chose a button), the placeholder empties for the rest of the game.
 const hasPlayerActed = computed(() => prompts.value.some((p) => !!p.prompt));
 
-const isFirstChoiceMoment = computed(() => !hasPlayerActed.value && canSubmitInput.value && (props.game.current_session_number ?? 1) === 1);
+const isFirstChoiceMoment = computed(() =>
+    !hasPlayerActed.value &&
+    canSubmitInput.value &&
+    (props.game.current_session_number ?? 1) === 1,
+);
 
 const inputPlaceholder = computed(() => {
     if (!isFirstChoiceMoment.value) return '';
@@ -244,7 +253,6 @@ const submitPrompt = (
         {
             preserveScroll: true,
             onSuccess: () => {
-                openTurnStream(options.promptId);
                 void pollForTurnCompletion(options.promptId);
             },
             onError: () => {
@@ -258,26 +266,6 @@ const submitPrompt = (
         },
     );
 };
-
-function openTurnStream(sourcePromptId: string) {
-    turnStream?.close();
-    streamedNarration.value = '';
-    turnStream = new EventSource(`/user/games/${props.game.id}/turn-stream/${encodeURIComponent(sourcePromptId)}`);
-
-    turnStream.addEventListener('chunk', (event) => {
-        const payload = JSON.parse((event as MessageEvent).data) as { text?: string };
-        streamedNarration.value += payload.text ?? '';
-    });
-    turnStream.addEventListener('final', () => {
-        turnStream?.close();
-        turnStream = undefined;
-        streamedNarration.value = '';
-    });
-    turnStream.addEventListener('error', () => {
-        turnStream?.close();
-        turnStream = undefined;
-    });
-}
 
 async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
     const started = Date.now();
@@ -317,7 +305,11 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
             return;
         }
 
-        if (kind === 'next' && !stillPending && (props.game.current_session_number ?? 1) > (priorSession ?? 0)) {
+        if (
+            kind === 'next'
+            && !stillPending
+            && (props.game.current_session_number ?? 1) > (priorSession ?? 0)
+        ) {
             isStartingNextSession.value = false;
             shouldAnimate.value = true;
             nextTick(() => {
@@ -405,7 +397,6 @@ onMounted(() => {
         if (awaiting) {
             isSubmitting.value = true;
             pendingSelection.value[awaiting.id] = pendingSelection.value[awaiting.id] ?? '…';
-            openTurnStream(awaiting.id);
             void pollForTurnCompletion(awaiting.id);
         }
     } else if (props.game.opening_pending) {
@@ -435,7 +426,6 @@ const handleCinematicDone = () => {
 
 onUnmounted(() => {
     removeNavigationListener?.();
-    turnStream?.close();
 });
 </script>
 
@@ -444,7 +434,12 @@ onUnmounted(() => {
     <GameCinematicOutro v-if="showOutro" :outro-poster="props.game.story?.outro_poster ?? null" @done="handleOutroDone" />
 
     <!-- ── Cinematic opening sequence (new games only) ── -->
-    <GameCinematicOpening v-else-if="showCinematic" :can-exit="beginSettled" @prepare="handleCinemaPrepare" @done="handleCinematicDone" />
+    <GameCinematicOpening
+        v-else-if="showCinematic"
+        :can-exit="beginSettled"
+        @prepare="handleCinemaPrepare"
+        @done="handleCinematicDone"
+    />
 
     <!-- Begin failed — show retry -->
     <div v-else-if="(beginSettled && !hasPrompts) || game.opening_error" class="grid h-svh place-items-center bg-gray-950">
@@ -485,7 +480,11 @@ onUnmounted(() => {
                 <h1 class="text-center text-2xl font-semibold text-white md:text-[28px]">
                     {{ game.story?.title ?? 'Adventure' }}
                 </h1>
-                <GameplayOrnamentDivider v-if="journalMeta.episodeLabel" :label="journalMeta.episodeLabel" color="#ffffff" />
+                <GameplayOrnamentDivider
+                    v-if="journalMeta.episodeLabel"
+                    :label="journalMeta.episodeLabel"
+                    color="#ffffff"
+                />
                 <span v-if="game.current_session_number" class="rounded-full bg-gray-800 px-2 py-1 text-sm text-gray-300">
                     Session {{ game.current_session_number }}
                 </span>
@@ -496,12 +495,6 @@ onUnmounted(() => {
             <p v-if="game.turn_error" class="mb-4 text-center text-sm text-red-300/90">
                 {{ game.turn_error }}
             </p>
-
-            <div
-                v-if="streamedNarration"
-                class="prose prose-invert mb-6 max-w-none rounded-2xl border border-white/10 bg-white/5 p-5 text-gray-200"
-                v-html="streamedNarration"
-            />
 
             <GameplayChatCard
                 v-for="prompt in prompts"
@@ -522,7 +515,9 @@ onUnmounted(() => {
             <div v-if="sessionComplete && !isStartingNextSession" class="flex flex-col items-center gap-6 py-12 text-center">
                 <div class="flex flex-col gap-2">
                     <p class="text-lg font-light text-gray-200">Session complete.</p>
-                    <p v-if="!isLastSession" class="text-sm text-gray-500">The story continues in the next chapter.</p>
+                    <p v-if="!isLastSession" class="text-sm text-gray-500">
+                        The story continues in the next chapter.
+                    </p>
                 </div>
                 <button
                     class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200"
@@ -554,7 +549,7 @@ onUnmounted(() => {
         <template #journals>
             <!-- Desktop sidebar: classic session progress -->
             <div class="hidden flex-col gap-3 md:flex">
-                <p class="text-xs font-semibold tracking-wider text-gray-500 uppercase">Session Progress</p>
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Session Progress</p>
                 <div class="rounded-xl border border-gray-700/50 bg-gray-800/40 p-4">
                     <p class="text-sm text-gray-300">
                         Session <span class="font-medium text-primary-300">{{ game.current_session_number ?? 1 }}</span>
@@ -565,23 +560,32 @@ onUnmounted(() => {
             </div>
 
             <div class="gp-timeline flex flex-col">
-                <article v-for="(prompt, index) in prompts" :key="prompt.id" class="gp-timeline__item relative flex gap-3 pb-5 last:pb-0">
+                <article
+                    v-for="(prompt, index) in prompts"
+                    :key="prompt.id"
+                    class="gp-timeline__item relative flex gap-3 pb-5 last:pb-0"
+                >
                     <div class="gp-timeline__rail flex flex-col items-center">
                         <span
-                            class="gp-timeline__dot grid size-7 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary-300 tabular-nums"
+                            class="gp-timeline__dot grid size-7 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold tabular-nums text-primary-300"
                         >
                             {{ index + 1 }}
                         </span>
                         <span
                             v-if="index < prompts.length - 1"
-                            class="gp-timeline__line mt-1 min-h-4 w-px flex-1 bg-gradient-to-b from-primary/30 to-transparent"
+                            class="gp-timeline__line mt-1 w-px flex-1 min-h-4 bg-gradient-to-b from-primary/30 to-transparent"
                         />
                     </div>
                     <div class="gp-timeline__card min-w-0 flex-1 rounded-xl border border-white/8 bg-white/[0.03] p-3.5">
-                        <p v-if="index === 0" class="text-[10px] font-semibold tracking-wider text-gray-500 uppercase">Opening</p>
+                        <p
+                            v-if="index === 0"
+                            class="text-[10px] font-semibold uppercase tracking-wider text-gray-500"
+                        >
+                            Opening
+                        </p>
                         <p
                             v-else-if="!prompt.prompt && index === prompts.length - 1"
-                            class="text-[10px] font-semibold tracking-wider text-gray-500 uppercase"
+                            class="text-[10px] font-semibold uppercase tracking-wider text-gray-500"
                         >
                             Now
                         </p>
@@ -591,12 +595,17 @@ onUnmounted(() => {
                         >
                             {{ excerpt(prompt.response ?? '') }}
                         </p>
-                        <p v-if="prompt.prompt" class="mt-2 border-t border-white/6 pt-2 text-xs font-medium text-primary-300/90">
+                        <p
+                            v-if="prompt.prompt"
+                            class="mt-2 border-t border-white/6 pt-2 text-xs font-medium text-primary-300/90"
+                        >
                             You · {{ prompt.prompt === '__continue__' ? 'Continued' : prompt.prompt }}
                         </p>
                     </div>
                 </article>
-                <p v-if="!prompts.length" class="py-4 text-center text-sm text-gray-500">Your story events will appear here as you play.</p>
+                <p v-if="!prompts.length" class="py-4 text-center text-sm text-gray-500">
+                    Your story events will appear here as you play.
+                </p>
             </div>
         </template>
 
