@@ -13,13 +13,13 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Services\Adaptation\SessionEventLoader;
 use App\Services\Runtime\GameTurnStreamStore;
+use App\Services\Runtime\StreamingNarrationJsonParser;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use RuntimeException;
-use Throwable;
 
 /**
  * Chaos Engine — shared AI narration logic for both the experimental
@@ -570,8 +570,9 @@ TEXT;
     }
 
     /**
-     * Stream narration text for immediate UX, then fetch authoritative structured
-     * output for state, branching, choices, and commit safety.
+     * Stream the JSON narration envelope while publishing only its response field.
+     * Structured output remains authoritative; invalid streamed JSON falls back to
+     * the buffered request without committing partial state.
      *
      * @param  array<int, array{role:string, text:string}>  $conversationHistory
      * @return array<string,mixed>
@@ -591,69 +592,56 @@ TEXT;
         string $sourcePromptId,
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
+        $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT."\n\n"
+            .'Return ONLY one valid JSON object using the complete ChaosNarrationSchema contract. '
+            .'The response field must be the first property and contain the HTML narration string. '
+            .'Do not use markdown fences or commentary outside the JSON object.';
         $promptText = view('ai.agents.chaos.turn-prompt', [
             'conversationHistory' => $conversationHistory,
             'playerAction' => $playerAction,
             'protagonist' => $protagonist,
         ])->render();
+        $request = Prism::text()
+            ->using($config['provider'], $model)
+            ->withPrompt($promptText)
+            ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
+            ->withProviderOptions($this->providerOptionsFor($config));
 
-        $streamedResponse = '';
-
-        try {
-            $streamSystemPrompt = $systemPrompt."\n\n"
-                .'STREAM MODE: output only the cinematic narration body as HTML. '
-                .'Do not output JSON, field labels, markdown fences, or explanations.';
-            $request = Prism::text()
-                ->using($config['provider'], $model)
-                ->withPrompt($promptText)
-                ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
-                ->withProviderOptions($this->providerOptionsFor($config));
-
-            if ($config['provider'] === 'anthropic') {
-                $request = $request->withSystemPrompts($this->anthropicSystemPrompts($streamSystemPrompt));
-            } else {
-                $request = $request->withSystemPrompt($streamSystemPrompt);
-            }
-            if ($this->modelAcceptsSamplingParams($model)) {
-                $request = $request->usingTemperature($temperature);
-            }
-            if ($config['provider'] === 'anthropic') {
-                $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
-            }
-
-            foreach ($request->asStream() as $event) {
-                if (! $event instanceof TextDeltaEvent || $event->delta === '') {
-                    continue;
-                }
-
-                $streamedResponse .= $event->delta;
-                $streamStore->append($gameId, $sourcePromptId, $event->delta);
-            }
-        } catch (Throwable $e) {
-            Log::channel('narration')->warning('game.turn_stream_failed_fallback_structured', [
-                'game_id' => $gameId,
-                'source_prompt_id' => $sourcePromptId,
-                'model' => $model,
-                'exception' => $e::class,
-                'message' => $e->getMessage(),
-            ]);
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withSystemPrompts($this->anthropicSystemPrompts($systemPrompt));
+        } else {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $request = $request->usingTemperature($temperature);
+        }
+        if ($config['provider'] === 'anthropic') {
+            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
         }
 
-        $result = $this->callAgent(
-            $model,
-            $systemPrompt,
-            $conversationHistory,
-            $playerAction,
-            $protagonist,
-            $temperature,
-            $worldState,
-            $game,
-            $isOpening,
-        );
-
-        if (mb_trim($streamedResponse) !== '') {
-            $result['response'] = $streamedResponse;
+        $parser = new StreamingNarrationJsonParser;
+        foreach ($request->asStream() as $event) {
+            if ($event instanceof TextDeltaEvent) {
+                $streamStore->append($gameId, $sourcePromptId, $parser->push($event->delta));
+            }
         }
+        $structured = $parser->finish();
+        if ($structured === null) {
+            return $this->callAgent(
+                $model,
+                $systemPrompt,
+                $conversationHistory,
+                $playerAction,
+                $protagonist,
+                $temperature,
+                $worldState,
+                $game,
+                $isOpening,
+            );
+        }
+
+        $result = $this->normalizeStructuredResult($structured);
+        $this->validateBoilerNarrationResult($result, $game, $isOpening);
 
         return $result;
     }
