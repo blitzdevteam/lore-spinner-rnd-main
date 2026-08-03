@@ -54,6 +54,7 @@ const shouldAnimate = ref(false);
 const isStreamingTurn = ref(false);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
+const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 
 watch(
     () => props.game.prompts,
@@ -276,6 +277,20 @@ function appendToStreamingPrompt(promptId: string, text: string) {
     );
 }
 
+function setPromptCardElement(promptId: string, element: unknown) {
+    promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
+}
+
+function scrollToPromptStart(promptId: string) {
+    const element = promptCardElements.value[promptId];
+    if (!element) return;
+
+    const stickyHeaderOffset = 112;
+    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
+
+    window.scrollTo({ top, behavior: 'smooth' });
+}
+
 function commitStreamedPrompt(
     streamingPromptId: string,
     sourcePromptId: string,
@@ -347,6 +362,7 @@ async function streamPrompt(
         const decoder = new TextDecoder();
         let buffer = '';
         let completed = false;
+        let anchoredToStreamStart = false;
 
         const handleStreamEvent = (line: string) => {
             if (!line.trim()) return;
@@ -362,6 +378,12 @@ async function streamPrompt(
 
             if (event.event === 'delta' && event.text) {
                 appendToStreamingPrompt(activeStreamingPromptId, event.text);
+                if (!anchoredToStreamStart) {
+                    anchoredToStreamStart = true;
+                    nextTick(() => {
+                        scrollToPromptStart(activeStreamingPromptId);
+                    });
+                }
             }
 
             if (event.event === 'done' && event.prompt) {
@@ -376,9 +398,6 @@ async function streamPrompt(
                 isStreamingTurn.value = false;
                 streamingPromptId.value = null;
                 pendingSelection.value = {};
-                nextTick(() => {
-                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                });
                 router.reload({ only: ['game'] });
             }
 
@@ -647,21 +666,25 @@ onUnmounted(() => {
                 {{ game.turn_error }}
             </p>
 
-            <GameplayChatCard
+            <div
                 v-for="prompt in prompts"
                 :key="prompt.id"
-                :prompt="prompt"
-                :game-id="game.id"
-                :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
-                :pending-choice="pendingSelection[prompt.id]"
-                :is-submitting="isSubmitting"
-                :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
-                :is-streaming-response="prompt.id === streamingPromptId"
-                :uses-playable-moments="game.uses_playable_moments"
-                @choice-selected="handleChoiceSelected"
-                @continue="handleContinue"
-                @choices-ready="handleChoicesReady"
-            />
+                :ref="(element) => setPromptCardElement(prompt.id, element)"
+            >
+                <GameplayChatCard
+                    :prompt="prompt"
+                    :game-id="game.id"
+                    :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
+                    :pending-choice="pendingSelection[prompt.id]"
+                    :is-submitting="isSubmitting"
+                    :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
+                    :is-streaming-response="prompt.id === streamingPromptId"
+                    :uses-playable-moments="game.uses_playable_moments"
+                    @choice-selected="handleChoiceSelected"
+                    @continue="handleContinue"
+                    @choices-ready="handleChoicesReady"
+                />
+            </div>
 
             <!-- Session complete — next chapter or end story -->
             <div v-if="sessionComplete && !isStartingNextSession" class="flex flex-col items-center gap-6 py-12 text-center">
