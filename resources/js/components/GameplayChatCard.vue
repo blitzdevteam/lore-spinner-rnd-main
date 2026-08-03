@@ -23,6 +23,7 @@ const props = defineProps<{
     pendingChoice?: string;
     isSubmitting?: boolean;
     animate?: boolean;
+    isStreamingResponse?: boolean;
     usesPlayableMoments?: boolean;
 }>();
 
@@ -69,17 +70,56 @@ const showContinueButton = computed(() => {
 });
 
 const renderedResponse = computed(() => {
+    if (props.isStreamingResponse) {
+        return props.prompt.response;
+    }
+
     if (props.animate && props.isLatest) {
         return typewriter.displayedHtml.value;
     }
     return props.prompt.response;
 });
 
+const plainStreamingResponse = computed(() => {
+    const input = props.prompt.response ?? '';
+    if (typeof document === 'undefined') {
+        return input.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    const element = document.createElement('div');
+    element.innerHTML = input;
+
+    return (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+});
+
+const streamingWords = computed(() => {
+    if (!props.isStreamingResponse) return [];
+
+    return plainStreamingResponse.value.length ? plainStreamingResponse.value.split(' ') : [];
+});
+
 const showChoicesAndActions = computed(() => {
+    if (props.isStreamingResponse) {
+        return false;
+    }
+
     if (props.animate && typewriter.isTyping.value) {
         return false;
     }
     return true;
+});
+
+const showResponseActions = computed(() => {
+    return !!props.prompt.response && (props.isStreamingResponse || showChoicesAndActions.value);
+});
+
+const listenDisabled = computed(() => {
+    return !!props.isStreamingResponse || (!!props.isLatest && !!props.isSubmitting);
+});
+
+const listenTitle = computed(() => {
+    if (listenDisabled.value) return 'Listen is available when narration finishes';
+    return isThisPlaying.value ? 'Pause narration' : hasPlayedOnce.value ? 'Listen again' : 'Listen';
 });
 
 const getChoiceClass = (choice: string) => {
@@ -114,6 +154,7 @@ const isThisLoading = computed(() => tts.isLoading.value && tts.activeKey.value 
 const hasPlayedOnce = computed(() => tts.hasPlayed(props.gameId, props.prompt.id) || isThisPlaying.value || isThisLoading.value);
 
 const handleListenAgain = () => {
+    if (listenDisabled.value) return;
     tts.toggle(props.gameId, props.prompt.id);
 };
 
@@ -186,8 +227,23 @@ watch(choicesVisible, (visible, wasVisible) => {
             :style="panelGlassStyle"
             @click="handleNarrationClick"
         >
-            <div class="text-justify leading-relaxed font-normal tracking-[0.04em]" style="font-size: inherit" v-html="renderedResponse"></div>
-            <span v-if="typewriter.isTyping.value" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
+            <div
+                v-if="props.isStreamingResponse"
+                class="streaming-word-text text-justify leading-relaxed font-normal tracking-[0.04em]"
+                style="font-size: inherit"
+                aria-live="polite"
+            >
+                <span
+                    v-for="(word, index) in streamingWords"
+                    :key="`${index}:${word}`"
+                    class="streaming-word"
+                    :style="{ '--stream-word-delay': `${Math.min(index % 18, 17) * 12}ms` }"
+                >
+                    {{ word }}<span v-if="index < streamingWords.length - 1">&nbsp;</span>
+                </span>
+            </div>
+            <div v-else class="text-justify leading-relaxed font-normal tracking-[0.04em]" style="font-size: inherit" v-html="renderedResponse"></div>
+            <span v-if="typewriter.isTyping.value || props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
         <!-- ── Player's custom action echo ── -->
@@ -196,11 +252,14 @@ watch(choicesVisible, (visible, wasVisible) => {
         </div>
 
         <!-- ── Listen Again + Continue ── -->
-        <div v-if="prompt.response && showChoicesAndActions" class="flex flex-row flex-wrap items-center gap-1.5">
+        <div v-if="showResponseActions" class="flex flex-row flex-wrap items-center gap-1.5">
             <button
                 type="button"
                 class="narration-action-pill listen-again-pill relative flex h-[50px] w-auto items-center gap-[5px] overflow-hidden rounded-[60px] p-[6px] pe-3.5"
-                :title="isThisPlaying ? 'Pause narration' : hasPlayedOnce ? 'Listen again' : 'Listen'"
+                :class="{ 'cursor-not-allowed opacity-55': listenDisabled }"
+                :title="listenTitle"
+                :disabled="listenDisabled"
+                :aria-disabled="listenDisabled"
                 @click="handleListenAgain"
             >
                 <!-- Background layers -->
@@ -308,6 +367,42 @@ watch(choicesVisible, (visible, wasVisible) => {
         inset -1px -1px 1px -0.5px rgba(255, 255, 255, 0.75),
         inset 0 0 1px 1px rgba(153, 153, 153, 0.15),
         inset 0 0 16px 0 rgba(242, 242, 242, 0.15);
+}
+
+.streaming-word-text {
+    white-space: normal;
+}
+
+.streaming-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(0.7em);
+    filter: blur(2px);
+    animation: streaming-word-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--stream-word-delay, 0ms);
+    will-change: transform, opacity, filter;
+}
+
+@keyframes streaming-word-rise {
+    60% {
+        opacity: 1;
+        filter: blur(0);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .streaming-word {
+        animation: none;
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
 }
 
 .choice-glass {

@@ -659,6 +659,7 @@ onUnmounted(() => {
                 :pending-choice="pendingSelection[prompt.id]"
                 :is-submitting="isSubmitting"
                 :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
+                :is-streaming-response="prompt.id === streamingPromptId"
                 :uses-playable-moments="game.uses_playable_moments"
                 @choice-selected="handleChoiceSelected"
                 @continue="handleContinue"
