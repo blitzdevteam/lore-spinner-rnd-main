@@ -11,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 final class BoilerDiagnoseCommand extends Command
@@ -47,7 +48,7 @@ final class BoilerDiagnoseCommand extends Command
             );
 
             if ($json === false) {
-                throw new \RuntimeException('json_encode failed: '.json_last_error_msg());
+                throw new RuntimeException('json_encode failed: '.json_last_error_msg());
             }
         } catch (Throwable $e) {
             $this->error($e::class.': '.$e->getMessage());
@@ -58,7 +59,7 @@ final class BoilerDiagnoseCommand extends Command
         $filename = sprintf('%s-boiler-opus-diagnostic.json', $story->slug);
 
         if ($this->option('path')) {
-            $path = rtrim((string) $this->option('path'), '/');
+            $path = mb_rtrim((string) $this->option('path'), '/');
             if (is_dir($path)) {
                 $path = $path.'/'.$filename;
             }
@@ -66,12 +67,12 @@ final class BoilerDiagnoseCommand extends Command
                 mkdir(dirname($path), 0775, true);
             }
             file_put_contents($path, $json);
-            $this->info("Wrote {$path} (".strlen($json).' bytes)');
+            $this->info("Wrote {$path} (".mb_strlen($json).' bytes)');
         } else {
             $disk = (string) $this->option('disk');
             $remote = 'exports/'.$filename;
             Storage::disk($disk)->put($remote, $json);
-            $this->info("Uploaded {$remote} on disk [{$disk}] (".strlen($json).' bytes)');
+            $this->info("Uploaded {$remote} on disk [{$disk}] (".mb_strlen($json).' bytes)');
             $this->line('Download via Cloud File explorer under exports/');
         }
 
@@ -242,7 +243,7 @@ final class BoilerDiagnoseCommand extends Command
                 if (! is_array($beat)) {
                     return false;
                 }
-                $slot = strtoupper((string) data_get($beat, 'choice_slot', data_get($beat, 'slot', '')));
+                $slot = mb_strtoupper((string) data_get($beat, 'choice_slot', data_get($beat, 'slot', '')));
 
                 return str_contains($slot, 'BRANCH') || data_get($beat, 'is_branching') === true;
             })
@@ -303,7 +304,7 @@ final class BoilerDiagnoseCommand extends Command
             'final_cut_moment_summaries' => $finalMoments,
             'normalized_moment_summaries' => $normMoments,
             'editorial_verification' => $session->editorial_verification,
-            'runtime_prompt_chars' => strlen((string) $session->runtime_narrator_prompt),
+            'runtime_prompt_chars' => mb_strlen((string) $session->runtime_narrator_prompt),
         ];
     }
 
@@ -433,9 +434,9 @@ final class BoilerDiagnoseCommand extends Command
                 }
 
                 $payload = null;
-                $start = strpos($line, '{');
+                $start = mb_strpos($line, '{');
                 if ($start !== false) {
-                    $decoded = json_decode(substr($line, $start), true);
+                    $decoded = json_decode(mb_substr($line, $start), true);
                     if (is_array($decoded)) {
                         $payload = $decoded;
                     }
