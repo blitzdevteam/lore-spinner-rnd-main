@@ -3,6 +3,8 @@
 Practical command reference from the **Wizard of Oz** V2.2 re-adaptation on Laravel Cloud (June 2026).  
 Replace `the-wonderful-wizard-of-oz` with your story slug where needed.
 
+**Boiler pacing** commands (export bundle, probes, `--boiler` runs) are in **§6** — example slug: `the-adventure-of-the-speckled-band`.
+
 Companion exports live in `Exported JSON/` (`Oz-V2-2.json`, `oz-voice-profile.json`).
 
 ---
@@ -404,6 +406,211 @@ foreach (range(1, 6) as $n) {
 
 All 6 files land in the bucket under `exports/` in one run. Replace slug and session range for other stories.
 
+### Boiler — full output bundle → File explorer (recommended)
+
+Uploads **whatever Boiler has produced so far** — draft, finalize manifest, normalized scene cards, event roles, runtime prompts, and one combined JSON. Partial runs are fine; only existing artifacts are written.
+
+Replace `$slug` and `$prefix` for other stories (example: Speckled Band).
+
+```bash
+php artisan tinker --execute='
+$slug = "the-adventure-of-the-speckled-band";
+$prefix = "exports/speckled-band-boiler";
+$story = App\Models\Story::where("slug", $slug)->firstOrFail();
+$a = $story->adaptation->load("sessionAdaptations.playableCut.moments", "sessionAdaptations.playableCut.eventRoles");
+$disk = Illuminate\Support\Facades\Storage::disk("public");
+
+$bundle = [
+  "story" => ["id" => $story->id, "title" => $story->title, "slug" => $story->slug],
+  "exported_at" => now()->toIso8601String(),
+  "adaptation_status" => $a->adaptation_status->value,
+  "boiler_enabled" => (bool) $a->boiler_enabled,
+  "story_wide" => [
+    "boiling_profile" => data_get($a->story_session_map, "boiling_profile"),
+    "format_detection" => $a->format_detection,
+    "ip_audit" => $a->ip_audit,
+    "voice_profile" => $a->voice_profile,
+    "story_session_map" => $a->story_session_map,
+  ],
+  "sessions" => $a->sessionAdaptations->sortBy("session_number")->map(function ($s) {
+    $cut = $s->playableCut;
+    return [
+      "session_number" => $s->session_number,
+      "session_status" => $s->session_status->value,
+      "boiler_status" => $s->boiler_status->value,
+      "boiler_error" => $s->boiler_error,
+      "entry_point_diagnosis" => $s->entry_point_diagnosis,
+      "boiler_draft" => $s->boiler_draft,
+      "session_architecture" => $s->session_architecture,
+      "session_choice_design" => $s->session_choice_design,
+      "choice_consequence_map" => $s->choice_consequence_map,
+      "session_close_design" => $s->session_close_design,
+      "boiler_final_cut" => $s->boiler_final_cut,
+      "editorial_verification" => $s->editorial_verification,
+      "runtime_narrator_prompt_chars" => strlen((string) $s->runtime_narrator_prompt),
+      "normalized_cut" => $cut ? [
+        "cut_key" => $cut->cut_key,
+        "status" => $cut->status,
+        "moments" => $cut->moments->sortBy("moment_order")->map(fn ($m) => [
+          "moment_key" => $m->moment_key,
+          "moment_order" => $m->moment_order,
+          "anchor_event_id" => $m->anchor_event_id,
+          "source_event_ids" => $m->source_event_ids,
+          "scene_card" => $m->scene_card,
+        ])->values(),
+        "event_roles" => $cut->eventRoles->map(fn ($r) => [
+          "event_id" => $r->event_id,
+          "primary_role" => $r->primary_role,
+          "included_moment_key" => $r->included_moment_key,
+          "why" => $r->why,
+          "reintroduction_note" => $r->reintroduction_note,
+        ])->values(),
+      ] : null,
+    ];
+  })->values(),
+];
+
+$json = json_encode($bundle, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+$fullPath = "{$prefix}/full-boiler-output.json";
+$disk->put($fullPath, $json);
+echo "uploaded {$fullPath}: " . $disk->size($fullPath) . " bytes\n";
+
+foreach ($a->sessionAdaptations->sortBy("session_number") as $s) {
+  $n = $s->session_number;
+
+  if (!empty($s->boiler_draft)) {
+    $path = "{$prefix}/session-{$n}-boiler-draft.json";
+    $disk->put($path, json_encode($s->boiler_draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    echo "uploaded {$path}: " . $disk->size($path) . " bytes\n";
+  }
+
+  if (!empty($s->boiler_final_cut)) {
+    $path = "{$prefix}/session-{$n}-boiler-final-manifest.json";
+    $disk->put($path, json_encode($s->boiler_final_cut, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    echo "uploaded {$path}: " . $disk->size($path) . " bytes\n";
+  }
+
+  $cut = $s->playableCut;
+  if ($cut && $cut->moments->isNotEmpty()) {
+    $path = "{$prefix}/session-{$n}-scene-cards.json";
+    $disk->put($path, json_encode(
+      $cut->moments->sortBy("moment_order")->map(fn ($m) => $m->scene_card)->values(),
+      JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
+    ));
+    echo "uploaded {$path}: " . $disk->size($path) . " bytes\n";
+  }
+
+  if (!empty($s->runtime_narrator_prompt)) {
+    $path = "{$prefix}/session-{$n}-runtime-prompt.txt";
+    $disk->put($path, $s->runtime_narrator_prompt);
+    echo "uploaded {$path}: " . $disk->size($path) . " bytes\n";
+  }
+}
+
+echo "\nDownload from bucket File explorer under: {$prefix}/\n";
+'
+```
+
+**Files written** (only when data exists):
+
+| Bucket path | Contents |
+|---|---|
+| `full-boiler-output.json` | Complete bundle in one file |
+| `session-N-boiler-draft.json` | Phase 3.5 draft (`moment_drafts`, `event_role_map`, budget) |
+| `session-N-boiler-final-manifest.json` | Finalize manifest only (`boiler_final_cut`) |
+| `session-N-scene-cards.json` | Canonical finalized moment cards from `playable_moments` |
+| `session-N-runtime-prompt.txt` | Assembled runtime narrator prompt |
+
+### Boiler — upload straight from DB (skip local `adaptation:export`)
+
+Use when `database/exports/` is empty or was wiped by deploy. Same destination pattern as above; only the combined JSON:
+
+```bash
+php artisan tinker --execute='
+$slug = "the-adventure-of-the-speckled-band";
+$dest = "exports/speckled-band-adaptation.json";
+$story = App\Models\Story::where("slug", $slug)->firstOrFail();
+$a = $story->adaptation->load("sessionAdaptations");
+$json = json_encode([
+  "story" => ["id" => $story->id, "title" => $story->title, "slug" => $story->slug],
+  "exported_at" => now()->toIso8601String(),
+  "adaptation_status" => $a->adaptation_status->value,
+  "boiler_enabled" => (bool) $a->boiler_enabled,
+  "story_wide" => [
+    "format_detection" => $a->format_detection,
+    "ip_audit" => $a->ip_audit,
+    "voice_profile" => $a->voice_profile,
+    "story_session_map" => $a->story_session_map,
+  ],
+  "sessions" => $a->sessionAdaptations->sortBy("session_number")->map(fn ($s) => [
+    "session_number" => $s->session_number,
+    "session_status" => $s->session_status->value,
+    "boiler_status" => $s->boiler_status->value,
+    "boiler_error" => $s->boiler_error,
+    "boiler_draft" => $s->boiler_draft,
+    "boiler_final_cut" => $s->boiler_final_cut,
+    "editorial_verification" => $s->editorial_verification,
+    "runtime_narrator_prompt" => $s->runtime_narrator_prompt,
+  ])->values(),
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+echo "source: " . strlen($json) . " bytes\n";
+Illuminate\Support\Facades\Storage::disk("public")->put($dest, $json);
+echo "uploaded: " . Illuminate\Support\Facades\Storage::disk("public")->size($dest) . " bytes\n";
+'
+```
+
+### Boiler — quick probes (stdout / no bucket)
+
+**Status grid:**
+
+```bash
+php artisan stories:boiler-status the-adventure-of-the-speckled-band
+```
+
+**Opus / model diagnostic dump** (sessions, SSM, failures, queue, `boiler.*` logs → File explorer):
+
+```bash
+php artisan stories:boiler-diagnose wasteland
+```
+
+Writes `exports/{slug}-boiler-opus-diagnostic.json` on the `public` disk.
+
+**Session pipeline (what phase produced what):**
+
+```bash
+php artisan tinker --execute='$story=App\Models\Story::where("slug","the-adventure-of-the-speckled-band")->firstOrFail(); $a=$story->adaptation; foreach($a->sessionAdaptations()->orderBy("session_number")->get() as $sa){ $cut=$sa->playableCut()->withCount(["moments","eventRoles"])->first(); echo "session=".$sa->session_number." session_status=".$sa->session_status->value." boiler_status=".$sa->boiler_status->value." draft=".(!empty($sa->boiler_draft)?"present":"MISSING")." manifest=".(!empty($sa->boiler_final_cut)?"present":"MISSING")." cut=".($cut?->status??"MISSING")." moments=".($cut?->moments_count??0)." roles=".($cut?->event_roles_count??0)." prompt_chars=".strlen((string)$sa->runtime_narrator_prompt).($sa->boiler_error?" ERROR=".$sa->boiler_error:"").PHP_EOL; }'
+```
+
+**Draft JSON (one session):**
+
+```bash
+php artisan tinker --execute='echo json_encode(App\Models\Story::where("slug","the-adventure-of-the-speckled-band")->firstOrFail()->adaptation->sessionAdaptations()->where("session_number",1)->value("boiler_draft"), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);'
+```
+
+**Finalize manifest JSON (one session):**
+
+```bash
+php artisan tinker --execute='echo json_encode(App\Models\Story::where("slug","the-adventure-of-the-speckled-band")->firstOrFail()->adaptation->sessionAdaptations()->where("session_number",1)->value("boiler_final_cut"), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);'
+```
+
+**Human-readable moment cards (after Finalize):**
+
+```bash
+php artisan stories:inspect-boiler the-adventure-of-the-speckled-band --session=1
+```
+
+**Pending adaptation jobs:**
+
+```bash
+php artisan tinker --execute='echo "adaptation_jobs=".DB::table("jobs")->where("queue","adaptation")->count().PHP_EOL; foreach(DB::table("jobs")->where("queue","adaptation")->orderBy("id")->get(["id","payload","attempts","reserved_at"]) as $j){ $p=json_decode($j->payload,true); echo "id={$j->id} reserved=".($j->reserved_at?"YES":"no")." class=".class_basename($p["displayName"]??"?").PHP_EOL; }'
+```
+
+Run adaptation with Boiler enabled:
+
+```bash
+php artisan stories:run-adaptation the-adventure-of-the-speckled-band --force --boiler
+```
+
 **Uploaded bytes must match source bytes.** Delete 0-byte objects in file explorer before re-uploading.
 
 ---
@@ -458,6 +665,8 @@ foreach (DB::table("failed_jobs")->orderByDesc("failed_at")->limit(5)->get() as 
 | `/storage/exports/...` 404 | `storage:link` does not persist on Cloud | Upload to bucket; download via file explorer |
 | 0-byte files in bucket | Failed upload or wrong disk | Verify source size; use `disk("public")` |
 | CLI "Command took longer than 30 minutes" | Cloud CLI limit | Background worker continues; check logs + pending count |
+| Queue idle after deploy mid-job | Worker killed; job reserved or batch chain stopped | Release reservations; check `failed_jobs`; re-run `--force --boiler` |
+| `boiler_status=finalizing` with no manifest/cut | Finalize interrupted (deploy) | Re-run adaptation; do not deploy during long Boiler jobs |
 
 ---
 
@@ -479,3 +688,4 @@ echo (str_contains($rp,"300") && str_contains($rp,"350") ? "has_cadence: yes\n" 
 - `../v2-implementation/validation/pipeline-upgrade-v2-2-validation-runbook.md` — validation gates
 - `../v2-implementation/chaos-v2-command-list.md` — broader command list
 - `REFERENCE - VOICE PROFILE - L FRANK BAUM v2.1 copy.md` — Oz voice QA baseline
+- `../../../../docs/Boiler/Boiler Run/BOILER_VALIDATION_RUNBOOK.md` — Boiler canary validation on Cloud
