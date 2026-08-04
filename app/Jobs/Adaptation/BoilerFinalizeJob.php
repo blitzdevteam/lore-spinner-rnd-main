@@ -10,6 +10,7 @@ use App\Ai\Adaptation\BoilerFinalizeContextBuilder;
 use App\Ai\Agents\Adaptation\BoilerFinalizeAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
+use App\Exceptions\Adaptation\BoilerFinalizeNotClaimedException;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\BoilerCutNormalizer;
@@ -62,39 +63,57 @@ final class BoilerFinalizeJob implements ShouldQueue
         }
 
         // Atomic claim: only one worker may run finalize at a time for this session.
-        // Uses a SELECT FOR UPDATE lock so concurrent orphaned queue jobs skip
+        // Uses a SELECT FOR UPDATE lock so concurrent orphaned queue jobs stand down
         // rather than racing each other.
-        $claimed = DB::transaction(function () use ($session): bool {
+        $claim = DB::transaction(function () use ($session): string {
             $fresh = SessionAdaptation::lockForUpdate()->find($session->id);
             if ($fresh === null) {
-                return false;
+                return 'missing';
             }
             if ($fresh->boiler_status === BoilerStatus::FINALIZED) {
-                return false;
+                return 'already_finalized';
             }
             if ($fresh->boiler_status === BoilerStatus::FINALIZING) {
-                // Already claimed by a concurrent worker — skip silently.
-                return false;
+                return 'held_by_another_worker';
             }
-            if (! in_array($fresh->boiler_status, [BoilerStatus::DRAFTED], true)) {
-                return false;
+            if ($fresh->boiler_status !== BoilerStatus::DRAFTED) {
+                return 'not_finalizable';
             }
             $fresh->update([
                 'boiler_status' => BoilerStatus::FINALIZING,
                 'boiler_error' => null,
             ]);
 
-            return true;
+            return 'claimed';
         });
 
-        if (! $claimed) {
-            Log::info('boiler.finalize_concurrent_skip', [
+        // The final cut already exists, so the rest of the chain has real artifacts
+        // to work with and may proceed.
+        if ($claim === 'already_finalized') {
+            Log::info('boiler.finalize_already_finalized', [
                 'story_id' => $this->story->id,
                 'session_number' => $this->sessionNumber,
-                'boiler_status' => $session->boiler_status,
             ]);
 
             return;
+        }
+
+        // No final cut, and this job does not own the session. Returning normally here
+        // would release the chained verification job against a null final cut, which
+        // then reports missing artifacts as if they were editorial defects. Stop the
+        // chain instead; the worker that holds the session drives its own chain, and a
+        // retry of this job will observe FINALIZED and pass through cleanly.
+        if ($claim !== 'claimed') {
+            Log::warning('boiler.finalize_not_claimed', [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+                'reason' => $claim,
+                'boiler_status' => $session->boiler_status,
+            ]);
+
+            throw new BoilerFinalizeNotClaimedException(
+                "Boiler Finalize for session {$this->sessionNumber} did not claim the session ({$claim})."
+            );
         }
         Log::info('boiler.finalize_started', [
             'story_id' => $this->story->id,
@@ -136,6 +155,12 @@ final class BoilerFinalizeJob implements ShouldQueue
 
     public function failed(?Throwable $throwable): void
     {
+        // This job never owned the session, so it must not overwrite the status of
+        // whichever worker does.
+        if ($throwable instanceof BoilerFinalizeNotClaimedException) {
+            return;
+        }
+
         $adaptation = $this->story->fresh()?->adaptation;
         $session = $adaptation?->sessionAdaptations()
             ->where('session_number', $this->sessionNumber)

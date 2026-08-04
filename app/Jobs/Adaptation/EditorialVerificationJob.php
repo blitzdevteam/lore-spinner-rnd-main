@@ -6,6 +6,7 @@ namespace App\Jobs\Adaptation;
 
 use App\Ai\Agents\Adaptation\EditorialVerificationAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Enums\BoilerStatus;
 use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,6 +42,29 @@ final class EditorialVerificationJob implements ShouldQueue
             throw new RuntimeException(
                 'voice_profile missing — Voice Lock must complete before Phase 8 (EditorialVerification)'
             );
+        }
+
+        // Without a finalized cut the Boiler audit has nothing to grade, and it reports
+        // the absence as an editorial defect ("provide the Final Manifest..."). Fail
+        // here instead, before spending a model call, so the real cause stays legible.
+        if ($adaptation->boiler_enabled) {
+            $missing = [];
+            if ($session->boiler_status !== BoilerStatus::FINALIZED) {
+                $missing[] = 'boiler_status is '.($session->boiler_status?->value ?? 'null').', expected finalized';
+            }
+            if (empty($session->boiler_final_cut)) {
+                $missing[] = 'boiler_final_cut is empty';
+            }
+            if ($session->playableCut === null) {
+                $missing[] = 'normalized playable cut is missing';
+            }
+
+            if ($missing !== []) {
+                throw new RuntimeException(
+                    "Boiler Editorial Verification cannot run for session {$this->sessionNumber}: "
+                    .implode('; ', $missing).'. Boiler Finalize must complete first.'
+                );
+            }
         }
 
         try {

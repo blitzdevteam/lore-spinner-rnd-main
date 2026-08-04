@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
 use App\Enums\Adaptation\AdaptationStatusEnum;
+use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
 use App\Jobs\Adaptation\AdaptationStatusReconciliationJob;
 use App\Jobs\Adaptation\BoilerFinalizeJob;
@@ -16,7 +17,9 @@ use App\Jobs\Adaptation\EditorialVerificationJob;
 use App\Jobs\Adaptation\RuntimeNarratorAssemblyJob;
 use App\Jobs\Adaptation\SessionArchitectureJob;
 use App\Jobs\Adaptation\SessionCloseJob;
+use App\Models\SessionAdaptation;
 use App\Models\Story;
+use App\Support\Adaptation\SessionAdaptationChain;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +30,7 @@ final class RepairBoilerEditorialCommand extends Command
     protected $signature = 'stories:repair-boiler-editorial
                             {story : Story ID or slug}
                             {--session= : Session number to repair}
-                            {--from=consequence : Earliest phase to rerun: architecture, choice, consequence, or finalize}';
+                            {--from=consequence : Earliest phase to rerun: draft, architecture, choice, consequence, or finalize}';
 
     protected $description = 'Repair a failed Boiler editorial audit from the affected authoritative phase';
 
@@ -50,8 +53,8 @@ final class RepairBoilerEditorialCommand extends Command
         }
 
         $from = mb_strtolower(mb_trim((string) $this->option('from')));
-        if (! in_array($from, ['architecture', 'choice', 'consequence', 'finalize'], true)) {
-            $this->error('--from must be architecture, choice, consequence, or finalize.');
+        if (! in_array($from, ['draft', 'architecture', 'choice', 'consequence', 'finalize'], true)) {
+            $this->error('--from must be draft, architecture, choice, consequence, or finalize.');
 
             return self::FAILURE;
         }
@@ -59,8 +62,23 @@ final class RepairBoilerEditorialCommand extends Command
         $session = $story->adaptation->sessionAdaptations()
             ->where('session_number', $sessionNumber)
             ->first();
-        if ($session === null || empty($session->boiler_draft)) {
-            $this->error("Session {$sessionNumber} does not have a validated Boiler Draft.");
+        if ($session === null) {
+            $this->error("Session {$sessionNumber} does not exist for this adaptation.");
+
+            return self::FAILURE;
+        }
+
+        // A session that failed at Phase 3 is terminally FAILED: BoilerDraftJob rethrows
+        // the stored error on every redispatch. Rerunning from draft is the only way back
+        // once the underlying defect (usually unsatisfiable Session Map guidance) is fixed.
+        if ($from === 'draft') {
+            return $this->rerunFromDraft($story, $session, $sessionNumber);
+        }
+
+        if (empty($session->boiler_draft)) {
+            $this->error(
+                "Session {$sessionNumber} does not have a validated Boiler Draft. Use --from=draft to rebuild it."
+            );
 
             return self::FAILURE;
         }
@@ -196,6 +214,60 @@ final class RepairBoilerEditorialCommand extends Command
             ? 'canonicalized existing Consequence Map'
             : "rerun from {$from}";
         $this->info("Dispatched Session {$sessionNumber} Boiler repair: {$strategy}.");
+
+        return self::SUCCESS;
+    }
+
+    private function rerunFromDraft(Story $story, SessionAdaptation $session, int $sessionNumber): int
+    {
+        $guidance = collect((array) data_get($story->adaptation->story_session_map, 'boiling_profile.per_session_guidance', []))
+            ->firstWhere('session_number', $sessionNumber);
+        $eventCount = $story->events()->where('session_number', $sessionNumber)->count();
+        $minimum = (int) data_get($guidance, 'recommended_moment_count_min', 0);
+
+        // Redispatching into guidance the Draft validator can never satisfy just burns
+        // model calls and lands back on FAILED, so refuse it with the actual numbers.
+        if ($minimum > $eventCount) {
+            $this->error(sprintf(
+                'Session %d Session Map guidance requires at least %d moments but only %d events are allocated to it. '
+                .'A Boiler draft cannot satisfy that. Regenerate the Story Session Map before rerunning this session.',
+                $sessionNumber,
+                $minimum,
+                $eventCount,
+            ));
+
+            return self::FAILURE;
+        }
+
+        DB::transaction(function () use ($story, $session): void {
+            $story->adaptation->update([
+                'adaptation_status' => AdaptationStatusEnum::ADAPTING_SESSIONS,
+            ]);
+            $session->playableCut()->delete();
+            $session->update([
+                'session_status' => SessionAdaptationStatusEnum::PENDING,
+                'boiler_status' => BoilerStatus::PENDING,
+                'boiler_error' => null,
+                'boiler_draft' => null,
+                'boiler_generated_at' => null,
+                'boiler_final_cut' => null,
+                'boiler_finalized_at' => null,
+                'session_architecture' => null,
+                'session_choice_design' => null,
+                'choice_consequence_map' => null,
+                'session_close_design' => null,
+                'editorial_verification' => null,
+                'runtime_narrator_prompt' => null,
+                'runtime_narrator_assembled_at' => null,
+            ]);
+        });
+
+        Bus::chain([
+            ...SessionAdaptationChain::jobsForSession($story, $sessionNumber),
+            new AdaptationStatusReconciliationJob($story),
+        ])->onQueue('adaptation')->dispatch();
+
+        $this->info("Dispatched Session {$sessionNumber} Boiler repair: full rerun from draft.");
 
         return self::SUCCESS;
     }
