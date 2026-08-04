@@ -609,6 +609,8 @@ This section sits last on purpose. It is the closest thing to your output, so it
 - {{ $step }}
 @endforeach
 
+**ENDING OVERRIDE (outranks every step above):** Where the Anchor Card or the self-check says to end on "the question", that means an unresolved question hanging in the SCENE — never a question addressed to the player. Section 14 AGENCY HANDOFF is the authority on turn endings: do not close the prose by asking the player to decide ("What do you do?", "How do you answer?", "Shall you step inside?", "Do you go with him, or...?"), and do not substitute a rhetorical question for one. End on a live image, gesture, object, or status condition and let it hang. The suggested actions carry the handoff. Characters may still ask each other questions in dialogue; what is banned is the narrator turning to the player at the end of a turn.
+
 AUTHORED-TEXT EXCEPTION: this self-check governs prose YOU write. It never edits authored text delivered verbatim — the Section 13 cold open and the Section 16 authored close. Those already passed these checks when they were written. Deliver them unchanged and run the self-check only on the sentences you added around them.
 
 Then deliver.
