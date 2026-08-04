@@ -51,6 +51,10 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
         RuntimeNarratorPromptValidator $validator,
     ): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session    = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 

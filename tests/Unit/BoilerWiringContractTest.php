@@ -85,6 +85,38 @@ it('runs the shared game reset only on a successful reconciliation transition', 
         ->toContain('$this->gameResetService->reset($game)');
 });
 
+it('runs every validated phase through one shared generate-validate-repair loop', function () {
+    $loop = file_get_contents(app_path('Support/Adaptation/GeneratesValidatedArtifact.php'));
+
+    // The loop owns the attempt budget, the log-event names, and the terminal
+    // failure mode so no phase can drift from the others.
+    expect($loop)
+        ->toContain('MAX_VALIDATION_ATTEMPTS = 2')
+        ->toContain('boiler.{$artifact}_validation_failed')
+        ->toContain('boiler.{$artifact}_corrected')
+        ->toContain('ArtifactValidationException');
+
+    $phases = [
+        'BoilerDraftJob' => 'draft',
+        'BoilerFinalizeJob' => 'finalize',
+        'SessionArchitectureJob' => 'architecture',
+        'ChoiceDesignJob' => 'choice_design',
+        'ConsequenceMappingJob' => 'consequence_mapping',
+    ];
+
+    foreach ($phases as $class => $artifact) {
+        $job = file_get_contents(app_path("Jobs/Adaptation/{$class}.php"));
+
+        expect($job)
+            ->toContain('use App\Support\Adaptation\GeneratesValidatedArtifact;')
+            ->toContain("artifact: '{$artifact}'")
+            // A semantic failure must not be replayed by the queue.
+            ->toContain('$this->failTerminally($throwable)')
+            // A cancelled batch must not keep spending model calls.
+            ->toContain('if ($this->batch()?->cancelled())');
+    }
+});
+
 it('repairs invalid Boiler Draft references with validation feedback', function () {
     $job = file_get_contents(app_path('Jobs/Adaptation/BoilerDraftJob.php'));
     $agent = file_get_contents(app_path('Ai/Agents/Adaptation/BoilerDraftAgent.php'));
@@ -92,10 +124,8 @@ it('repairs invalid Boiler Draft references with validation feedback', function 
     $repairPrompt = file_get_contents(resource_path('views/ai/agents/adaptation/boiler-draft/repair-prompt.blade.php'));
 
     expect($job)
-        ->toContain('MAX_VALIDATION_ATTEMPTS = 2')
         ->toContain('boiler-draft.repair-prompt')
-        ->toContain('boiler.draft_validation_failed')
-        ->toContain('boiler.draft_corrected')
+        ->toContain("artifact: 'draft'")
         ->and($agent)
         ->toContain('each event ID may occur in at most one moment_drafts source_event_ids list')
         ->toContain('Copy one complete moment_drafts[].moment_key exactly')
@@ -119,7 +149,7 @@ it('keeps long adaptation jobs inside the database queue lease', function () {
         ->and($draftJob)
         ->toContain('is already failed.')
         ->and($finalizeJob)
-        ->toContain('boiler.finalize_concurrent_skip')
+        ->toContain('boiler.finalize_not_claimed')
         ->and($architectureJob)
         ->toContain('$session->boiler_status !== BoilerStatus::DRAFTED')
         ->toContain('requires a validated Boiler Draft');
@@ -132,11 +162,9 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
     $repairPrompt = file_get_contents(resource_path('views/ai/agents/adaptation/boiler-finalize/repair-prompt.blade.php'));
 
     expect($job)
-        ->toContain('MAX_VALIDATION_ATTEMPTS = 2')
         ->toContain('BoilerFinalCutCanonicalizer')
         ->toContain('boiler-finalize.repair-prompt')
-        ->toContain('boiler.finalize_validation_failed')
-        ->toContain('boiler.finalize_corrected')
+        ->toContain("artifact: 'finalize'")
         ->and($canonicalizer)
         ->toContain("\$card['choice_ids'] = \$choiceIdsByMoment->get(\$momentKey, [])")
         ->toContain("\$card['next_moment_key']")
@@ -181,7 +209,7 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
     expect($architectureJob)
         ->toContain('SessionArchitectureCanonicalizer')
         ->toContain('SessionArchitectureValidator')
-        ->toContain('boiler.architecture_validation_failed')
+        ->toContain("artifact: 'architecture'")
         ->toContain('session-architecture.repair-prompt')
         ->and($architecturePrompt)
         ->toContain('Exactly four rows use a')
@@ -191,7 +219,7 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
         ->toContain('The final Draft moment must own a BRANCHING Architecture slot')
         ->and($choiceJob)
         ->toContain('ChoiceDesignCanonicalizer')
-        ->toContain('boiler.choice_design_validation_failed')
+        ->toContain("artifact: 'choice_design'")
         ->toContain('choice-design.repair-prompt')
         ->and($choicePrompt)
         ->toContain('Draft CHOICE-role rows are candidate pressures')
@@ -201,7 +229,7 @@ it('repairs Architecture pacing and canonicalizes Phase 6 choice authority befor
         ->and($consequenceJob)
         ->toContain('ConsequenceMapCanonicalizer')
         ->toContain('ConsequenceMapValidator')
-        ->toContain('boiler.consequence_mapping_validation_failed')
+        ->toContain("artifact: 'consequence_mapping'")
         ->toContain('consequence-mapping.repair-prompt')
         ->and($consequencePrompt)
         ->toContain('Phase 5 Choice Design is the sole authority');

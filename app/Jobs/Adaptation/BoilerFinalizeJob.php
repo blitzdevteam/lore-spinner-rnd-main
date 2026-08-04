@@ -10,25 +10,24 @@ use App\Ai\Adaptation\BoilerFinalizeContextBuilder;
 use App\Ai\Agents\Adaptation\BoilerFinalizeAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Exceptions\Adaptation\BoilerFinalizeNotClaimedException;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\BoilerCutNormalizer;
 use App\Services\Adaptation\SessionEventLoader;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
 use Throwable;
 
 final class BoilerFinalizeJob implements ShouldQueue
 {
-    use Batchable, Queueable;
-
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
     public int $tries = 2;
 
@@ -53,6 +52,10 @@ final class BoilerFinalizeJob implements ShouldQueue
         BoilerCutNormalizer $normalizer,
         SessionEventLoader $eventLoader,
     ): void {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation?->sessionAdaptations()
             ->where('session_number', $this->sessionNumber)
@@ -149,6 +152,12 @@ final class BoilerFinalizeJob implements ShouldQueue
                 'error' => $throwable->getMessage(),
             ]);
 
+            if ($throwable instanceof ArtifactValidationException) {
+                $this->failTerminally($throwable);
+
+                return;
+            }
+
             throw $throwable;
         }
     }
@@ -184,46 +193,26 @@ final class BoilerFinalizeJob implements ShouldQueue
         SessionAdaptation $session,
         Collection $events,
     ): array {
-        $prompt = $originalPrompt;
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $result = (new BoilerFinalizeAgent)->prompt($prompt)->toArray();
-            $result = $canonicalizer->canonicalize($result, $session);
-
-            try {
-                $validator->validate($result, $session, $events);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.finalize_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $result;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-
-                Log::warning('boiler.finalize_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.boiler-finalize.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousCut' => $result,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError ?? new RuntimeException('Boiler Finalize validation failed without an error.');
+        return $this->generateValidatedArtifact(
+            artifact: 'finalize',
+            originalPrompt: $originalPrompt,
+            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
+                (new BoilerFinalizeAgent)->prompt($prompt)->toArray(),
+                $session,
+            ),
+            validate: fn (array $result) => $validator->validate($result, $session, $events),
+            repairPrompt: fn (string $error, array $previousCut): string => view(
+                'ai.agents.adaptation.boiler-finalize.repair-prompt',
+                [
+                    'validationError' => $error,
+                    'previousCut' => $previousCut,
+                    'originalPrompt' => $originalPrompt,
+                ],
+            )->render(),
+            logContext: [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+            ],
+        );
     }
 }

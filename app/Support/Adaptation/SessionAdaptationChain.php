@@ -72,7 +72,13 @@ final class SessionAdaptationChain
             $sessionChains[] = self::jobsForSession($story, $sessionNumber);
         }
 
-        $batch = Bus::batch($sessionChains)->onQueue('adaptation');
+        // Sessions are independent chains. Without allowFailures() the first failing
+        // job cancels the whole batch and stamps finished_at, which fires the finally
+        // callback while the other sessions are still mid-chain and leaves them
+        // running against a batch that has already been declared over.
+        $batch = Bus::batch($sessionChains)
+            ->allowFailures()
+            ->onQueue('adaptation');
 
         if ($finally !== null) {
             $batch->finally($finally);

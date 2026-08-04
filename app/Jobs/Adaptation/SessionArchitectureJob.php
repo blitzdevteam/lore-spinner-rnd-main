@@ -10,21 +10,20 @@ use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\SessionArchitectureAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Models\Story;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
 final class SessionArchitectureJob implements ShouldQueue
 {
-    use Batchable, Queueable;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
-
-    public int $tries = 1;
+    public int $tries = 2;
 
     public int $timeout = 600;
 
@@ -42,6 +41,10 @@ final class SessionArchitectureJob implements ShouldQueue
         SessionArchitectureCanonicalizer $canonicalizer,
         SessionArchitectureValidator $validator,
     ): void {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -89,6 +92,13 @@ final class SessionArchitectureJob implements ShouldQueue
             $session->update(['session_architecture' => $architecture]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
+
+            if ($throwable instanceof ArtifactValidationException) {
+                $this->failTerminally($throwable);
+
+                return;
+            }
+
             throw $throwable;
         }
     }
@@ -103,46 +113,26 @@ final class SessionArchitectureJob implements ShouldQueue
         SessionArchitectureValidator $validator,
         array $draft,
     ): array {
-        $prompt = $originalPrompt;
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $architecture = (new SessionArchitectureAgent(true))->prompt($prompt)->toArray();
-            $architecture = $canonicalizer->canonicalize($architecture, $draft);
-
-            try {
-                $validator->validate($architecture, $draft);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.architecture_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $architecture;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-                Log::warning('boiler.architecture_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.session-architecture.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousArchitecture' => $architecture,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError
-            ?? new RuntimeException('Session Architecture validation failed without an error.');
+        return $this->generateValidatedArtifact(
+            artifact: 'architecture',
+            originalPrompt: $originalPrompt,
+            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
+                (new SessionArchitectureAgent(true))->prompt($prompt)->toArray(),
+                $draft,
+            ),
+            validate: fn (array $architecture) => $validator->validate($architecture, $draft),
+            repairPrompt: fn (string $error, array $previousArchitecture): string => view(
+                'ai.agents.adaptation.session-architecture.repair-prompt',
+                [
+                    'validationError' => $error,
+                    'previousArchitecture' => $previousArchitecture,
+                    'originalPrompt' => $originalPrompt,
+                ],
+            )->render(),
+            logContext: [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+            ],
+        );
     }
 }

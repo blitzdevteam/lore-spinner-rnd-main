@@ -23,7 +23,7 @@ BOILER DRAFT:
 {{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
 BOILER FINAL MANIFEST:
-{{ json_encode($boilerFinalCut, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+{{ json_encode($boilerManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
 NORMALIZED EVENT ROLES:
 {{ json_encode($boilerEventRoles, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
@@ -34,5 +34,15 @@ CANONICAL FINAL PLAYABLE MOMENTS:
 Run the complete Boiler audit. `production_status` is PASS only when every Boiler item passes.
 Allowed roles: PLAY, PULSE, CHOICE, REACTION, MONTAGE, ECHO, CUT, and Finalize PRESSURE for unused Draft CHOICE. Never ban MONTAGE.
 
+The four artifacts above are the complete set of final Boiler artifacts. Audit what is present; never ask for an artifact that is already supplied here, and never treat these sections as missing.
+
+@if(!empty($priorRevisionFocus))
+A previous verification pass on this same session returned REVISE on the items below. Re-examine each one specifically against the artifacts above and state plainly whether it now passes; do not simply repeat the earlier objection without re-checking the evidence.
+
+@foreach($priorRevisionFocus as $focus)
+- {{ $focus }}
+@endforeach
+
+@endif
 @endif
 SESSION NUMBER: {{ $sessionNumber }}

@@ -19,6 +19,18 @@ final class EditorialVerificationJob implements ShouldQueue
 {
     use Batchable, Queueable;
 
+    /**
+     * Boiler audit items that judge craft rather than structure.
+     *
+     * A REVISE here means "this room could play richer", not "this session is
+     * broken". They are surfaced for a human to act on; everything else — coverage,
+     * bindings, alignment, budgets, arc, exit conditions — still hard-fails.
+     */
+    private const array ADVISORY_BOILER_CHECKS = [
+        'playable_room_quality',
+        'experience_balance',
+    ];
+
     public int $tries = 1;
 
     public int $timeout = 600;
@@ -35,6 +47,10 @@ final class EditorialVerificationJob implements ShouldQueue
     /** @throws Throwable */
     public function handle(): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -81,33 +97,30 @@ final class EditorialVerificationJob implements ShouldQueue
             $verification = $this->runVerification($adaptation, $session, $completeDesign);
             $session->update(['editorial_verification' => $verification]);
 
-            // One automatic retry on RED, per Deliverable 6 ("One automatic retry
-            // is permitted at the orchestration layer").
-            if (
-                data_get($verification, 'final_verdict.production_status') === 'RED'
-                || ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS')
-            ) {
-                $verification = $this->runVerification($adaptation, $session, $completeDesign);
+            $failedChecks = $this->failedBoilerChecks($verification);
+            $blocking = $this->blockingChecks($failedChecks);
+
+            // One automatic retry, per Deliverable 6 ("One automatic retry is permitted
+            // at the orchestration layer"). The second pass is told exactly what the
+            // first pass objected to; re-running the identical prompt would just be a
+            // second roll of the same dice at full cost.
+            if (data_get($verification, 'final_verdict.production_status') === 'RED' || $blocking !== []) {
+                $verification = $this->runVerification(
+                    $adaptation,
+                    $session,
+                    $completeDesign,
+                    $this->revisionFocus($verification, $failedChecks),
+                );
                 $verification['auto_retry_attempted'] = true;
                 $session->update(['editorial_verification' => $verification]);
+
+                $failedChecks = $this->failedBoilerChecks($verification);
+                $blocking = $this->blockingChecks($failedChecks);
             }
 
-            if ($adaptation->boiler_enabled && data_get($verification, 'boiler_audit.production_status') !== 'PASS') {
-                $revisions = collect((array) data_get($verification, 'boiler_audit.revision_instructions', []))
-                    ->filter(fn ($instruction): bool => is_string($instruction) && mb_trim($instruction) !== '')
-                    ->values()
-                    ->all();
-                $failedChecks = collect((array) data_get($verification, 'boiler_audit', []))
-                    ->filter(fn ($result, $key): bool => is_array($result)
-                        && ($result['verdict'] ?? null) === 'REVISE'
-                        && ! in_array($key, ['production_status', 'revision_instructions'], true))
-                    ->map(fn (array $result, string $key): array => [
-                        'check' => $key,
-                        'detail' => (string) ($result['detail'] ?? ''),
-                    ])
-                    ->values()
-                    ->all();
-                $message = $this->boilerFailureMessage($revisions, $failedChecks);
+            if ($adaptation->boiler_enabled && $blocking !== []) {
+                $revisions = $this->revisionInstructions($verification);
+                $message = $this->boilerFailureMessage($revisions, $blocking);
 
                 $session->update(['boiler_error' => mb_substr($message, 0, 2_000)]);
                 Log::warning('boiler.editorial_verification_failed', [
@@ -115,10 +128,23 @@ final class EditorialVerificationJob implements ShouldQueue
                     'session_number' => $this->sessionNumber,
                     'production_status' => data_get($verification, 'boiler_audit.production_status'),
                     'revision_instructions' => $revisions,
-                    'failed_checks' => $failedChecks,
+                    'failed_checks' => $blocking,
                 ]);
 
                 throw new RuntimeException($message);
+            }
+
+            // Craft notes are editorial opinion about how rich a room feels. They are
+            // recorded for a human to act on, but they must not brick a session whose
+            // structure, bindings, and coverage are all sound.
+            $advisory = $this->advisoryChecks($failedChecks);
+
+            if ($advisory !== []) {
+                Log::warning('boiler.editorial_verification_advisory', [
+                    'story_id' => $this->story->id,
+                    'session_number' => $this->sessionNumber,
+                    'advisory_checks' => $advisory,
+                ]);
             }
 
             $session->update(['boiler_error' => null]);
@@ -129,10 +155,91 @@ final class EditorialVerificationJob implements ShouldQueue
     }
 
     /**
+     * Boiler audit items that came back REVISE, as check/detail pairs.
+     *
+     * @param  array<string, mixed>  $verification
+     * @return array<int, array{check: string, detail: string}>
+     */
+    private function failedBoilerChecks(array $verification): array
+    {
+        return collect((array) data_get($verification, 'boiler_audit', []))
+            ->filter(fn ($result, $key): bool => is_array($result)
+                && ($result['verdict'] ?? null) === 'REVISE'
+                && ! in_array($key, ['production_status', 'revision_instructions'], true))
+            ->map(fn (array $result, string $key): array => [
+                'check' => $key,
+                'detail' => (string) ($result['detail'] ?? ''),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Failures that must stop the pipeline: structure, bindings, and coverage.
+     *
+     * @param  array<int, array{check: string, detail: string}>  $failedChecks
+     * @return array<int, array{check: string, detail: string}>
+     */
+    private function blockingChecks(array $failedChecks): array
+    {
+        return array_values(array_filter(
+            $failedChecks,
+            fn (array $failure): bool => ! in_array($failure['check'], self::ADVISORY_BOILER_CHECKS, true),
+        ));
+    }
+
+    /**
+     * Failures that are craft feedback for a human rather than a broken session.
+     *
+     * @param  array<int, array{check: string, detail: string}>  $failedChecks
+     * @return array<int, array{check: string, detail: string}>
+     */
+    private function advisoryChecks(array $failedChecks): array
+    {
+        return array_values(array_filter(
+            $failedChecks,
+            fn (array $failure): bool => in_array($failure['check'], self::ADVISORY_BOILER_CHECKS, true),
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $verification
+     * @return array<int, string>
+     */
+    private function revisionInstructions(array $verification): array
+    {
+        return collect((array) data_get($verification, 'boiler_audit.revision_instructions', []))
+            ->filter(fn ($instruction): bool => is_string($instruction) && mb_trim($instruction) !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The specific objections the retry pass must re-examine.
+     *
+     * @param  array<string, mixed>  $verification
+     * @param  array<int, array{check: string, detail: string}>  $failedChecks
+     * @return array<int, string>
+     */
+    private function revisionFocus(array $verification, array $failedChecks): array
+    {
+        $focus = array_map(
+            static fn (array $failure): string => mb_trim("{$failure['check']}: {$failure['detail']}"),
+            $failedChecks,
+        );
+
+        return array_values(array_unique([
+            ...$focus,
+            ...$this->revisionInstructions($verification),
+        ]));
+    }
+
+    /**
      * @param  array<string, mixed>  $completeDesign
+     * @param  array<int, string>  $priorRevisionFocus
      * @return array<string, mixed>
      */
-    private function runVerification($adaptation, $session, array $completeDesign): array
+    private function runVerification($adaptation, $session, array $completeDesign, array $priorRevisionFocus = []): array
     {
         // voice_decay_prevention_protocol is a runtime-only field (1B v2 Section 3B).
         // It must not reach Phase 8 editorial prompts — exclude it from the payload.
@@ -151,8 +258,11 @@ final class EditorialVerificationJob implements ShouldQueue
                 'worldReactivityRules' => $adaptation->story_session_map['world_reactivity_rules'] ?? [],
                 'sessionNumber' => $this->sessionNumber,
                 'boilerEnabled' => (bool) $adaptation->boiler_enabled,
+                'priorRevisionFocus' => $priorRevisionFocus,
                 'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
-                'boilerFinalCut' => $adaptation->boiler_enabled ? $session->boiler_final_cut : null,
+                // boiler_final_cut holds the manifest summary; the scene cards live in
+                // boilerMoments below.
+                'boilerManifest' => $adaptation->boiler_enabled ? $session->boiler_final_cut : null,
                 'boilerEventRoles' => $adaptation->boiler_enabled
                     ? $session->playableCut?->eventRoles()->orderBy('event_id')->get()->toArray()
                     : [],

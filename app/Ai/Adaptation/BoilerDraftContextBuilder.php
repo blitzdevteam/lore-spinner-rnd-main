@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Ai\Adaptation;
 
+use App\Models\Event;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 final class BoilerDraftContextBuilder
@@ -17,9 +19,12 @@ final class BoilerDraftContextBuilder
     public function __construct(private SessionEventLoader $eventLoader) {}
 
     /**
+     * @param  Collection<int, Event>|null  $events  Pass the caller's already-loaded
+     *                                               session events to avoid a second
+     *                                               full-story load.
      * @return array<string, mixed>
      */
-    public function build(Story $story, int $sessionNumber): array
+    public function build(Story $story, int $sessionNumber, ?Collection $events = null): array
     {
         $adaptation = $story->adaptation;
         $session = $adaptation?->sessionAdaptations()
@@ -35,7 +40,7 @@ final class BoilerDraftContextBuilder
         $startPosition = isset($entryPoint['start_event_position'])
             ? (int) $entryPoint['start_event_position']
             : null;
-        $events = $this->eventLoader->forSession($story, $sessionNumber, $startPosition);
+        $events ??= $this->eventLoader->forSession($story, $sessionNumber, $startPosition);
 
         if ($events->isEmpty()) {
             throw new RuntimeException("No assigned events found for Boiler Draft session {$sessionNumber}.");

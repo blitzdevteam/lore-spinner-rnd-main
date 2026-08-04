@@ -9,21 +9,20 @@ use App\Ai\Adaptation\ConsequenceMapValidator;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ConsequenceMappingAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Models\Story;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
 final class ConsequenceMappingJob implements ShouldQueue
 {
-    use Batchable, Queueable;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
-
-    public int $tries = 1;
+    public int $tries = 2;
 
     public int $timeout = 720;
 
@@ -41,6 +40,10 @@ final class ConsequenceMappingJob implements ShouldQueue
         ConsequenceMapCanonicalizer $canonicalizer,
         ConsequenceMapValidator $validator,
     ): void {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -83,6 +86,13 @@ final class ConsequenceMappingJob implements ShouldQueue
             $session->update(['choice_consequence_map' => $consequenceMap]);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
+
+            if ($throwable instanceof ArtifactValidationException) {
+                $this->failTerminally($throwable);
+
+                return;
+            }
+
             throw $throwable;
         }
     }
@@ -99,46 +109,26 @@ final class ConsequenceMappingJob implements ShouldQueue
         array $choiceDesign,
         array $draft,
     ): array {
-        $prompt = $originalPrompt;
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $consequenceMap = (new ConsequenceMappingAgent(true))->prompt($prompt)->toArray();
-            $consequenceMap = $canonicalizer->canonicalize($consequenceMap, $choiceDesign);
-
-            try {
-                $validator->validate($consequenceMap, $choiceDesign, $draft);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.consequence_mapping_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $consequenceMap;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-                Log::warning('boiler.consequence_mapping_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.consequence-mapping.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousConsequenceMap' => $consequenceMap,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError
-            ?? new RuntimeException('Consequence Mapping validation failed without an error.');
+        return $this->generateValidatedArtifact(
+            artifact: 'consequence_mapping',
+            originalPrompt: $originalPrompt,
+            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
+                (new ConsequenceMappingAgent(true))->prompt($prompt)->toArray(),
+                $choiceDesign,
+            ),
+            validate: fn (array $consequenceMap) => $validator->validate($consequenceMap, $choiceDesign, $draft),
+            repairPrompt: fn (string $error, array $previousConsequenceMap): string => view(
+                'ai.agents.adaptation.consequence-mapping.repair-prompt',
+                [
+                    'validationError' => $error,
+                    'previousConsequenceMap' => $previousConsequenceMap,
+                    'originalPrompt' => $originalPrompt,
+                ],
+            )->render(),
+            logContext: [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+            ],
+        );
     }
 }

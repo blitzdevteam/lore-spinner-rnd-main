@@ -10,9 +10,11 @@ use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Agents\Adaptation\BoilerDraftAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -23,9 +25,7 @@ use Throwable;
 
 final class BoilerDraftJob implements ShouldQueue
 {
-    use Batchable, Queueable;
-
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
     public int $tries = 2;
 
@@ -49,6 +49,10 @@ final class BoilerDraftJob implements ShouldQueue
         BoilerDraftValidator $validator,
         SessionEventLoader $eventLoader,
     ): void {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation?->sessionAdaptations()
             ->where('session_number', $this->sessionNumber)
@@ -78,11 +82,11 @@ final class BoilerDraftJob implements ShouldQueue
         ]);
 
         try {
-            $context = $contextBuilder->build($this->story, $this->sessionNumber);
             $startPosition = isset($session->entry_point_diagnosis['start_event_position'])
                 ? (int) $session->entry_point_diagnosis['start_event_position']
                 : null;
             $events = $eventLoader->forSession($this->story, $this->sessionNumber, $startPosition);
+            $context = $contextBuilder->build($this->story, $this->sessionNumber, $events);
             $originalPrompt = view('ai.agents.adaptation.boiler-draft.prompt', [
                 'context' => $context,
             ])->render();
@@ -117,6 +121,12 @@ final class BoilerDraftJob implements ShouldQueue
                 'error' => $throwable->getMessage(),
             ]);
 
+            if ($throwable instanceof ArtifactValidationException) {
+                $this->failTerminally($throwable);
+
+                return;
+            }
+
             throw $throwable;
         }
     }
@@ -147,49 +157,25 @@ final class BoilerDraftJob implements ShouldQueue
         array $storyMap,
         Collection $events,
     ): array {
-        $prompt = $originalPrompt;
-        $previousDraft = [];
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $result = $canonicalizer->canonicalize(
+        return $this->generateValidatedArtifact(
+            artifact: 'draft',
+            originalPrompt: $originalPrompt,
+            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
                 (new BoilerDraftAgent)->prompt($prompt)->toArray()
-            );
-
-            try {
-                $validator->validate($result, $session, $storyMap, $events);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.draft_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $result;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-                $previousDraft = $result;
-
-                Log::warning('boiler.draft_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.boiler-draft.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousDraft' => $previousDraft,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError ?? new RuntimeException('Boiler Draft validation failed without an error.');
+            ),
+            validate: fn (array $result) => $validator->validate($result, $session, $storyMap, $events),
+            repairPrompt: fn (string $error, array $previousDraft): string => view(
+                'ai.agents.adaptation.boiler-draft.repair-prompt',
+                [
+                    'validationError' => $error,
+                    'previousDraft' => $previousDraft,
+                    'originalPrompt' => $originalPrompt,
+                ],
+            )->render(),
+            logContext: [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+            ],
+        );
     }
 }

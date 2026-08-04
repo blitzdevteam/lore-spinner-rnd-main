@@ -8,22 +8,21 @@ use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ChoiceDesignAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Models\Story;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
 final class ChoiceDesignJob implements ShouldQueue
 {
-    use Batchable, Queueable;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
-
-    public int $tries = 1;
+    public int $tries = 2;
 
     public int $timeout = 1100;
 
@@ -39,6 +38,10 @@ final class ChoiceDesignJob implements ShouldQueue
     /** @throws Throwable */
     public function handle(ChoiceDesignCanonicalizer $canonicalizer): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -99,6 +102,13 @@ final class ChoiceDesignJob implements ShouldQueue
             $this->enrichBranchDimensionRegistry($adaptation, $choiceDesign);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
+
+            if ($throwable instanceof ArtifactValidationException) {
+                $this->failTerminally($throwable);
+
+                return;
+            }
+
             throw $throwable;
         }
     }
@@ -246,47 +256,29 @@ final class ChoiceDesignJob implements ShouldQueue
         ChoiceDesignCanonicalizer $canonicalizer,
         array $draft,
     ): array {
-        $prompt = $originalPrompt;
-        $lastValidationError = null;
-
-        for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
-            $choiceDesign = (new ChoiceDesignAgent(true))->prompt($prompt)->toArray();
-            $choiceDesign = $canonicalizer->canonicalize($choiceDesign, $draft);
-
-            try {
+        return $this->generateValidatedArtifact(
+            artifact: 'choice_design',
+            originalPrompt: $originalPrompt,
+            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
+                (new ChoiceDesignAgent(true))->prompt($prompt)->toArray(),
+                $draft,
+            ),
+            validate: function (array $choiceDesign) use ($draft): void {
                 $this->validateCanonicalTopology($choiceDesign);
                 $this->validateBoilerBindings($choiceDesign, $draft);
-
-                if ($attempt > 1) {
-                    Log::info('boiler.choice_design_corrected', [
-                        'story_id' => $this->story->id,
-                        'session_number' => $this->sessionNumber,
-                        'generation_attempt' => $attempt,
-                    ]);
-                }
-
-                return $choiceDesign;
-            } catch (RuntimeException $validationError) {
-                $lastValidationError = $validationError;
-                Log::warning('boiler.choice_design_validation_failed', [
-                    'story_id' => $this->story->id,
-                    'session_number' => $this->sessionNumber,
-                    'generation_attempt' => $attempt,
-                    'will_correct' => $attempt < self::MAX_VALIDATION_ATTEMPTS,
-                    'error' => $validationError->getMessage(),
-                ]);
-
-                if ($attempt < self::MAX_VALIDATION_ATTEMPTS) {
-                    $prompt = view('ai.agents.adaptation.choice-design.repair-prompt', [
-                        'validationError' => $validationError->getMessage(),
-                        'previousChoiceDesign' => $choiceDesign,
-                        'originalPrompt' => $originalPrompt,
-                    ])->render();
-                }
-            }
-        }
-
-        throw $lastValidationError
-            ?? new RuntimeException('Choice Design validation failed without an error.');
+            },
+            repairPrompt: fn (string $error, array $previousChoiceDesign): string => view(
+                'ai.agents.adaptation.choice-design.repair-prompt',
+                [
+                    'validationError' => $error,
+                    'previousChoiceDesign' => $previousChoiceDesign,
+                    'originalPrompt' => $originalPrompt,
+                ],
+            )->render(),
+            logContext: [
+                'story_id' => $this->story->id,
+                'session_number' => $this->sessionNumber,
+            ],
+        );
     }
 }

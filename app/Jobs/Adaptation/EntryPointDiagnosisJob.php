@@ -22,8 +22,10 @@ final class EntryPointDiagnosisJob implements ShouldQueue
 {
     use Batchable, Queueable;
 
-    public int $tries = 3;
+    public int $tries = 2;
+
     public int $timeout = 300;
+
     public int $backoff = 60;
 
     public function __construct(
@@ -36,6 +38,10 @@ final class EntryPointDiagnosisJob implements ShouldQueue
     /** @throws Throwable */
     public function handle(SessionEventLoader $eventLoader): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
