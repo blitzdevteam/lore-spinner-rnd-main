@@ -74,7 +74,7 @@ final class ChaosNarrationSchema
                 ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / provocation / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
-                        'text' => $schema->string()->required()->title('Suggestion Text'),
+                        'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration.'),
                         'canonical_choice_id' => $schema->string()->required()->title('Canonical Choice ID')->description('Empty string for a freeform suggestion.'),
                         'canonical_path_label' => $schema->string()->required()->title('Canonical Path Label')->description('A, B, or C for a mapped suggestion; empty string otherwise.'),
                     ])->required()->withoutAdditionalProperties()
