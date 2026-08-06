@@ -6,7 +6,6 @@ namespace App\Enums\Story;
 
 use App\Traits\EnumToArray;
 use Filament\Support\Contracts\HasLabel;
-use Illuminate\Contracts\Support\Htmlable;
 
 enum StoryRatingEnum: string implements HasLabel
 {
