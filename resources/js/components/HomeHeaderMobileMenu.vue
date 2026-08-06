@@ -10,17 +10,8 @@ const visible = defineModel<boolean>('visible', { default: false });
 const page = usePage();
 const auth = computed(() => page.props.auth);
 
-const {
-    activeMood,
-    isHomeActive,
-    isLibraryActive,
-    isBookmarksActive,
-    isMoodsActive,
-    moodLinks,
-    homeHref,
-    libraryHref,
-    bookmarksHref,
-} = useHomeHeaderNav();
+const { activeMood, isHomeActive, isLibraryActive, isAboutUsActive, isMoodsActive, moodLinks, homeHref, libraryHref, aboutUsHref } =
+    useHomeHeaderNav();
 
 const moodsExpanded = ref(false);
 
@@ -35,17 +26,13 @@ function closeMenu(): void {
 const navLinkClass = (active: boolean): string =>
     [
         'flex min-h-[3.25rem] items-center rounded-xl px-4 font-[Inter] text-[1.0625rem] font-medium leading-none transition-colors',
-        active
-            ? 'bg-cta-fill text-primary'
-            : 'text-[#c8ced1] hover:bg-white/5 hover:text-white',
+        active ? 'bg-cta-fill text-primary' : 'text-[#c8ced1] hover:bg-white/5 hover:text-white',
     ].join(' ');
 
 const moodLinkClass = (slug: string): string =>
     [
         'flex min-h-[2.75rem] items-center rounded-lg px-4 font-[Inter] text-[0.9375rem] font-normal transition-colors',
-        activeMood.value === slug
-            ? 'border border-primary/60 bg-cta-fill text-primary'
-            : 'text-[#a8aeb1] hover:bg-white/5 hover:text-white',
+        activeMood.value === slug ? 'border border-primary/60 bg-cta-fill text-primary' : 'text-[#a8aeb1] hover:bg-white/5 hover:text-white',
     ].join(' ');
 </script>
 
@@ -116,15 +103,11 @@ const moodLinkClass = (slug: string): string =>
                         </li>
 
                         <li>
-                            <Link :href="libraryHref" :class="navLinkClass(isLibraryActive)" @click="closeMenu">
-                                Library
-                            </Link>
+                            <Link :href="libraryHref" :class="navLinkClass(isLibraryActive)" @click="closeMenu"> Library </Link>
                         </li>
 
                         <li>
-                            <Link :href="bookmarksHref" :class="navLinkClass(isBookmarksActive)" @click="closeMenu">
-                                Bookmarks
-                            </Link>
+                            <Link :href="aboutUsHref" :class="navLinkClass(isAboutUsActive)" @click="closeMenu"> About Us </Link>
                         </li>
                     </ul>
                 </nav>

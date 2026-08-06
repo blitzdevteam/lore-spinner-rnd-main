@@ -24,9 +24,8 @@ function isActive(id: Panel): boolean {
 </script>
 
 <template>
-    <!-- Top padding gives shadows/borders room without resizing tabs -->
     <div
-        class="story-play-tablist flex gap-[0.625rem] pt-1"
+        class="story-play-tablist flex gap-2.5"
         role="tablist"
         aria-label="Story sections"
     >
@@ -36,78 +35,52 @@ function isActive(id: Panel): boolean {
             type="button"
             role="tab"
             :aria-selected="isActive(tab.id)"
-            class="story-play-tab relative z-0 box-border flex h-[2.8125rem] w-[7.8125rem] shrink-0 items-center justify-center rounded-[1.6875rem] border border-solid px-2 outline-none transition-[transform,box-shadow,background-color,border-color,color] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            class="story-play-tab relative box-border flex h-[2.8125rem] w-[7.8125rem] shrink-0 items-center justify-center overflow-hidden rounded-[1.6875rem] border border-solid outline-none transition-[border-color,color,background-color] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             :class="isActive(tab.id) ? 'story-play-tab--active' : 'story-play-tab--inactive'"
             @click="select(tab.id)"
         >
             <span
-                class="font-['Inter',sans-serif] text-[1rem] font-medium not-italic leading-[1.1859rem]"
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]"
+            />
+            <span
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] mix-blend-plus-lighter"
+                :class="isActive(tab.id) ? '' : 'backdrop-blur-[3px]'"
+            />
+            <span
+                class="relative z-[1] font-['Inter',sans-serif] text-base font-medium not-italic leading-[1.1859rem]"
             >
                 {{ tab.label }}
             </span>
+            <span
+                v-if="!isActive(tab.id)"
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-0 rounded-[inherit]"
+                style="
+                    box-shadow:
+                        inset 0.25px 0.5px 0.5px 0.25px rgba(255, 255, 255, 0.22),
+                        inset -0.2px -0.5px 0.15px 0.5px rgba(255, 255, 255, 0.05);
+                "
+            />
         </button>
     </div>
 </template>
 
 <style scoped>
 .story-play-tablist {
-    /* Prevent flex parents from clipping painted shadows at the capsule edge */
     overflow: visible;
 }
 
-.story-play-tab {
-    -webkit-font-smoothing: antialiased;
-    /* Single-layer capsule — no overflow:hidden (avoids flat/clipped top arc) */
-    overflow: visible;
-    background-clip: padding-box;
-}
-
-/* Inactive */
 .story-play-tab--inactive {
-    border-color: rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.03);
-    color: rgba(180, 180, 180, 0.85);
-    box-shadow: none;
-}
-
-.story-play-tab--inactive:hover {
-    transform: translateY(-1px);
-    border-color: rgba(111, 175, 186, 0.28);
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.92);
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.28),
-        0 0 8px rgba(111, 175, 186, 0.1);
-}
-
-/* Active — border + fill are primary; shadow stays tight and low */
-.story-play-tab--active {
-    border-color: rgba(111, 175, 186, 0.55);
-    background: linear-gradient(
-        180deg,
-        rgba(30, 63, 70, 0.92) 0%,
-        rgba(22, 47, 54, 0.96) 100%
-    );
+    border-color: transparent;
     color: #fff;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 1px 2px rgba(0, 0, 0, 0.35),
-        0 2px 8px rgba(0, 0, 0, 0.22),
-        0 0 12px rgba(111, 175, 186, 0.12);
+    box-shadow: 0 4px 80px rgba(0, 0, 0, 0.2);
 }
 
-.story-play-tab--active:hover {
-    transform: none;
-    border-color: rgba(111, 175, 186, 0.62);
-    background: linear-gradient(
-        180deg,
-        rgba(32, 68, 76, 0.94) 0%,
-        rgba(24, 52, 58, 0.98) 100%
-    );
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.07),
-        0 1px 2px rgba(0, 0, 0, 0.35),
-        0 2px 8px rgba(0, 0, 0, 0.22),
-        0 0 12px rgba(111, 175, 186, 0.16);
+.story-play-tab--active {
+    border-color: #59c1ca;
+    color: #59c1ca;
+    box-shadow: none;
 }
 </style>

@@ -44,7 +44,7 @@ onClickOutside(profileWrap, () => {
         <Link
             v-bind="$attrs"
             :href="login.create().url"
-            class="flex h-10 items-center justify-center rounded-full border border-primary/70 bg-transparent px-4 text-sm font-medium leading-none whitespace-nowrap text-[#c8ced1] transition-colors hover:border-primary hover:text-white"
+            class="flex h-10 items-center justify-center whitespace-nowrap px-4 text-base font-normal leading-none text-secondary-300 transition-colors hover:text-secondary-200"
         >
             Log in/Sign Up
         </Link>

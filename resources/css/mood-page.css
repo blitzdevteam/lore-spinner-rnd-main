@@ -12,7 +12,7 @@
 
 @media (min-width: 768px) {
     .mood-page-flow {
-        --mood-section-gap: 4.5rem;
+        --mood-section-gap: 3.5rem;
         --mood-hero-section-gap: 2.5rem;
     }
 }

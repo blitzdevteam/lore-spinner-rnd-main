@@ -6,7 +6,7 @@ import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import { GameInterface, PromptChoice } from '@/types';
+import { GameInterface, PromptChoice, PromptInterface } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -51,8 +51,32 @@ const isRetryingBegin = ref(false);
 const isStartingNextSession = ref(false);
 const pendingSelection = ref<Record<string, string>>({});
 const shouldAnimate = ref(false);
+const isStreamingTurn = ref(false);
+const streamingPromptId = ref<string | null>(null);
+const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
+const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 
-const prompts = computed(() => props.game.prompts ?? []);
+watch(
+    () => props.game.prompts,
+    (nextPrompts) => {
+        if (isStreamingTurn.value) return;
+        localPrompts.value = [...(nextPrompts ?? [])];
+    },
+    { deep: true },
+);
+
+const prompts = computed(() => localPrompts.value);
+const hasVisibleStreamedResponse = computed(() => {
+    if (!streamingPromptId.value) return false;
+
+    const streamingPrompt = prompts.value.find((prompt) => prompt.id === streamingPromptId.value);
+
+    return !!streamingPrompt?.response && stripHtml(streamingPrompt.response).length > 0;
+});
+const latestPromptId = computed(() => {
+    const latestPrompt = prompts.value[prompts.value.length - 1];
+    return latestPrompt ? String(latestPrompt.id) : null;
+});
 const hasPrompts = computed(() => prompts.value.length > 0);
 const sessionComplete = computed(() => props.game.current_session_complete === true);
 const isLastSession = computed(() => {
@@ -253,33 +277,185 @@ const submitPrompt = (
         canonicalPathLabel?: 'A' | 'B' | 'C' | null;
     },
 ) => {
-    isSubmitting.value = true;
-
-    router.post(
-        storePrompt(props.game.id),
-        {
-            prompt,
-            prompt_id: options.promptId,
-            suggestion_index: options.suggestionIndex,
-            canonical_choice_id: options.canonicalChoiceId ?? null,
-            canonical_path_label: options.canonicalPathLabel ?? null,
-        },
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                void pollForTurnCompletion(options.promptId);
-            },
-            onError: () => {
-                isSubmitting.value = false;
-                pendingSelection.value = {};
-                window.location.assign(`/user/games/${props.game.id}`);
-            },
-            onFinish: () => {
-                // Keep isSubmitting true while the deferred LLM finishes; the poller clears it.
-            },
-        },
-    );
+    void streamPrompt(prompt, options);
 };
+
+function csrfToken(): string {
+    const cookie = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+    return cookie ? decodeURIComponent(cookie) : '';
+}
+
+function appendToStreamingPrompt(promptId: string, text: string) {
+    localPrompts.value = localPrompts.value.map((item) =>
+        item.id === promptId ? { ...item, response: `${item.response ?? ''}${text}` } : item,
+    );
+}
+
+function setPromptCardElement(promptId: string, element: unknown) {
+    promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
+}
+
+function scrollToPromptStart(promptId: string) {
+    const element = promptCardElements.value[promptId];
+    if (!element) return;
+
+    const stickyHeaderOffset = 112;
+    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
+
+    window.scrollTo({ top, behavior: 'smooth' });
+}
+
+function commitStreamedPrompt(
+    streamingPromptId: string,
+    sourcePromptId: string,
+    sourcePromptValue: string,
+    responsePrompt: PromptInterface,
+) {
+    localPrompts.value = localPrompts.value
+        .map((item) => (item.id === sourcePromptId ? { ...item, prompt: sourcePromptValue } : item))
+        .filter((item) => item.id !== streamingPromptId);
+
+    localPrompts.value = [...localPrompts.value, responsePrompt];
+}
+
+async function streamPrompt(
+    prompt: string,
+    options: {
+        promptId: string;
+        suggestionIndex?: number;
+        canonicalChoiceId?: string | null;
+        canonicalPathLabel?: 'A' | 'B' | 'C' | null;
+    },
+) {
+    isSubmitting.value = true;
+    isStreamingTurn.value = true;
+    shouldAnimate.value = false;
+
+    const activeStreamingPromptId = `stream-${options.promptId}`;
+    streamingPromptId.value = activeStreamingPromptId;
+    localPrompts.value = [
+        ...localPrompts.value.filter((item) => item.id !== activeStreamingPromptId),
+        {
+            id: activeStreamingPromptId,
+            game_id: props.game.id,
+            session_number: props.game.current_session_number ?? null,
+            prompt: null,
+            response: '',
+            choices: [],
+            created_at: null,
+            updated_at: null,
+        },
+    ];
+
+    try {
+        const route = storePrompt(props.game.id);
+        const response = await fetch(typeof route === 'string' ? route : route.url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/x-ndjson',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': csrfToken(),
+            },
+            body: JSON.stringify({
+                prompt,
+                prompt_id: options.promptId,
+                suggestion_index: options.suggestionIndex,
+                canonical_choice_id: options.canonicalChoiceId ?? null,
+                canonical_path_label: options.canonicalPathLabel ?? null,
+                stream: true,
+            }),
+        });
+
+        if (!response.ok || !response.body) {
+            throw new Error(`Turn stream failed with HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let completed = false;
+        let anchoredToStreamStart = false;
+
+        const handleStreamEvent = (line: string) => {
+            if (!line.trim()) return;
+
+            const event = JSON.parse(line) as {
+                event: 'ready' | 'delta' | 'done' | 'error';
+                text?: string;
+                message?: string;
+                source_prompt_id?: string;
+                source_prompt_value?: string;
+                prompt?: PromptInterface;
+            };
+
+            if (event.event === 'delta' && event.text) {
+                appendToStreamingPrompt(activeStreamingPromptId, event.text);
+                if (!anchoredToStreamStart) {
+                    anchoredToStreamStart = true;
+                    nextTick(() => {
+                        scrollToPromptStart(activeStreamingPromptId);
+                    });
+                }
+            }
+
+            if (event.event === 'done' && event.prompt) {
+                commitStreamedPrompt(
+                    activeStreamingPromptId,
+                    event.source_prompt_id ?? options.promptId,
+                    event.source_prompt_value ?? prompt,
+                    event.prompt,
+                );
+                completed = true;
+                isSubmitting.value = false;
+                isStreamingTurn.value = false;
+                streamingPromptId.value = null;
+                pendingSelection.value = {};
+                router.reload({ only: ['game'] });
+            }
+
+            if (event.event === 'error') {
+                throw new Error(event.message ?? 'Narration hiccuped');
+            }
+        };
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+                buffer += decoder.decode();
+                break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                handleStreamEvent(line);
+            }
+        }
+
+        if (buffer.trim()) {
+            handleStreamEvent(buffer);
+        }
+
+        if (!completed) {
+            throw new Error('Turn stream ended before choices were committed.');
+        }
+    } catch {
+        isSubmitting.value = false;
+        isStreamingTurn.value = false;
+        streamingPromptId.value = null;
+        pendingSelection.value = {};
+        localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+        router.reload({ only: ['game'] });
+    }
+}
 
 async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
     const started = Date.now();
@@ -293,7 +469,6 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         await new Promise<void>((resolve) => {
             router.reload({
                 only: ['game'],
-                preserveScroll: true,
                 onFinish: () => resolve(),
             });
         });
@@ -357,7 +532,6 @@ async function pollForTurnCompletion(sourcePromptId: string) {
         await new Promise<void>((resolve) => {
             router.reload({
                 only: ['game'],
-                preserveScroll: true,
                 onFinish: () => resolve(),
             });
         });
@@ -483,6 +657,7 @@ onUnmounted(() => {
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
+        :latest-prompt-id="latestPromptId"
         :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"
         :journal-meta="journalMeta"
@@ -510,22 +685,27 @@ onUnmounted(() => {
                 {{ game.turn_error }}
             </p>
 
-            <GameplayChatCard
+            <div
                 v-for="prompt in prompts"
                 :key="prompt.id"
-                :prompt="prompt"
-                :game-id="game.id"
-                :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
-                :pending-choice="pendingSelection[prompt.id]"
-                :is-submitting="isSubmitting"
-                :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
-                :uses-playable-moments="game.uses_playable_moments"
-                :choices-locked="choicesLocked && prompt.id === prompts[prompts.length - 1]?.id"
-                :freeform-locked="freeformLocked && prompt.id === prompts[prompts.length - 1]?.id"
-                @choice-selected="handleChoiceSelected"
-                @continue="handleContinue"
-                @choices-ready="handleChoicesReady"
-            />
+                :ref="(element) => setPromptCardElement(prompt.id, element)"
+            >
+                <GameplayChatCard
+                    :prompt="prompt"
+                    :game-id="game.id"
+                    :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
+                    :pending-choice="pendingSelection[prompt.id]"
+                    :is-submitting="isSubmitting"
+                    :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
+                    :is-streaming-response="prompt.id === streamingPromptId"
+                    :uses-playable-moments="game.uses_playable_moments"
+                    :choices-locked="choicesLocked && prompt.id === prompts[prompts.length - 1]?.id"
+                    :freeform-locked="freeformLocked && prompt.id === prompts[prompts.length - 1]?.id"
+                    @choice-selected="handleChoiceSelected"
+                    @continue="handleContinue"
+                    @choices-ready="handleChoicesReady"
+                />
+            </div>
 
             <!-- Session complete — next chapter or end story -->
             <div v-if="sessionComplete && !isStartingNextSession" class="flex flex-col items-center gap-6 py-12 text-center">
@@ -552,7 +732,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Loading skeleton while AI generates the next response -->
-            <div v-if="isSubmitting" class="py-8">
+            <div v-if="isSubmitting && !hasVisibleStreamedResponse" class="py-8">
                 <div class="flex animate-pulse flex-col gap-4">
                     <div class="h-4 w-full rounded bg-gray-700/50"></div>
                     <div class="h-4 w-5/6 rounded bg-gray-700/50"></div>

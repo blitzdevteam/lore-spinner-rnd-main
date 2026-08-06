@@ -96,7 +96,7 @@ function openSheet(card: ComingSoonCard) {
                     :href="storiesIndex().url"
                 />
 
-                <div class="story-slider-viewport story-slider-viewport--portrait relative overflow-visible">
+                <div class="story-slider-viewport story-slider-viewport--portrait coming-soon-slider-viewport relative overflow-visible">
                     <div class="story-slider-row">
                         <button
                             type="button"
@@ -118,8 +118,10 @@ function openSheet(card: ComingSoonCard) {
                                         :expanded="isExpanded(card.id)"
                                         :dimmed="isDimmed(card.id)"
                                         :desktop-expand="isDesktopHover"
+                                        class="cursor-pointer"
                                         @mouseenter="isDesktopHover && onCardEnter(card.id)"
                                         @mouseleave="isDesktopHover && onCardLeave()"
+                                        @click="openSheet(card)"
                                     >
                                         <HomePortraitStoryCard
                                             :title="card.title"
@@ -163,5 +165,24 @@ function openSheet(card: ComingSoonCard) {
         </div>
     </section>
 
-    <StoryDetailsSheet v-if="!isDesktopHover" :story="sheetStory" @close="sheetStory = null" />
+    <StoryDetailsSheet :story="sheetStory" @close="sheetStory = null" />
 </template>
+
+<style scoped>
+/* Match the Featured Worlds portrait card size on responsive. */
+.coming-soon-slider-viewport {
+    --story-portrait-card-width: min(11.475rem, 75vw);
+}
+
+@media (min-width: 768px) {
+    .coming-soon-slider-viewport {
+        --story-portrait-card-width: 11.475rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .coming-soon-slider-viewport {
+        --story-portrait-card-width: 166px;
+    }
+}
+</style>

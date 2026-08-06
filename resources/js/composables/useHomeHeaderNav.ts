@@ -22,12 +22,11 @@ export function useHomeHeaderNav() {
     });
 
     const isLibraryActive = computed(() => {
-        const u = pageUrl.value;
-        const p = u.split('?')[0];
-        return p === storiesIndex().url && !u.includes('ref=bookmarks') && !activeMood.value;
+        const p = pageUrl.value.split('?')[0];
+        return p === storiesIndex().url && !activeMood.value;
     });
 
-    const isBookmarksActive = computed(() => pageUrl.value.includes('ref=bookmarks'));
+    const isAboutUsActive = computed(() => pageUrl.value.split('?')[0] === '/about-us');
 
     const isMoodsActive = computed(() => activeMood.value !== null);
 
@@ -38,11 +37,11 @@ export function useHomeHeaderNav() {
         normalizedActiveMood,
         isHomeActive,
         isLibraryActive,
-        isBookmarksActive,
+        isAboutUsActive,
         isMoodsActive,
         moodLinks,
         homeHref: index().url,
         libraryHref: storiesIndex().url,
-        bookmarksHref: `${storiesIndex().url}?ref=bookmarks`,
+        aboutUsHref: '/about-us',
     };
 }

@@ -37,7 +37,6 @@ defineProps<{
 @media (min-width: 1024px) {
     .story-card-slot--focused {
         z-index: 20;
-        transform: translateY(-8px);
     }
 }
 </style>

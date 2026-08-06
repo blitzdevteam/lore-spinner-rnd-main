@@ -3,7 +3,7 @@ import { StoryRatingEnum, StoryStatusEnum } from '@/types/enum';
 
 const draft = {
     status: { value: StoryStatusEnum.DRAFT, label: 'Draft' } as const,
-    rating: { value: StoryRatingEnum.EVERYONE, label: 'Everyone (All Ages)' } as const,
+    rating: { value: StoryRatingEnum.EVERYONE, label: 'Everyone' } as const,
     opening: null,
     published_at: null,
     cover: '',

@@ -28,9 +28,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{ preview: [] }>();
 
-const storyUrl = computed(() =>
-    props.playable && props.slug ? storyShow(props.slug).url : undefined,
-);
+const storyUrl = computed(() => (props.playable && props.slug ? storyShow(props.slug).url : undefined));
 
 const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
 
@@ -85,11 +83,7 @@ function onImageError(): void {
                     <p class="hb-card__title">{{ title }}</p>
                 </div>
 
-                <div
-                    v-if="expandOnHover"
-                    class="hb-card__reveal"
-                    :class="focused && 'hb-card__reveal--open'"
-                >
+                <div v-if="expandOnHover" class="hb-card__reveal" :class="focused && 'hb-card__reveal--open'">
                     <div class="hb-card__reveal-inner">
                         <div v-if="themes.length" class="hb-card__themes">
                             <template v-for="(theme, i) in themes" :key="theme">
@@ -101,10 +95,7 @@ function onImageError(): void {
                     </div>
                 </div>
 
-                <div
-                    class="hb-card__cta"
-                    :class="playable ? 'hb-card__cta--active' : 'hb-card__cta--disabled'"
-                >
+                <div class="hb-card__cta" :class="playable ? 'hb-card__cta--active' : 'hb-card__cta--disabled'">
                     {{ ctaLabel }}
                 </div>
             </div>
@@ -188,8 +179,7 @@ function onImageError(): void {
     flex: 1;
     flex-direction: column;
     gap: var(--story-card-body-gap);
-    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x)
-        calc(var(--story-card-body-pad-y) + 0.125rem);
+    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x) calc(var(--story-card-body-pad-y) + 0.125rem);
     min-height: 0;
 }
 
@@ -268,6 +258,7 @@ function onImageError(): void {
 
 .hb-card__cta {
     display: flex;
+    box-sizing: border-box;
     height: var(--story-card-btn-height);
     width: 100%;
     flex-shrink: 0;
@@ -281,17 +272,24 @@ function onImageError(): void {
 }
 
 .hb-card__cta--active {
-    background: var(--story-card-btn-bg);
+    border: 0.5px solid #59c1ca;
+    background: #0e1f22;
     color: var(--story-card-btn-text);
-    transition: background 180ms ease;
+    transition:
+        border-color 180ms ease,
+        background-color 180ms ease,
+        transform 180ms ease;
 }
 
 .hb-card__cta--active:hover {
-    background: var(--story-card-btn-bg-hover);
+    border-color: #8fcbd3;
+    background: #163f46;
+    transform: translateY(-1px);
 }
 
 .hb-card__cta--active:active {
     background: var(--story-card-btn-bg-active);
+    transform: translateY(0);
 }
 
 .hb-card__cta--disabled {
