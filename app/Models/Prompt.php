@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property bool|null $exit_condition_met
  * @property string|null $moment_result
  * @property string|null $moment_footnote
+ * @property string|null $route_relation
+ * @property string|null $impact_scope
  * @property string $response
  * @property array $choices
  * @property string|null $prompt

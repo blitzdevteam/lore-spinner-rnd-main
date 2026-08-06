@@ -23,7 +23,7 @@ Every card requires:
 - canon that must survive, allowed variance, and forbidden expansions;
 - selected local author-language extracts;
 - only the existing choice IDs bound to that moment;
-- practical per-turn word and soft turn budgets;
+- practical per-turn word and soft turn budgets, where `word_budget.target_per_turn` and `turn_budget.target_turns` are whole numbers of 1 or more, and `turn_budget.gravity_after` is greater than or equal to `target_turns` because gravity is the point *after* the target where the runtime begins pushing toward the exit;
 - an outcome-based semantic exit condition;
 - a natural bridge and sequential next-moment reference.
 

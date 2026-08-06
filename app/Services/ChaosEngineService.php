@@ -62,6 +62,21 @@ final class ChaosEngineService
     /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     public const GAME_TEMPERATURE = 0.6;
 
+    /**
+     * Narrator self-reported relationship between a turn and the active room.
+     * Diagnostic only — progression is still driven solely by exit_condition_met.
+     */
+    private const ROUTE_RELATIONS = ['advanced', 'deepened', 'detoured', 'reconverged'];
+
+    /** Narrator self-reported durability of what a turn changed. */
+    private const IMPACT_SCOPES = ['expressive', 'local', 'persistent'];
+
+    /**
+     * Detour beats granted when the player first steps outside the active room.
+     * A fresh allowance per detour — never consumed by ordinary in-room play.
+     */
+    private const DETOUR_BEAT_ALLOWANCE = 3;
+
     private const COMPLETE_LIST_STATE_FIELDS = ['conditions', 'items', 'unresolved_promises'];
 
     private const KEYED_DELTA_STATE_FIELDS = ['object_states', 'relationship_updates', 'world_flags'];
@@ -210,6 +225,12 @@ TEXT;
      * isSessionStart=false → Section 13 block is replaced with a single continuation
      *                        line so the narrator does not re-open on mid-session turns.
      *
+     * isEpisodeTransition=true → the opening turn of session 2+, where the carried
+     *                        world state, alignment and symbolic memory cross an
+     *                        episode boundary. Tier 3 loads here for the same reason
+     *                        it loads after a climactic turn: the narrator needs the
+     *                        full registry and history to honour what carried over.
+     *
      * @param  array<string, mixed>  $sessionContext
      * @param  array<string, mixed>  $worldState
      * @param  array{chaotic:int, lawful:int, neutral:int}  $alignmentScaffold
@@ -222,6 +243,7 @@ TEXT;
         bool $isSessionStart,
         bool $isClimacticPrevious,
         bool $isClimacticThisTurn = false,
+        bool $isEpisodeTransition = false,
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
@@ -234,23 +256,15 @@ TEXT;
             $alignmentScaffold,
         );
 
-        $stateScopeEvents = (array) ($sessionContext['full_session_events'] ?? []);
-        $activeSourceEventIds = (array) data_get(
-            $sessionContext,
-            'active_moment_context.moment.source_event_ids',
-            [],
-        );
-        if ($activeSourceEventIds !== []) {
-            $stateScopeEvents = array_values(array_filter(
-                $stateScopeEvents,
-                fn (array $event): bool => in_array((int) ($event['id'] ?? 0), $activeSourceEventIds, true),
-            ));
-        }
-
+        // Memory relevance is scoped to the whole session, not the active room.
+        // Script containment is a separate concern, already enforced by the active
+        // moment injection and the Boiler session map — narrowing this haystack to
+        // one scene card only demoted everything the player did earlier in the
+        // session to background, which is the opposite of a world that remembers.
         $worldStateBlock = $this->renderTieredWorldState(
             worldState: $worldState,
-            isClimactic: $isClimacticPrevious,
-            sessionEvents: $stateScopeEvents,
+            isClimactic: $isClimacticPrevious || $isEpisodeTransition,
+            sessionEvents: (array) ($sessionContext['full_session_events'] ?? []),
         );
 
         // On session-start: inject the full opening block into Section 13 via its token.
@@ -268,6 +282,7 @@ TEXT;
             : '';
         $activeMomentBlock = $this->buildActiveMomentBlock(
             $sessionContext['active_moment_context'] ?? null,
+            $isSessionStart,
         );
 
         if ($isSessionStart) {
@@ -1017,6 +1032,12 @@ TEXT;
 
         $authoredOptions = $this->authoredOptionsForMoment($session, (array) data_get($card, 'choice_ids', []));
 
+        // Detour accounting rides along in the per-moment footnote blob, so it
+        // resets naturally whenever the pointer moves to a new room. Detour
+        // allowance is deliberately independent of turn_count: engaging deeply
+        // with a room must never cost the player the right to improvise later.
+        $detourBeatsUsed = max(0, (int) ($footnote['detour_beats_used'] ?? 0));
+
         return [
             'moment' => $card,
             'moment_key' => $moment->moment_key,
@@ -1030,6 +1051,8 @@ TEXT;
             'authored_options' => $authoredOptions,
             'treasure_insight' => $footnote['text'] ?? null,
             'next_moment_preview' => $preview,
+            'detour_beats_used' => $detourBeatsUsed,
+            'detour_beats_remaining' => max(0, self::DETOUR_BEAT_ALLOWANCE - $detourBeatsUsed),
         ];
     }
 
@@ -1084,7 +1107,7 @@ TEXT;
     /**
      * @param  array<string, mixed>|null  $context
      */
-    private function buildActiveMomentBlock(?array $context): string
+    private function buildActiveMomentBlock(?array $context, bool $isSessionStart = false): string
     {
         if ($context === null) {
             return '';
@@ -1103,26 +1126,43 @@ TEXT;
         $nextBridge = mb_trim((string) ($context['next_bridge'] ?? ''));
         $authoredOptions = (array) ($context['authored_options'] ?? []);
 
+        $detourRemaining = (int) ($context['detour_beats_remaining'] ?? self::DETOUR_BEAT_ALLOWANCE);
+        $detourUsed = (int) ($context['detour_beats_used'] ?? 0);
+
         $lines = [
-            'ACTIVE PLAYABLE MOMENT (the only room you may perform now):',
+            'ACTIVE PLAYABLE MOMENT (where this session\'s pressure lives right now):',
             "Current moment: {$momentKey}",
             "Completed turns in this moment: {$turnCount}",
             "Target turns: {$targetTurns}",
             "Gravity begins: {$gravityAfter}",
             "Pacing state: {$pacingState}",
             'REQUIRED moment_progress.moment_key (exact string): '.$momentKey,
-            'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, and after player input a non-empty moment_footnote ≤30 words).',
+            'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, honest route_relation and impact_scope, and after player input a non-empty moment_footnote ≤30 words).',
         ];
 
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic — outcomes, not a checklist): '.$exitCondition;
         }
 
+        $lines[] = implode("\n", array_filter([
+            'WHERE THE PLAYER MAY GO:',
+            '- Inside this room: full play. Inspect, talk, act, push, escalate.',
+            '- Outside this room: permitted. If the player reaches past the card, follow them rather than blocking them. Each such beat must cost or reveal something real, and what happens there is committed history.',
+            '- Never permitted: the canon walls below, and the walls in the Freedom Contract.',
+            "Detour beats spent since the player was last on-spine: {$detourUsed}. Comfortable room to follow them further: {$detourRemaining}.",
+            $detourRemaining > 0
+                ? 'You have room to follow. Let the detour matter, then let the world — not an instruction — draw the story back toward this room\'s pressure.'
+                : 'You have followed this thread a while. Bring the story back now through the world\'s own logic: someone acts, something arrives, a cost comes due. Honour what the player did; do not undo it, and do not narrate the redirection as a rule.',
+        ]));
+
         if ($forbidden !== []) {
-            $lines[] = 'STORYGUARD — FORBIDDEN EXPANSIONS (do not do these):';
-            foreach ($forbidden as $rule) {
-                $lines[] = '- '.$rule;
-            }
+            $lines[] = implode("\n", [
+                'STORYGUARD BOUNDARIES FOR THIS ROOM:',
+                'Two different kinds live in this list — read each one and treat it accordingly.',
+                '- If it names a truth of the world or a character (what is real, what someone would never do, what cannot happen): that is a wall. Never cross it.',
+                '- If it names material that belongs to a LATER room (a scene, reveal, or confrontation not yet due): that is staging, not truth. You may let it be referenced, feared, foreshadowed, or attempted and fail forward — you simply may not stage it as a scene here.',
+                ...array_map(static fn (string $rule): string => '- '.$rule, $forbidden),
+            ]);
         }
 
         if ($nextBridge !== '') {
@@ -1136,20 +1176,39 @@ TEXT;
 
         if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {
             $lines[] = implode("\n", [
-                'PACING DIRECTIVE — DECISIVE PROGRESSION NOW:',
-                'You must now create decisive forward movement.',
-                'Respond to the player, resolve or transform this moment\'s remaining dramatic purpose, and progress toward the next moment.',
+                'PACING DIRECTIVE — THE WORLD STARTS PULLING:',
+                'Answer the player fully first; this is never a reason to cut them short.',
+                'Then make standing still expensive. Time moves, someone decides something, evidence shifts or degrades, a voice or a body arrives, a window begins to close.',
+                'Make the next step the most attractive thing in the scene rather than announcing that it is time to move on. The pull belongs to the world — never phrase it as an instruction to the player.',
                 'If the exit condition is now semantically satisfied, return exit_condition_met=true and use next_bridge to transition.',
-                'Do not repeat established material or remain in this room without a new consequence.',
+                'Do not repeat established material or hold this room without a new consequence.',
             ]);
         }
 
-        $lines[] = 'FULL SCENE CARD (reference):';
-        $lines[] = json_encode($context['moment'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
-        $lines[] = 'HIDDEN TREASURE INSIGHT / PRIOR FOOTNOTE (never quote or expose): '
-            .(($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)');
-        $lines[] = 'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):';
-        $lines[] = json_encode($context['next_moment_preview'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null';
+        // On the session-start turn the authored cold open is the opening prose, and it is
+        // delivered verbatim. The card's own opening image and verbatim source extracts are a
+        // second, competing opening for the same beat — leaving them visible is what let the
+        // narrator open on the source's first line instead of the authored one. Everything
+        // else on the card (exit condition, budgets, canon walls, affordances) still applies.
+        $sceneCard = (array) ($context['moment'] ?? []);
+        if ($isSessionStart) {
+            unset($sceneCard['opening_image'], $sceneCard['source_extracts']);
+        }
+
+        $lines[] = $isSessionStart
+            ? 'FULL SCENE CARD (reference — opening_image and source_extracts withheld this turn; the authored cold open in Section 13 is the opening prose):'
+            : 'FULL SCENE CARD (reference):';
+        $lines[] = json_encode($sceneCard, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+        $lines[] = implode("\n", [
+            'READ OF THE PLAYER, CARRIED FORWARD FROM THE LAST TURN (private — never quote, expose, or confirm):',
+            ($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)',
+            'This is your brief on what would land hardest on this specific person right now. Aim this response at it: choose the image, the pressure, the character reaction, and the silence that answer what they were reaching for. Let them feel recognised without ever being told they were read.',
+        ]);
+        $lines[] = implode("\n", [
+            'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
+            json_encode($context['next_moment_preview'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null',
+            'Its pressure and canon are fixed. How it OPENS is not — let it open on the state this player has actually created: what they broke, said, learned, refused, or made someone believe.',
+        ]);
 
         return implode("\n\n", $lines);
     }
@@ -1233,12 +1292,15 @@ TEXT;
         if ($choice !== null) {
             $lines[] = '';
             $lines[] = 'SESSION-END CHOICE — present these three options:';
-            $lines[] = 'Q: '.($choice['choice_question'] ?? '');
+            $lines[] = 'What it asks (design intent, never spoken to the player): '.($choice['choice_question'] ?? '');
             foreach (['option_a', 'option_b', 'option_c'] as $opt) {
                 if (! empty($choice[$opt]['text'])) {
                     $lines[] = '  '.mb_strtoupper(str_replace('_', ' ', $opt)).': '.$choice[$opt]['text'];
                 }
             }
+            $lines[] = '';
+            $lines[] = 'Offer these same three options as your visible_suggestions this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen — so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
+
             if (! empty($choice['final_line'])) {
                 $lines[] = '';
                 $lines[] = 'FINAL LINE (last words of this session): '.$choice['final_line'];
@@ -1273,22 +1335,46 @@ TEXT;
 
         // Sessions 2+: prepend the continuity handoff from the previous session close.
         if ($sessionNumber > 1 && $openingHandoff !== '') {
-            $lines[] = 'SESSION HANDOFF (what the previous session left behind):';
+            $lines[] = 'SESSION HANDOFF (what the previous session left behind — context you must honour, NOT text to recite):';
             $lines[] = $openingHandoff;
+            $lines[] = '';
+            $lines[] = 'The authored cold open below still opens this session verbatim. Let the handoff inform what the player already knows and carries; never let it displace, precede, or paraphrase the authored opening prose.';
             $lines[] = '';
         }
 
         // Full Phase 3 authored cold open — always present for every session.
+        //
+        // DELIVERY IS VERBATIM. This mirrors the authored-close contract in Section 16:
+        // the designed first words of a session are protected the same way the designed
+        // last words are. Without this the narrator treats Section 13 as a starting
+        // position and re-composes the opening from the Section 12 source text, which
+        // drops the authored body drop-in and the in-prose identity reveal.
         if ($coldOpen !== '') {
-            $lines[] = 'COLD OPEN — begin here, not before:';
+            $lines[] = 'AUTHORED COLD OPEN — DELIVER THIS TEXT VERBATIM AS YOUR OPENING PROSE:';
             $lines[] = $coldOpen;
+            $lines[] = '';
+            $lines[] = implode("\n", [
+                'COLD OPEN DELIVERY CONTRACT (this turn only):',
+                '- Reproduce the text above word for word as the opening prose of this response. Do not rewrite, re-order, paraphrase, trim, expand, or "improve" it.',
+                '- It is already written in the author\'s voice and already carries the designed opening formulas: the player lands inside their own body in the first sentence, the protagonist\'s identity arrives in the prose at a moment of weight, it runs in second-person present tense, and it ends on the first real choice. Any rewrite breaks at least one of these.',
+                '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
+                '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
+                '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE — rhythm, diction, compression — and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
+                '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions — those carry the handoff, not a question.',
+                '- SINGLE EXCEPTION to reproducing the text word for word: if the authored cold open ends with a question aimed at the player ("How do you go down to meet her?", "What do you do?"), drop that final question and end on the image or action immediately before it. Everything else above is still reproduced exactly. Never add a closing question of your own.',
+                '- The only text you may add is what is required to satisfy this turn\'s structured output contract (choices/suggestions and progress fields).',
+            ]);
         }
 
         // FIRST-3-MINUTES OPENING PROTOCOL — injected on session-start turn 1 only.
         // Present in V2.2 Section 13 as static template text; restored here as a runtime
         // injection so no re-assembly is needed and the clock never leaks to later turns.
+        //
+        // Scoped to AFTER the authored cold open: the "under 30 words" clause was being
+        // read as licence to compress the 120-180 word authored open printed directly
+        // above it. The clock governs what follows the open, never the open itself.
         $lines[] = '';
-        $lines[] = 'FIRST-3-MINUTES OPENING PROTOCOL (turn 1 only — not every turn): On this opening turn and the first few tiered responses at session start, deliver the beat-map opening sequence: location and situation in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
+        $lines[] = 'FIRST-3-MINUTES PROTOCOL (applies to the turns AFTER the authored cold open — never to the cold open itself, which is delivered verbatim at its authored length): once the opening has landed, keep the first few tiered responses tight — situation established in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
 
         // Emotional promise — the engagement hook for this session.
         if ($emotionalPromise !== '') {
@@ -1327,6 +1413,7 @@ TEXT;
             $result['moment_progress'] = [
                 'moment_key' => (string) ($progress['moment_key'] ?? ''),
                 'exit_condition_met' => false,
+                ...$this->normalizeRouteFields($progress),
                 'moment_footnote' => $isOpening
                     ? null
                     : (is_string($rawFootnote) && mb_trim($rawFootnote) !== '' ? $rawFootnote : null),
@@ -1355,6 +1442,7 @@ TEXT;
                 // Never trust an exit judgment that was attached to the wrong room
                 // or an incomplete object — hold the player in the active moment.
                 'exit_condition_met' => false,
+                ...$this->normalizeRouteFields(is_array($progress) ? $progress : []),
                 'moment_footnote' => $footnote,
             ];
             $progress = $result['moment_progress'];
@@ -1388,8 +1476,19 @@ TEXT;
             ]);
         }
 
+        // Route/impact are observability signals, never progression gates. Normalize
+        // them so a loose value degrades to "unknown" instead of poisoning metrics.
+        $result['moment_progress'] = [
+            ...$result['moment_progress'],
+            ...$this->normalizeRouteFields($result['moment_progress']),
+        ];
+        $progress = $result['moment_progress'];
+
         $footnote = $progress['moment_footnote'] ?? null;
         if ($isOpening) {
+            $result['moment_progress']['route_relation'] = '';
+            $result['moment_progress']['impact_scope'] = '';
+
             if ($progress['exit_condition_met'] !== false || $footnote !== null) {
                 $result['moment_progress']['exit_condition_met'] = false;
                 $result['moment_progress']['moment_footnote'] = null;
@@ -1409,6 +1508,27 @@ TEXT;
                 'game_id' => $game->id,
             ]);
         }
+    }
+
+    /**
+     * Normalize the narrator's self-reported route/impact signals.
+     *
+     * These are diagnostic only — they never gate progression. An unrecognized
+     * value degrades to an empty string ("unknown") rather than being coerced
+     * into a wrong label, so drift metrics stay honest.
+     *
+     * @param  array<string, mixed>  $progress
+     * @return array{route_relation:string, impact_scope:string}
+     */
+    private function normalizeRouteFields(array $progress): array
+    {
+        $route = mb_strtolower(mb_trim((string) ($progress['route_relation'] ?? '')));
+        $impact = mb_strtolower(mb_trim((string) ($progress['impact_scope'] ?? '')));
+
+        return [
+            'route_relation' => in_array($route, self::ROUTE_RELATIONS, true) ? $route : '',
+            'impact_scope' => in_array($impact, self::IMPACT_SCOPES, true) ? $impact : '',
+        ];
     }
 
     // -------------------------------------------------------------------------
@@ -1542,9 +1662,9 @@ TEXT;
         $lines[] = 'Object states: '.$this->joinList($object);
         $lines[] = 'Relationships: '.$this->joinList($relationships);
         $lines[] = 'World flags: '.$this->joinList($flags);
-        $lines[] = 'Other carried object states: '.$this->joinList($dormantObjects);
-        $lines[] = 'Other carried relationships: '.$this->joinList($dormantRelationships);
-        $lines[] = 'Other carried world flags: '.$this->joinList($dormantFlags);
+        $lines[] = 'Carried, not yet paid off — callback material, still true (object states): '.$this->joinList($dormantObjects);
+        $lines[] = 'Carried, not yet paid off — callback material, still true (relationships): '.$this->joinList($dormantRelationships);
+        $lines[] = 'Carried, not yet paid off — callback material, still true (world flags): '.$this->joinList($dormantFlags);
         $lines[] = 'Unresolved promises: '.$this->joinList($promises);
         $lines[] = 'Recent emotional ledger: '.$this->joinList($ledgerLines);
 
@@ -1562,7 +1682,7 @@ TEXT;
             array_filter($ledger, static fn ($e) => is_array($e)),
         );
 
-        $lines = ['PERSISTENT STATE — TIER 3 (climactic load — previous turn resolved a moral-weight or session-end choice):'];
+        $lines = ['PERSISTENT STATE — TIER 3 (full load — an episode boundary, or the previous turn resolved a moral-weight or session-end choice):'];
         $lines[] = 'All object states: '.$this->joinList((array) ($w['object_states'] ?? []));
         $lines[] = 'All relationships: '.$this->joinList((array) ($w['relationship_updates'] ?? []));
         $lines[] = 'All world flags: '.$this->joinList((array) ($w['world_flags'] ?? []));
@@ -1726,11 +1846,40 @@ TEXT;
 
     private function normalizeOpeningScene(mixed $value): string
     {
-        $text = mb_trim((string) $value);
+        $text = $this->stripAuthoringMarkers(mb_trim((string) $value));
 
         return in_array(mb_strtolower($text), ['n/a', 'na', 'none', 'null', '(none)'], true)
             ? ''
             : $text;
+    }
+
+    /**
+     * Strip Phase 3 authoring scaffolding from authored opening prose.
+     *
+     * The Phase 3 OUTPUT blocks are fenced with banner lines ("=== COLD OPEN: Title |
+     * Session 1 ===" ... "=== CUT POINT === hands to ..."), and the agent sometimes
+     * copies them into the prose field alongside the prose. Harmless while the narrator
+     * paraphrased the slot; player-visible now that the cold open is delivered verbatim.
+     *
+     * Everything from a CUT POINT banner onward is pipeline metadata addressed to the
+     * next phase, never player-facing, so it is dropped along with the banner.
+     */
+    private function stripAuthoringMarkers(string $text): string
+    {
+        if (! str_contains($text, '==')) {
+            return $text;
+        }
+
+        // Drop the CUT POINT banner and everything after it.
+        $text = (string) preg_replace('/^[ \t]*={2,}[ \t]*CUT POINT\b.*$/imsu', '', $text);
+
+        // Drop remaining full-line banners ("=== COLD OPEN: ... ===").
+        $text = (string) preg_replace('/^[ \t]*={2,}.*?={2,}[ \t]*$/mu', '', $text);
+
+        // Collapse the blank lines the removals leave behind.
+        $text = (string) preg_replace("/\n{3,}/u", "\n\n", $text);
+
+        return mb_trim($text);
     }
 
     /**

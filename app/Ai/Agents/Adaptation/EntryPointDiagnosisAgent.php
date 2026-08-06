@@ -131,12 +131,19 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                 ->required()
                 ->title('Cold Open')
                 ->description(
-                    'Second-person present tense cold open prose, 120-180 words, in the author\'s voice.' . "\n\n" .
-                    'COMPOSITION — the following fields are already written; copy them into the prose at the right moment, do not rewrite them:' . "\n" .
-                    '• protagonist_introduction.reveal_lines must appear verbatim in the prose at the weight-bearing moment.' . "\n" .
-                    '• first_choice_spec.setup_prose must form the final 2-3 sentences immediately before the question.' . "\n" .
-                    '• first_choice_spec.question must be the exact final sentence, word for word.' . "\n" .
+                    'Second-person present tense cold open prose, 120-180 words, in the author\'s voice. This is the player\'s first impression and it ships to them exactly as written here — it is performed verbatim at runtime, never re-written by the narrator.' . "\n\n" .
+                    'PLAYER-FACING PROSE ONLY. No banner or fence lines (never "=== COLD OPEN: ... ===" or any "===" marker), no title, no session label, no cut-point line, no bracketed placeholders, no editorial notes. The field begins with the first word the player reads and ends with the final question mark of the first choice. The cut point belongs in entry_point.cut_point.' . "\n\n" .
+                    'REQUIRED FORMULAS (all four, no exceptions, every source format):' . "\n" .
+                    '• BODY DROP-IN: the first clause contains you/your and a physical sensation. No date, year, season, clock time, weather, or place name before the player is in their body.' . "\n" .
+                    '• IDENTITY IN NARRATION: the protagonist is named in the narrator\'s own voice addressed to the player ("You are [NAME]..." or an equivalent with the same weight), at a moment of pressure. A character speaking the name in dialogue does NOT satisfy this.' . "\n" .
+                    '• SECOND-PERSON PRESENT TENSE throughout. No past-tense narration anywhere.' . "\n" .
+                    '• ENDS ON THE FIRST CHOICE: the final sentence is the choice question. No stakes-summary after it.' . "\n\n" .
+                    'COMPOSITION — the following material is already designed. Place it; do not re-invent it, and do not paraphrase it into something weaker:' . "\n" .
+                    '• protagonist_introduction.reveal_lines carries the identity beat into the prose at the weight-bearing moment.' . "\n" .
+                    '• first_choice_spec.setup_prose forms the final 2-3 sentences immediately before the question.' . "\n" .
+                    '• first_choice_spec.question is the exact final sentence, word for word.' . "\n" .
                     '• Any fact in format_specific_cut.must_reintroduce marked COLD OPEN must be woven into the prose as present-pressure or lived-in knowledge — never as backstory narration.' . "\n\n" .
+                    'You MAY adjust connective wording where these pieces join, and you MUST do so when placing them side by side would repeat a sentence or an image. The cold open is one continuous piece of prose, not three pasted fragments. Before finalizing, re-read the draft for any sentence or clause that appears twice and merge it — a 120-180 word opening cannot afford to say anything a second time.' . "\n\n" .
                     'Sensory grounding within the first 50 words.'
                 ),
 

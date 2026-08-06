@@ -19,12 +19,16 @@ use RuntimeException;
  * template at `ai.agents.chaos.runtime-narrator-template` into a single
  * string cached on `session_adaptations.runtime_narrator_prompt`.
  *
- * V2.3 size behaviour (warn-not-fail):
- *   - Compression cascade runs first/last/titles × full/drop-quotes (6 passes).
+ * Size behaviour (warn-not-fail):
+ *   - The cap is set high enough that authored guidance is expected to survive
+ *     intact. Compression is a last resort, not part of normal operation.
+ *   - Event bodies, voice guard and story guard are never compressed. Only two
+ *     things degrade, in this order: authored per-path detail (which has a
+ *     runtime equivalent for the resolved path), then voice example quotes.
  *   - If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
  *   - If no pass fits, the most-compressed version is returned anyway with a
  *     warning logged — adaptation is NEVER blocked by prompt size.
- *   - WARN_MARGIN_CHARS triggers an early warning when within ~15k of the cap.
+ *   - WARN_MARGIN_CHARS triggers an early warning when within 15k of the cap.
  *
  * V2.3 anchor / token checks (warn-not-fail):
  *   - Missing voice_anchor / anchor_card / runtime_self_check → warning logged,
@@ -39,18 +43,144 @@ use RuntimeException;
 final class RuntimeNarratorTemplateBuilder
 {
     /**
-     * Target cap for the cached runtime narrator prompt (D8 v2 — 65 k chars).
+     * Ceiling for the cached runtime narrator prompt, ~48k tokens.
+     *
+     * Sized so a large authored cut keeps its full voice guard, story guard and
+     * per-path authored detail rather than compressing any of it away — losing
+     * that guidance costs more than the tokens do. Narration runs on a 200k
+     * context model, so this leaves ample room for history and world state.
+     *
      * Prompts over this cap are logged as warnings but still persisted.
      */
-    public const MAX_PROMPT_CHARS = 128_000;
+    public const MAX_PROMPT_CHARS = 192_000;
 
     /**
-     * Early-warning threshold — ~15k below the cap.
-     * Prompts between this value and MAX_PROMPT_CHARS get a near-cap log entry.
+     * Early-warning threshold — 15k below the cap. Prompts between this value
+     * and MAX_PROMPT_CHARS get a near-cap log entry, which is the signal that a
+     * session is approaching the point where detail would start degrading.
      */
-    public const WARN_MARGIN_CHARS = 50_000;
+    public const WARN_MARGIN_CHARS = self::MAX_PROMPT_CHARS - 15_000;
+
+    /**
+     * Detail levels for the authored per-path blocks (freeform manifest and
+     * consequence visibility), most to least detailed. Sessions with a large
+     * authored cut shed this detail to stay under the cap.
+     */
+    private const AUTHORED_DETAIL_LEVELS = ['full', 'compact', 'none'];
 
     public function __construct(private SessionEventLoader $eventLoader) {}
+
+    /**
+     * Soften [BRACKETED_TOKENS] in authored prose that gets rendered into the
+     * prompt verbatim. The runtime validator rejects unknown control tokens, so
+     * an incidental bracket in generated guidance must never block assembly.
+     *
+     * @param  array<mixed>  $value
+     * @return array<mixed>
+     */
+    private static function withoutBracketTokens(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = self::withoutBracketTokens($item);
+            } elseif (is_string($item)) {
+                $value[$key] = preg_replace('/\[([A-Z][A-Z0-9_]*)\]/', '($1)', $item) ?? $item;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Project the authored freeform manifest down to the detail level that fits.
+     *
+     * `full` is the expected level and loses nothing the author wrote. `compact`
+     * keeps the spirit, the freeform that belongs at each path, and the fold-back
+     * moves, dropping only the two fields that
+     * ChaosEngineService::buildConsequenceEchoBlock() re-injects at runtime for
+     * the path the player actually resolved. `none` omits the manifest entirely;
+     * the hardcoded Freedom Contract still governs, only per-path detail is lost.
+     *
+     * @param  array<int, array<string, mixed>>  $guidelines
+     * @return array<int, array<string, mixed>>
+     */
+    private function projectFreeformGuidelines(array $guidelines, string $level): array
+    {
+        if ($level === 'none') {
+            return [];
+        }
+
+        return array_values(array_map(static function (array $g) use ($level): array {
+            $projected = [
+                'choice_id' => $g['choice_id'] ?? '',
+                'path_label' => $g['path_label'] ?? '',
+                'spirit' => $g['spirit'] ?? '',
+                'freeform_alignment_input' => $g['freeform_alignment_input'] ?? '',
+                'fold_back_acknowledge' => $g['fold_back_acknowledge'] ?? '',
+                'fold_back_redirect' => $g['fold_back_redirect'] ?? '',
+                'fold_back_arrive_at' => $g['fold_back_arrive_at'] ?? '',
+            ];
+
+            if ($level === 'full') {
+                $projected['narrator_behavior'] = $g['narrator_behavior'] ?? '';
+                $projected['hard_limits'] = (array) ($g['hard_limits'] ?? []);
+            }
+
+            return $projected;
+        }, array_filter($guidelines, 'is_array')));
+    }
+
+    /**
+     * Project consequence visibility down to the detail level that fits.
+     *
+     * `current_session_echo` is kept at `full` and dropped from `compact`, where
+     * the runtime consequence echo block still carries it for the resolved path.
+     *
+     * @param  array<int, array<string, mixed>>  $branchingConsequences
+     * @return array<int, array<string, mixed>>
+     */
+    private function projectConsequenceVisibility(array $branchingConsequences, string $level): array
+    {
+        if ($level === 'none') {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_filter($branchingConsequences, 'is_array') as $consequence) {
+            $paths = [];
+            foreach (array_filter((array) ($consequence['paths'] ?? []), 'is_array') as $path) {
+                $visibility = (array) ($path['consequence_visibility'] ?? []);
+                $whatChanges = (string) ($visibility['what_changes'] ?? '');
+                if ($whatChanges === '') {
+                    continue;
+                }
+
+                $projectedVisibility = [
+                    'what_changes' => $whatChanges,
+                    'when_visible_target_responses' => $visibility['when_visible_target_responses'] ?? 2,
+                    'when_visible_max_responses' => $visibility['when_visible_max_responses'] ?? 3,
+                ];
+                if ($level === 'full') {
+                    $projectedVisibility['how_player_sees_it'] = $visibility['how_player_sees_it'] ?? '';
+                }
+
+                $paths[] = [
+                    'label' => $path['label'] ?? '',
+                    'current_session_echo' => $level === 'full' ? ($path['current_session_echo'] ?? '') : '',
+                    'consequence_visibility' => $projectedVisibility,
+                ];
+            }
+
+            if ($paths !== []) {
+                $out[] = [
+                    'choice_id' => $consequence['choice_id'] ?? '',
+                    'paths' => $paths,
+                ];
+            }
+        }
+
+        return $out;
+    }
 
     /**
      * Build the cached runtime narrator prompt for a given session adaptation.
@@ -59,9 +189,10 @@ final class RuntimeNarratorTemplateBuilder
      * missing anchor fields. Issues are logged as warnings so they are visible
      * without stopping the pipeline.
      *
-     * Compression cascade (D8 v2 priority — 6 passes):
-     *   full × full → compressed_source × full → titles_only × full
-     *   full × drop_quotes → compressed_source × drop_quotes → titles_only × drop_quotes
+     * Compression cascade, least to most lossy — source events are never
+     * compressed, so the only live dimensions are authored detail and voice
+     * quotes:
+     *   authored full → compact → none, then the same three with quotes dropped.
      *
      * If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
      * If all passes exceed the cap the most-compressed version is returned with
@@ -124,29 +255,34 @@ final class RuntimeNarratorTemplateBuilder
         ];
 
         $lastRendered    = '';
-        $lastCompression = 'full+full';
+        $lastCompression = 'full+full+full';
 
         foreach ($compressionAttempts as $sourceMode => $sourceFn) {
             foreach ($voiceCompression as $voiceMode => $voiceFn) {
-                $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut);
-                $charCount       = mb_strlen($rendered);
-                $lastRendered    = $rendered;
-                $lastCompression = "{$sourceMode}+{$voiceMode}";
+                // Authored per-path detail degrades BEFORE voice example quotes:
+                // voice fidelity is the product, and the agency doctrine itself is
+                // hardcoded in the template — only the authored detail is at risk.
+                foreach (self::AUTHORED_DETAIL_LEVELS as $authoredDetail) {
+                    $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut, $authoredDetail);
+                    $charCount       = mb_strlen($rendered);
+                    $lastRendered    = $rendered;
+                    $lastCompression = "{$sourceMode}+{$voiceMode}+authored_{$authoredDetail}";
 
-                if ($charCount <= self::MAX_PROMPT_CHARS) {
-                    if ($charCount >= self::WARN_MARGIN_CHARS) {
-                        \Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
-                            'story_id'       => $story->id,
-                            'session_number' => $session->session_number,
-                            'char_count'     => $charCount,
-                            'cap'            => self::MAX_PROMPT_CHARS,
-                            'compression'    => $lastCompression,
-                            'headroom'       => self::MAX_PROMPT_CHARS - $charCount,
-                        ]);
+                    if ($charCount <= self::MAX_PROMPT_CHARS) {
+                        if ($charCount >= self::WARN_MARGIN_CHARS) {
+                            \Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
+                                'story_id'       => $story->id,
+                                'session_number' => $session->session_number,
+                                'char_count'     => $charCount,
+                                'cap'            => self::MAX_PROMPT_CHARS,
+                                'compression'    => $lastCompression,
+                                'headroom'       => self::MAX_PROMPT_CHARS - $charCount,
+                            ]);
+                        }
+                        $this->warnIfPromptHasIssues($rendered, $story, $session);
+
+                        return $rendered;
                     }
-                    $this->warnIfPromptHasIssues($rendered, $story, $session);
-
-                    return $rendered;
                 }
             }
         }
@@ -230,6 +366,7 @@ final class RuntimeNarratorTemplateBuilder
         array $sessionEvents,
         array $voiceProfile,
         ?PlayableSessionCut $cut,
+        string $authoredDetail = 'full',
     ): string
     {
         $adaptation = $session->storyAdaptation;
@@ -302,8 +439,18 @@ final class RuntimeNarratorTemplateBuilder
             'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
             'postureShifts' => (array) ($choiceDesign['posture_shifts'] ?? []),
 
-            'consequenceMaps' => (array) ($consequenceMap['branching_consequences'] ?? []),
-            'freeformGuidelines' => (array) ($consequenceMap['freeform_guidelines'] ?? []),
+            'consequenceMaps' => self::withoutBracketTokens(
+                $this->projectConsequenceVisibility(
+                    (array) ($consequenceMap['branching_consequences'] ?? []),
+                    $authoredDetail,
+                )
+            ),
+            'freeformGuidelines' => self::withoutBracketTokens(
+                $this->projectFreeformGuidelines(
+                    (array) ($consequenceMap['freeform_guidelines'] ?? []),
+                    $authoredDetail,
+                )
+            ),
 
             'editorialStatus' => (string) (
                 data_get($session->editorial_verification, 'final_verdict.production_status')

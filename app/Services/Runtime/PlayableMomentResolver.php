@@ -16,6 +16,12 @@ use RuntimeException;
 
 final class PlayableMomentResolver
 {
+    /**
+     * How many consecutive turns the narrator may declare the session finished on
+     * the final room before the authored ending gate stops holding the player.
+     */
+    private const ENDING_BLOCK_TOLERANCE = 3;
+
     public function __construct(private ChaosEngineService $engine) {}
 
     public function initializeForSession(Game $game, SessionAdaptation $session): void
@@ -124,9 +130,13 @@ final class PlayableMomentResolver
                 $hadProgressObject = is_array($progress);
                 $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
                 $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
+                $rawRoute = $hadProgressObject ? (string) ($progress['route_relation'] ?? '') : '';
+                $rawImpact = $hadProgressObject ? (string) ($progress['impact_scope'] ?? '') : '';
                 $progress = [
                     'moment_key' => $currentMoment->moment_key,
                     'exit_condition_met' => false,
+                    'route_relation' => $rawRoute,
+                    'impact_scope' => $rawImpact,
                     'moment_footnote' => $footnote,
                 ];
                 $result['moment_progress'] = $progress;
@@ -201,17 +211,46 @@ final class PlayableMomentResolver
                 $lockedGame->id,
             );
 
+            $routeRelation = mb_strtolower(mb_trim((string) ($progress['route_relation'] ?? '')));
+            $impactScope = mb_strtolower(mb_trim((string) ($progress['impact_scope'] ?? '')));
+
+            $carried = $this->carriedMomentState($lockedGame, $currentMoment);
+            $detourBeatsUsed = $this->nextDetourBeats(
+                $carried['detour_beats_used'],
+                $routeRelation,
+                $nextMoment !== null,
+            );
+
             $committedChoiceId = $explicitBranch['defining_choice_id']
                 ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
             $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
+            $endingBlockedTurns = $carried['ending_blocked_turns'];
+
             if ($isFinalExit && ! $this->authoredSessionEndingChoiceResolved($currentMoment, $committedChoiceId)) {
-                $isFinalExit = false;
-                Log::channel('narration')->info('boiler.session_complete_blocked_awaiting_ending_choice', [
-                    'game_id' => $lockedGame->id,
-                    'moment_key' => $currentMoment->moment_key,
-                    'committed_choice_id' => $committedChoiceId,
-                    'required_choice_ids' => (array) data_get($currentMoment->scene_card, 'choice_ids', []),
-                ]);
+                $endingBlockedTurns++;
+
+                if ($endingBlockedTurns >= self::ENDING_BLOCK_TOLERANCE) {
+                    // The narrator has called this session finished repeatedly without
+                    // the authored ending choice landing. Holding the player in a room
+                    // that has run out of story is a worse break than accepting a close
+                    // the fiction has already reached.
+                    Log::channel('narration')->warning('boiler.session_complete_released_after_repeated_block', [
+                        'game_id' => $lockedGame->id,
+                        'moment_key' => $currentMoment->moment_key,
+                        'committed_choice_id' => $committedChoiceId,
+                        'blocked_turns' => $endingBlockedTurns,
+                        'required_choice_ids' => (array) data_get($currentMoment->scene_card, 'choice_ids', []),
+                    ]);
+                } else {
+                    $isFinalExit = false;
+                    Log::channel('narration')->info('boiler.session_complete_blocked_awaiting_ending_choice', [
+                        'game_id' => $lockedGame->id,
+                        'moment_key' => $currentMoment->moment_key,
+                        'committed_choice_id' => $committedChoiceId,
+                        'blocked_turns' => $endingBlockedTurns,
+                        'required_choice_ids' => (array) data_get($currentMoment->scene_card, 'choice_ids', []),
+                    ]);
+                }
             }
 
             $momentResult = $isFinalExit
@@ -223,7 +262,9 @@ final class PlayableMomentResolver
                 'world_state' => $worldState,
                 'alignment_scaffold' => $alignment,
                 'symbolic_memory' => $symbolicMemory,
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
+                // A turn that genuinely changed the world earns the full state load next
+                // turn, so the narrator can see what it must now honour.
+                'is_climactic_choice' => (bool) $result['is_climactic_choice'] || $impactScope === 'persistent',
                 'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : $lockedGame->defining_choice_id,
                 'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $lockedGame->defining_path_label,
                 'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $lockedGame->defining_choice_line,
@@ -235,6 +276,8 @@ final class PlayableMomentResolver
                     'moment_key' => $resultingMoment->moment_key,
                     'text' => $footnote !== '' ? $footnote : null,
                     'source_prompt_id' => $lockedSource->id,
+                    'detour_beats_used' => $detourBeatsUsed,
+                    'ending_blocked_turns' => $nextMoment !== null ? 0 : $endingBlockedTurns,
                 ],
                 'current_session_complete' => $isFinalExit,
             ]);
@@ -246,6 +289,8 @@ final class PlayableMomentResolver
                 'exit_condition_met' => (bool) $progress['exit_condition_met'],
                 'moment_result' => $momentResult,
                 'moment_footnote' => $footnote !== '' ? $footnote : null,
+                'route_relation' => $routeRelation !== '' ? $routeRelation : null,
+                'impact_scope' => $impactScope !== '' ? $impactScope : null,
                 'response' => $result['response'],
                 'choices' => $normalizedChoices,
             ]);
@@ -260,10 +305,55 @@ final class PlayableMomentResolver
                 'result' => $momentResult,
                 'next_moment_key' => $nextMoment?->moment_key,
                 'moment_footnote' => $footnote !== '' ? $footnote : null,
+                'route_relation' => $routeRelation,
+                'impact_scope' => $impactScope,
+                'detour_beats_used' => $detourBeatsUsed,
             ]);
 
             return $responsePrompt;
         });
+    }
+
+    /**
+     * Read the counters carried in the per-moment footnote blob.
+     *
+     * The blob is rewritten every turn and keyed by the moment it belongs to, so
+     * both counters reset naturally when the pointer moves to a new room.
+     *
+     * @return array{detour_beats_used:int, ending_blocked_turns:int}
+     */
+    private function carriedMomentState(Game $game, PlayableMoment $currentMoment): array
+    {
+        $carried = (array) ($game->moment_footnote ?? []);
+
+        if (($carried['moment_key'] ?? null) !== $currentMoment->moment_key) {
+            return ['detour_beats_used' => 0, 'ending_blocked_turns' => 0];
+        }
+
+        return [
+            'detour_beats_used' => max(0, (int) ($carried['detour_beats_used'] ?? 0)),
+            'ending_blocked_turns' => max(0, (int) ($carried['ending_blocked_turns'] ?? 0)),
+        ];
+    }
+
+    /**
+     * Detour beats measure distance from the spine, not time spent in a room.
+     *
+     * Staying in the active room to deepen it costs nothing — only stepping away
+     * from it does, and returning to the spine restores the full allowance so a
+     * player is never taxed for having improvised earlier.
+     */
+    private function nextDetourBeats(int $carried, string $routeRelation, bool $pointerAdvanced): int
+    {
+        if ($pointerAdvanced) {
+            return 0;
+        }
+
+        return match ($routeRelation) {
+            'detoured' => $carried + 1,
+            'advanced', 'reconverged' => 0,
+            default => $carried,
+        };
     }
 
     /**

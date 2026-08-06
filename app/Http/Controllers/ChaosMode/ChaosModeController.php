@@ -406,6 +406,7 @@ final class ChaosModeController extends Controller
             symbolicMemory:      $carriedSymbolicMem,
             isSessionStart:      true,
             isClimacticPrevious: false,
+            isEpisodeTransition: true,
         );
 
         try {

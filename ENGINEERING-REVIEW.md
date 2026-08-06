@@ -329,7 +329,7 @@ CI runs `./vendor/bin/pest` on push/PR but **core gameplay and adaptation are un
 
 ### Token cost per turn
 
-- Cached narrator prompts up to **128,000 chars** per session (`RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS`)
+- Cached narrator prompts up to **192,000 chars** per session (`RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS`)
 - `PromptController` sends last **12 turns** of history on every turn
 - No precomputed `runtime_payload` (deferred in PROCESS_LOG)
 

@@ -152,9 +152,26 @@ watch(
 // Subsequent-prompt autoplay is owned by the typewriter-completion watcher in
 // GameplayChatCard.vue — it fires once text is fully generated, same on all platforms.
 
+// Onboarding staging — the first two moves of a game teach the two ways to play,
+// one at a time, before both are offered together.
+//   Move 1: no choice buttons. The only way forward is to speak or type.
+//   Move 2: choice buttons only. The chat bar is disabled.
+//   Move 3+: both, which is the normal game from here on.
+// `prompts` spans every session of this game, so the staging runs once per game
+// and never reappears at a later session boundary.
+const introStage = computed(() => {
+    if (prompts.value.length === 1) return 1;
+    if (prompts.value.length === 2) return 2;
+    return 0;
+});
+
+const choicesLocked = computed(() => introStage.value === 1);
+const freeformLocked = computed(() => introStage.value === 2);
+
 const canSubmitInput = computed(() => {
     if (isSubmitting.value) return false;
     if (sessionComplete.value) return false;
+    if (freeformLocked.value) return false;
     const latest = prompts.value[prompts.value.length - 1];
     return latest && !latest.prompt;
 });
@@ -170,6 +187,7 @@ const isFirstChoiceMoment = computed(() =>
 );
 
 const inputPlaceholder = computed(() => {
+    if (freeformLocked.value) return 'Pick one of the paths above for this move.';
     if (!isFirstChoiceMoment.value) return '';
     return props.game.first_input_hint ?? '';
 });
@@ -635,6 +653,7 @@ onUnmounted(() => {
     <GameplayLayout
         v-else
         :input-disabled="!canSubmitInput"
+        :input-locked-by-design="freeformLocked"
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
@@ -680,6 +699,8 @@ onUnmounted(() => {
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
                     :uses-playable-moments="game.uses_playable_moments"
+                    :choices-locked="choicesLocked && prompt.id === prompts[prompts.length - 1]?.id"
+                    :freeform-locked="freeformLocked && prompt.id === prompts[prompts.length - 1]?.id"
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"

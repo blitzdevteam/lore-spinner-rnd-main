@@ -65,11 +65,14 @@ final class BoilerFinalizeAgent implements Agent, HasStructuredOutput
                 ->description('Exactly all branching_choices and emotional_choices whose moment_key equals this card moment_key; no choices bound elsewhere and no posture shift IDs.')
                 ->items($schema->string()->required()),
             'word_budget' => $schema->object([
-                'target_per_turn' => $schema->integer()->required()->title('Target Words Per Turn'),
+                'target_per_turn' => $schema->integer()->required()->title('Target Words Per Turn')
+                    ->description('Whole number of 1 or more.'),
             ])->required()->withoutAdditionalProperties(),
             'turn_budget' => $schema->object([
-                'target_turns' => $schema->integer()->required()->title('Target Turns'),
-                'gravity_after' => $schema->integer()->required()->title('Gravity After'),
+                'target_turns' => $schema->integer()->required()->title('Target Turns')
+                    ->description('Whole number of 1 or more: how many turns this room should ideally take.'),
+                'gravity_after' => $schema->integer()->required()->title('Gravity After')
+                    ->description('The turn count after which the runtime starts pushing toward the exit. It must be greater than or equal to target_turns, never less; equal means pressure begins the moment the target is reached.'),
             ])->required()->withoutAdditionalProperties(),
             'exit_condition' => $schema->string()->required()->title('Semantic Exit Condition'),
             'next_moment_key' => $schema->string()->required()->title('Next Moment Key')

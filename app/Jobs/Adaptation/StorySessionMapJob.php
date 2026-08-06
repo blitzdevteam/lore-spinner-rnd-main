@@ -246,6 +246,21 @@ final class StorySessionMapJob implements ShouldQueue
                 ->map(fn ($id): int => (int) $id)
                 ->all();
 
+            // Boiler moments consume source events disjointly: every moment needs at
+            // least one event and no event may be shared. A minimum above the session's
+            // event count is therefore unsatisfiable, and the Draft agent can only fail
+            // by either duplicating an event or leaving the approved range.
+            $sessionEventCount = count($validEventIds);
+            if ($entry['recommended_moment_count_min'] > $sessionEventCount) {
+                throw new RuntimeException(sprintf(
+                    'boiling_profile session %d requires at least %d moments but only %d events are allocated to it; '
+                    .'a Boiler draft cannot give every moment a distinct source event.',
+                    $sessionNumber,
+                    $entry['recommended_moment_count_min'],
+                    $sessionEventCount,
+                ));
+            }
+
             foreach (['must_breathe_event_ids', 'must_compress_event_ids'] as $field) {
                 $ids = $entry[$field] ?? null;
                 if (! is_array($ids)) {

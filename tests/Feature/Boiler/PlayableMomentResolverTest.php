@@ -18,8 +18,13 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 uses(DatabaseTransactions::class);
 
-function boilerResolverResult(string $momentKey, bool $exit, string $footnote): array
-{
+function boilerResolverResult(
+    string $momentKey,
+    bool $exit,
+    string $footnote,
+    string $routeRelation = '',
+    string $impactScope = '',
+): array {
     return [
         'response' => '<p>The room answers.</p>',
         'state_delta' => [
@@ -45,6 +50,8 @@ function boilerResolverResult(string $momentKey, bool $exit, string $footnote): 
         'moment_progress' => [
             'moment_key' => $momentKey,
             'exit_condition_met' => $exit,
+            'route_relation' => $routeRelation,
+            'impact_scope' => $impactScope,
             'moment_footnote' => $footnote,
         ],
     ];
@@ -326,6 +333,8 @@ it('repairs missing or stale moment_progress onto the active moment', function (
     expect($missing['moment_progress'])->toBe([
         'moment_key' => 'S1_M01',
         'exit_condition_met' => false,
+        'route_relation' => '',
+        'impact_scope' => '',
         'moment_footnote' => null,
     ]);
 
@@ -436,13 +445,131 @@ it('injects budget, gravity, exit, forbidden, and next_bridge into the active-mo
         ->and($block)->toContain('Gravity begins: 3')
         ->and($block)->toContain('EXIT CONDITION')
         ->and($block)->toContain('The shard is understood.')
-        ->and($block)->toContain('FORBIDDEN EXPANSIONS')
+        ->and($block)->toContain('STORYGUARD BOUNDARIES FOR THIS ROOM')
         ->and($block)->toContain('Do not stage the vigil.')
         ->and($block)->toContain('NEXT BRIDGE')
         ->and($block)->toContain('Carry the secret into the corridor.')
-        ->and($block)->toContain('DECISIVE PROGRESSION NOW')
+        ->and($block)->toContain('THE WORLD STARTS PULLING')
         ->and($block)->toContain('Ask plainly')
-        ->and($block)->toContain('REQUIRED: emit valid moment_progress');
+        ->and($block)->toContain('REQUIRED: emit valid moment_progress')
+        ->and($block)->toContain('WHERE THE PLAYER MAY GO')
+        ->and($block)->toContain('Comfortable room to follow them further: 3');
+});
+
+it('grants detour room independently of time spent in the room', function () {
+    $fixture = boilerResolverFixture();
+    $resolver = app(PlayableMomentResolver::class);
+    $engine = app(ChaosEngineService::class);
+    $resolve = (new ReflectionClass($engine))->getMethod('resolveActiveMomentContext');
+    $sessions = $fixture['adaptation']->sessionAdaptations()->get();
+
+    $source = $fixture['source'];
+    foreach (['deepened', 'deepened', 'detoured'] as $relation) {
+        $source = $resolver->applyPlayerTurn(
+            $fixture['game']->fresh(),
+            $source,
+            'Stay with it.',
+            boilerResolverResult('S1_M01', false, 'The player wants the room to answer them first.', $relation),
+            [],
+            $sessions,
+        );
+    }
+
+    $game = $fixture['game']->fresh();
+    $context = $resolve->invoke($engine, $game, $fixture['session']->fresh());
+
+    // Three turns in the room, but only the single detour spent any allowance.
+    expect($game->playable_moment_turn_count)->toBe(3)
+        ->and($context['detour_beats_used'])->toBe(1)
+        ->and($context['detour_beats_remaining'])->toBe(2);
+
+    $resolver->applyPlayerTurn(
+        $game,
+        $source,
+        'Back to the shard.',
+        boilerResolverResult('S1_M01', false, 'They have made their point and are ready to be pulled back.', 'reconverged'),
+        [],
+        $sessions,
+    );
+
+    $reconverged = $resolve->invoke($engine, $fixture['game']->fresh(), $fixture['session']->fresh());
+
+    expect($reconverged['detour_beats_used'])->toBe(0)
+        ->and($reconverged['detour_beats_remaining'])->toBe(3);
+});
+
+it('persists route and impact signals and escalates persistent impact to a full state load', function () {
+    $fixture = boilerResolverFixture();
+    $resolver = app(PlayableMomentResolver::class);
+
+    $response = $resolver->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Pocket the shard and lie about it.',
+        boilerResolverResult(
+            'S1_M01',
+            false,
+            'They want to be the kind of person who gets away with it; let someone almost notice.',
+            'detoured',
+            'persistent',
+        ),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($response->route_relation)->toBe('detoured')
+        ->and($response->impact_scope)->toBe('persistent')
+        ->and($fixture['game']->fresh()->is_climactic_choice)->toBeTrue();
+});
+
+it('releases the session rather than trapping the player in a finished final room', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => ['moment_key' => 'S1_M02', 'choice_ids' => ['S1_C4']],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [[
+                'choice_id' => 'S1_C4',
+                'options' => [
+                    ['label' => 'A', 'text' => 'Close with mercy'],
+                    ['label' => 'B', 'text' => 'Close with steel'],
+                    ['label' => 'C', 'text' => 'Close with silence'],
+                ],
+            ]],
+            'emotional_choices' => [],
+        ],
+    ]);
+    $fixture['game']->update(['current_playable_moment_id' => $fixture['second']->id]);
+
+    $resolver = app(PlayableMomentResolver::class);
+    $sessions = $fixture['adaptation']->sessionAdaptations()->get();
+    $source = $fixture['source'];
+
+    foreach ([1, 2] as $attempt) {
+        $source = $resolver->applyPlayerTurn(
+            $fixture['game']->fresh(),
+            $source,
+            'I think that is everything.',
+            boilerResolverResult('S1_M02', true, 'They feel finished but have not named how they want it to end.'),
+            [],
+            $sessions,
+        );
+
+        expect($fixture['game']->fresh()->current_session_complete)->toBeFalse();
+    }
+
+    $released = $resolver->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $source,
+        'Really, we are done.',
+        boilerResolverResult('S1_M02', true, 'Holding them here now would read as the story ignoring them.'),
+        [],
+        $sessions,
+    );
+
+    expect($fixture['game']->fresh()->current_session_complete)->toBeTrue()
+        ->and($released->moment_result)->toBe('completed');
 });
 
 it('persists model-produced moment fields on the response prompt each player turn', function () {

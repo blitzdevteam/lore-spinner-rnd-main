@@ -51,6 +51,10 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
         RuntimeNarratorPromptValidator $validator,
     ): void
     {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+
         $adaptation = $this->story->adaptation;
         $session    = $adaptation->sessionAdaptations()->where('session_number', $this->sessionNumber)->firstOrFail();
 
@@ -72,6 +76,8 @@ final class RuntimeNarratorAssemblyJob implements ShouldQueue
             'runtime_narrator_prompt'       => $prompt,
             'runtime_narrator_assembled_at' => Carbon::now(),
             'session_status'                => SessionAdaptationStatusEnum::COMPLETED,
+            // Clear any error left by an earlier failed assembly attempt.
+            'boiler_error'                  => null,
         ]);
     }
 

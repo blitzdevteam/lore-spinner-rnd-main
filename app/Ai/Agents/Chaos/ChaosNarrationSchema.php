@@ -71,10 +71,10 @@ final class ChaosNarrationSchema
                 ->array()
                 ->required()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only zero-to-three contextual suggestions. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
+                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / provocation / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
-                        'text' => $schema->string()->required()->title('Suggestion Text'),
+                        'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration.'),
                         'canonical_choice_id' => $schema->string()->required()->title('Canonical Choice ID')->description('Empty string for a freeform suggestion.'),
                         'canonical_path_label' => $schema->string()->required()->title('Canonical Path Label')->description('A, B, or C for a mapped suggestion; empty string otherwise.'),
                     ])->required()->withoutAdditionalProperties()
@@ -83,10 +83,14 @@ final class ChaosNarrationSchema
             'moment_progress' => $schema->object([
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),
                 'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
+                'route_relation' => $schema->string()->required()->title('Route Relation')
+                    ->description('How this turn related to the active room: "advanced" (its purpose moved materially forward), "deepened" (stayed and enriched it), "detoured" (you followed the player somewhere the card did not anticipate), "reconverged" (you carried the story back to the spine after a detour). A detour is legitimate — report it honestly rather than mislabelling it. Empty string outside Boiler mode.'),
+                'impact_scope' => $schema->string()->required()->title('Impact Scope')
+                    ->description('What this turn actually changed: "expressive" (tone and texture only), "local" (real but contained in this scene), "persistent" (the world, a relationship, or the protagonist\'s standing genuinely changed and must stay changed). When "persistent", the change must also appear in state_delta. Empty string outside Boiler mode.'),
                 'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
-                    ->description('REQUIRED after every player turn: one non-empty natural probabilistic player-critique sentence of at most 30 words for the next narrator. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders — the model must produce this.'),
+                    ->description('REQUIRED after every player turn. One probabilistic sentence of at most 30 words, written for the NEXT narrator, naming what would land hardest on this specific player next — the feeling to aim for, the nerve worth pressing, what they are quietly hoping the world noticed. Read the player, not just the action: separate what they did from what they wanted. A hunch, never a verdict; never a score, diagnosis, permanent label, or pacing command. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders — the model must produce this.'),
             ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
-                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
+                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, route_relation="", impact_scope="", and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
 
             'session_complete' => $schema
                 ->boolean()

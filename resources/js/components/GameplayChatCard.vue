@@ -25,6 +25,14 @@ const props = defineProps<{
     animate?: boolean;
     isStreamingResponse?: boolean;
     usesPlayableMoments?: boolean;
+    /**
+     * Onboarding staging (first two turns of a game only).
+     * choicesLocked → turn 1: no buttons at all, the player must type or speak.
+     * freeformLocked → turn 2: buttons only, the chat bar is disabled.
+     * Both false from turn 3 on, which is the normal game.
+     */
+    choicesLocked?: boolean;
+    freeformLocked?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -64,9 +72,13 @@ const showCustomAction = computed(() => {
     return !normalizedChoices.value.some((choice) => choice.text === effectiveSelection.value);
 });
 
-// Continue is always available when the player can interact and a response exists
+// Continue is always available when the player can interact and a response exists.
+// In Boiler this means "let the story move without me steering" — a legitimate,
+// low-effort way to stay in the scene rather than being forced to invent an action.
+// Suppressed on the choices-locked turn: that turn exists to teach that typing is
+// a real move, and Continue would let the player skip the lesson.
 const showContinueButton = computed(() => {
-    return !props.usesPlayableMoments && canInteract.value && !!props.prompt.response;
+    return canInteract.value && !!props.prompt.response && !props.choicesLocked;
 });
 
 const renderedResponse = computed(() => {
@@ -86,6 +98,14 @@ const showChoicesAndActions = computed(() => {
     }
     return true;
 });
+
+const showChoiceList = computed(() => hasChoices.value && showChoicesAndActions.value && !props.choicesLocked);
+
+// Turn 1 of a game: no buttons, so the note becomes an instruction rather than an aside.
+const showTypeItPrompt = computed(() => !!props.choicesLocked && canInteract.value && showChoicesAndActions.value);
+
+// Turn 2 of a game: the chat bar is disabled, so the off-path invitation would be a lie.
+const showFreeformNote = computed(() => canInteract.value && showChoicesAndActions.value && !props.freeformLocked && !props.choicesLocked);
 
 const showResponseActions = computed(() => {
     return !!props.prompt.response && (props.isStreamingResponse || showChoicesAndActions.value);
@@ -142,9 +162,18 @@ const handleNarrationClick = () => {
     }
 };
 
+// Start typing and, in parallel, warm the narration audio so it is downloaded
+// by the time the text finishes.
+const beginNarration = (response: string) => {
+    typewriter.start(response);
+    if (gameplaySettings.autoplay) {
+        tts.prefetch(props.gameId, props.prompt.id);
+    }
+};
+
 onMounted(() => {
     if (props.animate && props.isLatest && props.prompt.response) {
-        typewriter.start(props.prompt.response);
+        beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
     }
@@ -155,7 +184,7 @@ watch(
     (newVal) => {
         if (!newVal) return;
         if (props.animate && props.isLatest) {
-            typewriter.start(newVal);
+            beginNarration(newVal);
         } else {
             typewriter.complete(newVal);
         }
@@ -166,7 +195,7 @@ watch(
     () => props.animate,
     (animate, wasAnimate) => {
         if (!animate || wasAnimate || !props.isLatest || !props.prompt.response) return;
-        typewriter.start(props.prompt.response);
+        beginNarration(props.prompt.response);
     },
 );
 
@@ -183,10 +212,10 @@ watch(
     },
 );
 
-// Nudge trigger: fire once when choice buttons first become visible on this card.
-// This is the single most reliable signal that the player can now act.
+// Nudge trigger: fire once when this card first becomes actionable. Not conditioned
+// on listed choices — the player can always act by speaking or writing.
 const choicesVisible = computed(
-    () => !!props.isLatest && canInteract.value && showChoicesAndActions.value && hasChoices.value,
+    () => !!props.isLatest && canInteract.value && showChoicesAndActions.value && !!props.prompt.response,
 );
 
 watch(choicesVisible, (visible, wasVisible) => {
@@ -270,7 +299,7 @@ watch(choicesVisible, (visible, wasVisible) => {
         </div>
 
         <!-- ── Choices ── -->
-        <div v-if="hasChoices && showChoicesAndActions" class="flex flex-col gap-4">
+        <div v-if="showChoiceList" class="flex flex-col gap-4">
             <GameplayOrnamentDivider v-if="canInteract" label="Make a choice" color="#ffbe58" />
 
             <div class="flex flex-col gap-2.5">
@@ -291,12 +320,23 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <p class="text-sm font-normal sm:text-[15px]">{{ choice.text }}</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Off-path note -->
-            <div v-if="canInteract" class="flex flex-col gap-0.5">
-                <p class="text-base text-secondary-300">Want To Go Off-Path?</p>
-                <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Write Your Own Choice.</p>
+        <!-- Turn 1 of a game — no buttons on purpose. The player learns that their
+             own words are a move before they are ever shown a list to pick from. -->
+        <div v-if="showTypeItPrompt" class="flex flex-col gap-4">
+            <GameplayOrnamentDivider label="Your move" color="#ffbe58" />
+            <div class="flex flex-col gap-0.5">
+                <p class="text-base text-secondary-300">This One Is Yours To Write.</p>
+                <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Type What You Do Next.</p>
             </div>
+        </div>
+
+        <!-- Off-path note — shown whenever the player can act, with or without
+             listed suggestions, so freeform never looks like a fallback -->
+        <div v-if="showFreeformNote" class="flex flex-col gap-0.5">
+            <p class="text-base text-secondary-300">Want To Go Off-Path?</p>
+            <p class="text-xs font-light tracking-wide text-gray-400">Speak Or Write Your Own Choice.</p>
         </div>
     </div>
 </template>

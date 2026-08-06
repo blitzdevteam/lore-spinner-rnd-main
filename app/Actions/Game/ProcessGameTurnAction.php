@@ -8,6 +8,7 @@ use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\Services\NarrationAudioService;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
@@ -30,6 +31,7 @@ final class ProcessGameTurnAction
         private readonly ChaosEngineService $engine,
         private readonly PlayableMomentResolver $momentResolver,
         private readonly NarrationResultNormalizer $resultNormalizer,
+        private readonly NarrationAudioService $audio,
     ) {}
 
     /**
@@ -123,6 +125,7 @@ final class ProcessGameTurnAction
 
         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
 
+        $responsePrompt = null;
         $startedAt = microtime(true);
 
         try {
@@ -177,8 +180,12 @@ final class ProcessGameTurnAction
             }
 
             $boilerActive = $game->current_playable_moment_id !== null;
+            // Boiler scales the window with time spent in the active room, but never
+            // below the legacy floor: the turn count resets when the pointer advances,
+            // and a narrator that only remembers one exchange cannot honour what the
+            // player did in the room they just left.
             $historyWindow = $boilerActive
-                ? array_slice($history, -max(2, ($game->playable_moment_turn_count + 1) * 2))
+                ? array_slice($history, -max(12, ($game->playable_moment_turn_count + 1) * 2))
                 : array_slice($history, -12);
 
             $llmStartedAt = microtime(true);
@@ -209,7 +216,6 @@ final class ProcessGameTurnAction
             $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
-            $responsePrompt = null;
             if ($boilerActive) {
                 $responsePrompt = $this->momentResolver->applyPlayerTurn(
                     $game,
@@ -271,8 +277,6 @@ final class ProcessGameTurnAction
                 ...((array) ($result['_output_metrics'] ?? [])),
             ]);
             Cache::forget($this->errorKey($gameId));
-
-            return $responsePrompt;
         } catch (Throwable $e) {
             Log::channel('narration')->error('game.turn_failed', [
                 'game_id' => $gameId,
@@ -288,6 +292,16 @@ final class ProcessGameTurnAction
         } finally {
             Cache::forget($this->pendingKey($gameId));
         }
+
+        // Render the narration audio while the player is still reading the text.
+        // Deliberately after the pending flag is cleared so the UI is not held
+        // back by the voice provider.
+        if ($deferred && $responsePrompt instanceof Prompt) {
+            $this->audio->markPending($responsePrompt);
+            $this->audio->generate($game, $responsePrompt);
+        }
+
+        return $responsePrompt;
     }
 
     /**

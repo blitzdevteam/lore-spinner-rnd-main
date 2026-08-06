@@ -1735,6 +1735,10 @@ Next action:
 After deploying a fix for a persisted Boiler audit revision, rerun only the affected authoritative phase and its dependents:
 
 ```bash
+# Terminal Draft FAILED (e.g. unsatisfiable SSM guidance fixed): clears Draft+downstream and reruns the full session chain.
+# Refuses if recommended_moment_count_min still exceeds the session's event count.
+php artisan stories:repair-boiler-editorial STORY_ID --session=4 --from=draft
+
 # Architecture/pacing revision: reruns Phase 4 through Runtime Assembly.
 php artisan stories:repair-boiler-editorial STORY_ID --session=2 --from=architecture
 
@@ -1748,7 +1752,11 @@ php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=conseque
 php artisan stories:repair-boiler-editorial STORY_ID --session=1 --from=finalize
 ```
 
-The consequence repair reuses the existing Phase 6 prose when strict validation passes after canonicalization; otherwise it regenerates Phase 6 with corrective feedback. The command clears only stale downstream artifacts for that session, preserves the validated Draft, and finishes with adaptation reconciliation. Run it only while the `adaptation` queue is idle.
+The consequence repair reuses the existing Phase 6 prose when strict validation passes after canonicalization; otherwise it regenerates Phase 6 with corrective feedback. The command clears only stale downstream artifacts for that session (except `--from=draft`, which rebuilds Draft), preserves the validated Draft when not using `--from=draft`, and finishes with adaptation reconciliation. Run it only while the `adaptation` queue is idle.
+
+**Editorial severity note:** `playable_room_quality` and `experience_balance` are advisory craft notes (`boiler.editorial_verification_advisory`). They no longer hard-fail the session. Binding/coverage/budget/arc/exit REVISE items still fail.
+
+**Batch note:** session chains use `allowFailures()`. One failed session no longer cancels sibling sessions. Jobs that observe a cancelled batch return immediately.
 
 ---
 
@@ -1761,7 +1769,11 @@ The consequence repair reuses the existing Phase 6 prose when strict validation 
 | `boiler_enabled=false` after `--boiler` | Entry-point or job persistence | Inspect `RunAdaptationPipelineJob` payload and adaptation row |
 | Missing `boiling_profile` | Conditional Story Session Map schema/prompt | Check StorySessionMap job logs and stored mode |
 | Duplicate `failed_jobs` UUID or repeated overlapping starts | Queue lease shorter than job runtime | Pause workers; confirm `database_retry_after=1200`; clear only the affected pending queue work |
-| Draft event assigned to multiple moments | Invalid model partition | Confirm corrective pass receives the validation error; inspect `boiler.draft_validation_failed` then `boiler.draft_corrected` |
+| Draft event assigned to multiple moments | Invalid model partition **or** unsatisfiable SSM moment min vs event count | Confirm corrective pass; if min > event count regenerate Story Session Map; use `--from=draft` only after guidance is legal |
+| `target_moment_count is outside the approved Story Session Map range` | Same unsatisfiable budget, or agent under/over-count | Inspect SSM `recommended_moment_count_*` vs session event count |
+| Final scene card invalid word/turn budgets | Often `gravity_after < target_turns` | Confirm Finalize schema/prompt state gravity ≥ target; inspect repair pass |
+| Editorial "Provide Final Manifest…" | Finalize never completed / orphaned claim | Confirm `boiler_status=finalized` and `playableCut` before Editorial; watch `boiler.finalize_not_claimed` |
+| One session failure cancels siblings | Pre-hardening batch behavior | Confirm deploy ≥ `d46bda9` (`allowFailures` + cancelled guards) |
 | Draft promise arc references a missing moment | Arc field did not copy an exact generated key | Confirm corrective pass replaces shorthand/title with an exact `S{session}_M{nn}` key |
 | Final scene card references an invalid or differently bound choice | Finalize copied a choice from the wrong moment | Deploy the Finalize canonicalizer; it derives exact `choice_ids` from Choice Design before validation |
 | Finalize fails after canonical reference overlay | Invalid authored card content or budget | Inspect `boiler.finalize_validation_failed`; the bounded corrective pass must repair or fail terminally |

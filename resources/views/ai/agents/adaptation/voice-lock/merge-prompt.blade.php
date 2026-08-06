@@ -124,7 +124,7 @@ SYNTHESIS INSTRUCTIONS:
 
 16. TOP-LEVEL `runtime_self_check[]` (BOTH formats: 1B v3 Task 5 / 1A v2 Task 6 | ★ RUNTIME-CRITICAL):
     Synthesize from self_check_candidates. Produce a tight ordered sequence of 8–10 discrete/local check steps (use the 10-step template from the system prompt's Task 5/6, populated with this IP's specifics from anchor_card). No rate computations.
-    Required steps (in order): (1) punctuation search; (2) cognitive lead-in search; (3) banned-phrase/mold search; (4) AI phrase-tell search ("something in," "the kind of," "couldn't quite," "there was a quality to," "it occurred to [pronoun]"); (5) IP-specific substitute search; (6) opener-repetition scan; (7+) ceiling/dialogue/exemplar/ending checks from the template.
+    Required steps (in order): (1) punctuation search; (2) cognitive lead-in search; (3) banned-phrase/mold search; (4) AI phrase-tell search ("something in," "the kind of," "couldn't quite," "there was a quality to," "it occurred to [pronoun]"); (5) IP-specific substitute search; (6) opener-repetition scan; (7+) ceiling/dialogue/exemplar/ending checks from the template. Ending check: end on a live image, gesture, or status condition — never a closing question to the player (runtime AGENCY HANDOFF carries agency via suggestions).
     NOVELIST: step 1 must handle em-dashes per the author's documented pattern (not a blanket delete); step 2 and step 4 must respect documented carve-outs.
     The narrator runs this silently before delivering each passage.
 
