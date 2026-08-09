@@ -17,5 +17,6 @@ Correction requirements:
 2. Exactly four rows use a `BRANCHING` choice slot.
 3. The fourth / SESSION_END_HOOK BRANCHING slot binds to the final ordered Draft moment.
 4. Draft CHOICE roles are candidate pressures. Select only the strongest three non-final moments for IDENTITY, METHODOLOGY, and MORAL_WEIGHT; do not create one branch per CHOICE-role event.
+4a. When the Draft has fewer than four moments, BRANCHING rows share moments. Report `aligned=true` in that case — a short session is not a budget conflict.
 5. Do not add, remove, split, merge, reorder, or replace Draft moments.
 6. Return `boiler_budget_alignment.aligned=true` only when the corrected architecture genuinely fits.
