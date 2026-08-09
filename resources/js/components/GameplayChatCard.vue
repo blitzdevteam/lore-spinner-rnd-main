@@ -66,10 +66,11 @@ const normalizedChoices = computed(() =>
     })),
 );
 
-// Player's own typed/spoken action (not one of the listed choices, not a continue)
-const showCustomAction = computed(() => {
-    if (!effectiveSelection.value || isContinued.value) return false;
-    return !normalizedChoices.value.some((choice) => choice.text === effectiveSelection.value);
+// Show the player's action as soon as it is selected or submitted. During a
+// streamed turn this is sourced from pendingChoice before the server commits it.
+const showPlayerAction = computed(() => !!effectiveSelection.value);
+const playerActionLabel = computed(() => {
+    return isContinued.value ? 'Continued the story' : effectiveSelection.value ?? '';
 });
 
 // Continue is always available when the player can interact and a response exists.
@@ -238,9 +239,9 @@ watch(choicesVisible, (visible, wasVisible) => {
             <span v-if="typewriter.isTyping.value || props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
-        <!-- ── Player's custom action echo ── -->
-        <div v-if="showCustomAction" class="border-l-2 border-primary py-2 pl-4">
-            <p class="text-base text-primary italic">"{{ effectiveSelection }}"</p>
+        <!-- ── Player's action echo ── -->
+        <div v-if="showPlayerAction" class="border-l-2 border-primary py-2 pl-4">
+            <p class="text-base text-primary italic">"{{ playerActionLabel }}"</p>
         </div>
 
         <!-- ── Listen Again + Continue ── -->
