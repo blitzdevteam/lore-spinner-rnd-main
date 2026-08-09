@@ -159,13 +159,17 @@ watch(
 //   Move 3+: both, which is the normal game from here on.
 // `prompts` spans every session of this game, so the staging runs once per game
 // and never reappears at a later session boundary.
+//
+// Two different lifetimes here. The chat bar is a single live control, so it reads
+// the stage the game is in NOW (below). A card's staging belongs to its own turn and
+// is permanent: the first card was authored without buttons, so it must never grow
+// them once later turns arrive. That per-card rule is bound by index in the template.
 const introStage = computed(() => {
     if (prompts.value.length === 1) return 1;
     if (prompts.value.length === 2) return 2;
     return 0;
 });
 
-const choicesLocked = computed(() => introStage.value === 1);
 const freeformLocked = computed(() => introStage.value === 2);
 
 const canSubmitInput = computed(() => {
@@ -686,7 +690,7 @@ onUnmounted(() => {
             </p>
 
             <div
-                v-for="prompt in prompts"
+                v-for="(prompt, index) in prompts"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
@@ -699,8 +703,8 @@ onUnmounted(() => {
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
                     :uses-playable-moments="game.uses_playable_moments"
-                    :choices-locked="choicesLocked && prompt.id === prompts[prompts.length - 1]?.id"
-                    :freeform-locked="freeformLocked && prompt.id === prompts[prompts.length - 1]?.id"
+                    :choices-locked="index === 0"
+                    :freeform-locked="index === 1"
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"
