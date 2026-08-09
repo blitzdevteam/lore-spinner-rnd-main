@@ -80,16 +80,16 @@ onUnmounted(() => {
 .brand-logo {
     display: block;
     width: auto;
-    max-width: min(100%, 10.5rem);
-    height: 2.5rem;
+    max-width: min(100%, 6.825rem);
+    height: 1.625rem;
     object-fit: contain;
     object-position: left center;
 }
 
 @media (min-width: 48rem) {
     .brand-logo {
-        max-width: min(100%, 17.5rem);
-        height: 3.5rem;
+        max-width: min(100%, 11.375rem);
+        height: 2.275rem;
     }
 }
 

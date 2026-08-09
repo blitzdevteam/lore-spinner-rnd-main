@@ -132,7 +132,7 @@ onUnmounted(() => {
         >
             <!-- Inner dark field -->
             <div
-                class="flex h-full flex-1 items-center gap-2 rounded-[28px] border border-[#373737] bg-[#1c1c1c] px-1 sm:gap-3 sm:rounded-[35px]"
+                class="flex h-full flex-1 items-center gap-2 rounded-[28px] border border-[#373737] bg-[#1c1c1c] sm:px-1 px-0 sm:gap-3 sm:rounded-[35px]"
                 @click="focusInput"
             >
                 <!-- Recording pulse indicator -->

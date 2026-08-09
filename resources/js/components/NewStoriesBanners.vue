@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import SectionHeader from '@/components/SectionHeader.vue';
-import HomeBannerStoryCard from '@/components/HomeBannerStoryCard.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
-import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
-import lucyNewCover from '@/assets/newStories/lucy-landscape-banner.jpeg';
+import animaNewCover from '@/assets/top-moods/Anima machina 16_9 untitled.png';
 import ozNewCover from '@/assets/newStories/Oz landscape titled.png';
 import sherlockNewCover from '@/assets/newStories/sherlock-new.png';
 import tellTaleNewCover from '@/assets/newStories/Tell Tale 5_3 landscape.png';
-import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
-import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
+import { show as storyShow } from '@/wayfinder/routes/stories';
+import { Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 interface NewStory {
@@ -27,17 +25,6 @@ interface NewStory {
 }
 
 const stories: NewStory[] = [
-    {
-        id: 'i-love-lucy-job-switching',
-        title: 'I Love Lucy: Job Switching',
-        cover: lucyNewCover,
-        category: 'Comedy',
-        rating: 'Everyone',
-        playable: true,
-        slug: 'i-love-lucy-job-switching',
-        teaser:
-            'When Lucy and Ethel swap lives with Ricky and Fred for a week, a night at the candy factory turns into the most delicious disaster in television history.',
-    },
     {
         id: 'the-adventure-of-the-speckled-band',
         title: 'Sherlock Holmes in The Speckled Band',
@@ -71,6 +58,17 @@ const stories: NewStory[] = [
         teaser:
             "As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape: the beating of a dead man's heart.",
     },
+    {
+        id: 'anima-machina',
+        title: 'Anima Machina',
+        cover: animaNewCover,
+        category: 'Science Fiction',
+        rating: 'Everyone',
+        playable: false,
+        slug: 'anima-machina',
+        teaser:
+            'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
+    },
 ];
 
 const sliderEl = ref<HTMLElement | null>(null);
@@ -79,9 +77,9 @@ function scrollSlider(direction: -1 | 1) {
     const slider = sliderEl.value;
     if (!slider) return;
 
-    const card = slider.querySelector<HTMLElement>('.story-card-slot');
-    const gap = 16;
-    const step = card ? card.offsetWidth + gap : 460;
+    const card = slider.querySelector<HTMLElement>('.new-story-card');
+    const gap = 10;
+    const step = card ? card.offsetWidth + gap : 310;
 
     slider.scrollBy({ left: direction * step, behavior: 'smooth' });
     updateShadows();
@@ -89,9 +87,6 @@ function scrollSlider(direction: -1 | 1) {
 }
 
 const { leftShadowVisible, rightShadowVisible, updateShadows } = useSliderEdgeShadows(sliderEl);
-
-const isDesktopHover = useDesktopStoryPreview();
-const { onCardEnter, onCardLeave, isExpanded, isDimmed } = useStoryCardExpand(isDesktopHover);
 
 const sheetStory = ref<StorySheetData | null>(null);
 
@@ -111,6 +106,7 @@ function toSheetData(story: NewStory): StorySheetData {
 }
 
 function openSheet(story: NewStory) {
+    if (story.playable) return;
     sheetStory.value = toSheetData(story);
 }
 </script>
@@ -126,7 +122,7 @@ function openSheet(story: NewStory) {
                     :href="storiesIndex().url"
                 />
 
-                <div class="story-slider-viewport story-slider-viewport--banner relative overflow-visible">
+                <div class="story-slider-viewport story-slider-viewport--new-stories relative overflow-visible">
                     <div class="story-slider-row">
                         <button
                             type="button"
@@ -142,30 +138,64 @@ function openSheet(story: NewStory) {
                         <div class="story-slider-wrap">
                             <div ref="sliderEl" class="story-slider overflow-x-auto">
                                 <div class="story-slider-track">
-                                    <StoryExpandableCard
+                                    <component
                                         v-for="story in stories"
                                         :key="story.id"
-                                        class="w-[min(28.125rem,78vw)] md:w-[28.125rem]"
-                                        :expanded="isExpanded(story.id)"
-                                        :dimmed="isDimmed(story.id)"
-                                        :desktop-expand="isDesktopHover"
-                                        @mouseenter="isDesktopHover && onCardEnter(story.id)"
-                                        @mouseleave="isDesktopHover && onCardLeave()"
+                                        :is="story.playable && story.slug ? Link : 'button'"
+                                        :href="story.playable && story.slug ? storyShow(story.slug).url : undefined"
+                                        type="button"
+                                        class="new-story-card flex h-[13.625rem] w-[min(18.75rem,78vw)] shrink-0 flex-col items-center justify-center gap-[0.375rem] rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 text-left outline-none transition-colors hover:border-primary/50 md:w-[18.75rem]"
+                                        @click="!story.playable && openSheet(story)"
                                     >
-                                        <HomeBannerStoryCard
-                                            :title="story.title"
-                                            :cover="story.cover"
-                                            :category="story.category"
-                                            :rating="story.rating"
-                                            :themes="getStoryDescriptorThemes(story.slug ?? story.id)"
-                                            :teaser="story.teaser"
-                                            :playable="story.playable"
-                                            :slug="story.slug"
-                                            :focused="isDesktopHover && isExpanded(story.id)"
-                                            :is-desktop-hover="isDesktopHover"
-                                            @preview="openSheet(story)"
-                                        />
-                                    </StoryExpandableCard>
+                                        <span class="relative min-h-0 w-full flex-1 overflow-hidden rounded-[0.46875rem]">
+                                            <img
+                                                :src="story.cover"
+                                                :alt="story.title"
+                                                class="absolute inset-0 size-full object-cover"
+                                            />
+                                        </span>
+                                        <span class="flex w-full items-end justify-between gap-2 px-1">
+                                            <span class="flex min-w-0 flex-1 flex-col gap-[0.1875rem]">
+                                                <span class="truncate text-[0.8125rem] font-semibold text-white">{{ story.title }}</span>
+                                                <span class="flex items-center gap-3 text-[0.75rem] text-[#7e7e7e]">
+                                                    <span v-for="theme in getStoryDescriptorThemes(story.slug ?? story.id)" :key="theme">
+                                                        {{ theme }}
+                                                    </span>
+                                                </span>
+                                            </span>
+                                            <span
+                                                v-if="story.playable"
+                                                class="flex h-6 w-[60px] shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full bg-[#0e1f22]"
+                                            >
+                                                <span class="font-['Inter',sans-serif] text-[12px] font-normal leading-none text-[#59c1ca]">Play</span>
+                                                <svg
+                                                    class="size-[0.5rem] shrink-0 text-[#59c1ca]"
+                                                    viewBox="0 0 4 8"
+                                                    fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path d="M0.75 0.75L3.25 4L0.75 7.25" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="relative flex h-6 w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-full"
+                                            >
+                                                <span
+                                                    aria-hidden="true"
+                                                    class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]"
+                                                />
+                                                <span
+                                                    aria-hidden="true"
+                                                    class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[#1e1e1e] mix-blend-plus-lighter"
+                                                />
+                                                <span class="relative z-[1] font-['Inter',sans-serif] text-[12px] font-normal leading-none text-white">
+                                                    Soon
+                                                </span>
+                                            </span>
+                                        </span>
+                                    </component>
                                 </div>
                             </div>
                             <div
@@ -196,5 +226,12 @@ function openSheet(story: NewStory) {
         </div>
     </section>
 
-    <StoryDetailsSheet v-if="!isDesktopHover" :story="sheetStory" @close="sheetStory = null" />
+    <StoryDetailsSheet :story="sheetStory" @close="sheetStory = null" />
 </template>
+
+<style scoped>
+.story-slider-viewport--new-stories {
+    --story-slider-track-gap: 0.625rem;
+    --story-slider-card-height: 13.625rem;
+}
+</style>

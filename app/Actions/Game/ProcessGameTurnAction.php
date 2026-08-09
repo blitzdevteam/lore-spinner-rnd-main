@@ -45,9 +45,70 @@ final class ProcessGameTurnAction
         ?array $explicitBranch,
         int $userId,
     ): void {
+        $this->process(
+            gameId: $gameId,
+            sourcePromptId: $sourcePromptId,
+            storedPromptValue: $storedPromptValue,
+            playerAction: $playerAction,
+            explicitBranch: $explicitBranch,
+            userId: $userId,
+            onResponseDelta: null,
+            deferred: true,
+        );
+    }
+
+    /**
+     * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
+     * @param  callable(string): void  $onResponseDelta
+     */
+    public function handleStreaming(
+        string $gameId,
+        string $sourcePromptId,
+        string $storedPromptValue,
+        string $playerAction,
+        ?array $explicitBranch,
+        int $userId,
+        callable $onResponseDelta,
+    ): ?Prompt {
+        return $this->process(
+            gameId: $gameId,
+            sourcePromptId: $sourcePromptId,
+            storedPromptValue: $storedPromptValue,
+            playerAction: $playerAction,
+            explicitBranch: $explicitBranch,
+            userId: $userId,
+            onResponseDelta: $onResponseDelta,
+            deferred: false,
+        );
+    }
+
+    public function pendingKey(string $gameId): string
+    {
+        return "game-turn-pending:{$gameId}";
+    }
+
+    public function errorKey(string $gameId): string
+    {
+        return "game-turn-error:{$gameId}";
+    }
+
+    /**
+     * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
+     * @param  callable(string): void|null  $onResponseDelta
+     */
+    private function process(
+        string $gameId,
+        string $sourcePromptId,
+        string $storedPromptValue,
+        string $playerAction,
+        ?array $explicitBranch,
+        int $userId,
+        ?callable $onResponseDelta,
+        bool $deferred,
+    ): ?Prompt {
         $game = Game::query()->find($gameId);
         if ($game === null) {
-            return;
+            return null;
         }
 
         $sourcePrompt = $game->prompts()
@@ -59,12 +120,12 @@ final class ProcessGameTurnAction
             $sourcePrompt === null
             || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
         ) {
-            return;
+            return null;
         }
 
         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
 
-        $narration = null;
+        $responsePrompt = null;
         $startedAt = microtime(true);
 
         try {
@@ -128,22 +189,35 @@ final class ProcessGameTurnAction
                 : array_slice($history, -12);
 
             $llmStartedAt = microtime(true);
-            $result = $this->engine->callAgent(
-                model: $game->model,
-                systemPrompt: $systemPrompt,
-                conversationHistory: $historyWindow,
-                playerAction: $playerAction,
-                protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
-                temperature: $this->engine->gameTemperatureFor($game->model),
-                worldState: $worldState,
-                game: $game,
-                isOpening: false,
-            );
+            $result = $onResponseDelta === null
+                ? $this->engine->callAgent(
+                    model: $game->model,
+                    systemPrompt: $systemPrompt,
+                    conversationHistory: $historyWindow,
+                    playerAction: $playerAction,
+                    protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                    temperature: $this->engine->gameTemperatureFor($game->model),
+                    worldState: $worldState,
+                    game: $game,
+                    isOpening: false,
+                )
+                : $this->engine->callAgentStreaming(
+                    model: $game->model,
+                    systemPrompt: $systemPrompt,
+                    conversationHistory: $historyWindow,
+                    playerAction: $playerAction,
+                    protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                    onResponseDelta: $onResponseDelta,
+                    temperature: $this->engine->gameTemperatureFor($game->model),
+                    worldState: $worldState,
+                    game: $game,
+                    isOpening: false,
+                );
             $llmElapsedMs = (int) round((microtime(true) - $llmStartedAt) * 1000);
             $normalizedChoices = $this->resultNormalizer->choices($result, $boilerActive);
 
             if ($boilerActive) {
-                $narration = $this->momentResolver->applyPlayerTurn(
+                $responsePrompt = $this->momentResolver->applyPlayerTurn(
                     $game,
                     $sourcePrompt,
                     $storedPromptValue,
@@ -153,7 +227,7 @@ final class ProcessGameTurnAction
                     $explicitBranch,
                 );
             } else {
-                $narration = $this->commitLegacyTurn(
+                $responsePrompt = $this->commitLegacyTurn(
                     $game,
                     $sourcePrompt,
                     $storedPromptValue,
@@ -182,7 +256,7 @@ final class ProcessGameTurnAction
                 'cache_write_input_tokens' => data_get($result, '_usage.cache_write_input_tokens'),
                 'cache_read_input_tokens' => data_get($result, '_usage.cache_read_input_tokens'),
                 ...((array) ($result['_output_metrics'] ?? [])),
-                'deferred' => true,
+                'deferred' => $deferred,
             ]);
             NarrationMetricsStore::record([
                 'kind' => 'turn',
@@ -211,7 +285,7 @@ final class ProcessGameTurnAction
                 'message' => $e->getMessage(),
                 'player_input' => mb_substr($playerAction, 0, 120),
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-                'deferred' => true,
+                'deferred' => $deferred,
             ]);
             Cache::put($this->errorKey($gameId), 'Narration hiccuped — please retry this turn.', 60);
             throw $e;
@@ -222,20 +296,12 @@ final class ProcessGameTurnAction
         // Render the narration audio while the player is still reading the text.
         // Deliberately after the pending flag is cleared so the UI is not held
         // back by the voice provider.
-        if ($game !== null && $narration instanceof Prompt) {
-            $this->audio->markPending($narration);
-            $this->audio->generate($game, $narration);
+        if ($deferred && $responsePrompt instanceof Prompt) {
+            $this->audio->markPending($responsePrompt);
+            $this->audio->generate($game, $responsePrompt);
         }
-    }
 
-    public function pendingKey(string $gameId): string
-    {
-        return "game-turn-pending:{$gameId}";
-    }
-
-    public function errorKey(string $gameId): string
-    {
-        return "game-turn-error:{$gameId}";
+        return $responsePrompt;
     }
 
     /**
@@ -249,7 +315,7 @@ final class ProcessGameTurnAction
         array $result,
         array $normalizedChoices,
         ?object $sessionAdaptations,
-    ): ?Prompt {
+    ): Prompt {
         return DB::transaction(function () use (
             $game,
             $sourcePrompt,
@@ -257,7 +323,7 @@ final class ProcessGameTurnAction
             $result,
             $normalizedChoices,
             $sessionAdaptations,
-        ): ?Prompt {
+        ): Prompt {
             $lockedGame = Game::query()->whereKey($game->id)->lockForUpdate()->firstOrFail();
             $lockedSource = Prompt::query()
                 ->whereKey($sourcePrompt->id)
@@ -265,13 +331,12 @@ final class ProcessGameTurnAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (
-                Prompt::query()
-                    ->where('game_id', $lockedGame->id)
-                    ->where('source_prompt_id', $lockedSource->id)
-                    ->exists()
-            ) {
-                return null;
+            $existingResponse = Prompt::query()
+                ->where('game_id', $lockedGame->id)
+                ->where('source_prompt_id', $lockedSource->id)
+                ->first();
+            if ($existingResponse !== null) {
+                return $existingResponse;
             }
 
             if ($lockedSource->prompt !== null) {

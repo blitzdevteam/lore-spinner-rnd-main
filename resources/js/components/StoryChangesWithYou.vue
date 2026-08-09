@@ -4,7 +4,6 @@ import iconYouChoose from '@/assets/story/left.svg';
 import iconStoryResponds from '@/assets/story/center.svg';
 import iconXen from '@/assets/story/right .svg';
 import storyChangesBg from '@/assets/story/story-changes.png';
-import tryTellingBanner from '@/assets/banner-nex.png';
 import { Pagination } from 'swiper/modules';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 
@@ -15,28 +14,16 @@ const swiperModules = [Pagination];
 
 const storyItems = [
     {
-        id: 'choose',
+        id: 'imagination',
         colClass: 'story-changes-col--choose',
         iconClass: 'you-choose-icon',
         glowClass: 'you-choose-glow',
         icon: iconYouChoose,
-        iconImgClass: 'h-[2.1875rem] w-[2.125rem]',
-        width: 34,
-        height: 35,
-        title: 'You Choose',
-        description: 'Choose how the story unfolds and shape what\'s next.',
-    },
-    {
-        id: 'responds',
-        colClass: 'story-changes-col--responds',
-        iconClass: 'story-responds-icon',
-        glowClass: 'story-responds-glow',
-        icon: iconStoryResponds,
-        iconImgClass: 'h-[1.75rem] w-[2.375rem]',
-        width: 38,
+        iconImgClass: 'h-[1.75rem] w-[1.7rem]',
+        width: 27,
         height: 28,
-        title: 'The Story Responds',
-        description: 'Every choice opens new branches and changes the story in real time.',
+        title: 'Use Your Imagination',
+        description: 'Your ideas shape the story.',
     },
     {
         id: 'xen',
@@ -44,11 +31,24 @@ const storyItems = [
         iconClass: 'xen-icon',
         glowClass: 'xen-glow',
         icon: iconXen,
-        iconImgClass: 'h-[1.0625rem] w-[3.25rem]',
-        width: 52,
-        height: 17,
-        title: 'Xen Guides You',
-        description: 'Xen listens, adapts, and brings the story to life.',
+        iconImgClass: 'h-[0.95rem] w-[2.6rem]',
+        width: 42,
+        height: 14,
+        title: 'Xen Responds',
+        description:
+            'Xen unfolds the story based on your choices while staying true to the author\'s\u00A0world.',
+    },
+    {
+        id: 'journey',
+        colClass: 'story-changes-col--responds',
+        iconClass: 'story-responds-icon',
+        glowClass: 'story-responds-glow',
+        icon: iconStoryResponds,
+        iconImgClass: 'h-[1.4rem] w-[1.9rem]',
+        width: 30,
+        height: 22,
+        title: 'Every Journey Is Different',
+        description: 'Return, replay, and discover what else is\u00A0possible.',
     },
 ] as const;
 </script>
@@ -58,12 +58,12 @@ const storyItems = [
         <div class="container">
             <div class="container-content home-section-gap">
                 <SectionHeader
-                    title="The Story Changes With You"
-                    subtitle="Speak, choose, or write your own path."
+                    title="Tell the Story What to Do"
+                    subtitle="Stories are no longer something you simply read. They're something you can participate in."
                 />
 
                 <div
-                    class="story-changes-card relative flex min-h-[13.75rem] flex-col overflow-hidden rounded-[1.5rem] border border-solid border-white/15 p-5 outline-none md:min-h-[13.75rem] md:p-5"
+                    class="story-changes-card relative flex flex-col overflow-hidden rounded-[1.5rem] border border-solid border-white/15 p-5 outline-none md:p-5"
                 >
                     <div
                         class="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
@@ -97,7 +97,7 @@ const storyItems = [
                                 :class="item.colClass"
                             >
                                 <div
-                                    class="icon-circle relative flex size-[5.625rem] shrink-0 items-center justify-center overflow-hidden rounded-full"
+                                    class="icon-circle relative flex size-[70px] shrink-0 items-center justify-center overflow-hidden rounded-full"
                                     :class="item.iconClass"
                                 >
                                     <div class="absolute inset-0 rounded-full bg-[rgba(255,255,255,0.02)]" aria-hidden="true" />
@@ -122,7 +122,7 @@ const storyItems = [
                                 <h3 class="story-changes-col__title text-primary">
                                     {{ item.title }}
                                 </h3>
-                                <p class="story-changes-col__body text-white">
+                                <p class="story-changes-col__body -mt-2 text-white ">
                                     {{ item.description }}
                                 </p>
                             </div>
@@ -131,13 +131,27 @@ const storyItems = [
                 </div>
 
                 <div
-                    class="relative w-full overflow-hidden rounded-[0.875rem] border border-solid border-white/15"
+                    class="try-telling-banner relative flex w-full items-center justify-center overflow-hidden rounded-[0.875rem] border border-solid border-white/15 px-4 py-5 md:px-8 md:py-[1.125rem]"
+                    role="region"
+                    aria-label="Try telling the story"
                 >
-                    <img
-                        :src="tryTellingBanner"
-                        alt="Try telling the story: Inspect the clue, Climb the tower, or MAKE THE TIN MAN BREAKDANCE. The story responds in real time."
-                        class="block w-full h-auto"
-                    />
+                    <div class="try-telling-banner__inner">
+                        <div class="try-telling-banner__main">
+                            <p class="try-telling-banner__label m-0 text-primary">
+                                Try telling the story:
+                            </p>
+                            <p class="try-telling-banner__examples m-0 text-white">
+                                <span class="italic">"Inspect the clue"</span>
+                                <span class="try-telling-banner__dot" aria-hidden="true">•</span>
+                                <span class="italic">"Climb the tower"</span>
+                                <span class="try-telling-banner__dot" aria-hidden="true">•</span>
+                                <span class="uppercase italic">"MAKE THE TIN MAN BREAKDANCE"</span>
+                            </p>
+                        </div>
+                        <p class="try-telling-banner__caption m-0 text-[#8a8a8a]">
+                            The story responds in real time.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -180,19 +194,16 @@ const storyItems = [
 .story-changes-col__title {
     margin: 0;
     width: 100%;
-    max-width: 15rem;
     text-align: center;
     font-size: 1.125rem;
+    max-width: 15rem;
     font-weight: 600;
     line-height: 1.375rem;
     min-height: 1.375rem;
 }
 
 .story-changes-col__body {
-    margin: calc(var(--col-gap-title-body) - var(--col-gap-icon-title)) 0 0;
     width: 100%;
-    max-width: 15rem;
-    min-height: 2.5rem;
     text-align: center;
     font-size: 0.875rem;
     font-weight: 300;
@@ -244,7 +255,6 @@ const storyItems = [
 
 /* Glass base for all icon circles -- Figma: subtle 2.25px blur + near-transparent fill */
 .icon-circle {
-    background: rgba(255, 255, 255, 0.02);
     backdrop-filter: blur(2.25px);
     -webkit-backdrop-filter: blur(2.25px);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -298,5 +308,86 @@ const storyItems = [
         inset 0px 0px 0.8688rem 0px rgba(255, 255, 255, 0.06),
         inset 0.188px 0.375px 0.375px 0.188px rgba(255, 255, 255, 0.22),
         inset -0.15px -0.375px 0.113px 0.375px rgba(255, 255, 255, 0.05);
+}
+
+.try-telling-banner {
+    background:
+        radial-gradient(ellipse 40% 120% at 0% 50%, rgba(0, 180, 200, 0.12), transparent 70%),
+        radial-gradient(ellipse 35% 120% at 100% 50%, rgba(255, 160, 60, 0.1), transparent 70%),
+        linear-gradient(180deg, #0a0a0a 0%, #101010 50%, #0a0a0a 100%);
+}
+
+.try-telling-banner__inner {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+
+.try-telling-banner__main {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.try-telling-banner__label {
+    font-size: 0.95rem !important;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.try-telling-banner__examples {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.try-telling-banner__dot {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.try-telling-banner__caption {
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.25rem;
+    text-align: center;
+}
+
+@media (min-width: 48rem) {
+    .try-telling-banner__inner {
+        width: fit-content;
+        gap: 0.125rem;
+    }
+
+    .try-telling-banner__main {
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .try-telling-banner__label {
+        font-size: 0.95rem;
+        line-height: 1.625rem;
+        white-space: nowrap;
+    }
+
+    .try-telling-banner__examples {
+        flex-wrap: nowrap;
+        font-size: 0.95rem;
+        line-height: 1.625rem;
+        white-space: nowrap;
+    }
 }
 </style>

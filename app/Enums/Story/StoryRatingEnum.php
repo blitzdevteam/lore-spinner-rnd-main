@@ -6,7 +6,6 @@ namespace App\Enums\Story;
 
 use App\Traits\EnumToArray;
 use Filament\Support\Contracts\HasLabel;
-use Illuminate\Contracts\Support\Htmlable;
 
 enum StoryRatingEnum: string implements HasLabel
 {
@@ -20,7 +19,7 @@ enum StoryRatingEnum: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::EVERYONE => 'Everyone (All Ages)',
+            self::EVERYONE => 'Everyone',
             self::TEEN => 'Teen (13+)',
             self::YOUNG_ADULT => 'Young Adult (16+)',
             self::MATURE => 'Mature (18+)',

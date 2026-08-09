@@ -1,14 +1,14 @@
-<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g id="Mountains" clip-path="url(#clip0_0_10)">
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Mountains" clip-path="url(#clip0_0_19)">
 <g id="Vector">
 </g>
-<path id="Vector_2" d="M1.5 25.0005L10.6375 9.49297C10.7257 9.34259 10.8517 9.2179 11.003 9.13125C11.1543 9.04461 11.3257 8.99902 11.5 8.99902C11.6743 8.99902 11.8457 9.04461 11.997 9.13125C12.1483 9.2179 12.2743 9.34259 12.3625 9.49297L21.5 25.0005H1.5Z" stroke="var(--stroke-0, #ECC863)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_3" d="M18.3271 19.6175L21.9521 13.4925C22.0407 13.3433 22.1665 13.2197 22.3173 13.1338C22.4681 13.048 22.6386 13.0028 22.8121 13.0028C22.9857 13.0028 23.1562 13.048 23.307 13.1338C23.4578 13.2197 23.5836 13.3433 23.6721 13.4925L30.4996 25H21.4996" stroke="var(--stroke-0, #ECC863)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_4" d="M6.80375 16H16.1963" stroke="var(--stroke-0, #ECC863)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M0.84375 14.0623L5.98359 5.33937C6.03322 5.25478 6.10411 5.18464 6.18921 5.1359C6.27431 5.08716 6.37068 5.06152 6.46875 5.06152C6.56682 5.06152 6.66319 5.08716 6.74829 5.1359C6.83339 5.18464 6.90428 5.25478 6.95391 5.33937L12.0938 14.0623H0.84375Z" stroke="var(--stroke-0, #FFBE58)" stroke-width="1.6875" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_3" d="M10.3086 11.0352L12.3477 7.58991C12.3975 7.50598 12.4683 7.43644 12.5531 7.38815C12.6379 7.33985 12.7338 7.31445 12.8314 7.31445C12.929 7.31445 13.0249 7.33985 13.1097 7.38815C13.1946 7.43644 13.2654 7.50598 13.3152 7.58991L17.1556 14.0629H12.0931" stroke="var(--stroke-0, #FFBE58)" stroke-width="1.6875" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_4" d="M3.82715 9H9.11043" stroke="var(--stroke-0, #FFBE58)" stroke-width="1.6875" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <defs>
-<clipPath id="clip0_0_10">
-<rect width="32" height="32" fill="white"/>
+<clipPath id="clip0_0_19">
+<rect width="18" height="18" fill="white"/>
 </clipPath>
 </defs>
 </svg>

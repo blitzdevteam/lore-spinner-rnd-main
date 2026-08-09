@@ -23,6 +23,7 @@ const props = defineProps<{
     pendingChoice?: string;
     isSubmitting?: boolean;
     animate?: boolean;
+    isStreamingResponse?: boolean;
     usesPlayableMoments?: boolean;
     /**
      * Onboarding staging (first two turns of a game only).
@@ -88,6 +89,10 @@ const renderedResponse = computed(() => {
 });
 
 const showChoicesAndActions = computed(() => {
+    if (props.isStreamingResponse) {
+        return false;
+    }
+
     if (props.animate && typewriter.isTyping.value) {
         return false;
     }
@@ -101,6 +106,19 @@ const showTypeItPrompt = computed(() => !!props.choicesLocked && canInteract.val
 
 // Turn 2 of a game: the chat bar is disabled, so the off-path invitation would be a lie.
 const showFreeformNote = computed(() => canInteract.value && showChoicesAndActions.value && !props.freeformLocked && !props.choicesLocked);
+
+const showResponseActions = computed(() => {
+    return !!props.prompt.response && (props.isStreamingResponse || showChoicesAndActions.value);
+});
+
+const listenDisabled = computed(() => {
+    return !!props.isStreamingResponse || (!!props.isLatest && !!props.isSubmitting);
+});
+
+const listenTitle = computed(() => {
+    if (listenDisabled.value) return 'Listen is available when narration finishes';
+    return isThisPlaying.value ? 'Pause narration' : hasPlayedOnce.value ? 'Listen again' : 'Listen';
+});
 
 const getChoiceClass = (choice: string) => {
     const base = 'choice-glass flex min-h-[52px] items-center gap-2 rounded-lg border px-2 py-2 transition-all duration-300 sm:min-h-[60px] sm:gap-2.5 sm:py-1';
@@ -134,6 +152,7 @@ const isThisLoading = computed(() => tts.isLoading.value && tts.activeKey.value 
 const hasPlayedOnce = computed(() => tts.hasPlayed(props.gameId, props.prompt.id) || isThisPlaying.value || isThisLoading.value);
 
 const handleListenAgain = () => {
+    if (listenDisabled.value) return;
     tts.toggle(props.gameId, props.prompt.id);
 };
 
@@ -216,7 +235,7 @@ watch(choicesVisible, (visible, wasVisible) => {
             @click="handleNarrationClick"
         >
             <div class="text-justify leading-relaxed font-normal tracking-[0.04em]" style="font-size: inherit" v-html="renderedResponse"></div>
-            <span v-if="typewriter.isTyping.value" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
+            <span v-if="typewriter.isTyping.value || props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
         <!-- ── Player's custom action echo ── -->
@@ -225,11 +244,14 @@ watch(choicesVisible, (visible, wasVisible) => {
         </div>
 
         <!-- ── Listen Again + Continue ── -->
-        <div v-if="prompt.response && showChoicesAndActions" class="flex flex-row flex-wrap items-center gap-1.5">
+        <div v-if="showResponseActions" class="flex flex-row flex-wrap items-center gap-1.5">
             <button
                 type="button"
                 class="narration-action-pill listen-again-pill relative flex h-[50px] w-auto items-center gap-[5px] overflow-hidden rounded-[60px] p-[6px] pe-3.5"
-                :title="isThisPlaying ? 'Pause narration' : hasPlayedOnce ? 'Listen again' : 'Listen'"
+                :class="{ 'cursor-not-allowed opacity-55': listenDisabled }"
+                :title="listenTitle"
+                :disabled="listenDisabled"
+                :aria-disabled="listenDisabled"
                 @click="handleListenAgain"
             >
                 <!-- Background layers -->

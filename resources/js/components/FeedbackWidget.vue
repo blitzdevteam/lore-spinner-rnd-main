@@ -3,6 +3,7 @@ import BaseButton from '@/components/BaseButton.vue';
 import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { router } from '@inertiajs/vue3';
+import { send } from '@visual-tracer/core';
 import { LucideMessageSquare, Send, X } from 'lucide-vue-next';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 
@@ -51,7 +52,7 @@ const feedbackBtnStyle = computed(() => {
         return { bottom: `${sheetOffset.value}px` };
     }
     if (tts.isActive.value && !tts.mediaCollapsed.value) {
-        return { bottom: '200px' };
+        return { bottom: '165px' };
     }
     return {};
 });
@@ -63,49 +64,29 @@ const content = ref('');
 const phase = ref<Phase>('idle');
 const submitError = ref<string | null>(null);
 
+// The busy overlay only renders during the 'sending' phase (the network request
+// to our backend). It must stay hidden during 'capturing' — VisualTracer snapshots
+// the live DOM, so any overlay/blur/loading UI shown at that moment would end up
+// baked into the captured HTML.
 const isBusy = computed(() => phase.value !== 'idle');
+const showOverlay = computed(() => phase.value === 'sending');
 
 /**
- * Capture the current viewport using html2canvas.
- * Returns null on any failure so callers can degrade gracefully.
- *
- * The feedback widget root carries `data-html2canvas-ignore` so html2canvas
- * skips it entirely — this prevents the loading overlay from appearing in the shot.
+ * Send the current page HTML to VisualTracer for capture, along with the
+ * feedback content as the payload so it's tied to the captured snapshot.
+ * Failures are swallowed so they never block the feedback submission itself.
  */
-const captureScreenshot = async (): Promise<File | null> => {
+const captureWithVisualTracer = async (feedbackContent: string): Promise<void> => {
     try {
-        const { default: html2canvas } = await import('html2canvas-pro');
-
-        const canvas = await html2canvas(document.documentElement, {
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            scale: 1,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            scrollX: -window.scrollX,
-            scrollY: -window.scrollY,
-        });
-
-        return await new Promise<File | null>((resolve) => {
-            canvas.toBlob(
-                (blob) => {
-                    if (!blob) {
-                        console.warn('[FeedbackWidget] toBlob returned null');
-                        resolve(null);
-                        return;
-                    }
-                    resolve(new File([blob], 'screenshot.jpg', { type: 'image/jpeg' }));
-                },
-                'image/jpeg',
-                0.8,
-            );
+        await send({
+            token: 'o8NgLhvhvNbkutfIrn4mfTljqNYkDF5LgYDQcy6ES3ELJf6sJ22xG9KLkGxbLhoW',
+            url: 'https://visual.blitzagency.co/api/capture',
+            payload: {
+                content: feedbackContent,
+            },
         });
     } catch (error) {
-        console.error('[FeedbackWidget] Screenshot capture failed:', error);
-        return null;
+        console.error('[FeedbackWidget] VisualTracer capture failed:', error);
     }
 };
 
@@ -138,7 +119,7 @@ const submit = async () => {
     // Snapshot content now — the ref will be cleared on success
     const feedbackContent = content.value;
 
-    // Step 1: hide modal so the screenshot captures the page behind it cleanly
+    // Step 1: hide modal so VisualTracer captures the page behind it cleanly
     phase.value = 'capturing';
     isOpen.value = false;
 
@@ -146,17 +127,13 @@ const submit = async () => {
     // Small delay to let the browser repaint without the modal and backdrop
     await new Promise<void>((resolve) => setTimeout(resolve, 200));
 
-    const screenshotFile = await captureScreenshot();
+    await captureWithVisualTracer(feedbackContent);
 
     // Step 2: submit to the server
     phase.value = 'sending';
 
     const formData = new FormData();
     formData.append('content', feedbackContent);
-
-    if (screenshotFile) {
-        formData.append('screenshot', screenshotFile);
-    }
 
     router.post('/feedback', formData, {
         preserveScroll: true,
@@ -185,26 +162,21 @@ const submit = async () => {
 
 <template>
     <Teleport to="body">
-        <div class="feedback-widget-root" data-html2canvas-ignore>
+        <div class="feedback-widget-root">
             <!-- Backdrop (only visible when modal is open) -->
-            <Transition name="fade">
-                <div v-if="isOpen" class="fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm" @click="close" />
-            </Transition>
+            <div v-if="isOpen" class="fixed inset-0 z-[999] bg-black/50" @click="close" />
 
-            <!-- Full-screen overlay shown while capturing / sending -->
-            <Transition name="fade">
-                <div
-                    v-if="isBusy"
-                    class="fixed inset-0 z-[1001] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-                >
-                    <div class="flex flex-col items-center gap-3">
-                        <div class="size-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                        <p class="text-sm text-gray-300">
-                            {{ phase === 'capturing' ? 'Capturing screenshot…' : 'Sending feedback…' }}
-                        </p>
-                    </div>
+            <!--
+                Overlay shown only while sending feedback to our backend (phase 'sending').
+                It must stay hidden during phase 'capturing' — VisualTracer snapshots the live
+                DOM at that point, and any overlay/blur/loading UI would end up baked into it.
+            -->
+            <div v-if="showOverlay" class="fixed inset-0 z-[1001] flex items-center justify-center bg-black/40">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="size-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                    <p class="text-sm text-gray-300">Sending feedback…</p>
                 </div>
-            </Transition>
+            </div>
 
             <!-- Feedback modal -->
             <Transition name="feedback-slide">
@@ -214,10 +186,7 @@ const submit = async () => {
                 >
                     <div class="flex items-start justify-between">
                         <h3 class="text-xl font-semibold text-primary-300">Feedback</h3>
-                        <button
-                            class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
-                            @click="close"
-                        >
+                        <button class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white" @click="close">
                             <X :size="20" />
                         </button>
                     </div>
@@ -228,12 +197,10 @@ const submit = async () => {
                         v-model="content"
                         rows="5"
                         placeholder="Share your thoughts, suggestions, or report any issues..."
-                        class="mt-3 w-full resize-none rounded-xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 outline-none transition-colors focus:border-primary-400/50"
+                        class="mt-3 w-full resize-none rounded-xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 transition-colors outline-none focus:border-primary-400/50"
                     />
 
-                    <p class="mt-2 text-xs text-gray-500">
-                        A screenshot of the current page will be included automatically.
-                    </p>
+                    <p class="mt-2 text-xs text-gray-500">A screenshot of the current page will be included automatically.</p>
 
                     <!-- Inline error message -->
                     <p v-if="submitError" class="mt-2 text-xs text-red-400">
@@ -253,15 +220,10 @@ const submit = async () => {
             <!-- Floating trigger button -->
             <div
                 data-feedback-btn
-                class="fixed right-4 bottom-28 z-[998] transition-[bottom] duration-300 md:right-6 md:!bottom-6"
+                class="fixed right-4 bottom-28 z-[998] transition-[bottom] duration-300 lg:right-6 lg:!bottom-6"
                 :style="feedbackBtnStyle"
             >
-                <BaseButton
-                    severity="glass"
-                    :icon-only="true"
-                    class="size-12! shadow-lg shadow-black/30 md:size-14!"
-                    @click="open"
-                >
+                <BaseButton severity="glass" :icon-only="true" class="size-12! shadow-lg shadow-black/30 md:size-14!" @click="open">
                     <LucideMessageSquare class="size-6 text-primary-300" />
                 </BaseButton>
             </div>
@@ -270,15 +232,6 @@ const submit = async () => {
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-    opacity: 0;
-}
-
 .feedback-slide-enter-active,
 .feedback-slide-leave-active {
     transition: all 0.25s ease;

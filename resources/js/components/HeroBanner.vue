@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import lucyImage from '@/assets/carosel/Lucy Ultrawide banner.jpeg';
 import janeEyreImage from '@/assets/carosel/Ultrawide jane eyre.png';
 import masqueImage from '@/assets/carosel/Ultrawide 21_9 The Masque of the Red Death.png';
 import nocturneImage from '@/assets/carosel/Ultrawide nocturne.png';
@@ -13,7 +12,7 @@ import { show } from '@/wayfinder/routes/stories';
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
 import type { Swiper as SwiperInstance } from 'swiper';
 import { Swiper, SwiperSlide } from 'swiper/vue';
-import { LucideStar } from 'lucide-vue-next';
+import { LucideArrowRight, LucideStar } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 import 'swiper/css';
@@ -59,21 +58,6 @@ const heroSlideConfigs: HeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'i-love-lucy-job-switching',
-        image: lucyImage,
-        imagePosition: 'object-center md:object-center',
-        titleLines: ['I Love Lucy:', 'Job Switching'],
-        fallbackTitle: 'I Love Lucy: Job Switching',
-        teaserLines: [
-            'When Lucy and Ethel swap lives with Ricky and Fred for a week,',
-            'a night at the candy factory turns into the most delicious disaster in television history.',
-        ],
-        fallbackTeaser:
-            'When Lucy and Ethel swap lives with Ricky and Fred for a week, a night at the candy factory turns into the most delicious disaster in television history.',
-        fallbackAuthor: 'Jess Oppenheimer, Madelyn Pugh & Bob Carroll Jr.',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-    },
-    {
         slug: 'the-wonderful-wizard-of-oz',
         image: ozImage,
         imagePosition: 'object-[58%_top] md:object-top',
@@ -110,14 +94,11 @@ const heroSlideConfigs: HeroSlideConfig[] = [
         imagePosition: 'object-[68%_top] md:object-top',
         titleLines: ['The Masque of', 'the Red Death'],
         fallbackTitle: 'The Masque of the Red Death',
-        teaserLines: [
-            'Behind locked gates and glittering masks, a night of celebration slowly transforms into',
-            'a nightmare no one can escape.',
-        ],
-        fallbackTeaser:
-            'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
+        teaserLines: ['Behind locked gates and glittering masks, a night of celebration slowly transforms into', 'a nightmare no one can escape.'],
+        fallbackTeaser: 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
         fallbackAuthor: 'Edgar Allan Poe',
         seriesLabel: LORE_SPINNER_CLASSIC,
+        comingSoon: true,
     },
     {
         slug: 'nocturne',
@@ -133,6 +114,7 @@ const heroSlideConfigs: HeroSlideConfig[] = [
             'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
         fallbackAuthor: 'Thomas Wittmer',
         seriesLabel: LORE_SPINNER_ORIGINAL,
+        comingSoon: true,
     },
     {
         slug: 'jane-eyre',
@@ -208,9 +190,9 @@ const slides = computed((): ResolvedHeroSlide[] =>
             slug: config.slug,
             image: config.image,
             imagePosition: config.imagePosition,
-            titleLines: story ? resolveTitleLines(title) ?? config.titleLines : config.titleLines,
+            titleLines: story ? (resolveTitleLines(title) ?? config.titleLines) : config.titleLines,
             title,
-            teaserLines: story ? resolveTeaserLines(teaser) ?? config.teaserLines : config.teaserLines,
+            teaserLines: story ? (resolveTeaserLines(teaser) ?? config.teaserLines) : config.teaserLines,
             teaser,
             author: config.fallbackAuthor,
             seriesLabel: config.seriesLabel,
@@ -240,131 +222,143 @@ function goNext() {
 </script>
 
 <template>
-    <section class="hero-banner">
-        <div class="hero-media">
-            <Swiper
-                class="hero-swiper h-full w-full"
-                :modules="swiperModules"
-                :slides-per-view="1"
-                :effect="'fade'"
-                :fade-effect="{ crossFade: true }"
-                :speed="900"
-                :loop="true"
-                :autoplay="{ delay: 6500, disableOnInteraction: false, pauseOnMouseEnter: true }"
-                :pagination="{ clickable: true }"
-                @swiper="onSwiper"
-                @slide-change="onSlideChange"
-            >
-                <SwiperSlide v-for="slide in slides" :key="slide.slug" class="hero-slide">
-                    <div class="hero-slide-media">
-                        <img
-                            :src="slide.image"
-                            alt=""
-                            class="hero-slide-image h-full w-full object-cover"
-                            :class="slide.imagePosition"
-                        />
-                        <div class="hero-slide-gradient" aria-hidden="true" />
-                    </div>
-                </SwiperSlide>
-            </Swiper>
-        </div>
+    <div class="home-hero">
+        <section class="hero-carousel" aria-label="Featured stories">
+            <div class="hero-media">
+                <Swiper
+                    class="hero-swiper h-full w-full"
+                    :modules="swiperModules"
+                    :slides-per-view="1"
+                    :effect="'fade'"
+                    :fade-effect="{ crossFade: true }"
+                    :speed="900"
+                    :loop="true"
+                    :autoplay="{ delay: 6500, disableOnInteraction: false, pauseOnMouseEnter: true }"
+                    :pagination="{ clickable: true }"
+                    @swiper="onSwiper"
+                    @slide-change="onSlideChange"
+                >
+                    <SwiperSlide v-for="slide in slides" :key="slide.slug" class="hero-slide">
+                        <div class="hero-slide-media">
+                            <img :src="slide.image" alt="" class="hero-slide-image h-full w-full object-cover" :class="slide.imagePosition" />
+                            <div class="hero-slide-gradient" aria-hidden="true" />
+                        </div>
+                    </SwiperSlide>
+                </Swiper>
+            </div>
 
-        <div class="hero-copy-wrap">
-            <div class="container w-full">
-                <div class="container-content">
-                    <Transition name="hero-copy" mode="out-in">
-                        <div :key="activeSlide.slug" class="hero-copy">
-                            <div class="hero-copy-body">
-                                <h1 class="hero-title font-marcellus-sc uppercase text-white">
-                                    <template v-if="activeSlide.titleLines">
-                                        {{ activeSlide.titleLines[0] }}<br />
-                                        {{ activeSlide.titleLines[1] }}
-                                    </template>
-                                    <template v-else>{{ activeSlide.title }}</template>
-                                </h1>
+            <div class="hero-nav" aria-label="Hero carousel controls">
+                <button type="button" class="hero-arrow hero-arrow-prev" aria-label="Previous slide" @click="goPrev">
+                    <svg
+                        viewBox="0 0 8 14"
+                        width="8"
+                        height="14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                        class="rotate-180"
+                    >
+                        <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
 
-                                <div class="hero-meta font-[Inter] text-white">
-                                    <p
-                                        class="hero-teaser text-white"
-                                        :title="activeSlide.teaser"
-                                    >
-                                        {{ activeSlide.teaser }}
-                                    </p>
-                                    <div class="hero-stats flex flex-col gap-0">
-                                        <p v-if="activeSlide.author" class="hero-stat-line text-white">
-                                            Written by:
-                                            <span class="text-primary">{{ activeSlide.author }}</span>
+                <button type="button" class="hero-arrow hero-arrow-next" aria-label="Next slide" @click="goNext">
+                    <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <section class="hero-branch" aria-hidden="true">
+            <img src="/static-branch.jpg" alt="" class="hero-branch__image" width="1254" height="321" decoding="async" />
+        </section>
+
+        <section class="hero-copy-block">
+            <div class="hero-copy-wrap">
+                <div class="container w-full">
+                    <div class="container-content">
+                        <Transition name="hero-copy" mode="out-in">
+                            <div :key="activeSlide.slug" class="hero-copy">
+                                <div class="hero-copy-body">
+                                    <h1 class="hero-title font-marcellus-sc text-white uppercase">
+                                        <template v-if="activeSlide.titleLines">
+                                            {{ activeSlide.titleLines[0] }}<br />
+                                            {{ activeSlide.titleLines[1] }}
+                                        </template>
+                                        <template v-else>{{ activeSlide.title }}</template>
+                                    </h1>
+
+                                    <div class="hero-meta font-[Inter] text-white">
+                                        <p class="hero-teaser text-white" :title="activeSlide.teaser">
+                                            {{ activeSlide.teaser }}
                                         </p>
-                                        <p
-                                            v-if="activeSlide.seriesLabel"
-                                            class="hero-stat-line hero-series-badge text-primary"
-                                        >
-                                            <LucideStar
-                                                class="hero-series-badge__icon"
-                                                :stroke-width="1.75"
-                                                aria-hidden="true"
-                                            />
-                                            <span>{{ activeSlide.seriesLabel }}</span>
-                                        </p>
+                                        <div class="hero-stats flex flex-col gap-0">
+                                            <p v-if="activeSlide.author" class="hero-stat-line text-white">
+                                                Written by:
+                                                <span class="text-primary">{{ activeSlide.author }}</span>
+                                            </p>
+                                            <p v-if="activeSlide.seriesLabel" class="hero-stat-line hero-series-badge text-primary">
+                                                <LucideStar class="hero-series-badge__icon" :stroke-width="1.75" aria-hidden="true" />
+                                                <span>{{ activeSlide.seriesLabel }}</span>
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <span
-                                v-if="activeSlide.comingSoon"
-                                class="begin-btn begin-btn--coming-soon font-[Inter] !box-border !inline-flex !h-auto !min-h-[3rem] !w-auto max-w-full items-center justify-center self-start whitespace-nowrap px-6 py-3 text-[0.9375rem] font-medium !leading-none sm:min-h-[3.3125rem] sm:max-w-[17.75rem] sm:px-8 sm:text-[1rem]"
-                                aria-disabled="true"
-                            >
-                                Coming Soon
-                            </span>
-                            <BaseButton
-                                v-else
-                                severity="transparent"
-                                type="internal-link"
-                                :href="activeSlide.storyUrl"
-                                class="begin-btn font-[Inter] !box-border !inline-flex !h-auto !min-h-[3rem] !w-auto max-w-full items-center justify-center self-start whitespace-nowrap px-6 py-3 text-[0.9375rem] font-medium !leading-none text-white sm:min-h-[3.3125rem] sm:max-w-[17.75rem] sm:px-8 sm:text-[1rem]"
-                            >
-                                Begin Your Journey
-                            </BaseButton>
-                        </div>
-                    </Transition>
+                                <span
+                                    v-if="activeSlide.comingSoon"
+                                    class="begin-btn begin-btn--coming-soon !box-border !inline-flex !h-auto !min-h-[3rem] !w-auto max-w-full items-center justify-center self-start px-6 py-3 font-[Inter] text-[0.9375rem] !leading-none font-medium whitespace-nowrap sm:min-h-[3.3125rem] sm:max-w-[17.75rem] sm:px-8 sm:text-[1rem]"
+                                    aria-disabled="true"
+                                >
+                                    Coming Soon
+                                </span>
+                                <BaseButton
+                                    v-else
+                                    severity="primary-outline"
+                                    type="internal-link"
+                                    :href="activeSlide.storyUrl"
+                                    class="begin-btn !box-border !inline-flex !h-auto !min-h-[3rem] !w-auto max-w-full items-center justify-center gap-[0.625rem] self-start px-6 py-3 font-[Inter] text-[0.9375rem] !leading-none font-medium whitespace-nowrap text-white sm:min-h-[3.3125rem] sm:max-w-[17.75rem] sm:px-8 sm:text-[1rem]"
+                                >
+                                    Begin Your Journey
+                                    <LucideArrowRight class="size-[1.125rem] shrink-0" aria-hidden="true" />
+                                </BaseButton>
+                            </div>
+                        </Transition>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <div class="hero-nav" aria-label="Hero carousel controls">
-            <button
-                type="button"
-                class="hero-arrow hero-arrow-prev"
-                aria-label="Previous slide"
-                @click="goPrev"
-            >
-                <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="rotate-180">
-                    <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
-
-            <button
-                type="button"
-                class="hero-arrow hero-arrow-next"
-                aria-label="Next slide"
-                @click="goNext"
-            >
-                <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
-        </div>
-    </section>
+        </section>
+    </div>
 </template>
 
 <style scoped>
-/* Full viewport height — no cap */
-.hero-banner {
+.home-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    background: #000;
+}
+
+.hero-carousel {
     position: relative;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
+    background: #000;
+}
+
+.hero-branch {
+    width: 100%;
+    background: #000;
+}
+
+.hero-branch__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 1100px;
+    margin-inline: auto;
+}
+
+.hero-copy-block {
     background: #000;
 }
 
@@ -374,7 +368,6 @@ function goNext() {
     aspect-ratio: 16 / 9;
     min-height: 12.5rem;
     max-height: min(48vh, 20.5rem);
-    flex-shrink: 0;
 }
 
 .hero-swiper :deep(.swiper-slide) {
@@ -466,62 +459,21 @@ function goNext() {
     filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-primary) 50%, transparent));
 }
 
-/* See-through glass with subtle brand tint — slide still visible behind */
+/* Flat dark fill with a thin teal outline — matches the updated Figma CTA design. */
 .begin-btn {
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--color-primary-700) 16%, transparent) !important;
-    border: 1px solid color-mix(in srgb, var(--color-primary-400) 55%, rgba(255, 255, 255, 0.28)) !important;
-    box-shadow:
-        0 0 28px color-mix(in srgb, var(--color-primary-500) 22%, transparent),
-        inset 0 1px 0 color-mix(in srgb, var(--color-primary-300) 30%, transparent) !important;
-    filter: none !important;
-    outline: none !important;
-    backdrop-filter: blur(10px) saturate(1.15);
-    -webkit-backdrop-filter: blur(10px) saturate(1.15);
-    color: #fff !important;
+    border-radius: 0.625rem;
     text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
-.begin-btn:hover,
-.begin-btn:focus-visible {
-    background: color-mix(in srgb, var(--color-primary-600) 26%, transparent) !important;
-    border-color: color-mix(in srgb, var(--color-primary-300) 65%, rgba(255, 255, 255, 0.35)) !important;
-    box-shadow:
-        0 0 36px color-mix(in srgb, var(--color-primary-400) 32%, transparent),
-        inset 0 1px 0 color-mix(in srgb, var(--color-primary-200) 40%, transparent) !important;
-    outline: none !important;
-}
-
+/* Coming Soon — matches the flat gray outline used on Featured Worlds cards. */
 .begin-btn--coming-soon {
-    background:
-        linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--color-secondary-300) 10%, transparent) 0%,
-            color-mix(in srgb, var(--color-primary-700) 14%, rgba(0, 0, 0, 0.55)) 100%
-        ) !important;
-    border: 1px solid color-mix(in srgb, var(--color-secondary-300) 38%, rgba(255, 255, 255, 0.18)) !important;
-    box-shadow:
-        0 0 14px color-mix(in srgb, var(--color-secondary-300) 10%, transparent),
-        inset 0 1px 0 color-mix(in srgb, var(--color-secondary-300) 14%, rgba(255, 255, 255, 0.08)) !important;
-    color: rgba(255, 255, 255, 0.88) !important;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+    background: transparent !important;
+    border: 0.5px solid #8f8f8f !important;
+    box-shadow: none !important;
+    color: #8f8f8f !important;
+    text-shadow: none;
     cursor: default;
     pointer-events: none;
-    opacity: 0.88;
-}
-
-.begin-btn--coming-soon:hover,
-.begin-btn--coming-soon:focus-visible {
-    background:
-        linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--color-secondary-300) 10%, transparent) 0%,
-            color-mix(in srgb, var(--color-primary-700) 14%, rgba(0, 0, 0, 0.55)) 100%
-        ) !important;
-    border-color: color-mix(in srgb, var(--color-secondary-300) 38%, rgba(255, 255, 255, 0.18)) !important;
-    box-shadow:
-        0 0 14px color-mix(in srgb, var(--color-secondary-300) 10%, transparent),
-        inset 0 1px 0 color-mix(in srgb, var(--color-secondary-300) 14%, rgba(255, 255, 255, 0.08)) !important;
 }
 
 /*
@@ -554,7 +506,9 @@ function goNext() {
     backdrop-filter: blur(6px);
     pointer-events: auto;
     transform: translateY(-50%);
-    transition: background 0.2s, border-color 0.2s;
+    transition:
+        background 0.2s,
+        border-color 0.2s;
 }
 
 .hero-arrow-prev {
@@ -569,7 +523,6 @@ function goNext() {
     background: rgba(255, 255, 255, 0.18);
     border-color: rgba(255, 255, 255, 0.28);
 }
-
 
 .hero-copy-enter-active,
 .hero-copy-leave-active {
@@ -655,6 +608,31 @@ function goNext() {
 }
 
 @media (min-width: 48rem) {
+    .home-hero {
+        grid-template-rows: auto auto;
+    }
+
+    .hero-carousel {
+        grid-row: 1;
+        grid-column: 1;
+        height: clamp(33rem, 50vh, 48rem);
+    }
+
+    .hero-branch {
+        grid-row: 2;
+        grid-column: 1;
+    }
+
+    .hero-copy-block {
+        position: relative;
+        z-index: 10;
+        grid-row: 1;
+        grid-column: 1;
+        height: clamp(33rem, 50vh, 48rem);
+        pointer-events: none;
+        background: transparent;
+    }
+
     .hero-slide-gradient {
         display: block;
         /* LoreSpinner Desktop Hero Readability Gradient — left-to-right cinematic fade */
@@ -666,12 +644,6 @@ function goNext() {
             rgba(0, 0, 0, 0.16) 40%,
             rgba(0, 0, 0, 0) 46%
         );
-    }
-
-    .hero-banner {
-        display: block;
-        /* Scale with viewport height on large displays; floor matches original design. */
-        height: clamp(33rem, 50vh, 48rem);
     }
 
     .hero-media {
@@ -727,7 +699,6 @@ function goNext() {
     }
 
     .hero-stat-line {
-        text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
     }
 
     .hero-nav {
@@ -783,7 +754,11 @@ function goNext() {
 
 /* iMac / large desktop — taller hero without dominating the page */
 @media (min-width: 80rem) {
-    .hero-banner {
+    .hero-carousel {
+        height: clamp(38rem, 55vh, 56rem);
+    }
+
+    .hero-copy-block {
         height: clamp(38rem, 55vh, 56rem);
     }
 
@@ -821,11 +796,11 @@ function goNext() {
 }
 
 .hero-swiper .swiper-pagination-bullet {
-    width: 1.75rem;
-    height: 3px;
+    width: 6px;
+    height: 6px;
     margin: 0 !important;
     border-radius: 62.4375rem;
-    background: rgba(255, 255, 255, 0.35);
+    background: #605a58b2;
     opacity: 1;
     transition:
         width 0.3s ease,
@@ -834,19 +809,20 @@ function goNext() {
 
 @media (min-width: 48rem) {
     .hero-swiper .swiper-pagination-bullet {
-        width: 2.25rem;
-        height: 0.25rem;
+        width: 6px;
+        height: 6px;
     }
 }
 
 .hero-swiper .swiper-pagination-bullet-active {
-    width: 2.5rem;
-    background: var(--color-primary);
+    width: 20px;
+    background: white;
 }
 
 @media (min-width: 48rem) {
     .hero-swiper .swiper-pagination-bullet-active {
-        width: 3.25rem;
+        width: 20px;
+        box-shadow: 0 0 2px 0px white;
     }
 }
 </style>
