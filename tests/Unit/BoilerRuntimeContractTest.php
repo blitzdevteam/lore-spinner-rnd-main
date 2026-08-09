@@ -41,8 +41,8 @@ it('keeps Boiler additions out of disabled adaptation schemas', function () {
 it('normalizes legacy choices and Boiler suggestion objects without changing canonical identity', function () {
     $normalizer = new NarrationResultNormalizer();
 
-    expect($normalizer->choices(['choices' => ['Inspect', 'Wait']], false))
-        ->toBe(['Inspect', 'Wait'])
+    expect($normalizer->choices(['choices' => ['Inspect', 'Wait', 'Leave']], false))
+        ->toBe(['Inspect', 'Wait', 'Leave'])
         ->and($normalizer->choices([
             'visible_suggestions' => [
                 [
@@ -64,6 +64,18 @@ it('normalizes legacy choices and Boiler suggestion objects without changing can
                 'canonical_path_label' => null,
             ],
         ]);
+});
+
+it('rejects missing legacy gameplay choices', function () {
+    expect(fn () => (new NarrationResultNormalizer())->choices(['choices' => []], false))
+        ->toThrow(RuntimeException::class, 'exactly three choice strings');
+});
+
+it('allows no next choices after a legacy session completes', function () {
+    expect((new NarrationResultNormalizer())->choices([
+        'choices' => [],
+        'session_complete' => true,
+    ], false))->toBe([]);
 });
 
 it('truncates more than three visible suggestions instead of failing the turn', function () {

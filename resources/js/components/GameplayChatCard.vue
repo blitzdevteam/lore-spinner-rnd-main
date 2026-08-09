@@ -255,7 +255,7 @@ watch(choicesVisible, (visible, wasVisible) => {
                 @click="handleListenAgain"
             >
                 <!-- Background layers -->
-                <span aria-hidden class="pointer-events-none absolute inset-0">
+                <span aria-hidden class="listen-again-backdrop pointer-events-none absolute inset-0">
                     <span class="absolute inset-0 bg-[#33333330]" />
                     <img
                         v-if="props.coverUrl"
@@ -343,23 +343,35 @@ watch(choicesVisible, (visible, wasVisible) => {
 
 <style scoped>
 .narration-action-pill {
+    isolation: isolate;
+    contain: paint;
+    clip-path: inset(0 round 60px);
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+    backface-visibility: hidden;
+    transform: translateZ(0);
     transition:
         transform 150ms ease,
         color 150ms ease;
 }
 
 .narration-action-pill:hover {
-    transform: scale(1.02);
+    transform: translateZ(0) scale(1.02);
 }
 
 .narration-action-pill:active {
-    transform: scale(0.98);
+    transform: translateZ(0) scale(0.98);
 }
 
 .listen-again-pill {
     box-shadow:
         0 0 2px 0 rgba(0, 0, 0, 0.1),
         0 1px 8px 0 rgba(0, 0, 0, 0.12);
+}
+
+.listen-again-backdrop {
+    border-radius: inherit;
+    overflow: hidden;
+    transform: translateZ(0);
 }
 
 .listen-again-shine {

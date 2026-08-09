@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Ai\Agents\Chaos\ChaosNarrationSchema;
 use App\Ai\Agents\Chaos\NativeObjectSchema;
+use App\Models\Game;
 use App\Services\Adaptation\SessionEventLoader;
 use App\Services\ChaosEngineService;
 use Illuminate\Http\Client\Request;
@@ -11,6 +12,10 @@ use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Http;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured as AnthropicStructuredHandler;
+use Prism\Prism\Structured\Request as StructuredRequest;
+use Prism\Prism\Testing\StructuredResponseFake;
+use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 
 function sparseStateEngine(): ChaosEngineService
@@ -273,5 +278,80 @@ it('parses a native Anthropic narration response and records its field-size comp
                 'type' => 'ephemeral',
                 'ttl' => '1h',
             ];
+    });
+});
+
+it('repairs missing choices after streaming without replacing the streamed narration', function () {
+    $streamed = [
+        'response' => '<p>The door opens onto the rain.</p>',
+        'choices' => [],
+        'visible_suggestions' => [],
+        'moment_progress' => [
+            'moment_key' => '',
+            'exit_condition_met' => false,
+            'moment_footnote' => '',
+        ],
+        'session_complete' => false,
+        'state_delta' => [
+            'location' => null,
+            'conditions' => null,
+            'items' => null,
+            'object_states' => null,
+            'relationship_updates' => null,
+            'world_flags' => null,
+            'knowledge' => null,
+            'notes' => null,
+            'player_style' => null,
+            'unresolved_promises' => null,
+            'emotional_ledger_entries' => null,
+        ],
+        'alignment_tally_delta' => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
+        'is_climactic_choice' => false,
+        'defining_choice_id' => '',
+        'defining_path_label' => '',
+        'defining_choice_line' => '',
+        'symbolic_memory_update' => '',
+        'session_memory_update' => '',
+    ];
+
+    $fake = Prism::fake([
+        TextResponseFake::make()->withText(json_encode($streamed, JSON_THROW_ON_ERROR)),
+        StructuredResponseFake::make()->withStructured([
+            'choices' => ['Enter the room', 'Wait beneath the awning', 'Circle around the house'],
+        ]),
+    ]);
+    $game = new Game;
+    $game->setRawAttributes([
+        'id' => 'game-test',
+        'current_playable_moment_id' => null,
+    ]);
+    $deltas = '';
+
+    $result = sparseStateEngine()->callAgentStreaming(
+        model: 'claude-haiku-4-5',
+        systemPrompt: 'Narrate the next turn.',
+        conversationHistory: [],
+        playerAction: 'Open the door.',
+        protagonist: 'Watson',
+        onResponseDelta: function (string $delta) use (&$deltas): void {
+            $deltas .= $delta;
+        },
+        game: $game,
+    );
+
+    expect($deltas)->toBe($streamed['response'])
+        ->and($result['response'])->toBe($streamed['response'])
+        ->and($result['choices'])->toBe([
+            'Enter the room',
+            'Wait beneath the awning',
+            'Circle around the house',
+        ]);
+
+    $fake->assertCallCount(2);
+    $fake->assertRequest(function (array $requests): void {
+        expect($requests[0])->toBeInstanceOf(TextRequest::class)
+            ->and($requests[1])->toBeInstanceOf(StructuredRequest::class)
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['minItems'])->toBe(3)
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['maxItems'])->toBe(3);
     });
 });

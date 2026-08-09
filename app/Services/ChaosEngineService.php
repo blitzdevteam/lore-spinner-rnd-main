@@ -647,6 +647,9 @@ TEXT;
             'Return exactly one valid JSON object and nothing else.',
             'Do not wrap the object in Markdown fences.',
             'The first property MUST be "response" so the UI can stream it while the rest of the object is still generating.',
+            $game?->current_playable_moment_id === null
+                ? 'LEGACY GAMEPLAY REQUIREMENT: when "session_complete" is false, "choices" MUST contain exactly three non-empty suggested actions. Only a completed session may return "choices": []. "visible_suggestions" MUST be [].'
+                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Emit contextual "visible_suggestions" and follow every authored option requirement in the active-moment block.',
             'After "response", include every property required by this JSON schema:',
             $schemaJson,
         ]);
@@ -700,6 +703,15 @@ TEXT;
         }
 
         $structured = $this->decodeStreamedStructuredObject($text);
+        $structured = $this->repairMissingLegacyStreamedChoices(
+            structured: $structured,
+            model: $model,
+            config: $config,
+            promptText: $promptText,
+            playerAction: $playerAction,
+            protagonist: $protagonist,
+            game: $game,
+        );
 
         return $this->narrationResultFromStructured(
             structured: $structured,
@@ -867,6 +879,106 @@ TEXT;
     public function emptyAlignmentScaffold(): array
     {
         return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
+    }
+
+    /**
+     * Plain-text streaming cannot use Prism's provider-enforced response schema.
+     * Repair only the missing legacy choices with a small structured call while
+     * preserving the narration that has already streamed to the browser.
+     *
+     * @param  array<string, mixed>  $structured
+     * @param  array{provider:string, temperature?:float, reasoning_effort:?string}  $config
+     * @return array<string, mixed>
+     */
+    private function repairMissingLegacyStreamedChoices(
+        array $structured,
+        string $model,
+        array $config,
+        string $promptText,
+        ?string $playerAction,
+        string $protagonist,
+        ?Game $game,
+    ): array {
+        if ($game?->current_playable_moment_id !== null) {
+            return $structured;
+        }
+
+        if (($structured['session_complete'] ?? false) === true) {
+            return $structured;
+        }
+
+        $choices = $structured['choices'] ?? null;
+        if ($this->hasThreeLegacyChoices($choices)) {
+            return $structured;
+        }
+
+        $narration = $structured['response'] ?? '';
+        $narration = is_string($narration) ? $narration : '';
+
+        $schema = new JsonSchemaTypeFactory;
+        $repairRequest = Prism::structured()
+            ->using($config['provider'], $model)
+            ->withSchema(new NativeObjectSchema([
+                'choices' => $schema->array()
+                    ->required()
+                    ->min(3)
+                    ->max(3)
+                    ->items($schema->string()->required()),
+            ], 'narration_choices_repair'))
+            ->withSystemPrompt(implode("\n", [
+                'Generate exactly three concise, distinct actions the player can take next.',
+                'Ground every action in the supplied narration and player context.',
+                'Start each action with a strong verb. Do not repeat the narration.',
+            ]))
+            ->withPrompt(implode("\n\n", [
+                "PROTAGONIST: {$protagonist}",
+                'PLAYER ACTION: '.($playerAction ?? 'Continue the story forward.'),
+                'TURN CONTEXT:',
+                $promptText,
+                'COMPLETED NARRATION:',
+                $narration,
+            ]))
+            ->withClientOptions(['timeout' => 45, 'connect_timeout' => 10])
+            ->withProviderOptions($this->providerOptionsFor($config));
+
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $repairRequest = $repairRequest->usingTemperature(0.4);
+        }
+
+        if ($config['provider'] === 'anthropic') {
+            $repairRequest = $repairRequest->withMaxTokens(512);
+        }
+
+        $repaired = $repairRequest->asStructured()->structured['choices'] ?? null;
+        if (! $this->hasThreeLegacyChoices($repaired)) {
+            throw new RuntimeException('Streaming narration did not return three valid gameplay choices.');
+        }
+
+        Log::channel('narration')->warning('game.streaming_choices_repaired', [
+            'game_id' => $game?->id,
+            'model' => $model,
+        ]);
+
+        $structured['choices'] = array_values(array_map(static function (mixed $choice): string {
+            return mb_trim($choice);
+        }, $repaired));
+
+        return $structured;
+    }
+
+    private function hasThreeLegacyChoices(mixed $choices): bool
+    {
+        if (! is_array($choices) || count($choices) !== 3) {
+            return false;
+        }
+
+        foreach ($choices as $choice) {
+            if (! is_string($choice) || mb_trim($choice) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
