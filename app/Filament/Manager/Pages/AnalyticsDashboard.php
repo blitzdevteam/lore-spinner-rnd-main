@@ -248,7 +248,7 @@ final class AnalyticsDashboard extends Page
     /**
      * 3–4 computed insight strings for the dashboard callout panel.
      *
-     * @return array<int, array{icon: string, text: string, highlight: string, color: string}>
+     * @return array<int, array{tone: string, text: string, highlight: string}>
      */
     public function getKeyInsights(): array
     {
@@ -285,59 +285,47 @@ final class AnalyticsDashboard extends Page
 
             // Signup insight
             $insights[] = [
-                'icon' => '👥',
                 'text' => 'signed up since the baseline across',
                 'highlight' => number_format($signups).' users',
-                'suffix' => null,
-                'color' => '#8b5cf6',
+                'tone' => 'primary',
             ];
 
             // Start insight
             $perStory = $stories > 0 ? round($starts / $stories, 1) : 0;
             $insights[] = [
-                'icon' => '▶',
                 'text' => "game starts across {$stories} ".($stories === 1 ? 'story' : 'stories')." ({$perStory} avg per story)",
                 'highlight' => number_format($starts),
-                'suffix' => null,
-                'color' => '#3b82f6',
+                'tone' => 'info',
             ];
 
             // Completion insight
             if ($starts > 0 && $completions === 0) {
                 $insights[] = [
-                    'icon' => '📖',
                     'text' => 'story starts recorded since the baseline — no completed games recorded yet.',
                     'highlight' => number_format($starts),
-                    'suffix' => null,
-                    'color' => '#f59e0b',
+                    'tone' => 'warning',
                 ];
             } elseif ($starts > 0) {
                 $rate = round($completions / $starts * 100, 1);
                 $insights[] = [
-                    'icon' => '✅',
                     'text' => "completion rate — {$completions} unique games finished",
                     'highlight' => "{$rate}%",
-                    'suffix' => null,
-                    'color' => '#22c55e',
+                    'tone' => 'success',
                 ];
             }
 
             // Abandoned insight
             if ($abandoned === 0 && $starts > 0) {
                 $insights[] = [
-                    'icon' => '🟢',
                     'text' => 'abandoned games — all starts are still within the '.Analytics::abandonedLabel().' activity window.',
                     'highlight' => 'Zero',
-                    'suffix' => null,
-                    'color' => '#22c55e',
+                    'tone' => 'success',
                 ];
             } elseif ($abandoned > 0) {
                 $insights[] = [
-                    'icon' => '⚠️',
                     'text' => 'games abandoned (no activity for '.Analytics::abandonedLabel().')',
                     'highlight' => number_format($abandoned),
-                    'suffix' => null,
-                    'color' => '#ef4444',
+                    'tone' => 'danger',
                 ];
             }
 
