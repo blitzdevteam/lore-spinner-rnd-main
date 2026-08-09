@@ -4,6 +4,8 @@
         $progression = $this->getStoryProgression();
         $funnels     = $this->getSessionFunnels();
         $dropOffs    = $this->dropOffSessions();
+        $baselineLabel = \App\Support\Analytics::baselineLabel();
+        $abandonedLabel = \App\Support\Analytics::abandonedLabel();
     @endphp
 
     <div style="display:flex; flex-direction:column; gap:28px;">
@@ -12,7 +14,7 @@
         <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
             <div style="padding:16px 24px; border-bottom:1px solid #f3f4f6;">
                 <p style="font-size:13px; color:#6b7280; margin:0;">
-                    <strong style="color:#111827;">Data baseline: June 1, 2026.</strong>
+                    <strong style="color:#111827;">Data baseline: {{ $baselineLabel }}.</strong>
                     All metrics exclude data before this date.
                 </p>
             </div>
@@ -26,7 +28,7 @@
                             ['Comp. Events',        'Total rows in game_completions (all story cycles; can exceed starts).'],
                             ['Replay %',            'Unique replayers ÷ unique completed games.'],
                             ['Incomplete',          'Started and not yet completed. User may still be actively reading.'],
-                            ['Abandoned',           'Incomplete with no gameplay activity for 14+ days.'],
+                            ['Abandoned',           'Incomplete with no gameplay activity for ' . $abandonedLabel . '.'],
                             ['Content Progression', 'Started → Reached S2 → … → Completed (distinct games per gameplay session step).'],
                             ['Avg / Median Session','Mean and median of (completed_at − started_at) per gameplay session.'],
                             ['Avg Completion',      'Mean time from Session 1 start to story completion, per story cycle.'],
@@ -45,7 +47,7 @@
 
         @if ($stories->isEmpty())
             <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:64px 24px; text-align:center; color:#9ca3af; font-size:14px;">
-                No gameplay data yet. Metrics will appear once users start stories on or after June 1, 2026.
+                No gameplay data yet. Metrics will appear once users start stories on or after {{ $baselineLabel }}.
             </div>
         @else
 

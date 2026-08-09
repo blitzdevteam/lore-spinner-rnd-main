@@ -5,6 +5,8 @@
         $funnel      = $this->getEngagementFunnel();
         $topStories  = $this->getTopStories();
         $keyInsights = $this->getKeyInsights();
+        $baselineLabel = \App\Support\Analytics::baselineLabel();
+        $abandonedLabel = \App\Support\Analytics::abandonedLabel();
 
         $defs = [
             ['Unique Visits',       'A distinct visitor cookie session that loaded a tracked public page. This is NOT a gameplay session. Direct /register arrivals are not counted here.'],
@@ -12,8 +14,8 @@
             ['Story Starts',        'Non-preview game instances created since the baseline. One row per user per story. Includes games from users who registered before the baseline.'],
             ['Session 1 Completed', 'Games where the player finished Session 1 and advanced to Session 2 (completed_at set on session_number = 1 in game_session_completions).'],
             ['Story Completions',   'Distinct games that reached the story end state and generated a game_completions record. One game counted once regardless of how many times it was completed.'],
-            ['Replays',             'Game resets where the player had already completed the story at least once (game_resets.had_prior_completion = true).'],
-            ['Abandoned',           'Incomplete games with no gameplay activity (prompts, session advances, or resets) for 14+ consecutive days.'],
+            ['Replayed Games',      'Distinct non-preview games reset after the player had already completed the story at least once.'],
+            ['Abandoned',           'Incomplete games with no gameplay activity (prompts, session advances, or resets) for ' . $abandonedLabel . '.'],
             ['Return Users',        'Registered users active in the period who also had activity on a different calendar day before the period start.'],
         ];
     @endphp
@@ -25,7 +27,7 @@
             <path d="M10 9v5M10 7h.01" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <div>
-            <p style="margin:0 0 2px; font-size:13px; font-weight:600; color:#15803d;">Baseline: June 1, 2026 — All metrics start here</p>
+            <p style="margin:0 0 2px; font-size:13px; font-weight:600; color:#15803d;">Baseline: {{ $baselineLabel }} — All metrics start here</p>
             <p style="margin:0; font-size:12px; color:#16a34a;">Data before this date is excluded. See Metric Glossary below for precise definitions.</p>
         </div>
     </div>

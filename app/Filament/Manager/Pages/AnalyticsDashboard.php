@@ -4,22 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Pages;
 
-use App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsFunnelWidget;
+use App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget;
-use App\Models\GameCompletion;
-use App\Models\GameReset;
-use App\Models\GameSessionCompletion;
 use App\Models\User;
 use App\Support\Analytics;
+use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class AnalyticsDashboard extends Page
 {
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
 
     protected static ?string $navigationLabel = 'Analytics';
 
@@ -59,9 +57,9 @@ final class AnalyticsDashboard extends Page
     {
         try {
             $from = Analytics::baseline();
-            $to   = Carbon::now()->endOfDay();
+            $to = Analytics::asOf();
 
-            $visits  = DB::table('page_views')
+            $visits = DB::table('page_views')
                 ->where('view_date', '>=', $from->toDateString())
                 ->where('view_date', '<=', $to->toDateString())
                 ->distinct('session_id')
@@ -73,24 +71,27 @@ final class AnalyticsDashboard extends Page
                 ->count();
 
             $max = max($visits, $signups, 1);
+            $barWidth = static fn (int $value): int => $value === 0
+                ? 0
+                : max(4, (int) round($value / $max * 100));
 
             return [
                 [
-                    'label'     => 'Visits',
-                    'value'     => $visits,
-                    'bar_width' => max(4, (int) round($visits / $max * 100)),
-                    'color'     => '#6366f1',
-                    'note'      => 'Unique browser sessions on /, /stories/*, /creators/*',
+                    'label' => 'Visits',
+                    'value' => $visits,
+                    'bar_width' => $barWidth($visits),
+                    'color' => '#6366f1',
+                    'note' => 'Unique browser sessions on /, /stories/*, /creators/*',
                 ],
                 [
-                    'label'     => 'Signups',
-                    'value'     => $signups,
-                    'bar_width' => max(4, (int) round($signups / $max * 100)),
-                    'color'     => '#8b5cf6',
-                    'note'      => 'New registered accounts (includes direct /register arrivals)',
+                    'label' => 'Signups',
+                    'value' => $signups,
+                    'bar_width' => $barWidth($signups),
+                    'color' => '#8b5cf6',
+                    'note' => 'New registered accounts (includes direct /register arrivals)',
                 ],
             ];
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
     }
@@ -101,7 +102,7 @@ final class AnalyticsDashboard extends Page
      * Every step is a provable subset of Story Starts:
      *   Session 1 Completed ⊆ Starts
      *   Story Completions ⊆ Starts
-     *   Replays ⊆ Completions
+     *   Replayed Games ⊆ Completions
      *
      * Conversion percentages are calculated against Story Starts (the funnel anchor)
      * for Session 1 Completed, Story Completions, and against unique completions for Replays.
@@ -117,7 +118,7 @@ final class AnalyticsDashboard extends Page
     {
         try {
             $from = Analytics::baseline();
-            $to   = Carbon::now()->endOfDay();
+            $to = Analytics::asOf();
 
             $starts = DB::table('games')
                 ->where('is_preview', false)
@@ -125,72 +126,85 @@ final class AnalyticsDashboard extends Page
                 ->where('created_at', '<=', $to)
                 ->count();
 
-            // Session 1 completed: session_number=1 with a completed_at
-            $session1Completed = GameSessionCompletion::query()
-                ->where('session_number', 1)
-                ->whereNotNull('completed_at')
-                ->where('completed_at', '>=', $from)
-                ->where('completed_at', '<=', $to)
-                ->count();
+            // Count distinct games so replay cycles cannot make a nested step
+            // larger than Story Starts.
+            $session1Completed = DB::table('game_session_completions as gsc')
+                ->join('games as g', 'g.id', '=', 'gsc.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gsc.completed_at', [$from, $to])
+                ->where('gsc.session_number', 1)
+                ->distinct('gsc.game_id')
+                ->count('gsc.game_id');
 
             // Unique games that completed at least once (completion rate denominator)
-            $uniqueCompleted = (int) GameCompletion::query()
-                ->where('completed_at', '>=', $from)
-                ->where('completed_at', '<=', $to)
-                ->distinct('game_id')
-                ->count('game_id');
+            $uniqueCompleted = DB::table('game_completions as gc')
+                ->join('games as g', 'g.id', '=', 'gc.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gc.completed_at', [$from, $to])
+                ->distinct('gc.game_id')
+                ->count('gc.game_id');
 
-            // Replays = resets after a prior completion (had_prior_completion=true)
-            $replays = GameReset::query()
-                ->where('had_prior_completion', true)
-                ->where('created_at', '>=', $from)
-                ->where('created_at', '<=', $to)
-                ->count();
+            // Use distinct games here; the KPI card separately reports replay
+            // events, which can legitimately exceed the number of games.
+            $replayedGames = DB::table('game_resets as gr')
+                ->join('games as g', 'g.id', '=', 'gr.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gr.created_at', [$from, $to])
+                ->where('gr.had_prior_completion', true)
+                ->distinct('gr.game_id')
+                ->count('gr.game_id');
 
-            $safeStarts    = max($starts, 1);
-            $safeCompleted = max($uniqueCompleted, 1);
+            $pct = static fn (int $value, int $denominator): ?float => $denominator > 0
+                ? round($value / $denominator * 100, 1)
+                : null;
+            $bar = static fn (?float $value): int => $value === null
+                ? 0
+                : min(100, max(0, (int) round($value)));
 
             $steps = [
                 [
-                    'label'       => 'Story Starts',
-                    'value'       => $starts,
-                    'bar_width'   => 100,
-                    'pct_starts'  => null,
-                    'pct_prev'    => null,
-                    'color'       => '#3b82f6',
-                    'note'        => 'Non-preview games created since baseline (includes pre-baseline users)',
+                    'label' => 'Story Starts',
+                    'value' => $starts,
+                    'bar_width' => $starts > 0 ? 100 : 0,
+                    'pct_starts' => null,
+                    'pct_prev' => null,
+                    'color' => '#3b82f6',
+                    'note' => 'Non-preview games created since baseline (includes pre-baseline users)',
                 ],
                 [
-                    'label'       => 'Session 1 Completed',
-                    'value'       => $session1Completed,
-                    'bar_width'   => max(0, (int) round($session1Completed / $safeStarts * 100)),
-                    'pct_starts'  => round($session1Completed / $safeStarts * 100, 1),
-                    'pct_prev'    => round($session1Completed / $safeStarts * 100, 1),
-                    'color'       => '#f59e0b',
-                    'note'        => 'Games where the player finished Session 1 and advanced to Session 2',
+                    'label' => 'Session 1 Completed',
+                    'value' => $session1Completed,
+                    'bar_width' => $bar($pct($session1Completed, $starts)),
+                    'pct_starts' => $pct($session1Completed, $starts),
+                    'pct_prev' => $pct($session1Completed, $starts),
+                    'color' => '#f59e0b',
+                    'note' => 'Games where the player finished Session 1 and advanced to Session 2',
                 ],
                 [
-                    'label'       => 'Story Completions',
-                    'value'       => $uniqueCompleted,
-                    'bar_width'   => max(0, (int) round($uniqueCompleted / $safeStarts * 100)),
-                    'pct_starts'  => round($uniqueCompleted / $safeStarts * 100, 1),
-                    'pct_prev'    => ($session1Completed > 0) ? round($uniqueCompleted / max($session1Completed, 1) * 100, 1) : null,
-                    'color'       => '#22c55e',
-                    'note'        => 'Distinct games that reached the story end state (game_completions)',
+                    'label' => 'Story Completions',
+                    'value' => $uniqueCompleted,
+                    'bar_width' => $bar($pct($uniqueCompleted, $starts)),
+                    'pct_starts' => $pct($uniqueCompleted, $starts),
+                    'pct_prev' => $pct($uniqueCompleted, $session1Completed),
+                    'color' => '#22c55e',
+                    'note' => 'Distinct games that reached the story end state (game_completions)',
                 ],
                 [
-                    'label'       => 'Replays',
-                    'value'       => $replays,
-                    'bar_width'   => max(0, (int) round($replays / $safeStarts * 100)),
-                    'pct_starts'  => round($replays / $safeStarts * 100, 1),
-                    'pct_prev'    => round($replays / $safeCompleted * 100, 1),
-                    'color'       => '#ec4899',
-                    'note'        => 'Resets after a prior completion (had_prior_completion=true)',
+                    'label' => 'Replayed Games',
+                    'value' => $replayedGames,
+                    'bar_width' => $bar($pct($replayedGames, $starts)),
+                    'pct_starts' => $pct($replayedGames, $starts),
+                    'pct_prev' => $pct($replayedGames, $uniqueCompleted),
+                    'color' => '#ec4899',
+                    'note' => 'Distinct games reset after a prior completion (had_prior_completion=true)',
                 ],
             ];
 
             return $steps;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
     }
@@ -203,16 +217,17 @@ final class AnalyticsDashboard extends Page
     public function getTopStories(): array
     {
         try {
-            $rows = DB::select("
+            $rows = DB::select('
                 SELECT s.title, COUNT(g.id) AS starts
                 FROM stories s
                 JOIN games g ON g.story_id = s.id
                 WHERE g.is_preview = false
                   AND g.created_at >= ?
+                  AND g.created_at <= ?
                 GROUP BY s.id, s.title
                 ORDER BY starts DESC
                 LIMIT 5
-            ", [Analytics::baselineDateTimeString()]);
+            ', [Analytics::baselineDateTimeString(), Analytics::asOfDateTimeString()]);
 
             if (empty($rows)) {
                 return [];
@@ -221,11 +236,11 @@ final class AnalyticsDashboard extends Page
             $max = max(array_column((array) $rows, 'starts')) ?: 1;
 
             return array_map(fn ($r) => [
-                'title'  => $r->title,
+                'title' => $r->title,
                 'starts' => (int) $r->starts,
-                'pct'    => max(4, (int) round($r->starts / $max * 100)),
+                'pct' => max(4, (int) round($r->starts / $max * 100)),
             ], $rows);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
     }
@@ -239,86 +254,95 @@ final class AnalyticsDashboard extends Page
     {
         try {
             $from = Analytics::baseline();
-            $to   = Carbon::now()->endOfDay();
+            $to = Analytics::asOf();
 
-            $starts      = DB::table('games')->where('is_preview', false)->where('created_at', '>=', $from)->count();
-            $completions = (int) GameCompletion::query()->where('completed_at', '>=', $from)->distinct('game_id')->count('game_id');
-            $signups     = User::query()->where('created_at', '>=', $from)->where('created_at', '<=', $to)->count();
-            $stories     = DB::table('games')->where('is_preview', false)->where('created_at', '>=', $from)->distinct('story_id')->count('story_id');
-            $abandoned   = (int) (DB::select("
+            $starts = DB::table('games')->where('is_preview', false)->whereBetween('created_at', [$from, $to])->count();
+            $completions = DB::table('game_completions as gc')
+                ->join('games as g', 'g.id', '=', 'gc.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gc.completed_at', [$from, $to])
+                ->distinct('gc.game_id')
+                ->count('gc.game_id');
+            $signups = User::query()->where('created_at', '>=', $from)->where('created_at', '<=', $to)->count();
+            $stories = DB::table('games')->where('is_preview', false)->whereBetween('created_at', [$from, $to])->distinct('story_id')->count('story_id');
+            $abandoned = (int) (DB::select('
                 SELECT COUNT(*) AS cnt FROM (
                     SELECT g.id, GREATEST(g.created_at, MAX(p.created_at), MAX(gsc.started_at), MAX(gsc.completed_at), MAX(gr.created_at)) AS last_active_at
                     FROM games g
                     LEFT JOIN prompts p ON p.game_id = g.id
                     LEFT JOIN game_session_completions gsc ON gsc.game_id = g.id
                     LEFT JOIN game_resets gr ON gr.game_id = g.id
-                    WHERE g.is_preview = false AND g.completed_at IS NULL AND g.created_at >= ?
+                    WHERE g.is_preview = false
+                      AND g.completed_at IS NULL
+                      AND g.created_at >= ?
+                      AND g.created_at <= ?
                     GROUP BY g.id, g.created_at
-                ) sub WHERE last_active_at < ?
-            ", [$from->toDateTimeString(), Analytics::abandonedCutoff()->toDateTimeString()])[0]->cnt ?? 0);
+                ) sub WHERE last_active_at <= ?
+            ', [$from->toDateTimeString(), $to->toDateTimeString(), Analytics::abandonedCutoff()->toDateTimeString()])[0]->cnt ?? 0);
 
             $insights = [];
 
             // Signup insight
             $insights[] = [
-                'icon'      => '👥',
-                'text'      => "signed up since the baseline across",
-                'highlight' => number_format($signups) . ' users',
-                'suffix'    => null,
-                'color'     => '#8b5cf6',
+                'icon' => '👥',
+                'text' => 'signed up since the baseline across',
+                'highlight' => number_format($signups).' users',
+                'suffix' => null,
+                'color' => '#8b5cf6',
             ];
 
             // Start insight
             $perStory = $stories > 0 ? round($starts / $stories, 1) : 0;
             $insights[] = [
-                'icon'      => '▶',
-                'text'      => "game starts across {$stories} " . ($stories === 1 ? 'story' : 'stories') . " ({$perStory} avg per story)",
+                'icon' => '▶',
+                'text' => "game starts across {$stories} ".($stories === 1 ? 'story' : 'stories')." ({$perStory} avg per story)",
                 'highlight' => number_format($starts),
-                'suffix'    => null,
-                'color'     => '#3b82f6',
+                'suffix' => null,
+                'color' => '#3b82f6',
             ];
 
             // Completion insight
             if ($starts > 0 && $completions === 0) {
                 $insights[] = [
-                    'icon'      => '📖',
-                    'text'      => "users are mid-story — no completions yet. Normal for a new launch.",
+                    'icon' => '📖',
+                    'text' => 'story starts recorded since the baseline — no completed games recorded yet.',
                     'highlight' => number_format($starts),
-                    'suffix'    => null,
-                    'color'     => '#f59e0b',
+                    'suffix' => null,
+                    'color' => '#f59e0b',
                 ];
             } elseif ($starts > 0) {
-                $rate       = round($completions / $starts * 100, 1);
+                $rate = round($completions / $starts * 100, 1);
                 $insights[] = [
-                    'icon'      => '✅',
-                    'text'      => "completion rate — {$completions} unique games finished",
+                    'icon' => '✅',
+                    'text' => "completion rate — {$completions} unique games finished",
                     'highlight' => "{$rate}%",
-                    'suffix'    => null,
-                    'color'     => '#22c55e',
+                    'suffix' => null,
+                    'color' => '#22c55e',
                 ];
             }
 
             // Abandoned insight
             if ($abandoned === 0 && $starts > 0) {
                 $insights[] = [
-                    'icon'      => '🟢',
-                    'text'      => "abandoned games — all starts are still within the 14-day activity window.",
+                    'icon' => '🟢',
+                    'text' => 'abandoned games — all starts are still within the '.Analytics::abandonedLabel().' activity window.',
                     'highlight' => 'Zero',
-                    'suffix'    => null,
-                    'color'     => '#22c55e',
+                    'suffix' => null,
+                    'color' => '#22c55e',
                 ];
             } elseif ($abandoned > 0) {
                 $insights[] = [
-                    'icon'      => '⚠️',
-                    'text'      => "games abandoned (no activity for 14+ days)",
+                    'icon' => '⚠️',
+                    'text' => 'games abandoned (no activity for '.Analytics::abandonedLabel().')',
                     'highlight' => number_format($abandoned),
-                    'suffix'    => null,
-                    'color'     => '#ef4444',
+                    'suffix' => null,
+                    'color' => '#ef4444',
                 ];
             }
 
             return $insights;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
     }

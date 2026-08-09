@@ -38,7 +38,6 @@ final class StoryGameResetService
                 'current_playable_moment_id' => null,
                 'playable_moment_turn_count' => 0,
                 'moment_footnote' => null,
-                'completed_at' => null,
             ]);
         });
     }

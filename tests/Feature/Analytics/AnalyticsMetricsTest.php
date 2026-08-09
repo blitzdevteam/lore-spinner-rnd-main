@@ -24,9 +24,9 @@ afterEach(function () {
 function countAbandonedGames(): int
 {
     $baseline = Analytics::baselineDateTimeString();
-    $cutoff   = Analytics::abandonedCutoff()->toDateTimeString();
+    $cutoff = Analytics::abandonedCutoff()->toDateTimeString();
 
-    $result = DB::select("
+    $result = DB::select('
         SELECT COUNT(*) AS cnt
         FROM (
             SELECT g.id,
@@ -46,8 +46,8 @@ function countAbandonedGames(): int
               AND g.created_at >= ?
             GROUP BY g.id, g.created_at
         ) sub
-        WHERE last_active_at < ?
-    ", [$baseline, $cutoff]);
+        WHERE last_active_at <= ?
+    ', [$baseline, $cutoff]);
 
     return (int) ($result[0]->cnt ?? 0);
 }
@@ -56,7 +56,7 @@ describe('incomplete vs abandoned', function () {
     it('counts active incomplete games separately from abandoned games', function () {
         Carbon::setTestNow('2026-06-20 12:00:00');
 
-        $user  = $this->ctx->createUser();
+        $user = $this->ctx->createUser();
         $story = $this->ctx->createStory();
 
         $active = $this->ctx->createGame($user, $story, [
@@ -73,6 +73,13 @@ describe('incomplete vs abandoned', function () {
         $this->ctx->startSession($abandoned, startedAt: Carbon::parse('2026-06-02'));
         $this->ctx->recordPrompt($abandoned, Carbon::parse('2026-06-02'));
 
+        $boundary = $this->ctx->createGame($user, $story, [
+            'created_at' => Carbon::parse('2026-06-06 12:00:00'),
+            'completed_at' => null,
+        ]);
+        $this->ctx->startSession($boundary, startedAt: Carbon::parse('2026-06-06 12:00:00'));
+        $this->ctx->recordPrompt($boundary, Carbon::parse('2026-06-06 12:00:00'));
+
         $incompleteCount = DB::table('games')
             ->where('is_preview', false)
             ->whereNull('completed_at')
@@ -81,16 +88,16 @@ describe('incomplete vs abandoned', function () {
 
         $abandonedCount = countAbandonedGames();
 
-        expect($incompleteCount)->toBe(2);
-        expect($abandonedCount)->toBe(1);
+        expect($incompleteCount)->toBe(3);
+        expect($abandonedCount)->toBe(2);
 
         AnalyticsTestLogger::log('incomplete_vs_abandoned', [
-            'now'               => now()->toIso8601String(),
-            'incomplete_count'  => $incompleteCount,
-            'abandoned_count'   => $abandonedCount,
-            'active_game_id'    => $active->id,
+            'now' => now()->toIso8601String(),
+            'incomplete_count' => $incompleteCount,
+            'abandoned_count' => $abandonedCount,
+            'active_game_id' => $active->id,
             'abandoned_game_id' => $abandoned->id,
-            'tracked'           => $this->ctx->trackedCounts(),
+            'tracked' => $this->ctx->trackedCounts(),
         ]);
 
         Carbon::setTestNow();
@@ -99,9 +106,9 @@ describe('incomplete vs abandoned', function () {
 
 describe('completion and replay metrics', function () {
     it('separates completion events from unique completed games', function () {
-        $user  = $this->ctx->createUser();
+        $user = $this->ctx->createUser();
         $story = $this->ctx->createStory();
-        $game  = $this->ctx->createGame($user, $story);
+        $game = $this->ctx->createGame($user, $story);
 
         $this->ctx->recordCompletion($game, storyCycleNumber: 1);
         $this->ctx->recordCompletion($game, storyCycleNumber: 2);
@@ -128,18 +135,18 @@ describe('completion and replay metrics', function () {
         expect($completionRate)->toBe(100.0);
 
         AnalyticsTestLogger::log('completion_rate_semantics', [
-            'starts'           => $starts,
-            'completion_events'=> $events,
+            'starts' => $starts,
+            'completion_events' => $events,
             'unique_completed' => $unique,
-            'completion_rate'  => $completionRate,
-            'tracked'          => $this->ctx->trackedCounts(),
+            'completion_rate' => $completionRate,
+            'tracked' => $this->ctx->trackedCounts(),
         ]);
     });
 
     it('separates replay events from unique replayers', function () {
-        $user  = $this->ctx->createUser();
+        $user = $this->ctx->createUser();
         $story = $this->ctx->createStory();
-        $game  = $this->ctx->createGame($user, $story);
+        $game = $this->ctx->createGame($user, $story);
 
         $this->ctx->recordCompletion($game, storyCycleNumber: 1);
 
@@ -162,10 +169,10 @@ describe('completion and replay metrics', function () {
         expect($uniqueReplayers)->toBe(1);
 
         AnalyticsTestLogger::log('replay_semantics', [
-            'replay_events'    => $events,
+            'replay_events' => $events,
             'unique_replayers' => $uniqueReplayers,
-            'game_id'          => $game->id,
-            'tracked'          => $this->ctx->trackedCounts(),
+            'game_id' => $game->id,
+            'tracked' => $this->ctx->trackedCounts(),
         ]);
     });
 });
@@ -185,30 +192,30 @@ describe('retention cohort anchor', function () {
 
         // Count distinct game rows (not distinct users) to show that naive
         // "games created" overcounts vs "sessions actually started".
-        $cohortFromGames = DB::selectOne("
+        $cohortFromGames = DB::selectOne('
             SELECT COUNT(DISTINCT id) AS cnt
             FROM games
             WHERE is_preview = false AND created_at >= ?
-        ", [Analytics::baselineDateTimeString()])->cnt;
+        ', [Analytics::baselineDateTimeString()])->cnt;
 
-        $cohortFromSessions = DB::selectOne("
+        $cohortFromSessions = DB::selectOne('
             SELECT COUNT(DISTINCT gsc.user_id) AS cnt
             FROM game_session_completions gsc
             JOIN games g ON g.id = gsc.game_id
             WHERE g.is_preview = false
               AND gsc.started_at IS NOT NULL
               AND gsc.started_at >= ?
-        ", [Analytics::baselineDateTimeString()])->cnt;
+        ', [Analytics::baselineDateTimeString()])->cnt;
 
         expect($cohortFromGames)->toBe(2);
         expect($cohortFromSessions)->toBe(1);
 
         AnalyticsTestLogger::log('retention_cohort_anchor', [
-            'cohort_from_games_created'    => (int) $cohortFromGames,
-            'cohort_from_first_session'    => (int) $cohortFromSessions,
-            'never_played_game_id'         => $neverPlayed->id,
-            'played_game_id'               => $played->id,
-            'tracked'                      => $this->ctx->trackedCounts(),
+            'cohort_from_games_created' => (int) $cohortFromGames,
+            'cohort_from_first_session' => (int) $cohortFromSessions,
+            'never_played_game_id' => $neverPlayed->id,
+            'played_game_id' => $played->id,
+            'tracked' => $this->ctx->trackedCounts(),
         ]);
     });
 });

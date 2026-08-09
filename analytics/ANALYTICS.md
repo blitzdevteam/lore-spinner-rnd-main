@@ -824,9 +824,9 @@ DB::table('page_views')->upsert(
 
 **Type:** `StatsOverviewWidget` (Filament KPI cards)  
 **File:** `app/Filament/Manager/Widgets/Analytics/AnalyticsKpiWidget.php`  
-**Date filters:** Last 7 days / Last 30 days (default) / Last 90 days / All time
+**Date filters:** None — all-time data capped at the configured baseline and current as-of time
 
-Seven KPI cards:
+Nine KPI cards:
 
 | Card | Color | Metric |
 |------|-------|--------|
@@ -834,9 +834,11 @@ Seven KPI cards:
 | Signups | Purple | New accounts created |
 | Story Starts | Blue | New games created (excl. previews) |
 | Session 1 Completions | Yellow | Players who advanced past Session 1 |
-| Story Completions | Green | Players who reached the story end state |
-| Returns | Purple | Players returning after prior activity |
-| Replays | Red | Resets after a prior story completion |
+| Story Completions | Green | Distinct games that reached the story end state |
+| Incomplete Stories | Yellow | Non-preview games with no completion on record |
+| Abandoned Stories | Red | Incomplete games with no gameplay activity for the configured inactivity window |
+| Returning Users | Purple | Users active in the period with prior activity before it |
+| Replay Events | Blue | Reset events after a prior story completion |
 
 ---
 
@@ -846,7 +848,7 @@ Seven KPI cards:
 **File:** `app/Filament/Manager/Widgets/Analytics/AnalyticsFunnelWidget.php`  
 **Date filters:** Same as KPI widget
 
-Shows the same 6 steps (Visits, Signups, Story Starts, Session 1 Done, Story Complete, Replays) as a horizontal bar chart. Bars decrease in length as the funnel narrows, making drop-off visually immediate.
+Shows four nested gameplay steps (Story Starts, Session 1 Done, Story Complete, Replayed Games) as a horizontal bar chart. Visits and Signups remain separate because those populations cannot be proven to nest inside gameplay starts.
 
 Each bar has a distinct color matching the KPI card color scheme.
 
@@ -862,12 +864,12 @@ Four cards:
 
 | Card | Color | Metric |
 |------|-------|--------|
-| D1 Retention | Purple | % of all-time players who returned the next day |
-| D7 Retention | Blue | % who returned within 7 days |
-| D30 Retention | Yellow | % who returned within 30 days |
-| Return Rate | Green | % with >1 distinct active day, all time |
+| D1 Retention | Purple | % of mature baseline-cohort users who returned the next day |
+| D7 Retention | Blue | % of mature baseline-cohort users who returned within 7 days |
+| D30 Retention | Yellow | % of mature baseline-cohort users who returned within 30 days |
+| Return Rate | Green | % of baseline-cohort users with >1 distinct active day |
 
-Each D-N card shows the cohort size in its description: `"Cohort: 432 players · returned within 7 days"`.
+Each D-N card shows its mature cohort size in the description: `"Cohort: 432 users · returned within 7 days"`.
 
 If the cohort is empty (no `user_activity_days` data yet), all rates display as `N/A`.
 
@@ -886,16 +888,16 @@ A dedicated Filament page showing per-story engagement metrics in a sortable tab
 | Column | Source | Formula |
 |--------|--------|---------|
 | **Story** | `stories.title`, `stories.slug` | Display only |
-| **Starts** | `games` | `COUNT(*) WHERE is_preview = false AND created_at >= baseline` |
-| **Completed (unique)** | `game_completions` | `COUNT(DISTINCT game_id) WHERE completed_at >= baseline` |
+| **Starts** | `games` | `COUNT(*) WHERE is_preview = false AND created_at BETWEEN baseline AND as-of` |
+| **Completed (unique)** | `game_completions` + `games` | `COUNT(DISTINCT game_id)` where the non-preview game and completion event are both in the baseline/as-of window |
 | **Completion %** | Derived | `unique completed / starts × 100` (never exceeds 100%) |
-| **Completion Events** | `game_completions` | `COUNT(*) WHERE completed_at >= baseline` (all story cycles; can exceed starts) |
-| **Incomplete** | `games` | `COUNT(*) WHERE completed_at IS NULL AND created_at >= baseline` |
+| **Completion Events** | `game_completions` | `COUNT(*) WHERE completed_at BETWEEN baseline and as-of` (all story cycles; can exceed starts) |
+| **Incomplete** | `games` | `COUNT(*) WHERE completed_at IS NULL AND created_at BETWEEN baseline and as-of` |
 | **Incomplete %** | Derived | `incomplete / starts × 100` |
 | **Abandoned** | Derived | Incomplete games with no gameplay activity for 14+ days |
 | **Abandoned %** | Derived | `abandoned / starts × 100` |
-| **Replay Events** | `game_resets` | `COUNT(*) WHERE had_prior_completion = true AND created_at >= baseline` |
-| **Unique Replayers** | `game_resets` | `COUNT(DISTINCT user_id) WHERE had_prior_completion = true` |
+| **Replay Events** | `game_resets` | `COUNT(*) WHERE had_prior_completion = true AND created_at BETWEEN baseline and as-of` |
+| **Unique Replayers** | `game_resets` + `games` | `COUNT(DISTINCT user_id)` on cohort games with a qualifying reset in the baseline/as-of window |
 | **Replay %** | Derived | `unique replayers / unique completed × 100` (not events ÷ events) |
 | **Avg Session** | `game_session_completions` | `AVG(completed_at − started_at)` in minutes |
 | **Avg Completion** | `game_completions` + session 1 | `AVG(gc.completed_at − s1.started_at)` matched by `(game_id, story_cycle_number)` |
@@ -985,32 +987,20 @@ GROUP BY gsc.user_id
 
 Cohort anchor: **first playable experience** — the date narration was first delivered (`game_session_completions.started_at`), not game row creation. Players who clicked Play but never received AI content are excluded from the cohort.
 
+The cohort query considers only playable sessions at or before the dashboard as-of time and keeps users whose first observed playable session is on or after the configured baseline. D1, D7, and D30 each use a separate mature denominator: users are included only when the corresponding milestone date has arrived.
+
 ### Full Retention Query (single pass)
 
-```sql
-SELECT
-    COUNT(DISTINCT c.user_id)                                            AS cohort_size,
-    COUNT(DISTINCT CASE WHEN d1.user_id  IS NOT NULL THEN c.user_id END) AS d1_retained,
-    COUNT(DISTINCT CASE WHEN d7.user_id  IS NOT NULL THEN c.user_id END) AS d7_retained,
-    COUNT(DISTINCT CASE WHEN d30.user_id IS NOT NULL THEN c.user_id END) AS d30_retained
-FROM (
-    SELECT user_id, MIN(created_at)::date AS first_start
-    FROM games
-    WHERE is_preview = false
-    GROUP BY user_id
-) c
-LEFT JOIN user_activity_days d1
-    ON  d1.user_id       = c.user_id
-    AND d1.activity_date = c.first_start + INTERVAL '1 day'
-LEFT JOIN user_activity_days d7
-    ON  d7.user_id       = c.user_id
-    AND d7.activity_date BETWEEN c.first_start + INTERVAL '1 day'
-                             AND c.first_start + INTERVAL '7 days'
-LEFT JOIN user_activity_days d30
-    ON  d30.user_id       = c.user_id
-    AND d30.activity_date BETWEEN c.first_start + INTERVAL '1 day'
-                              AND c.first_start + INTERVAL '30 days'
+The live widget runs this logic in one query with a `cohort` CTE and three maturity checks:
+
+```text
+cohort = users whose first observed playable session is on/after baseline
+D1     = cohort first_play <= as_of - 1 day, activity exactly first_play + 1 day
+D7     = cohort first_play <= as_of - 7 days, activity from day 1 through day 7
+D30    = cohort first_play <= as_of - 30 days, activity from day 1 through day 30
 ```
+
+Return Rate uses the same cohort and counts users with more than one distinct activity day from first play through the as-of date.
 
 ### Session Drop-off per Story (not in dashboard — future query)
 
@@ -1131,8 +1121,8 @@ Only initial full-page loads are recorded (no `X-Inertia` header). A user who op
 **Story Completions do not backfill:**  
 Games completed before the migration have `completed_at = null`. The manager dashboard's "all time" completion count will undercount legacy completions. This gap closes over time as players complete stories post-migration.
 
-**Returns shows 0 for "All time" filter:**  
-The Returns query requires a `from` date to define "prior history." Without a start date, the definition breaks. When "All time" is selected, Returns displays 0. Consider showing "N/A" instead in a future update.
+**Returns uses the baseline as its period start:**
+The Returns query counts users active from the analytics baseline through the as-of date who also had activity before the baseline. It is intentionally not a lifetime count of every user with more than one active day.
 
 **D-N Retention will show 0 until data accumulates:**  
 `user_activity_days` is empty on migration day. D1, D7, and D30 will all show `N/A` until players create activity days. D30 will take at least 30 days of data after at least one player's first start to show a real number.

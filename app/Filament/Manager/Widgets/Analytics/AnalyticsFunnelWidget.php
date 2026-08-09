@@ -5,31 +5,36 @@ declare(strict_types=1);
 namespace App\Filament\Manager\Widgets\Analytics;
 
 use App\Support\Analytics;
-use App\Models\GameCompletion;
-use App\Models\GameReset;
-use App\Models\GameSessionCompletion;
-use App\Models\User;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Conversion funnel bar chart.
  *
- * All steps are bounded by the analytics baseline (2026-06-01).
- * Story completions use game_completions (append-only history).
+ * This chart contains only nested gameplay metrics. Visits and signups are
+ * intentionally kept out because they are independent populations, not
+ * provable subsets of story starts.
  */
 final class AnalyticsFunnelWidget extends ChartWidget
 {
     protected static ?int $sort = 2;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
-    protected ?string $heading = 'Conversion Funnel';
+    protected ?string $heading = 'Engagement Funnel';
 
-    protected ?string $description = 'Step-by-step user progression from first visit to story replay. All steps capped at Jun 1, 2026 baseline.';
+    protected ?string $description = null;
 
     protected ?string $maxHeight = '340px';
+
+    public function getDescription(): string
+    {
+        return 'Nested gameplay progression from story start to replayed game. Date range is capped at the '
+            .Analytics::baselineLabel()
+            .' baseline.';
+    }
 
     protected function getType(): string
     {
@@ -39,74 +44,72 @@ final class AnalyticsFunnelWidget extends ChartWidget
     protected function getFilters(): ?array
     {
         return [
-            '7'   => 'Last 7 days',
-            '30'  => 'Last 30 days',
-            '90'  => 'Last 90 days',
-            'all' => 'All time (since Jun 1)',
+            '7' => 'Last 7 days',
+            '30' => 'Last 30 days',
+            '90' => 'Last 90 days',
+            'all' => 'All time (since '.Analytics::baselineLabel().')',
         ];
     }
 
     protected function getData(): array
     {
-        [$from, $to] = $this->dateRange();
+        try {
+            [$from, $to] = $this->dateRange();
 
-        $visits = DB::table('page_views')
-            ->where('view_date', '>=', $from->toDateString())
-            ->where('view_date', '<=', $to->toDateString())
-            ->distinct('session_id')
-            ->count('session_id');
+            $starts = DB::table('games')
+                ->where('is_preview', false)
+                ->whereBetween('created_at', [$from, $to])
+                ->count();
 
-        $signups = User::query()
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
-            ->count();
+            $s1Completions = DB::table('game_session_completions as gsc')
+                ->join('games as g', 'g.id', '=', 'gsc.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gsc.completed_at', [$from, $to])
+                ->where('gsc.session_number', 1)
+                ->distinct('gsc.game_id')
+                ->count('gsc.game_id');
 
-        $starts = DB::table('games')
-            ->where('is_preview', false)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
-            ->count();
+            $storyCompletions = DB::table('game_completions as gc')
+                ->join('games as g', 'g.id', '=', 'gc.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gc.completed_at', [$from, $to])
+                ->distinct('gc.game_id')
+                ->count('gc.game_id');
 
-        $s1Completions = GameSessionCompletion::query()
-            ->where('session_number', 1)
-            ->whereNotNull('completed_at')
-            ->where('completed_at', '>=', $from)
-            ->where('completed_at', '<=', $to)
-            ->count();
+            $replayedGames = DB::table('game_resets as gr')
+                ->join('games as g', 'g.id', '=', 'gr.game_id')
+                ->where('g.is_preview', false)
+                ->whereBetween('g.created_at', [$from, $to])
+                ->whereBetween('gr.created_at', [$from, $to])
+                ->where('gr.had_prior_completion', true)
+                ->distinct('gr.game_id')
+                ->count('gr.game_id');
 
-        $storyCompletions = (int) GameCompletion::query()
-            ->where('completed_at', '>=', $from)
-            ->where('completed_at', '<=', $to)
-            ->distinct('game_id')
-            ->count('game_id');
-
-        $replays = GameReset::query()
-            ->where('had_prior_completion', true)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
-            ->count();
-
-        $steps = [
-            'Visits'          => $visits,
-            'Signups'         => $signups,
-            'Story Starts'    => $starts,
-            'Session 1 Done'  => $s1Completions,
-            'Story Complete'  => $storyCompletions,
-            'Replays'         => $replays,
-        ];
+            $steps = [
+                'Story Starts' => $starts,
+                'Session 1 Done' => $s1Completions,
+                'Story Complete' => $storyCompletions,
+                'Replayed Games' => $replayedGames,
+            ];
+        } catch (Throwable) {
+            return [
+                'datasets' => [['label' => 'Unavailable', 'data' => []]],
+                'labels' => [],
+            ];
+        }
 
         return [
             'datasets' => [
                 [
-                    'label' => 'Users',
-                    'data'  => array_values($steps),
+                    'label' => 'Games',
+                    'data' => array_values($steps),
                     'backgroundColor' => [
-                        'rgba(107, 114, 128, 0.8)',
-                        'rgba(147, 51, 234, 0.8)',
                         'rgba(59, 130, 246, 0.8)',
                         'rgba(234, 179, 8, 0.8)',
                         'rgba(34, 197, 94, 0.8)',
-                        'rgba(239, 68, 68, 0.8)',
+                        'rgba(236, 72, 153, 0.8)',
                     ],
                     'borderRadius' => 6,
                 ],
@@ -119,7 +122,7 @@ final class AnalyticsFunnelWidget extends ChartWidget
     {
         return [
             'indexAxis' => 'y',
-            'plugins'   => [
+            'plugins' => [
                 'legend' => ['display' => false],
             ],
             'scales' => [
@@ -135,11 +138,11 @@ final class AnalyticsFunnelWidget extends ChartWidget
     private function dateRange(): array
     {
         $baseline = Analytics::baseline();
-        $to       = Carbon::now()->endOfDay();
+        $to = Analytics::asOf();
 
         $days = match ($this->filter) {
-            '7'   => 7,
-            '90'  => 90,
+            '7' => 7,
+            '90' => 90,
             'all' => null,
             default => 30,
         };

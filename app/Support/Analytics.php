@@ -34,6 +34,21 @@ final class Analytics
         return self::baseline()->toDateTimeString();
     }
 
+    public static function asOf(): Carbon
+    {
+        return Carbon::now()->endOfDay();
+    }
+
+    public static function asOfDateTimeString(): string
+    {
+        return self::asOf()->toDateTimeString();
+    }
+
+    public static function baselineLabel(): string
+    {
+        return self::baseline()->format('F j, Y');
+    }
+
     public static function abandonedInactivityDays(): int
     {
         return (int) config('analytics.abandoned_inactivity_days', 14);
@@ -42,5 +57,10 @@ final class Analytics
     public static function abandonedCutoff(): Carbon
     {
         return Carbon::now()->subDays(self::abandonedInactivityDays());
+    }
+
+    public static function abandonedLabel(): string
+    {
+        return self::abandonedInactivityDays().'+ days';
     }
 }
