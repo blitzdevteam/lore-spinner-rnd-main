@@ -99,6 +99,7 @@ final class ManagerPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            ->viteTheme('resources/css/filament/manager/theme.css')
             ->widgets([
                 Widgets\PlatformStatsOverview::class,
                 Widgets\SignupChart::class,
