@@ -13,6 +13,21 @@ final class ListPlayerTokenUsages extends ListRecords
 
     public function getSubheading(): string
     {
-        return 'Player gameplay requests only. Table totals update with the active filters.';
+        return 'Player gameplay only. The cards, charts, and ledger totals all follow the filters below.';
+    }
+
+    /** @return array<string, int> */
+    public function getHeaderWidgetsColumns(): array
+    {
+        return [
+            'default' => 1,
+            'xl' => 2,
+        ];
+    }
+
+    /** @return array<class-string> */
+    protected function getHeaderWidgets(): array
+    {
+        return PlayerTokenUsageResource::getWidgets();
     }
 }

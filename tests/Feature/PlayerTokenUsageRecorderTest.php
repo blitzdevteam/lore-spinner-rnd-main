@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
+use App\Services\Runtime\PlayerTokenUsageInsights;
 use App\Services\Runtime\PlayerTokenUsageRecorder;
 use App\Services\Runtime\PlayerTokenUsageSummary;
 use Carbon\CarbonImmutable;
@@ -31,10 +32,14 @@ beforeEach(function () {
 
     Schema::create('users', function (Blueprint $table): void {
         $table->id();
+        $table->string('first_name')->nullable();
+        $table->string('last_name')->nullable();
+        $table->string('email')->nullable();
         $table->timestamps();
     });
     Schema::create('stories', function (Blueprint $table): void {
         $table->id();
+        $table->string('title')->nullable();
         $table->timestamps();
     });
     Schema::create('games', function (Blueprint $table): void {
@@ -61,6 +66,7 @@ beforeEach(function () {
         $table->id();
         $table->unsignedBigInteger('story_id');
         $table->unsignedInteger('position');
+        $table->string('title')->nullable();
         $table->timestamps();
     });
     Schema::create('events', function (Blueprint $table): void {
@@ -94,6 +100,11 @@ beforeEach(function () {
         'migrations/2026_08_10_000001_create_player_token_usages_table.php',
     );
     $migration->up();
+
+    $dashboardIndexes = require database_path(
+        'migrations/2026_08_10_000002_add_dashboard_indexes_to_player_token_usages_table.php',
+    );
+    $dashboardIndexes->up();
 });
 
 afterEach(function () {
@@ -215,4 +226,172 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     expect($usage->prompt_id)->toBeNull()
         ->and($usage->prompt_reference_id)->toBe($promptReference)
         ->and(PlayerTokenUsage::query()->count())->toBe(1);
+});
+
+it('builds filterable game player session chapter and daily dashboard insights', function () {
+    $firstUserId = DB::table('users')->insertGetId([
+        'first_name' => 'Ava',
+        'last_name' => 'Stone',
+        'email' => 'ava@example.test',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $secondUserId = DB::table('users')->insertGetId([
+        'first_name' => 'Noah',
+        'last_name' => 'Vale',
+        'email' => 'noah@example.test',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $firstStoryId = DB::table('stories')->insertGetId([
+        'title' => 'The Glass Harbor',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $secondStoryId = DB::table('stories')->insertGetId([
+        'title' => 'Ashes of Dawn',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $chapterIds = [
+        DB::table('chapters')->insertGetId([
+            'story_id' => $firstStoryId,
+            'position' => 1,
+            'title' => 'The Arrival',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]),
+        DB::table('chapters')->insertGetId([
+            'story_id' => $firstStoryId,
+            'position' => 2,
+            'title' => 'Below the Tide',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]),
+        DB::table('chapters')->insertGetId([
+            'story_id' => $secondStoryId,
+            'position' => 1,
+            'title' => 'Embers',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]),
+    ];
+
+    $eventIds = [];
+    foreach ($chapterIds as $index => $chapterId) {
+        $eventIds[] = DB::table('events')->insertGetId([
+            'chapter_id' => $chapterId,
+            'position' => 1,
+            'session_number' => $index === 1 ? 2 : 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    $firstGame = Game::query()->create([
+        'story_id' => $firstStoryId,
+        'user_id' => $firstUserId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 2,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $secondGame = Game::query()->create([
+        'story_id' => $secondStoryId,
+        'user_id' => $secondUserId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+
+    $requests = [
+        [
+            'game' => $firstGame,
+            'event_id' => $eventIds[0],
+            'moment_key' => 'S1_M01',
+            'session' => 1,
+            'usage' => [
+                'prompt_tokens' => 100,
+                'completion_tokens' => 20,
+                'cache_read_input_tokens' => 10,
+            ],
+            'occurred_at' => '2026-08-08T12:00:00Z',
+        ],
+        [
+            'game' => $firstGame,
+            'event_id' => $eventIds[1],
+            'moment_key' => 'S2_M01',
+            'session' => 2,
+            'usage' => [
+                'prompt_tokens' => 400,
+                'completion_tokens' => 100,
+                'cache_write_input_tokens' => 50,
+            ],
+            'occurred_at' => '2026-08-10T10:00:00Z',
+        ],
+        [
+            'game' => $secondGame,
+            'event_id' => $eventIds[2],
+            'moment_key' => 'S1_M02',
+            'session' => 1,
+            'usage' => [
+                'prompt_tokens' => 200,
+                'completion_tokens' => 50,
+            ],
+            'occurred_at' => '2026-08-10T14:00:00Z',
+        ],
+    ];
+
+    $recorder = app(PlayerTokenUsageRecorder::class);
+    foreach ($requests as $request) {
+        $moment = PlayableMoment::query()->create([
+            'moment_key' => $request['moment_key'],
+            'anchor_event_id' => $request['event_id'],
+            'source_event_ids' => [$request['event_id']],
+            'scene_card' => [],
+        ]);
+        $prompt = $request['game']->prompts()->create([
+            'session_number' => $request['session'],
+            'moment_key' => $request['moment_key'],
+            'response' => 'Narration',
+            'choices' => [],
+        ]);
+
+        $recorder->record(
+            $request['game'],
+            $prompt,
+            $request['usage'],
+            PlayerTokenUsage::KIND_TURN,
+            $moment,
+            CarbonImmutable::parse($request['occurred_at']),
+        );
+    }
+
+    $insights = app(PlayerTokenUsageInsights::class);
+    $overview = $insights->overview(PlayerTokenUsage::query());
+    $daily = $insights->dailyTokenMix(PlayerTokenUsage::query());
+
+    expect($overview['requests'])->toBe(3)
+        ->and($overview['input_tokens'])->toBe(700)
+        ->and($overview['cached_input_tokens'])->toBe(60)
+        ->and($overview['output_tokens'])->toBe(170)
+        ->and($overview['total_tokens'])->toBe(930)
+        ->and(round($overview['cache_share'], 1))->toBe(7.9)
+        ->and($overview['top_session']['total_tokens'])->toBe(550)
+        ->and($daily['labels'])->toBe(['Aug 8, 2026', 'Aug 10, 2026'])
+        ->and($daily['input_tokens'])->toBe([100, 600])
+        ->and($daily['cached_input_tokens'])->toBe([10, 50])
+        ->and($daily['output_tokens'])->toBe([20, 150]);
+
+    expect($insights->topConsumers(PlayerTokenUsage::query(), 'game')[0])
+        ->toMatchArray(['key' => $firstGame->id, 'total_tokens' => 680])
+        ->and($insights->topConsumers(PlayerTokenUsage::query(), 'player')[0])
+        ->toMatchArray(['key' => (string) $firstUserId, 'total_tokens' => 680])
+        ->and($insights->topConsumers(PlayerTokenUsage::query(), 'session')[0])
+        ->toMatchArray(['key' => $firstGame->id, 'total_tokens' => 550])
+        ->and($insights->topConsumers(
+            PlayerTokenUsage::query()->where('game_id', $firstGame->id),
+            'chapter',
+        )[0])
+        ->toMatchArray(['key' => (string) $chapterIds[1], 'total_tokens' => 550]);
 });

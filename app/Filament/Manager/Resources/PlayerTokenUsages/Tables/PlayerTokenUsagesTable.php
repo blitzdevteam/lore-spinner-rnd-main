@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\PlayerTokenUsages\Tables;
 
+use App\Models\Game;
 use App\Models\PlayerTokenUsage;
 use Carbon\CarbonImmutable;
 use Filament\Actions\ViewAction;
@@ -134,6 +135,27 @@ final class PlayerTokenUsagesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('quick_range')
+                    ->label('Quick range')
+                    ->options([
+                        '7' => 'Last 7 days',
+                        '30' => 'Last 30 days',
+                        '90' => 'Last 90 days',
+                    ])
+                    ->query(static function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        $days = is_numeric($value) ? (int) $value : 0;
+
+                        if (! in_array($days, [7, 30, 90], true)) {
+                            return $query;
+                        }
+
+                        return $query->where(
+                            'occurred_at',
+                            '>=',
+                            CarbonImmutable::now()->subDays($days - 1)->startOfDay(),
+                        );
+                    }),
                 Filter::make('occurred_at')
                     ->label('Date range')
                     ->schema([
@@ -179,6 +201,30 @@ final class PlayerTokenUsagesTable
                 SelectFilter::make('story_id')
                     ->label('Story')
                     ->relationship('story', 'title')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('user_id')
+                    ->label('Player')
+                    ->relationship('user', 'email')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('game_id')
+                    ->label('Game')
+                    ->relationship(
+                        'game',
+                        'id',
+                        modifyQueryUsing: static fn (Builder $query): Builder => $query
+                            ->whereHas('tokenUsages')
+                            ->with(['story:id,title', 'user:id,email'])
+                            ->latest('games.created_at'),
+                    )
+                    ->getOptionLabelFromRecordUsing(
+                        static fn (Game $record): string => implode(' · ', [
+                            mb_substr($record->id, 0, 10).'…',
+                            $record->story->title,
+                            $record->user->email,
+                        ]),
+                    )
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('model')

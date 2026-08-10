@@ -8,6 +8,9 @@ use App\Filament\Manager\Resources\PlayerTokenUsages\Pages\ListPlayerTokenUsages
 use App\Filament\Manager\Resources\PlayerTokenUsages\Pages\ViewPlayerTokenUsage;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Schemas\PlayerTokenUsageInfolist;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Tables\PlayerTokenUsagesTable;
+use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageBreakdownChart;
+use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageOverview;
+use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageTrendChart;
 use App\Models\PlayerTokenUsage;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -67,6 +70,17 @@ final class PlayerTokenUsageResource extends Resource
         return [
             'index' => ListPlayerTokenUsages::route('/'),
             'view' => ViewPlayerTokenUsage::route('/{record}'),
+        ];
+    }
+
+    /** @return array<class-string> */
+    #[Override]
+    public static function getWidgets(): array
+    {
+        return [
+            TokenUsageOverview::class,
+            TokenUsageTrendChart::class,
+            TokenUsageBreakdownChart::class,
         ];
     }
 }
