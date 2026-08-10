@@ -1045,6 +1045,8 @@ TEXT;
             'target_turns' => $targetTurns,
             'gravity_after' => $gravityAfter,
             'pacing_state' => $pacingState,
+            'target_words_per_turn' => (int) data_get($card, 'word_budget.target_per_turn', 0),
+            'previous_turn_words' => $this->lastNarrationWordCount($game),
             'exit_condition' => (string) ($card['exit_condition'] ?? ''),
             'forbidden_expansions' => (array) ($card['forbidden_expansions'] ?? []),
             'next_bridge' => (string) data_get($card, 'next_bridge', ''),
@@ -1054,6 +1056,29 @@ TEXT;
             'detour_beats_used' => $detourBeatsUsed,
             'detour_beats_remaining' => max(0, self::DETOUR_BEAT_ALLOWANCE - $detourBeatsUsed),
         ];
+    }
+
+    /**
+     * Words in the most recent narration this game produced.
+     *
+     * The card's word budget is the authored compression contract, and for a
+     * screenwriter voice compression IS the voice — a 90-word action line answered
+     * at 270 words is out of voice before diction is even considered. A target on
+     * its own drifts, so the model is also handed its own last measured length to
+     * correct against. Measurement only: nothing here truncates or edits prose.
+     */
+    private function lastNarrationWordCount(Game $game): int
+    {
+        $response = $game->prompts()
+            ->whereNotNull('response')
+            ->orderByDesc('id')
+            ->value('response');
+
+        if (! is_string($response) || $response === '') {
+            return 0;
+        }
+
+        return str_word_count($this->stripHtml($response));
     }
 
     /**
@@ -1139,6 +1164,28 @@ TEXT;
             'REQUIRED moment_progress.moment_key (exact string): '.$momentKey,
             'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, honest route_relation and impact_scope, and after player input a non-empty moment_footnote ≤30 words).',
         ];
+
+        $targetWords = (int) ($context['target_words_per_turn'] ?? 0);
+        $previousWords = (int) ($context['previous_turn_words'] ?? 0);
+        if ($targetWords > 0) {
+            $budgetLines = [
+                'LENGTH CONTRACT FOR THIS ROOM — THIS OVERRIDES THE GENERIC WORD-COUNT GUIDANCE ELSEWHERE IN THIS PROMPT:',
+                "Authored target for narration prose this turn: {$targetWords} words. Acceptable band: ".max(1, (int) round($targetWords * 0.8)).'–'.(int) round($targetWords * 1.25).' words.',
+                'This number is the author\'s compression, not a formatting preference. At this voice, length IS style: the same content at triple this count stops being their prose and becomes generic narration, however good the diction.',
+                'Answer the player completely inside this budget. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established — never by refusing them detail about what they actually did.',
+            ];
+
+            if ($previousWords > 0) {
+                $ratio = $previousWords / $targetWords;
+                $budgetLines[] = "Your previous turn measured {$previousWords} words against a {$targetWords}-word target ("
+                    .number_format($ratio, 1).'× budget).';
+                if ($ratio >= 1.5) {
+                    $budgetLines[] = 'That is over budget. Cut hard this turn: fewer sentences carrying the same beats, no re-establishing the room, no summarising what the player already watched happen.';
+                }
+            }
+
+            $lines[] = implode("\n", $budgetLines);
+        }
 
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic — outcomes, not a checklist): '.$exitCondition;

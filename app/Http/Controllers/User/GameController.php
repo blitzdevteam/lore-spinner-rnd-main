@@ -67,9 +67,12 @@ final class GameController extends Controller
                         ->select(['id', 'story_adaptation_id', 'session_number', 'entry_point_diagnosis']),
                     ]),
             ]),
+            // Ordered by the ULID primary key, not created_at: turns committed within
+            // the same second have no defined order under created_at, and the client
+            // reads "which turn am I answering" off the tail of this list.
             'prompts' => fn ($q) => $q
                 ->select(['id', 'game_id', 'session_number', 'response', 'choices', 'prompt'])
-                ->oldest(),
+                ->orderBy('id'),
         ]);
 
         return inertia('User/Games/Show', [

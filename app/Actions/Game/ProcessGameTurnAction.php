@@ -27,6 +27,27 @@ final class ProcessGameTurnAction
 {
     private const CONTINUE_MARKER = '__continue__';
 
+    /** How far back to look for a player restating the same intent. */
+    private const REPEAT_INTENT_LOOKBACK = 4;
+
+    /** Share of content words two actions must share to count as the same intent. */
+    private const REPEAT_INTENT_THRESHOLD = 0.5;
+
+    /**
+     * Words carrying no intent, removed before comparing two player actions. Kept
+     * deliberately small: the comparison should be blind to phrasing, not to content.
+     *
+     * @var array<int, string>
+     */
+    private const INTENT_STOP_WORDS = [
+        'a', 'am', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'do', 'for', 'from',
+        'go', 'had', 'has', 'have', 'he', 'her', 'him', 'his', 'i', 'if', 'in', 'into',
+        'is', 'it', 'its', 'just', 'll', 'm', 'me', 'my', 'not', 'now', 'of', 'on', 'or',
+        'out', 're', 's', 'she', 'so', 'that', 'the', 'their', 'them', 'then', 'they',
+        'this', 'to', 'up', 've', 'was', 'we', 'were', 'what', 'when', 'will', 'with',
+        'you', 'your',
+    ];
+
     public function __construct(
         private readonly ChaosEngineService $engine,
         private readonly PlayableMomentResolver $momentResolver,
@@ -177,6 +198,17 @@ final class ProcessGameTurnAction
                 $systemPrompt .= "\n\nVALIDATED PLAYER SELECTION (authoritative): "
                     .$explicitBranch['defining_choice_id'].' path '.$explicitBranch['defining_path_label']
                     .'. Resolve this selected authored path; do not infer a different one.';
+            }
+
+            $repeatedAttempts = $this->countRepeatedIntent($game, $playerAction);
+            if ($repeatedAttempts > 0) {
+                $ordinal = $repeatedAttempts + 1;
+                $systemPrompt .= "\n\nREPEATED INTENT — MEASURED, NOT INFERRED: this is the {$ordinal}"
+                    .'th consecutive turn on which the player has asked for substantially the same thing. '
+                    .'Their previous attempts did not land. Do not deflect it again with a new in-world reason: '
+                    .'either let it happen now with its full consequences, or make the obstacle unmistakable in '
+                    .'the prose so they can see it and choose differently. Do not narrate them changing their '
+                    .'mind on their own, and do not record that they chose restraint.';
             }
 
             $boilerActive = $game->current_playable_moment_id !== null;
@@ -383,6 +415,67 @@ final class ProcessGameTurnAction
     }
 
     /**
+     * How many of the immediately preceding player actions asked for the same thing
+     * as this one.
+     *
+     * A player restating an intent is the clearest available signal that the previous
+     * turn did not actually deliver it. This only measures and reports: the narrator
+     * still decides what to do about it, and nothing here alters or blocks the turn.
+     */
+    private function countRepeatedIntent(Game $game, string $playerAction): int
+    {
+        $current = $this->intentFingerprint($playerAction);
+        if ($current === []) {
+            return 0;
+        }
+
+        $previous = $game->prompts()
+            ->whereNotNull('prompt')
+            ->where('prompt', '!=', '')
+            ->orderByDesc('id')
+            ->limit(self::REPEAT_INTENT_LOOKBACK)
+            ->pluck('prompt');
+
+        $repeats = 0;
+        foreach ($previous as $earlier) {
+            $candidate = $this->intentFingerprint((string) $earlier);
+            if ($candidate === []) {
+                break;
+            }
+
+            $shared = count(array_intersect($current, $candidate));
+            $overlap = $shared / min(count($current), count($candidate));
+
+            // Consecutive only: the first turn that asked for something else ends the run.
+            if ($overlap < self::REPEAT_INTENT_THRESHOLD) {
+                break;
+            }
+
+            $repeats++;
+        }
+
+        return $repeats;
+    }
+
+    /**
+     * Content words of a player action, for comparing one action against another.
+     *
+     * @return array<int, string>
+     */
+    private function intentFingerprint(string $action): array
+    {
+        $normalized = mb_strtolower(mb_trim($action));
+        if ($normalized === '' || $normalized === '__continue__') {
+            return [];
+        }
+
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $content = array_values(array_diff($words, self::INTENT_STOP_WORDS));
+
+        return array_values(array_unique($content));
+    }
+
+    /**
      * @return array<int, array{role:string, text:string, protagonist?:string}>
      */
     private function buildConversationHistory(Game $game, mixed $story): array
@@ -390,9 +483,11 @@ final class ProcessGameTurnAction
         $history = [];
         $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
 
+        // ULID order, not created_at: this is the narrator's memory of the session,
+        // and two turns sharing a created_at second could be replayed out of sequence.
         $prompts = $game->prompts()
             ->where('session_number', $game->current_session_number)
-            ->oldest()
+            ->orderBy('id')
             ->get();
 
         foreach ($prompts as $p) {
