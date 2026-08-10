@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property-read Game $game
  * @property-read Prompt|null $sourcePrompt
  * @property-read Prompt|null $responsePrompt
+ * @property-read PlayerTokenUsage|null $tokenUsage
  */
 final class Prompt extends Model
 {
@@ -59,5 +60,11 @@ final class Prompt extends Model
     public function responsePrompt(): HasOne
     {
         return $this->hasOne(self::class, 'source_prompt_id');
+    }
+
+    /** @return HasOne<PlayerTokenUsage, $this> */
+    public function tokenUsage(): HasOne
+    {
+        return $this->hasOne(PlayerTokenUsage::class);
     }
 }

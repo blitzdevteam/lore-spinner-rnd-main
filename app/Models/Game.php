@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Override;
 
 /**
  * @property string $id
@@ -39,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property-read PlayableSessionCut|null $currentPlayableSessionCut
  * @property-read PlayableMoment|null $currentPlayableMoment
  * @property-read Collection<int, Prompt> $prompts
+ * @property-read Collection<int, PlayerTokenUsage> $tokenUsages
  * @property-read Collection<int, GameSessionCompletion> $sessionCompletions
  * @property-read Collection<int, GameReset> $resets
  * @property-read Collection<int, GameCompletion> $completionHistory
@@ -50,20 +52,6 @@ final class Game extends Model
     protected $guarded = [
         'id', 'created_at', 'updated_at',
     ];
-
-    #[\Override]
-    protected function casts(): array
-    {
-        return [
-            'world_state'              => 'json',
-            'alignment_scaffold'       => 'json',
-            'moment_footnote'           => 'json',
-            'is_climactic_choice'      => 'boolean',
-            'current_session_complete' => 'boolean',
-            'is_preview'               => 'boolean',
-            'completed_at'             => 'datetime',
-        ];
-    }
 
     /**
      * @return BelongsTo<Story, $this>
@@ -103,6 +91,12 @@ final class Game extends Model
         return $this->hasMany(Prompt::class);
     }
 
+    /** @return HasMany<PlayerTokenUsage, $this> */
+    public function tokenUsages(): HasMany
+    {
+        return $this->hasMany(PlayerTokenUsage::class);
+    }
+
     /**
      * @return HasMany<GameSessionCompletion, $this>
      */
@@ -128,5 +122,19 @@ final class Game extends Model
     public function completionHistory(): HasMany
     {
         return $this->hasMany(GameCompletion::class);
+    }
+
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'world_state' => 'json',
+            'alignment_scaffold' => 'json',
+            'moment_footnote' => 'json',
+            'is_climactic_choice' => 'boolean',
+            'current_session_complete' => 'boolean',
+            'is_preview' => 'boolean',
+            'completed_at' => 'datetime',
+        ];
     }
 }

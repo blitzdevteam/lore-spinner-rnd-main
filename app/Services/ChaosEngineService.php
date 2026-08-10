@@ -579,7 +579,11 @@ TEXT;
 
         return $this->narrationResultFromStructured(
             structured: $structured,
-            usage: $response->usage->toArray(),
+            usage: $this->normalizeProviderUsage(
+                $response->usage->toArray(),
+                $config['provider'],
+                streamed: false,
+            ),
             game: $game,
             isOpening: $isOpening,
         );
@@ -702,8 +706,13 @@ TEXT;
             }
         }
 
+        $usage = $this->normalizeProviderUsage(
+            $usage,
+            $config['provider'],
+            streamed: true,
+        );
         $structured = $this->decodeStreamedStructuredObject($text);
-        $structured = $this->repairMissingLegacyStreamedChoices(
+        [$structured, $repairUsage] = $this->repairMissingLegacyStreamedChoices(
             structured: $structured,
             model: $model,
             config: $config,
@@ -712,6 +721,7 @@ TEXT;
             protagonist: $protagonist,
             game: $game,
         );
+        $usage = $this->mergeUsage($usage, $repairUsage);
 
         return $this->narrationResultFromStructured(
             structured: $structured,
@@ -726,7 +736,7 @@ TEXT;
      *
      * @param  array<string, mixed>  $previous
      * @param  array<string, mixed>  $delta
-     * @return array<string, mixed>
+     * @return array{0:array<string, mixed>,1:array<string, mixed>}
      */
     public function mergeStateDelta(array $previous, array $delta): array
     {
@@ -900,16 +910,16 @@ TEXT;
         ?Game $game,
     ): array {
         if ($game?->current_playable_moment_id !== null) {
-            return $structured;
+            return [$structured, []];
         }
 
         if (($structured['session_complete'] ?? false) === true) {
-            return $structured;
+            return [$structured, []];
         }
 
         $choices = $structured['choices'] ?? null;
         if ($this->hasThreeLegacyChoices($choices)) {
-            return $structured;
+            return [$structured, []];
         }
 
         $narration = $structured['response'] ?? '';
@@ -949,7 +959,8 @@ TEXT;
             $repairRequest = $repairRequest->withMaxTokens(512);
         }
 
-        $repaired = $repairRequest->asStructured()->structured['choices'] ?? null;
+        $repairResponse = $repairRequest->asStructured();
+        $repaired = $repairResponse->structured['choices'] ?? null;
         if (! $this->hasThreeLegacyChoices($repaired)) {
             throw new RuntimeException('Streaming narration did not return three valid gameplay choices.');
         }
@@ -963,7 +974,14 @@ TEXT;
             return mb_trim($choice);
         }, $repaired));
 
-        return $structured;
+        return [
+            $structured,
+            $this->normalizeProviderUsage(
+                $repairResponse->usage->toArray(),
+                $config['provider'],
+                streamed: false,
+            ),
+        ];
     }
 
     private function hasThreeLegacyChoices(mixed $choices): bool
@@ -2007,6 +2025,74 @@ TEXT;
             'claude-opus-4-8',
             'claude-opus-4-7',
         ], true);
+    }
+
+    /**
+     * Prism's OpenAI structured handler reports uncached prompt tokens, while
+     * its streaming handler currently reports total prompt tokens alongside the
+     * cached subset. Normalize both paths to the same mutually exclusive token
+     * buckets before logging, pricing, or combining a repair call.
+     *
+     * @param  array<string, mixed>  $usage
+     * @return array<string, int>
+     */
+    private function normalizeProviderUsage(
+        array $usage,
+        string $provider,
+        bool $streamed,
+    ): array {
+        if ($usage === []) {
+            return [];
+        }
+
+        $cacheRead = $this->usageTokenCount($usage['cache_read_input_tokens'] ?? 0);
+        $prompt = $this->usageTokenCount($usage['prompt_tokens'] ?? 0);
+        if ($provider === 'openai' && $streamed) {
+            $prompt = max(0, $prompt - $cacheRead);
+        }
+
+        return [
+            'prompt_tokens' => $prompt,
+            'completion_tokens' => $this->usageTokenCount($usage['completion_tokens'] ?? 0),
+            'cache_write_input_tokens' => $this->usageTokenCount($usage['cache_write_input_tokens'] ?? 0),
+            'cache_read_input_tokens' => $cacheRead,
+            'thought_tokens' => $this->usageTokenCount($usage['thought_tokens'] ?? 0),
+        ];
+    }
+
+    /**
+     * A malformed legacy streamed response may require one small player-runtime
+     * repair call. Its tokens are part of the same player turn and must not be
+     * lost from that turn's usage ledger.
+     *
+     * @param  array<string, mixed>  $primary
+     * @param  array<string, mixed>  $repair
+     * @return array<string, int>
+     */
+    private function mergeUsage(array $primary, array $repair): array
+    {
+        if ($primary === [] && $repair === []) {
+            return [];
+        }
+
+        $merged = [];
+        foreach ([
+            'prompt_tokens',
+            'completion_tokens',
+            'cache_write_input_tokens',
+            'cache_read_input_tokens',
+            'thought_tokens',
+        ] as $key) {
+            $merged[$key] = $this->usageTokenCount($primary[$key] ?? 0)
+                + $this->usageTokenCount($repair[$key] ?? 0);
+        }
+
+        return $merged;
+    }
+
+    private function usageTokenCount(mixed $value): int
+    {
+        return is_numeric($value) ? max(0, (int) $value) : 0;
     }
 
     /**

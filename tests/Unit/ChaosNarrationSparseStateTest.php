@@ -17,10 +17,49 @@ use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Usage;
 
 function sparseStateEngine(): ChaosEngineService
 {
     return new ChaosEngineService(new SessionEventLoader());
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function streamedSparseNarrationFixture(): array
+{
+    return [
+        'response' => '<p>The room answers.</p>',
+        'choices' => ['Enter the room', 'Wait outside', 'Circle the house'],
+        'visible_suggestions' => [],
+        'moment_progress' => [
+            'moment_key' => '',
+            'exit_condition_met' => false,
+            'moment_footnote' => '',
+        ],
+        'session_complete' => false,
+        'state_delta' => [
+            'location' => null,
+            'conditions' => null,
+            'items' => null,
+            'object_states' => null,
+            'relationship_updates' => null,
+            'world_flags' => null,
+            'knowledge' => null,
+            'notes' => null,
+            'player_style' => null,
+            'unresolved_promises' => null,
+            'emotional_ledger_entries' => null,
+        ],
+        'alignment_tally_delta' => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
+        'is_climactic_choice' => false,
+        'defining_choice_id' => '',
+        'defining_path_label' => '',
+        'defining_choice_line' => '',
+        'symbolic_memory_update' => '',
+        'session_memory_update' => '',
+    ];
 }
 
 it('preserves every prior state field when a sparse delta reports null or omits fields', function () {
@@ -315,10 +354,12 @@ it('repairs missing choices after streaming without replacing the streamed narra
     ];
 
     $fake = Prism::fake([
-        TextResponseFake::make()->withText(json_encode($streamed, JSON_THROW_ON_ERROR)),
+        TextResponseFake::make()
+            ->withText(json_encode($streamed, JSON_THROW_ON_ERROR))
+            ->withUsage(new Usage(100, 40, 10, 20, 5)),
         StructuredResponseFake::make()->withStructured([
             'choices' => ['Enter the room', 'Wait beneath the awning', 'Circle around the house'],
-        ]),
+        ])->withUsage(new Usage(30, 10, 0, 0, 2)),
     ]);
     $game = new Game;
     $game->setRawAttributes([
@@ -345,6 +386,13 @@ it('repairs missing choices after streaming without replacing the streamed narra
             'Enter the room',
             'Wait beneath the awning',
             'Circle around the house',
+        ])
+        ->and($result['_usage'])->toBe([
+            'prompt_tokens' => 130,
+            'completion_tokens' => 50,
+            'cache_write_input_tokens' => 10,
+            'cache_read_input_tokens' => 20,
+            'thought_tokens' => 7,
         ]);
 
     $fake->assertCallCount(2);
@@ -354,4 +402,38 @@ it('repairs missing choices after streaming without replacing the streamed narra
             ->and($requests[1]->schema()->toArray()['properties']['choices']['minItems'])->toBe(3)
             ->and($requests[1]->schema()->toArray()['properties']['choices']['maxItems'])->toBe(3);
     });
+});
+
+it('separates cached tokens from OpenAI streamed prompt tokens', function () {
+    $streamed = streamedSparseNarrationFixture();
+    $fake = Prism::fake([
+        TextResponseFake::make()
+            ->withText(json_encode($streamed, JSON_THROW_ON_ERROR))
+            ->withUsage(new Usage(100, 40, 0, 30, 5)),
+    ]);
+    $game = new Game;
+    $game->setRawAttributes([
+        'id' => 'game-test',
+        'current_playable_moment_id' => null,
+    ]);
+
+    $result = sparseStateEngine()->callAgentStreaming(
+        model: 'gpt-4.1',
+        systemPrompt: 'Narrate the next turn.',
+        conversationHistory: [],
+        playerAction: 'Open the door.',
+        protagonist: 'Watson',
+        onResponseDelta: static function (string $delta): void {},
+        game: $game,
+    );
+
+    expect($result['_usage'])->toBe([
+        'prompt_tokens' => 70,
+        'completion_tokens' => 40,
+        'cache_write_input_tokens' => 0,
+        'cache_read_input_tokens' => 30,
+        'thought_tokens' => 5,
+    ]);
+
+    $fake->assertCallCount(1);
 });
