@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { XenGesture, XenPortalRect } from '../data/gestures';
+import { xenEmergeClipPath, xenEmergeStartTransform } from '../data/gestures';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -30,17 +31,16 @@ const bakedCoverStyle = computed(() => {
     return cover ? ellipseStyle(cover) : null;
 });
 
-/** Track (image + eraser) moves; portal rim stays fixed on stage. */
-const trackTransform = computed(() => {
-    const g = props.gesture;
-    const offset = emerged.value ? 0 : g.emergeStart;
+/** Printer slot — fixed on stage; hand only visible after passing this edge. */
+const emergeWindowStyle = computed(() => ({
+    clipPath: xenEmergeClipPath(props.gesture.portal, props.gesture.emergeFrom),
+}));
 
-    if (g.emergeAxis === 'y') {
-        return `translate3d(0, ${offset}%, 0)`;
-    }
-
-    return `translate3d(${offset}%, 0, 0)`;
-});
+const trackTransform = computed(() =>
+    emerged.value
+        ? 'translate3d(0, 0, 0)'
+        : xenEmergeStartTransform(props.gesture.emergeFrom, props.gesture.emergeDistance),
+);
 
 async function playEmergence(): Promise<void> {
     emerged.value = false;
@@ -84,24 +84,28 @@ defineExpose({ replay: playEmergence });
         :style="stageStyle"
     >
         <div class="xen-portal-hand__stage">
-            <div class="xen-portal-hand__track" :style="{ transform: trackTransform }">
-                <img
-                    :key="gesture.id"
-                    :src="gesture.src"
-                    :alt="gesture.label"
-                    class="xen-portal-hand__image"
-                    draggable="false"
-                    @load="onImageLoad"
-                />
+            <!-- Fixed printer slot: hand reveals only past the portal exit edge -->
+            <div class="xen-portal-hand__emerge-window" :style="emergeWindowStyle">
+                <div class="xen-portal-hand__track" :style="{ transform: trackTransform }">
+                    <img
+                        :key="gesture.id"
+                        :src="gesture.src"
+                        :alt="gesture.label"
+                        class="xen-portal-hand__image"
+                        draggable="false"
+                        @load="onImageLoad"
+                    />
 
-                <div
-                    v-if="bakedCoverStyle"
-                    class="xen-portal-hand__baked-cover"
-                    :style="bakedCoverStyle"
-                    aria-hidden="true"
-                />
+                    <div
+                        v-if="bakedCoverStyle"
+                        class="xen-portal-hand__baked-cover"
+                        :style="bakedCoverStyle"
+                        aria-hidden="true"
+                    />
+                </div>
             </div>
 
+            <!-- Portal rim stays fixed; covers the wrist seam at rest -->
             <div class="xen-portal-hand__portal" :style="portalStyle" aria-hidden="true">
                 <div class="xen-portal-hand__portal-rim" />
                 <div class="xen-portal-hand__portal-glow" />
@@ -115,8 +119,8 @@ defineExpose({ replay: playEmergence });
     --xen-stage-bg: #050409;
     --xen-portal-white: #ffffff;
     --xen-portal-glow: color-mix(in srgb, var(--color-primary-300) 28%, white);
-    --xen-emerge-duration: 1.15s;
-    --xen-emerge-ease: cubic-bezier(0.22, 1, 0.28, 1);
+    --xen-emerge-duration: 1.2s;
+    --xen-emerge-ease: cubic-bezier(0.33, 1, 0.68, 1);
     width: min(92vw, 52rem);
     aspect-ratio: var(--xen-aspect);
     position: relative;
@@ -131,10 +135,15 @@ defineExpose({ replay: playEmergence });
     border-radius: 0.35rem;
 }
 
+.xen-portal-hand__emerge-window {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
 .xen-portal-hand__track {
     position: absolute;
     inset: 0;
-    transform-origin: center center;
     transition: transform var(--xen-emerge-duration) var(--xen-emerge-ease);
     will-change: transform;
     backface-visibility: hidden;
@@ -149,7 +158,7 @@ defineExpose({ replay: playEmergence });
     display: block;
 }
 
-.xen-portal-hand--loading .xen-portal-hand__track {
+.xen-portal-hand--loading .xen-portal-hand__emerge-window {
     opacity: 0;
 }
 
@@ -174,18 +183,18 @@ defineExpose({ replay: playEmergence });
     background: var(--xen-portal-white);
     box-shadow:
         0 0 0 1px color-mix(in srgb, var(--xen-portal-white) 85%, #000 15%),
-        0 0 14px color-mix(in srgb, var(--xen-portal-glow) 50%, transparent),
-        inset 0 -1px 4px color-mix(in srgb, #000 10%, transparent);
+        0 0 12px color-mix(in srgb, var(--xen-portal-glow) 45%, transparent),
+        inset 0 -1px 3px color-mix(in srgb, #000 8%, transparent);
 }
 
 .xen-portal-hand__portal-glow {
     position: absolute;
-    inset: -28%;
+    inset: -24%;
     border-radius: 50%;
     background: radial-gradient(
         ellipse at center,
-        color-mix(in srgb, var(--xen-portal-glow) 40%, transparent) 0%,
-        transparent 72%
+        color-mix(in srgb, var(--xen-portal-glow) 35%, transparent) 0%,
+        transparent 70%
     );
     z-index: -1;
 }

@@ -6,9 +6,9 @@ import xenYourMove from '../assets/poses/XEN-04.png';
 import xenBold from '../assets/poses/XEN-05.png';
 import xenYesMaster from '../assets/poses/XEN-06.png';
 
-export type XenEmergeAxis = 'x' | 'y';
+export type XenEmergeFrom = 'bottom' | 'left' | 'right';
 
-/** Ellipse in stage % — pixel-calibrated to each PNG at rest (track translate 0). */
+/** Ellipse in stage % — calibrated to each PNG at rest (track translate 0). */
 export interface XenPortalRect {
     cx: number;
     cy: number;
@@ -21,15 +21,15 @@ export interface XenGesture {
     label: string;
     caption?: string;
     src: string;
-    /** Stage width / height — matches PNG so portal coords map 1:1. */
     aspectRatio: number;
-    /** Live white portal rim — fixed on stage. */
+    /** Fixed white portal rim on stage. */
     portal: XenPortalRect;
-    /** Moves with the image; erases baked white portal pixels in the art. */
+    /** Erases baked white portal in the art (moves with the hand track). */
     bakedCover?: XenPortalRect;
-    emergeAxis: XenEmergeAxis;
-    /** Signed start offset (% of stage). Finish is always translate(0). */
-    emergeStart: number;
+    /** Which edge the hand is pulled through. */
+    emergeFrom: XenEmergeFrom;
+    /** How far the track starts offset (% of stage) — fully hidden at start, rest at 0. */
+    emergeDistance: number;
 }
 
 export const XEN_GESTURES: XenGesture[] = [
@@ -38,20 +38,20 @@ export const XEN_GESTURES: XenGesture[] = [
         label: 'Point Up',
         src: xenPoint,
         aspectRatio: 1280 / 960,
-        portal: { cx: 50, cy: 88.25, rx: 13.5, ry: 3.1 },
-        bakedCover: { cx: 50, cy: 88.25, rx: 14.5, ry: 3.8 },
-        emergeAxis: 'y',
-        emergeStart: 74,
+        portal: { cx: 49.8, cy: 88.5, rx: 15.6, ry: 3.4 },
+        bakedCover: { cx: 49.8, cy: 88.5, rx: 16.5, ry: 4.2 },
+        emergeFrom: 'bottom',
+        emergeDistance: 78,
     },
     {
         id: 'chef-kiss',
         label: 'Chef Kiss',
         src: xenChefKiss,
         aspectRatio: 1280 / 960,
-        portal: { cx: 19, cy: 37.9, rx: 6, ry: 17.9 },
-        bakedCover: { cx: 19, cy: 50, rx: 7.5, ry: 32 },
-        emergeAxis: 'x',
-        emergeStart: -68,
+        portal: { cx: 23.4, cy: 51.6, rx: 10.4, ry: 31.6 },
+        bakedCover: { cx: 23.4, cy: 51.6, rx: 11.5, ry: 32.5 },
+        emergeFrom: 'left',
+        emergeDistance: 62,
     },
     {
         id: 'match',
@@ -59,9 +59,9 @@ export const XEN_GESTURES: XenGesture[] = [
         caption: 'Arm enters from the right — matchbox pull left.',
         src: xenMatch,
         aspectRatio: 1280 / 960,
-        portal: { cx: 97.5, cy: 51, rx: 2.5, ry: 18.5 },
-        emergeAxis: 'x',
-        emergeStart: 66,
+        portal: { cx: 98.5, cy: 51, rx: 2.2, ry: 19 },
+        emergeFrom: 'right',
+        emergeDistance: 58,
     },
     {
         id: 'surprise',
@@ -69,10 +69,10 @@ export const XEN_GESTURES: XenGesture[] = [
         caption: 'Go ahead. Surprise me.',
         src: xenSurprise,
         aspectRatio: 1280 / 961,
-        portal: { cx: 50, cy: 84.8, rx: 17, ry: 3.2 },
-        bakedCover: { cx: 52, cy: 87.5, rx: 20, ry: 7.5 },
-        emergeAxis: 'y',
-        emergeStart: 74,
+        portal: { cx: 50, cy: 88.2, rx: 19, ry: 3.2 },
+        bakedCover: { cx: 50, cy: 89.8, rx: 21, ry: 6.5 },
+        emergeFrom: 'bottom',
+        emergeDistance: 78,
     },
     {
         id: 'your-move',
@@ -80,10 +80,10 @@ export const XEN_GESTURES: XenGesture[] = [
         caption: 'Your move.',
         src: xenYourMove,
         aspectRatio: 1280 / 960,
-        portal: { cx: 50, cy: 84.8, rx: 17, ry: 3.2 },
-        bakedCover: { cx: 52, cy: 87.5, rx: 20, ry: 7.5 },
-        emergeAxis: 'y',
-        emergeStart: 74,
+        portal: { cx: 50, cy: 88.2, rx: 19, ry: 3.2 },
+        bakedCover: { cx: 50, cy: 89.8, rx: 21, ry: 6.5 },
+        emergeFrom: 'bottom',
+        emergeDistance: 78,
     },
     {
         id: 'bold',
@@ -91,10 +91,10 @@ export const XEN_GESTURES: XenGesture[] = [
         caption: 'Bold. Possibly Unwise.',
         src: xenBold,
         aspectRatio: 1024 / 1280,
-        portal: { cx: 59.7, cy: 86.65, rx: 18, ry: 3.3 },
-        bakedCover: { cx: 59.7, cy: 86.65, rx: 19.5, ry: 4.5 },
-        emergeAxis: 'y',
-        emergeStart: 72,
+        portal: { cx: 59.2, cy: 86.8, rx: 18.4, ry: 3.6 },
+        bakedCover: { cx: 59.2, cy: 86.8, rx: 19.5, ry: 4.8 },
+        emergeFrom: 'bottom',
+        emergeDistance: 76,
     },
     {
         id: 'yes-master',
@@ -102,9 +102,36 @@ export const XEN_GESTURES: XenGesture[] = [
         caption: 'Yes, Master.',
         src: xenYesMaster,
         aspectRatio: 1280 / 960,
-        portal: { cx: 83.1, cy: 53.2, rx: 6.5, ry: 22.5 },
-        bakedCover: { cx: 83.1, cy: 53.2, rx: 7.5, ry: 24 },
-        emergeAxis: 'x',
-        emergeStart: 68,
+        portal: { cx: 83.4, cy: 51.4, rx: 5.8, ry: 31.4 },
+        bakedCover: { cx: 83.4, cy: 51.4, rx: 6.8, ry: 32.5 },
+        emergeFrom: 'right',
+        emergeDistance: 58,
     },
 ];
+
+/** Fixed printer-slot clip — only show hand past the portal exit edge. */
+export function xenEmergeClipPath(portal: XenPortalRect, from: XenEmergeFrom): string {
+    const top = portal.cy - portal.ry;
+    const left = portal.cx - portal.rx;
+
+    switch (from) {
+        case 'bottom':
+            return `inset(0 0 ${Math.max(0, 100 - top).toFixed(3)}% 0)`;
+        case 'left':
+            return `inset(0 0 0 ${(portal.cx + portal.rx).toFixed(3)}%)`;
+        case 'right':
+            return `inset(0 ${Math.max(0, 100 - left).toFixed(3)}% 0 0)`;
+    }
+}
+
+/** Track offset at animation start — hand fully retracted behind portal. */
+export function xenEmergeStartTransform(from: XenEmergeFrom, distance: number): string {
+    switch (from) {
+        case 'bottom':
+            return `translate3d(0, ${distance}%, 0)`;
+        case 'left':
+            return `translate3d(-${distance}%, 0, 0)`;
+        case 'right':
+            return `translate3d(${distance}%, 0, 0)`;
+    }
+}
