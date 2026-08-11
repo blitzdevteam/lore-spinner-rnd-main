@@ -26,14 +26,19 @@ function ellipseStyle(rect: XenPortalRect) {
 
 const portalStyle = computed(() => ellipseStyle(props.gesture.portal));
 
-const bakedCoverStyle = computed(() => {
-    const cover = props.gesture.bakedCover;
-    return cover ? ellipseStyle(cover) : null;
+const bakedCovers = computed(() => {
+    const covers: XenPortalRect[] = [];
+    if (props.gesture.bakedCover) {
+        covers.push(props.gesture.bakedCover);
+    }
+    if (props.gesture.bakedCoverExtra) {
+        covers.push(...props.gesture.bakedCoverExtra);
+    }
+    return covers;
 });
 
-/** Printer slot — fixed on stage; hand only visible after passing this edge. */
 const emergeWindowStyle = computed(() => ({
-    clipPath: xenEmergeClipPath(props.gesture.portal, props.gesture.emergeFrom),
+    clipPath: xenEmergeClipPath(props.gesture.emergeLine, props.gesture.emergeFrom),
 }));
 
 const trackTransform = computed(() =>
@@ -84,7 +89,6 @@ defineExpose({ replay: playEmergence });
         :style="stageStyle"
     >
         <div class="xen-portal-hand__stage">
-            <!-- Fixed printer slot: hand reveals only past the portal exit edge -->
             <div class="xen-portal-hand__emerge-window" :style="emergeWindowStyle">
                 <div class="xen-portal-hand__track" :style="{ transform: trackTransform }">
                     <img
@@ -97,15 +101,15 @@ defineExpose({ replay: playEmergence });
                     />
 
                     <div
-                        v-if="bakedCoverStyle"
+                        v-for="(cover, index) in bakedCovers"
+                        :key="index"
                         class="xen-portal-hand__baked-cover"
-                        :style="bakedCoverStyle"
+                        :style="ellipseStyle(cover)"
                         aria-hidden="true"
                     />
                 </div>
             </div>
 
-            <!-- Portal rim stays fixed; covers the wrist seam at rest -->
             <div class="xen-portal-hand__portal" :style="portalStyle" aria-hidden="true">
                 <div class="xen-portal-hand__portal-rim" />
                 <div class="xen-portal-hand__portal-glow" />
@@ -121,9 +125,12 @@ defineExpose({ replay: playEmergence });
     --xen-portal-glow: color-mix(in srgb, var(--color-primary-300) 28%, white);
     --xen-emerge-duration: 1.2s;
     --xen-emerge-ease: cubic-bezier(0.33, 1, 0.68, 1);
-    width: min(92vw, 52rem);
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    max-height: 100%;
     aspect-ratio: var(--xen-aspect);
-    position: relative;
+    margin-inline: auto;
 }
 
 .xen-portal-hand__stage {
@@ -132,7 +139,6 @@ defineExpose({ replay: playEmergence });
     height: 100%;
     overflow: hidden;
     background: var(--xen-stage-bg);
-    border-radius: 0.35rem;
 }
 
 .xen-portal-hand__emerge-window {
