@@ -151,6 +151,70 @@ final class PlayerTokenUsageInsights
     }
 
     /**
+     * Normalize each provider by its number of requests so providers with more
+     * traffic do not automatically look less efficient. Requests whose provider
+     * omitted usage are excluded because treating them as zero would bias the
+     * averages downward.
+     *
+     * @param  Builder<PlayerTokenUsage>  $query
+     * @return array<int, array{
+     *     provider:string,
+     *     label:string,
+     *     requests:int,
+     *     average_input_tokens:int,
+     *     average_cached_input_tokens:int,
+     *     average_output_tokens:int,
+     *     average_total_tokens:int,
+     *     average_cost_usd:float,
+     * }>
+     */
+    public function providerAverages(Builder $query): array
+    {
+        $rows = DB::query()
+            ->fromSub($this->filteredRows($query, [
+                'provider',
+                'input_tokens',
+                'cached_input_tokens',
+                'output_tokens',
+                'total_tokens',
+                'total_cost_usd',
+                'usage_reported',
+            ]), 'usage')
+            ->where('usage_reported', true)
+            ->selectRaw(implode(', ', [
+                'provider',
+                'COUNT(*) AS requests',
+                'COALESCE(SUM(input_tokens), 0) AS input_tokens',
+                'COALESCE(SUM(cached_input_tokens), 0) AS cached_input_tokens',
+                'COALESCE(SUM(output_tokens), 0) AS output_tokens',
+                'COALESCE(SUM(total_tokens), 0) AS total_tokens',
+                'COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd',
+            ]))
+            ->groupBy('provider')
+            ->orderBy('provider')
+            ->get();
+
+        return $rows
+            ->map(function (stdClass $row): array {
+                $requests = max(1, $this->integer($row->requests));
+                $provider = $this->text($row->provider, 'unknown');
+
+                return [
+                    'provider' => $provider,
+                    'label' => $this->providerLabel($provider).' · '.number_format($requests).' req',
+                    'requests' => $requests,
+                    'average_input_tokens' => (int) round($this->integer($row->input_tokens) / $requests),
+                    'average_cached_input_tokens' => (int) round($this->integer($row->cached_input_tokens) / $requests),
+                    'average_output_tokens' => (int) round($this->integer($row->output_tokens) / $requests),
+                    'average_total_tokens' => (int) round($this->integer($row->total_tokens) / $requests),
+                    'average_cost_usd' => (float) $this->decimal($row->total_cost_usd) / $requests,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  Builder<PlayerTokenUsage>  $query
      * @return array<int, array{
      *     key:string,
@@ -419,6 +483,15 @@ final class PlayerTokenUsageInsights
     private function text(mixed $value, string $fallback = ''): string
     {
         return is_string($value) && mb_trim($value) !== '' ? mb_trim($value) : $fallback;
+    }
+
+    private function providerLabel(string $provider): string
+    {
+        return match (mb_strtolower($provider)) {
+            'openai' => 'OpenAI',
+            'anthropic' => 'Anthropic',
+            default => Str::headline($provider),
+        };
     }
 
     private function stringValue(mixed $value, string $fallback = ''): string
