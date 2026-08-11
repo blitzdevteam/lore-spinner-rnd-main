@@ -577,13 +577,26 @@ TEXT;
         /** @var array<string, mixed> $structured */
         $structured = $response->structured ?? [];
 
+        $usage = $this->normalizeProviderUsage(
+            $response->usage->toArray(),
+            $config['provider'],
+            streamed: false,
+        );
+        [$structured, $repairUsage] = $this->repairMissingLegacyChoices(
+            structured: $structured,
+            model: $model,
+            config: $config,
+            promptText: $promptText,
+            playerAction: $playerAction,
+            protagonist: $protagonist,
+            game: $game,
+            streamed: false,
+        );
+        $usage = $this->mergeUsage($usage, $repairUsage);
+
         return $this->narrationResultFromStructured(
             structured: $structured,
-            usage: $this->normalizeProviderUsage(
-                $response->usage->toArray(),
-                $config['provider'],
-                streamed: false,
-            ),
+            usage: $usage,
             game: $game,
             isOpening: $isOpening,
         );
@@ -712,7 +725,7 @@ TEXT;
             streamed: true,
         );
         $structured = $this->decodeStreamedStructuredObject($text);
-        [$structured, $repairUsage] = $this->repairMissingLegacyStreamedChoices(
+        [$structured, $repairUsage] = $this->repairMissingLegacyChoices(
             structured: $structured,
             model: $model,
             config: $config,
@@ -720,6 +733,7 @@ TEXT;
             playerAction: $playerAction,
             protagonist: $protagonist,
             game: $game,
+            streamed: true,
         );
         $usage = $this->mergeUsage($usage, $repairUsage);
 
@@ -892,15 +906,17 @@ TEXT;
     }
 
     /**
-     * Plain-text streaming cannot use Prism's provider-enforced response schema.
-     * Repair only the missing legacy choices with a small structured call while
-     * preserving the narration that has already streamed to the browser.
+     * Repair only missing legacy choices with a small structured call while
+     * preserving the narration already produced by the primary request. This
+     * covers both streamed turns and buffered opening narrations: native output
+     * guarantees the choices field exists, but cannot express the conditional
+     * rule that an incomplete legacy turn must contain exactly three choices.
      *
      * @param  array<string, mixed>  $structured
      * @param  array{provider:string, temperature?:float, reasoning_effort:?string}  $config
-     * @return array<string, mixed>
+     * @return array{0:array<string, mixed>,1:array<string, mixed>}
      */
-    private function repairMissingLegacyStreamedChoices(
+    private function repairMissingLegacyChoices(
         array $structured,
         string $model,
         array $config,
@@ -908,6 +924,7 @@ TEXT;
         ?string $playerAction,
         string $protagonist,
         ?Game $game,
+        bool $streamed,
     ): array {
         if ($game?->current_playable_moment_id !== null) {
             return [$structured, []];
@@ -962,13 +979,16 @@ TEXT;
         $repairResponse = $repairRequest->asStructured();
         $repaired = $repairResponse->structured['choices'] ?? null;
         if (! $this->hasThreeLegacyChoices($repaired)) {
-            throw new RuntimeException('Streaming narration did not return three valid gameplay choices.');
+            throw new RuntimeException('Narration did not return three valid gameplay choices.');
         }
 
-        Log::channel('narration')->warning('game.streaming_choices_repaired', [
-            'game_id' => $game?->id,
-            'model' => $model,
-        ]);
+        Log::channel('narration')->warning(
+            $streamed ? 'game.streaming_choices_repaired' : 'game.buffered_choices_repaired',
+            [
+                'game_id' => $game?->id,
+                'model' => $model,
+            ],
+        );
 
         $structured['choices'] = array_values(array_map(static function (mixed $choice): string {
             return mb_trim($choice);

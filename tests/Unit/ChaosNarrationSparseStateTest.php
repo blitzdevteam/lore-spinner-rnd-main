@@ -7,6 +7,7 @@ use App\Ai\Agents\Chaos\NativeObjectSchema;
 use App\Models\Game;
 use App\Services\Adaptation\SessionEventLoader;
 use App\Services\ChaosEngineService;
+use App\Services\Runtime\NarrationResultNormalizer;
 use Illuminate\Http\Client\Request;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Http;
@@ -242,7 +243,7 @@ it('builds Anthropic narration requests with GA native output config instead of 
 it('parses a native Anthropic narration response and records its field-size composition', function () {
     $structured = [
         'response' => '<p>The room answers.</p>',
-        'choices' => [],
+        'choices' => ['Enter the room', 'Wait outside', 'Circle the house'],
         'visible_suggestions' => [],
         'moment_progress' => [
             'moment_key' => '',
@@ -308,6 +309,7 @@ it('parses a native Anthropic narration response and records its field-size comp
         ->and($result['_output_metrics']['structured_response_bytes'])
         ->toBeGreaterThan($result['_output_metrics']['narration_field_bytes']);
 
+    Http::assertSentCount(1);
     Http::assertSent(function (Request $request): bool {
         $payload = $request->data();
 
@@ -317,6 +319,55 @@ it('parses a native Anthropic narration response and records its field-size comp
                 'type' => 'ephemeral',
                 'ttl' => '1h',
             ];
+    });
+});
+
+it('repairs missing choices after a buffered opening narration', function () {
+    $opening = streamedSparseNarrationFixture();
+    $opening['response'] = '<p>The restarted story opens in the rain.</p>';
+    $opening['choices'] = [];
+
+    $fake = Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured($opening)
+            ->withUsage(new Usage(120, 45, 0, 0, 0)),
+        StructuredResponseFake::make()
+            ->withStructured([
+                'choices' => ['Enter the room', 'Wait beneath the awning', 'Circle around the house'],
+            ])
+            ->withUsage(new Usage(30, 12, 0, 0, 0)),
+    ]);
+    $game = new Game;
+    $game->setRawAttributes([
+        'id' => 'restarted-game',
+        'current_playable_moment_id' => null,
+    ]);
+
+    $result = sparseStateEngine()->callAgent(
+        model: 'claude-haiku-4-5',
+        systemPrompt: 'Open the restarted story.',
+        conversationHistory: [],
+        playerAction: null,
+        protagonist: 'Watson',
+        game: $game,
+        isOpening: true,
+    );
+
+    expect($result['response'])->toBe($opening['response'])
+        ->and((new NarrationResultNormalizer)->choices($result, false))->toBe([
+            'Enter the room',
+            'Wait beneath the awning',
+            'Circle around the house',
+        ])
+        ->and($result['_usage']['prompt_tokens'])->toBe(150)
+        ->and($result['_usage']['completion_tokens'])->toBe(57);
+
+    $fake->assertCallCount(2);
+    $fake->assertRequest(function (array $requests): void {
+        expect($requests[0])->toBeInstanceOf(StructuredRequest::class)
+            ->and($requests[1])->toBeInstanceOf(StructuredRequest::class)
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['minItems'])->toBe(3)
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['maxItems'])->toBe(3);
     });
 });
 
