@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
@@ -27,6 +28,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read Story $story
  * @property-read Collection<int, Event> $events
  * @property-read int|null $events_count
+ * @property-read Collection<int, PlayerTokenUsage> $tokenUsages
  */
 final class Chapter extends Model implements HasMedia
 {
@@ -65,14 +67,20 @@ final class Chapter extends Model implements HasMedia
         return $this->hasMany(Event::class);
     }
 
-    /**
-     * @return bool
-     */
+    /** @return BelongsToMany<PlayerTokenUsage, $this> */
+    public function tokenUsages(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            PlayerTokenUsage::class,
+            'player_token_usage_chapters',
+        )->withPivot('attribution_role');
+    }
+
     public function isEditable(): bool
     {
         return match ($this->status) {
             ChapterStatusEnum::READY_TO_PLAY => ! $this->events()
-                ->whereHas('prompts', fn(Builder $query) => $query
+                ->whereHas('prompts', fn (Builder $query) => $query
                     ->whereIn('game_id', $this->story->games()->select('id'))
                 )
                 ->exists(),

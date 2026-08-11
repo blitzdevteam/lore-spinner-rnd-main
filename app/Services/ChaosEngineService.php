@@ -577,9 +577,26 @@ TEXT;
         /** @var array<string, mixed> $structured */
         $structured = $response->structured ?? [];
 
+        $usage = $this->normalizeProviderUsage(
+            $response->usage->toArray(),
+            $config['provider'],
+            streamed: false,
+        );
+        [$structured, $repairUsage] = $this->repairMissingLegacyChoices(
+            structured: $structured,
+            model: $model,
+            config: $config,
+            promptText: $promptText,
+            playerAction: $playerAction,
+            protagonist: $protagonist,
+            game: $game,
+            streamed: false,
+        );
+        $usage = $this->mergeUsage($usage, $repairUsage);
+
         return $this->narrationResultFromStructured(
             structured: $structured,
-            usage: $response->usage->toArray(),
+            usage: $usage,
             game: $game,
             isOpening: $isOpening,
         );
@@ -647,6 +664,9 @@ TEXT;
             'Return exactly one valid JSON object and nothing else.',
             'Do not wrap the object in Markdown fences.',
             'The first property MUST be "response" so the UI can stream it while the rest of the object is still generating.',
+            $game?->current_playable_moment_id === null
+                ? 'LEGACY GAMEPLAY REQUIREMENT: when "session_complete" is false, "choices" MUST contain exactly three non-empty suggested actions. Only a completed session may return "choices": []. "visible_suggestions" MUST be [].'
+                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Emit contextual "visible_suggestions" and follow every authored option requirement in the active-moment block.',
             'After "response", include every property required by this JSON schema:',
             $schemaJson,
         ]);
@@ -699,7 +719,23 @@ TEXT;
             }
         }
 
+        $usage = $this->normalizeProviderUsage(
+            $usage,
+            $config['provider'],
+            streamed: true,
+        );
         $structured = $this->decodeStreamedStructuredObject($text);
+        [$structured, $repairUsage] = $this->repairMissingLegacyChoices(
+            structured: $structured,
+            model: $model,
+            config: $config,
+            promptText: $promptText,
+            playerAction: $playerAction,
+            protagonist: $protagonist,
+            game: $game,
+            streamed: true,
+        );
+        $usage = $this->mergeUsage($usage, $repairUsage);
 
         return $this->narrationResultFromStructured(
             structured: $structured,
@@ -714,7 +750,7 @@ TEXT;
      *
      * @param  array<string, mixed>  $previous
      * @param  array<string, mixed>  $delta
-     * @return array<string, mixed>
+     * @return array{0:array<string, mixed>,1:array<string, mixed>}
      */
     public function mergeStateDelta(array $previous, array $delta): array
     {
@@ -867,6 +903,120 @@ TEXT;
     public function emptyAlignmentScaffold(): array
     {
         return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
+    }
+
+    /**
+     * Repair only missing legacy choices with a small structured call while
+     * preserving the narration already produced by the primary request. This
+     * covers both streamed turns and buffered opening narrations: native output
+     * guarantees the choices field exists, but cannot express the conditional
+     * rule that an incomplete legacy turn must contain exactly three choices.
+     *
+     * @param  array<string, mixed>  $structured
+     * @param  array{provider:string, temperature?:float, reasoning_effort:?string}  $config
+     * @return array{0:array<string, mixed>,1:array<string, mixed>}
+     */
+    private function repairMissingLegacyChoices(
+        array $structured,
+        string $model,
+        array $config,
+        string $promptText,
+        ?string $playerAction,
+        string $protagonist,
+        ?Game $game,
+        bool $streamed,
+    ): array {
+        if ($game?->current_playable_moment_id !== null) {
+            return [$structured, []];
+        }
+
+        if (($structured['session_complete'] ?? false) === true) {
+            return [$structured, []];
+        }
+
+        $choices = $structured['choices'] ?? null;
+        if ($this->hasThreeLegacyChoices($choices)) {
+            return [$structured, []];
+        }
+
+        $narration = $structured['response'] ?? '';
+        $narration = is_string($narration) ? $narration : '';
+
+        $schema = new JsonSchemaTypeFactory;
+        $repairRequest = Prism::structured()
+            ->using($config['provider'], $model)
+            ->withSchema(new NativeObjectSchema([
+                'choices' => $schema->array()
+                    ->required()
+                    ->min(3)
+                    ->max(3)
+                    ->items($schema->string()->required()),
+            ], 'narration_choices_repair'))
+            ->withSystemPrompt(implode("\n", [
+                'Generate exactly three concise, distinct actions the player can take next.',
+                'Ground every action in the supplied narration and player context.',
+                'Start each action with a strong verb. Do not repeat the narration.',
+            ]))
+            ->withPrompt(implode("\n\n", [
+                "PROTAGONIST: {$protagonist}",
+                'PLAYER ACTION: '.($playerAction ?? 'Continue the story forward.'),
+                'TURN CONTEXT:',
+                $promptText,
+                'COMPLETED NARRATION:',
+                $narration,
+            ]))
+            ->withClientOptions(['timeout' => 45, 'connect_timeout' => 10])
+            ->withProviderOptions($this->providerOptionsFor($config));
+
+        if ($this->modelAcceptsSamplingParams($model)) {
+            $repairRequest = $repairRequest->usingTemperature(0.4);
+        }
+
+        if ($config['provider'] === 'anthropic') {
+            $repairRequest = $repairRequest->withMaxTokens(512);
+        }
+
+        $repairResponse = $repairRequest->asStructured();
+        $repaired = $repairResponse->structured['choices'] ?? null;
+        if (! $this->hasThreeLegacyChoices($repaired)) {
+            throw new RuntimeException('Narration did not return three valid gameplay choices.');
+        }
+
+        Log::channel('narration')->warning(
+            $streamed ? 'game.streaming_choices_repaired' : 'game.buffered_choices_repaired',
+            [
+                'game_id' => $game?->id,
+                'model' => $model,
+            ],
+        );
+
+        $structured['choices'] = array_values(array_map(static function (mixed $choice): string {
+            return mb_trim($choice);
+        }, $repaired));
+
+        return [
+            $structured,
+            $this->normalizeProviderUsage(
+                $repairResponse->usage->toArray(),
+                $config['provider'],
+                streamed: false,
+            ),
+        ];
+    }
+
+    private function hasThreeLegacyChoices(mixed $choices): bool
+    {
+        if (! is_array($choices) || count($choices) !== 3) {
+            return false;
+        }
+
+        foreach ($choices as $choice) {
+            if (! is_string($choice) || mb_trim($choice) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1942,6 +2092,74 @@ TEXT;
             'claude-opus-4-8',
             'claude-opus-4-7',
         ], true);
+    }
+
+    /**
+     * Prism's OpenAI structured handler reports uncached prompt tokens, while
+     * its streaming handler currently reports total prompt tokens alongside the
+     * cached subset. Normalize both paths to the same mutually exclusive token
+     * buckets before logging, pricing, or combining a repair call.
+     *
+     * @param  array<string, mixed>  $usage
+     * @return array<string, int>
+     */
+    private function normalizeProviderUsage(
+        array $usage,
+        string $provider,
+        bool $streamed,
+    ): array {
+        if ($usage === []) {
+            return [];
+        }
+
+        $cacheRead = $this->usageTokenCount($usage['cache_read_input_tokens'] ?? 0);
+        $prompt = $this->usageTokenCount($usage['prompt_tokens'] ?? 0);
+        if ($provider === 'openai' && $streamed) {
+            $prompt = max(0, $prompt - $cacheRead);
+        }
+
+        return [
+            'prompt_tokens' => $prompt,
+            'completion_tokens' => $this->usageTokenCount($usage['completion_tokens'] ?? 0),
+            'cache_write_input_tokens' => $this->usageTokenCount($usage['cache_write_input_tokens'] ?? 0),
+            'cache_read_input_tokens' => $cacheRead,
+            'thought_tokens' => $this->usageTokenCount($usage['thought_tokens'] ?? 0),
+        ];
+    }
+
+    /**
+     * A malformed legacy streamed response may require one small player-runtime
+     * repair call. Its tokens are part of the same player turn and must not be
+     * lost from that turn's usage ledger.
+     *
+     * @param  array<string, mixed>  $primary
+     * @param  array<string, mixed>  $repair
+     * @return array<string, int>
+     */
+    private function mergeUsage(array $primary, array $repair): array
+    {
+        if ($primary === [] && $repair === []) {
+            return [];
+        }
+
+        $merged = [];
+        foreach ([
+            'prompt_tokens',
+            'completion_tokens',
+            'cache_write_input_tokens',
+            'cache_read_input_tokens',
+            'thought_tokens',
+        ] as $key) {
+            $merged[$key] = $this->usageTokenCount($primary[$key] ?? 0)
+                + $this->usageTokenCount($repair[$key] ?? 0);
+        }
+
+        return $merged;
+    }
+
+    private function usageTokenCount(mixed $value): int
+    {
+        return is_numeric($value) ? max(0, (int) $value) : 0;
     }
 
     /**

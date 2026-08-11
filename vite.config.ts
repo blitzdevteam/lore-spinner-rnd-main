@@ -10,7 +10,7 @@ export default defineConfig({
             path: 'resources/js/wayfinder'
         }),
         laravel({
-            input: ['resources/js/app.ts'],
+            input: ['resources/js/app.ts', 'resources/css/filament/manager/theme.css'],
             ssr: 'resources/js/ssr.ts',
             refresh: true,
         }),

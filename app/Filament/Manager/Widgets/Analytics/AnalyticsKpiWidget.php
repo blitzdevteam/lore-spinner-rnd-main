@@ -4,26 +4,28 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Widgets\Analytics;
 
-use App\Support\Analytics;
 use App\Models\GameCompletion;
 use App\Models\GameReset;
 use App\Models\GameSessionCompletion;
 use App\Models\User;
+use App\Support\Analytics;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Platform KPI cards.
  *
- * All metrics are bounded by the analytics baseline (2026-06-01). No data
+ * All metrics are bounded by the configured analytics baseline. No data
  * before that date is included regardless of the date filter selected.
  *
  * Story Completions come from game_completions (append-only history).
  * games.completed_at is current/mutable state and is NOT used here.
  *
- * Abandoned = incomplete game with no gameplay activity for ≥ 14 days.
+ * Abandoned = incomplete game with no gameplay activity for the configured
+ * inactivity window.
  * Incomplete = started but not yet completed (may still be in-progress).
  * These are two separate metrics with different business meanings.
  */
@@ -31,17 +33,27 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
-    protected ?string $heading = 'Platform KPIs (all time since Jun 1, 2026)';
+    protected ?string $heading = 'Platform KPIs';
 
-    protected ?string $description = 'All metrics are capped at the Jun 1 baseline. No data before this date is included.';
+    protected ?string $description = null;
+
+    protected function getHeading(): ?string
+    {
+        return 'Platform KPIs (all time since '.Analytics::baselineLabel().')';
+    }
+
+    protected function getDescription(): ?string
+    {
+        return 'All metrics are capped at the '.Analytics::baselineLabel().' baseline. No data before this date is included.';
+    }
 
     protected function getStats(): array
     {
         try {
             return $this->buildStats();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [
                 Stat::make('Analytics unavailable', 'Run migrations')
                     ->description('One or more analytics tables are missing. Run: php artisan migrate')
@@ -54,17 +66,17 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     {
         [$from, $to] = $this->dateRange();
 
-        $visits     = $this->visits($from, $to);
-        $signups    = $this->signups($from, $to);
-        $starts     = $this->storyStarts($from, $to);
-        $s1         = $this->firstSessionCompletions($from, $to);
+        $visits = $this->visits($from, $to);
+        $signups = $this->signups($from, $to);
+        $starts = $this->storyStarts($from, $to);
+        $s1 = $this->firstSessionCompletions($from, $to);
         $completionEvents = $this->completionEvents($from, $to);
-        $uniqueCompleted  = $this->uniqueGamesCompleted($from, $to);
-        $incomplete       = $this->incompleteStories($from, $to);
-        $abandoned        = $this->abandonedStories($from, $to);
-        $returns          = $this->returns($from, $to);
-        $replayEvents     = $this->replayEvents($from, $to);
-        $uniqueReplayers  = $this->uniqueReplayers($from, $to);
+        $uniqueCompleted = $this->uniqueGamesCompleted($from, $to);
+        $incomplete = $this->incompleteStories($from, $to);
+        $abandoned = $this->abandonedStories($from, $to);
+        $returns = $this->returns($from, $to);
+        $replayEvents = $this->replayEvents($from, $to);
+        $uniqueReplayers = $this->uniqueReplayers($from, $to);
 
         $incompletePct = $starts > 0
             ? number_format(($incomplete / $starts) * 100, 1)
@@ -95,8 +107,8 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                 ->description('Games where the player finished Session 1 and advanced to Session 2')
                 ->color('warning'),
 
-            Stat::make('Story Completions', number_format($completionEvents))
-                ->description("{$completionRate}% completion rate · {$uniqueCompleted} unique games completed · replays counted separately")
+            Stat::make('Story Completions', number_format($uniqueCompleted))
+                ->description("{$completionRate}% completion rate · {$completionEvents} completion events · replays counted separately")
                 ->color('success'),
 
             Stat::make('Incomplete Stories', number_format($incomplete))
@@ -104,7 +116,7 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                 ->color('warning'),
 
             Stat::make('Abandoned Stories', number_format($abandoned))
-                ->description("{$abandonedPct}% of starts. Incomplete with no gameplay activity for 14+ days.")
+                ->description("{$abandonedPct}% of starts. Incomplete with no gameplay activity for ".Analytics::abandonedLabel().'.')
                 ->color('danger'),
 
             Stat::make('Returning Users', number_format($returns))
@@ -112,7 +124,7 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                 ->color('primary'),
 
             Stat::make('Replay Events', number_format($replayEvents))
-                ->description(number_format($uniqueReplayers) . ' unique users replayed (reset after completing a story)')
+                ->description(number_format($uniqueReplayers).' unique users replayed (reset after completing a story)')
                 ->color('info'),
         ];
     }
@@ -125,7 +137,7 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
      */
     private function dateRange(): array
     {
-        return [Analytics::baseline(), Carbon::now()->endOfDay()];
+        return [Analytics::baseline(), Analytics::asOf()];
     }
 
     private function visits(Carbon $from, Carbon $to): int
@@ -156,20 +168,21 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
 
     private function firstSessionCompletions(Carbon $from, Carbon $to): int
     {
-        return GameSessionCompletion::query()
+        return (int) GameSessionCompletion::query()
+            ->whereHas('game', fn ($query) => $query->where('is_preview', false))
             ->where('session_number', 1)
             ->whereNotNull('completed_at')
-            ->where('completed_at', '>=', $from)
-            ->where('completed_at', '<=', $to)
-            ->count();
+            ->whereBetween('completed_at', [$from, $to])
+            ->distinct('game_id')
+            ->count('game_id');
     }
 
     /** Total completion events — one per completed story cycle (can exceed starts). */
     private function completionEvents(Carbon $from, Carbon $to): int
     {
         return GameCompletion::query()
-            ->where('completed_at', '>=', $from)
-            ->where('completed_at', '<=', $to)
+            ->whereHas('game', fn ($query) => $query->where('is_preview', false))
+            ->whereBetween('completed_at', [$from, $to])
             ->count();
     }
 
@@ -177,8 +190,10 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     private function uniqueGamesCompleted(Carbon $from, Carbon $to): int
     {
         return (int) GameCompletion::query()
-            ->where('completed_at', '>=', $from)
-            ->where('completed_at', '<=', $to)
+            ->whereHas('game', fn ($query) => $query
+                ->where('is_preview', false)
+                ->whereBetween('created_at', [$from, $to]))
+            ->whereBetween('completed_at', [$from, $to])
             ->distinct('game_id')
             ->count('game_id');
     }
@@ -192,14 +207,14 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     {
         return DB::table('games')
             ->where('is_preview', false)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
+            ->whereBetween('created_at', [$from, $to])
             ->whereNull('completed_at')
             ->count();
     }
 
     /**
-     * Incomplete games whose latest gameplay activity is older than 14 days.
+     * Incomplete games whose latest gameplay activity is older than the
+     * configured inactivity window.
      *
      * Activity sources (all gameplay, no page views):
      *   - games.created_at
@@ -211,7 +226,7 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     {
         $cutoff = Analytics::abandonedCutoff()->toDateTimeString();
 
-        $result = DB::select("
+        $result = DB::select('
             SELECT COUNT(*) AS cnt
             FROM (
                 SELECT g.id,
@@ -232,8 +247,8 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                   AND g.created_at <= ?
                 GROUP BY g.id, g.created_at
             ) sub
-            WHERE last_active_at < ?
-        ", [$from->toDateTimeString(), $to->toDateTimeString(), $cutoff]);
+            WHERE last_active_at <= ?
+        ', [$from->toDateTimeString(), $to->toDateTimeString(), $cutoff]);
 
         return (int) ($result[0]->cnt ?? 0);
     }
@@ -256,9 +271,9 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     private function replayEvents(Carbon $from, Carbon $to): int
     {
         return GameReset::query()
+            ->whereHas('game', fn ($query) => $query->where('is_preview', false))
             ->where('had_prior_completion', true)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
+            ->whereBetween('created_at', [$from, $to])
             ->count();
     }
 
@@ -266,9 +281,9 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     private function uniqueReplayers(Carbon $from, Carbon $to): int
     {
         return (int) GameReset::query()
+            ->whereHas('game', fn ($query) => $query->where('is_preview', false))
             ->where('had_prior_completion', true)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
+            ->whereBetween('created_at', [$from, $to])
             ->distinct('user_id')
             ->count('user_id');
     }

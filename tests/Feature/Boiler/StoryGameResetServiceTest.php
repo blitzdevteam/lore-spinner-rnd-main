@@ -79,6 +79,7 @@ it('clears legacy and Boiler state through one shared reset service', function (
         ->and($reset->moment_footnote)->toBeNull()
         ->and($reset->world_state)->toBeNull()
         ->and($reset->defining_choice_id)->toBeNull()
-        ->and($reset->completed_at)->toBeNull()
+        ->and($reset->completed_at)->not->toBeNull()
+        ->and(GameReset::where('game_id', $game->id)->value('had_prior_completion'))->toBeTrue()
         ->and(GameReset::where('game_id', $game->id)->count())->toBe(1);
 });

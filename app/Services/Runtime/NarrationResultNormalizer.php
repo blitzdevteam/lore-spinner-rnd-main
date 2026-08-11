@@ -38,17 +38,19 @@ final class NarrationResultNormalizer
                     Log::channel('narration')->warning('boiler.visible_suggestion_dropped', [
                         'reason' => 'not_object',
                     ]);
+
                     continue;
                 }
 
-                $text = trim((string) ($suggestion['text'] ?? ''));
-                $choiceId = trim((string) ($suggestion['canonical_choice_id'] ?? ''));
-                $pathLabel = strtoupper(trim((string) ($suggestion['canonical_path_label'] ?? '')));
+                $text = mb_trim((string) ($suggestion['text'] ?? ''));
+                $choiceId = mb_trim((string) ($suggestion['canonical_choice_id'] ?? ''));
+                $pathLabel = mb_strtoupper(mb_trim((string) ($suggestion['canonical_path_label'] ?? '')));
 
                 if ($text === '' || mb_strlen($text) > 160) {
                     Log::channel('narration')->warning('boiler.visible_suggestion_dropped', [
                         'reason' => 'empty_or_too_long',
                     ]);
+
                     continue;
                 }
 
@@ -83,16 +85,20 @@ final class NarrationResultNormalizer
         }
 
         $choices = $result['choices'] ?? [];
-        if (! is_array($choices) || count($choices) > 3) {
-            throw new RuntimeException('Legacy narration choices must be an array containing at most three strings.');
+        if (($result['session_complete'] ?? false) === true && $choices === []) {
+            return [];
         }
 
-        return array_map(static function ($choice): string {
-            if (! is_string($choice) || trim($choice) === '') {
+        if (! is_array($choices) || count($choices) !== 3) {
+            throw new RuntimeException('Incomplete legacy narration must contain exactly three choice strings.');
+        }
+
+        return array_values(array_map(static function ($choice): string {
+            if (! is_string($choice) || mb_trim($choice) === '') {
                 throw new RuntimeException('Legacy narration choice must be a non-empty string.');
             }
 
-            return trim($choice);
-        }, $choices);
+            return mb_trim($choice);
+        }, $choices));
     }
 }

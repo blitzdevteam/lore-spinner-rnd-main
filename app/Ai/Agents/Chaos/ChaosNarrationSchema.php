@@ -64,7 +64,7 @@ final class ChaosNarrationSchema
                 ->array()
                 ->required()
                 ->title('Choices')
-                ->description('Legacy zero-to-three suggested action strings. Boiler prompts emit visible_suggestions instead. Return [] in Boiler mode; never emit both.')
+                ->description('Outside Boiler mode, return exactly three non-empty suggested action strings whenever session_complete is false; return [] after the session completes. In Boiler mode return []; Boiler prompts emit visible_suggestions instead. Never emit both.')
                 ->items($schema->string()->required()),
 
             'visible_suggestions' => $schema

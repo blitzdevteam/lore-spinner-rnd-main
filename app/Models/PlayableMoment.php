@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed> $scene_card
  * @property-read PlayableSessionCut $cut
  * @property-read Event|null $anchorEvent
+ * @property-read Collection<int, PlayerTokenUsage> $tokenUsages
  */
 final class PlayableMoment extends Model
 {
@@ -43,5 +45,11 @@ final class PlayableMoment extends Model
     public function activeGames(): HasMany
     {
         return $this->hasMany(Game::class, 'current_playable_moment_id');
+    }
+
+    /** @return HasMany<PlayerTokenUsage, $this> */
+    public function tokenUsages(): HasMany
+    {
+        return $this->hasMany(PlayerTokenUsage::class);
     }
 }

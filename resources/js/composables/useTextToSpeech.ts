@@ -2,10 +2,9 @@ import { computed, onUnmounted, ref } from 'vue';
 
 const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
 
-// Minimal silent WAV — played once during a user gesture to unlock mobile autoplay.
+// Short, valid silent WAV — WebKit rejects the zero-length WAV that Chrome accepts.
 const SILENT_WAV =
-    'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-
+    'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
 // The endpoint answers 202 while the voice provider is still rendering a turn,
 // which can take a couple of minutes for a long narration.
 const NARRATION_POLL_INTERVAL_MS = 2000;
@@ -52,6 +51,9 @@ let pendingAutoplay: { gameId: string; promptId: string } | null = null;
 // autoplay call can reuse it (src-swap preserves iOS activation).
 let primedAudio: HTMLAudioElement | null = null;
 
+const AUTOPLAY_GESTURE_EVENTS = ['touchend', 'mousedown', 'click'] as const;
+let autoplayGestureListenerInstalled = false;
+
 // Key whose element is claimed but has no real source yet, because the mp3 is
 // still downloading. Calling play() on it would fail with NotSupportedError.
 let awaitingSourceKey: string | null = null;
@@ -94,6 +96,16 @@ function getOrCreateAudioCtx(): AudioContext | null {
     }
 }
 
+function playContextSilence(ctx: AudioContext): void {
+    try {
+        const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+    } catch {}
+}
+
 /**
  * Connect an HTMLAudioElement to the shared AudioContext graph.
  * Called once per element; repeated calls are no-ops.
@@ -117,23 +129,25 @@ function connectToAudioCtx(audio: HTMLAudioElement): void {
  * Must be called synchronously inside a user-gesture handler.
  * Resumes the AudioContext and plays 1 frame of silence to fully activate it on iOS.
  */
-function unlockAudioCtx(): void {
+function unlockAudioCtx(): Promise<void> {
     const ctx = getOrCreateAudioCtx();
-    if (!ctx) return;
-    const playOneSample = () => {
-        try {
-            const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
-            const src = ctx.createBufferSource();
-            src.buffer = buf;
-            src.connect(ctx.destination);
-            src.start(0);
-        } catch {}
-    };
-    if (ctx.state === 'suspended') {
-        ctx.resume().then(playOneSample).catch(() => {});
-    } else {
-        playOneSample();
+    if (!ctx) return Promise.resolve();
+
+    if (ctx.state === 'running') {
+        playContextSilence(ctx);
+        return Promise.resolve();
     }
+
+    // Safari can report "interrupted" as well as "suspended". Calling resume()
+    // for every non-running state also covers Safari versions that do not emit a
+    // useful statechange event after a user gesture.
+    return ctx
+        .resume()
+        .then(() => {
+            playContextSilence(ctx);
+            flushPendingAutoplay();
+        })
+        .catch(() => {});
 }
 
 function configureAudioElement(audio: HTMLAudioElement) {
@@ -187,7 +201,7 @@ function queuePendingAutoplay(gameId: string, promptId: string) {
 }
 
 function flushPendingAutoplay() {
-    if (!pendingAutoplay || !audioUnlocked) return;
+    if (!pendingAutoplay || !audioUnlocked || (audioCtx && audioCtx.state !== 'running')) return;
     const { gameId, promptId } = pendingAutoplay;
     pendingAutoplay = null;
     play(gameId, promptId);
@@ -198,7 +212,7 @@ function primeAudio() {
     if (typeof window === 'undefined') return;
 
     // 1. Resume the AudioContext — this is the primary iOS unlock signal.
-    unlockAudioCtx();
+    const contextUnlock = unlockAudioCtx();
 
     if (!audioUnlocked) {
         // 2. Also play a silent HTML Audio element as a belt-and-suspenders unlock
@@ -206,6 +220,7 @@ function primeAudio() {
         if (!unlockAudio) {
             unlockAudio = new Audio(SILENT_WAV);
             unlockAudio.volume = 0;
+            unlockAudio.muted = true;
             configureAudioElement(unlockAudio);
         }
         unlockAudio.play().catch(() => {});
@@ -219,13 +234,44 @@ function primeAudio() {
     //    iOS Safari permits async .play() on the SAME instance later (even after
     //    src is changed), because the activation is tied to the element object.
     //    A new element created outside a gesture is always rejected on iOS.
-    primedAudio = new Audio(SILENT_WAV);
-    primedAudio.volume = 0;
-    configureAudioElement(primedAudio);
-    primedAudio.play().catch(() => {});
+    const primed = new Audio(SILENT_WAV);
+    primed.volume = 0;
+    primed.muted = true;
+    primed.preload = 'auto';
+    configureAudioElement(primed);
+    primedAudio = primed;
+    primed.play().catch(() => {
+        // Do not reuse an element that WebKit failed to activate.
+        if (primedAudio === primed) primedAudio = null;
+    });
 
     // 5. Flush any queued play() synchronously while still inside gesture scope.
     flushPendingAutoplay();
+    void contextUnlock.then(flushPendingAutoplay);
+}
+
+/**
+ * Safari grants media activation from the completed user gesture, not reliably
+ * from pointerdown/touchstart. Capture the first valid gesture at document level
+ * so the unlock runs before a gameplay control starts its async request.
+ */
+function installAutoplayGestureListener() {
+    if (typeof window === 'undefined' || autoplayGestureListenerInstalled) return;
+    autoplayGestureListenerInstalled = true;
+
+    const unlockFromGesture = () => {
+        primeAudio();
+        for (const eventName of AUTOPLAY_GESTURE_EVENTS) {
+            window.removeEventListener(eventName, unlockFromGesture, true);
+        }
+    };
+
+    for (const eventName of AUTOPLAY_GESTURE_EVENTS) {
+        window.addEventListener(eventName, unlockFromGesture, {
+            capture: true,
+            passive: true,
+        });
+    }
 }
 
 function handlePlayRejected(key: string, err: unknown, gameId: string, promptId: string) {
@@ -484,6 +530,14 @@ function play(gameId: string, promptId: string) {
             // point while the new one downloaded.
             silenceOthers(audio);
 
+            // The context may have been created by autoplay before the user
+            // interacted. Do not call play() into a suspended/interrupted Safari
+            // context and treat a silent resolution as successful playback.
+            if (audioCtx && audioCtx.state !== 'running') {
+                queuePendingAutoplay(gameId, promptId);
+                return;
+            }
+
             return audio.play().catch((err) => {
                 handlePlayRejected(key, err, gameId, promptId);
             });
@@ -660,6 +714,8 @@ function formatTime(seconds: number): string {
 }
 
 export function useTextToSpeech() {
+    installAutoplayGestureListener();
+
     onUnmounted(() => {
         stopTimeUpdates();
     });

@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
@@ -22,13 +23,15 @@ use Illuminate\Support\Carbon;
  * @property string|null $route_relation
  * @property string|null $impact_scope
  * @property string $response
- * @property array $choices
+ * @property array<array-key, mixed> $choices
  * @property string|null $prompt
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Game $game
  * @property-read Prompt|null $sourcePrompt
  * @property-read Prompt|null $responsePrompt
+ * @property-read PlayerTokenUsage|null $tokenUsage
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, PlayerVoiceUsage> $voiceUsages
  */
 final class Prompt extends Model
 {
@@ -51,13 +54,27 @@ final class Prompt extends Model
         return $this->belongsTo(Game::class);
     }
 
+    /** @return BelongsTo<Prompt, $this> */
     public function sourcePrompt(): BelongsTo
     {
         return $this->belongsTo(self::class, 'source_prompt_id');
     }
 
+    /** @return HasOne<Prompt, $this> */
     public function responsePrompt(): HasOne
     {
         return $this->hasOne(self::class, 'source_prompt_id');
+    }
+
+    /** @return HasOne<PlayerTokenUsage, $this> */
+    public function tokenUsage(): HasOne
+    {
+        return $this->hasOne(PlayerTokenUsage::class);
+    }
+
+    /** @return HasMany<PlayerVoiceUsage, $this> */
+    public function voiceUsages(): HasMany
+    {
+        return $this->hasMany(PlayerVoiceUsage::class);
     }
 }

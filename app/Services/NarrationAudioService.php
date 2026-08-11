@@ -8,6 +8,7 @@ use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\Story;
+use App\Services\Runtime\PlayerVoiceUsageRecorder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,8 @@ final class NarrationAudioService
     private const ERROR_SECONDS = 120;
 
     private const FAILURE_MESSAGE = 'Narration audio is unavailable for this turn.';
+
+    public function __construct(private readonly PlayerVoiceUsageRecorder $voiceUsage) {}
 
     public function path(Prompt $prompt): string
     {
@@ -111,11 +114,46 @@ final class NarrationAudioService
                 throw new RuntimeException('Narration has no speakable text.');
             }
 
-            $audio = $this->provider() === 'deepgram'
-                ? $this->renderDeepgram($text)
-                : $this->renderElevenLabs($text, $this->voiceIdFor($game));
+            $provider = $this->provider();
+            $usageOccurredAt = now()->toImmutable()->utc();
+            $providerStartedAt = microtime(true);
+            $rendered = match ($provider) {
+                'deepgram' => $this->renderDeepgram($text),
+                'elevenlabs' => $this->renderElevenLabs($text, $this->voiceIdFor($game)),
+                default => throw new RuntimeException("Unsupported TTS provider [{$provider}]."),
+            };
+            $latencyMs = (int) round((microtime(true) - $providerStartedAt) * 1_000);
 
-            Storage::disk('local')->put($path, $audio);
+            try {
+                $this->voiceUsage->record(
+                    game: $game,
+                    prompt: $prompt,
+                    provider: $provider,
+                    model: $rendered['model'],
+                    voiceId: $rendered['voice_id'],
+                    text: $text,
+                    billableUnits: $rendered['billable_units'],
+                    billingUnit: $rendered['billing_unit'],
+                    audio: $rendered['audio'],
+                    latencyMs: $latencyMs,
+                    outputFormat: $rendered['output_format'],
+                    providerRequestId: $rendered['request_id'],
+                    providerTraceId: $rendered['trace_id'],
+                    providerMetadata: $rendered['metadata'],
+                    occurredAt: $usageOccurredAt,
+                );
+            } catch (Throwable $trackingError) {
+                Log::error('tts.usage_record_failed', [
+                    'prompt_id' => $promptId,
+                    'game_id' => (string) $game->id,
+                    'provider' => $provider,
+                    'model' => $rendered['model'],
+                    'exception' => $trackingError::class,
+                    'message' => $trackingError->getMessage(),
+                ]);
+            }
+
+            Storage::disk('local')->put($path, $rendered['audio']);
             Cache::forget($this->errorKey($promptId));
         } catch (Throwable $e) {
             Cache::put($this->errorKey($promptId), self::FAILURE_MESSAGE, self::ERROR_SECONDS);
@@ -135,20 +173,36 @@ final class NarrationAudioService
 
     private function provider(): string
     {
-        return (string) config('services.tts_provider', 'elevenlabs');
+        return $this->configString('services.tts_provider', 'elevenlabs');
     }
 
     private function voiceIdFor(Game $game): string
     {
-        $slug = (string) Story::query()->whereKey($game->story_id)->value('slug');
+        $slug = Story::query()->whereKey($game->story_id)->value('slug');
 
-        return ChaosStoryConfig::ttsVoiceId($slug);
+        return ChaosStoryConfig::ttsVoiceId(is_string($slug) ? $slug : '');
     }
 
-    private function renderElevenLabs(string $text, string $voiceId): string
+    /**
+     * @return array{
+     *     audio:string,
+     *     model:string,
+     *     voice_id:string,
+     *     output_format:string,
+     *     billable_units:int,
+     *     billing_unit:string,
+     *     request_id:?string,
+     *     trace_id:?string,
+     *     metadata:array<string, mixed>,
+     * }
+     */
+    private function renderElevenLabs(string $text, string $voiceId): array
     {
-        $apiKey = (string) config('services.elevenlabs.api_key');
-        $voiceId = $voiceId !== '' ? $voiceId : (string) config('services.elevenlabs.voice_id');
+        $apiKey = $this->configString('services.elevenlabs.api_key', '');
+        $voiceId = $voiceId !== ''
+            ? $voiceId
+            : $this->configString('services.elevenlabs.voice_id', '');
+        $model = $this->configString('services.elevenlabs.model_id', 'eleven_v3');
 
         if ($apiKey === '' || $voiceId === '') {
             throw new RuntimeException('ElevenLabs is not configured.');
@@ -158,7 +212,7 @@ final class NarrationAudioService
             ->timeout(180)
             ->post("https://api.elevenlabs.io/v1/text-to-speech/{$voiceId}/stream?output_format=mp3_44100_128", [
                 'text' => $text,
-                'model_id' => config('services.elevenlabs.model_id', 'eleven_v3'),
+                'model_id' => $model,
                 'voice_settings' => [
                     'stability' => 0.50,
                     'similarity_boost' => 0.75,
@@ -171,13 +225,49 @@ final class NarrationAudioService
             throw new RuntimeException("ElevenLabs responded {$response->status()}: ".mb_substr($response->body(), 0, 300));
         }
 
-        return $response->body();
+        $characterCostHeader = $this->headerString($response->header('character-cost'));
+        $characterCost = $this->positiveHeaderInteger(
+            $characterCostHeader,
+            mb_strlen($text),
+        );
+
+        return [
+            'audio' => $response->body(),
+            'model' => $model,
+            'voice_id' => $voiceId,
+            'output_format' => 'mp3_44100_128',
+            'billable_units' => $characterCost,
+            'billing_unit' => 'characters',
+            'request_id' => $this->headerString($response->header('request-id')),
+            'trace_id' => $this->headerString($response->header('x-trace-id')),
+            'metadata' => [
+                'usage_source' => $characterCostHeader === null
+                    ? 'input_character_fallback'
+                    : 'provider_header',
+                'character_cost' => $characterCost,
+                'content_type' => $this->headerString($response->header('content-type')),
+                'http_status' => $response->status(),
+            ],
+        ];
     }
 
-    private function renderDeepgram(string $text): string
+    /**
+     * @return array{
+     *     audio:string,
+     *     model:string,
+     *     voice_id:string,
+     *     output_format:string,
+     *     billable_units:int,
+     *     billing_unit:string,
+     *     request_id:?string,
+     *     trace_id:null,
+     *     metadata:array<string, mixed>,
+     * }
+     */
+    private function renderDeepgram(string $text): array
     {
-        $apiKey = (string) config('services.deepgram.api_key');
-        $voiceModel = (string) config('services.deepgram.voice_model', 'aura-2-thalia-en');
+        $apiKey = $this->configString('services.deepgram.api_key', '');
+        $voiceModel = $this->configString('services.deepgram.voice_model', 'aura-2-thalia-en');
 
         if ($apiKey === '') {
             throw new RuntimeException('Deepgram is not configured.');
@@ -196,6 +286,54 @@ final class NarrationAudioService
             throw new RuntimeException("Deepgram responded {$response->status()}: ".mb_substr($response->body(), 0, 300));
         }
 
-        return $response->body();
+        $model = $this->headerString($response->header('dg-model-name')) ?? $voiceModel;
+        $characterCountHeader = $this->headerString($response->header('dg-char-count'));
+        $characterCount = $this->positiveHeaderInteger(
+            $characterCountHeader,
+            mb_strlen($text),
+        );
+
+        return [
+            'audio' => $response->body(),
+            'model' => $model,
+            'voice_id' => $voiceModel,
+            'output_format' => 'mp3',
+            'billable_units' => $characterCount,
+            'billing_unit' => 'characters',
+            'request_id' => $this->headerString($response->header('dg-request-id')),
+            'trace_id' => null,
+            'metadata' => [
+                'usage_source' => $characterCountHeader === null
+                    ? 'input_character_fallback'
+                    : 'provider_header',
+                'character_count' => $characterCount,
+                'model_uuid' => $this->headerString($response->header('dg-model-uuid')),
+                'content_type' => $this->headerString($response->header('content-type')),
+                'http_status' => $response->status(),
+            ],
+        ];
+    }
+
+    private function positiveHeaderInteger(mixed $value, int $fallback): int
+    {
+        $value = $this->headerString($value);
+
+        return is_numeric($value) ? max(0, (int) $value) : max(0, $fallback);
+    }
+
+    private function headerString(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = $value[0] ?? null;
+        }
+
+        return is_string($value) && mb_trim($value) !== '' ? mb_trim($value) : null;
+    }
+
+    private function configString(string $key, string $default): string
+    {
+        $value = config($key, $default);
+
+        return is_string($value) ? $value : $default;
     }
 }

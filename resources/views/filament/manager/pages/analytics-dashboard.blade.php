@@ -5,6 +5,8 @@
         $funnel      = $this->getEngagementFunnel();
         $topStories  = $this->getTopStories();
         $keyInsights = $this->getKeyInsights();
+        $baselineLabel = \App\Support\Analytics::baselineLabel();
+        $abandonedLabel = \App\Support\Analytics::abandonedLabel();
 
         $defs = [
             ['Unique Visits',       'A distinct visitor cookie session that loaded a tracked public page. This is NOT a gameplay session. Direct /register arrivals are not counted here.'],
@@ -12,21 +14,21 @@
             ['Story Starts',        'Non-preview game instances created since the baseline. One row per user per story. Includes games from users who registered before the baseline.'],
             ['Session 1 Completed', 'Games where the player finished Session 1 and advanced to Session 2 (completed_at set on session_number = 1 in game_session_completions).'],
             ['Story Completions',   'Distinct games that reached the story end state and generated a game_completions record. One game counted once regardless of how many times it was completed.'],
-            ['Replays',             'Game resets where the player had already completed the story at least once (game_resets.had_prior_completion = true).'],
-            ['Abandoned',           'Incomplete games with no gameplay activity (prompts, session advances, or resets) for 14+ consecutive days.'],
+            ['Replayed Games',      'Distinct non-preview games reset after the player had already completed the story at least once.'],
+            ['Abandoned',           'Incomplete games with no gameplay activity (prompts, session advances, or resets) for ' . $abandonedLabel . '.'],
             ['Return Users',        'Registered users active in the period who also had activity on a different calendar day before the period start.'],
         ];
     @endphp
 
     {{-- ── Baseline notice ──────────────────────────────────────────── --}}
-    <div style="display:flex; align-items:flex-start; gap:12px; padding:14px 20px; border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0;">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0; margin-top:1px;">
-            <circle cx="10" cy="10" r="9" stroke="#16a34a" stroke-width="1.5"/>
-            <path d="M10 9v5M10 7h.01" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round"/>
+    <div class="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-3.5 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+        <svg class="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 9v5M10 7h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <div>
-            <p style="margin:0 0 2px; font-size:13px; font-weight:600; color:#15803d;">Baseline: June 1, 2026 — All metrics start here</p>
-            <p style="margin:0; font-size:12px; color:#16a34a;">Data before this date is excluded. See Metric Glossary below for precise definitions.</p>
+            <p class="mb-0.5 text-[13px] font-semibold text-emerald-800 dark:text-emerald-200">Baseline: {{ $baselineLabel }} — All metrics start here</p>
+            <p class="text-xs text-emerald-700 dark:text-emerald-300">Data before this date is excluded. See Metric Glossary below for precise definitions.</p>
         </div>
     </div>
 
@@ -35,33 +37,33 @@
 
     {{-- ── Acquisition (Visits + Signups — independent counts) ────── --}}
     @if (!empty($acquisition))
-    <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
-        <div style="padding:14px 24px 10px; border-bottom:1px solid #f3f4f6; background:#fafafa; display:flex; justify-content:space-between; align-items:flex-start;">
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex items-start justify-between border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
             <div>
-                <p style="margin:0 0 2px; font-size:15px; font-weight:600; color:#111827;">Acquisition</p>
-                <p style="margin:0; font-size:12px; color:#9ca3af;">Platform-wide counts — these are independent metrics, not a subset funnel</p>
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Acquisition</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Platform-wide counts — these are independent metrics, not a subset funnel</p>
             </div>
-            <span style="font-size:11px; color:#9ca3af; background:#f3f4f6; padding:3px 8px; border-radius:6px; white-space:nowrap; margin-top:2px;">since baseline</span>
+            <span class="mt-0.5 whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-gray-700 dark:text-gray-300">since baseline</span>
         </div>
-        <div style="padding:20px 24px; display:flex; flex-direction:column; gap:14px;">
+        <div class="flex flex-col gap-3.5 px-6 py-5">
             @foreach ($acquisition as $row)
-            <div style="display:flex; align-items:center; gap:14px;">
-                <div style="width:80px; flex-shrink:0; text-align:right;">
-                    <span style="font-size:13px; font-weight:600; color:#374151;">{{ $row['label'] }}</span>
+            <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-1.5 sm:grid-cols-[5rem_minmax(0,1fr)_18rem]">
+                <div class="text-right sm:w-20">
+                    <span class="text-[13px] font-semibold text-gray-700 dark:text-gray-200">{{ $row['label'] }}</span>
                 </div>
-                <div style="flex:1; position:relative; height:28px; background:#f3f4f6; border-radius:6px; overflow:hidden;">
-                    <div style="position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:{{ $row['color'] }}; width:{{ $row['bar_width'] }}%; opacity:0.80;"></div>
-                    <div style="position:absolute; left:10px; top:0; bottom:0; display:flex; align-items:center;">
-                        <span style="font-size:13px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.25);">{{ number_format($row['value']) }}</span>
+                <div class="relative h-7 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
+                    <div class="absolute inset-y-0 left-0 rounded-md opacity-80" style="background:{{ $row['color'] }}; width:{{ $row['bar_width'] }}%;"></div>
+                    <div class="absolute inset-y-0 left-2.5 flex items-center">
+                        <span class="text-[13px] font-bold text-white drop-shadow-sm">{{ number_format($row['value']) }}</span>
                     </div>
                 </div>
-                <div style="width:300px; flex-shrink:0;">
-                    <span style="font-size:11px; color:#9ca3af; font-style:italic;">{{ $row['note'] }}</span>
+                <div class="col-span-2 sm:col-span-1">
+                    <span class="text-[11px] italic text-gray-500 dark:text-gray-400">{{ $row['note'] }}</span>
                 </div>
             </div>
             @endforeach
-            <p style="margin:6px 0 0; font-size:11px; color:#d1d5db; border-top:1px solid #f3f4f6; padding-top:10px;">
-                ⓘ Visits and Signups are counted from different sources. A user can sign up without creating a Visit (e.g. direct /register link). No cross-conversion % is shown because the populations do not nest.
+            <p class="mt-1.5 border-t border-gray-100 pt-2.5 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <span class="font-semibold text-gray-700 dark:text-gray-300">Note:</span> Visits and Signups are counted from different sources. A user can sign up without creating a Visit (e.g. direct /register link). No cross-conversion % is shown because the populations do not nest.
             </p>
         </div>
     </div>
@@ -70,38 +72,38 @@
     {{-- ── Engagement Funnel (nested — Starts is the anchor) ─────── --}}
     @if (!empty($funnel))
     @php $starts = collect($funnel)->firstWhere('label', 'Story Starts'); @endphp
-    <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
-        <div style="padding:14px 24px 10px; border-bottom:1px solid #f3f4f6; background:#fafafa; display:flex; justify-content:space-between; align-items:flex-start;">
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex items-start justify-between border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
             <div>
-                <p style="margin:0 0 2px; font-size:15px; font-weight:600; color:#111827;">Engagement Funnel</p>
-                <p style="margin:0; font-size:12px; color:#9ca3af;">
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Engagement Funnel</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
                     Strictly nested steps — each row is a provable subset of Story Starts
                     @if ($starts)
-                        <span style="font-weight:600; color:#3b82f6;">({{ number_format($starts['value']) }} starts = 100%)</span>
+                        <span class="font-semibold text-primary-600 dark:text-primary-400">({{ number_format($starts['value']) }} starts = 100%)</span>
                     @endif
                 </p>
             </div>
-            <span style="font-size:11px; color:#9ca3af; background:#f3f4f6; padding:3px 8px; border-radius:6px; white-space:nowrap; margin-top:2px;">% of starts</span>
+            <span class="mt-0.5 whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-gray-700 dark:text-gray-300">% of starts</span>
         </div>
-        <div style="padding:20px 24px; display:flex; flex-direction:column; gap:12px;">
+        <div class="flex flex-col gap-3 px-6 py-5">
             @foreach ($funnel as $i => $step)
-            <div style="display:flex; align-items:center; gap:14px;">
-                <div style="width:145px; flex-shrink:0; text-align:right;">
-                    <span style="font-size:13px; font-weight:{{ $i === 0 ? '700' : '600' }}; color:{{ $i === 0 ? '#111827' : '#374151' }};">{{ $step['label'] }}</span>
+            <div class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-x-3.5 gap-y-1.5 sm:grid-cols-[9.0625rem_minmax(0,1fr)_10rem]">
+                <div class="text-right">
+                    <span class="text-[13px] font-{{ $i === 0 ? 'bold' : 'semibold' }} {{ $i === 0 ? 'text-gray-950 dark:text-white' : 'text-gray-700 dark:text-gray-200' }}">{{ $step['label'] }}</span>
                 </div>
-                <div style="flex:1; position:relative; height:28px; background:#f3f4f6; border-radius:6px; overflow:hidden;">
+                <div class="relative h-7 overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
                     @if ($step['bar_width'] > 0)
-                    <div style="position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:{{ $step['color'] }}; width:{{ $step['bar_width'] }}%; opacity:{{ $i === 0 ? '1' : '0.80' }};"></div>
+                    <div class="absolute inset-y-0 left-0 rounded-md {{ $i === 0 ? '' : 'opacity-80' }}" style="background:{{ $step['color'] }}; width:{{ $step['bar_width'] }}%;"></div>
                     @endif
-                    <div style="position:absolute; left:10px; top:0; bottom:0; display:flex; align-items:center;">
-                        <span style="font-size:{{ $i === 0 ? '13px' : '12px' }}; font-weight:700; color:{{ $step['bar_width'] > 10 ? '#fff' : '#374151' }}; text-shadow:{{ $step['bar_width'] > 10 ? '0 1px 2px rgba(0,0,0,0.25)' : 'none' }};">
+                    <div class="absolute inset-y-0 left-2.5 flex items-center">
+                        <span class="text-xs font-bold {{ $step['bar_width'] > 10 ? 'text-white drop-shadow-sm' : 'text-gray-700 dark:text-gray-200' }}">
                             {{ number_format($step['value']) }}
                         </span>
                     </div>
                 </div>
-                <div style="width:160px; flex-shrink:0; display:flex; align-items:center; gap:6px;">
+                <div class="col-span-2 flex items-center gap-1.5 sm:col-span-1">
                     @if ($step['pct_starts'] !== null)
-                    <span style="font-size:11px; font-weight:600; color:#6b7280; background:#f3f4f6; padding:2px 7px; border-radius:12px; white-space:nowrap;">
+                    <span class="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                         {{ $step['pct_starts'] }}% of starts
                     </span>
                     @endif
@@ -109,10 +111,13 @@
                     {{-- Only show step-to-step % for non-anchor rows below Starts --}}
                     @php
                         $pct   = $step['pct_prev'];
-                        $bg    = $pct >= 60 ? '#f0fdf4' : ($pct >= 30 ? '#fffbeb' : '#fef2f2');
-                        $color = $pct >= 60 ? '#15803d' : ($pct >= 30 ? '#b45309' : '#dc2626');
+                        $pctClasses = $pct >= 60
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            : ($pct >= 30
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300');
                     @endphp
-                    <span style="font-size:11px; font-weight:600; color:{{ $color }}; background:{{ $bg }}; padding:2px 7px; border-radius:12px; white-space:nowrap;">
+                    <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $pctClasses }}">
                         {{ $pct }}% of prev
                     </span>
                     @endif
@@ -125,20 +130,36 @@
 
     {{-- ── Key Insights + Top Stories ───────────────────────────────── --}}
     @if (!empty($keyInsights) || !empty($topStories))
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;">
+    <div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
 
         @if (!empty($keyInsights))
-        <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
-            <div style="padding:14px 24px 10px; border-bottom:1px solid #f3f4f6; background:#fafafa;">
-                <p style="margin:0 0 2px; font-size:15px; font-weight:600; color:#111827;">Key Insights</p>
-                <p style="margin:0; font-size:12px; color:#9ca3af;">Computed from live data since baseline</p>
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Key Insights</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Computed from live data since baseline</p>
             </div>
-            <div style="padding:16px 24px; display:flex; flex-direction:column; gap:12px;">
+            <div class="flex flex-col gap-3 px-6 py-4">
                 @foreach ($keyInsights as $insight)
-                <div style="display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:8px; background:#f9fafb; border-left:3px solid {{ $insight['color'] }};">
-                    <span style="font-size:18px; line-height:1; flex-shrink:0;">{{ $insight['icon'] }}</span>
-                    <p style="margin:0; font-size:13px; color:#374151; line-height:1.5;">
-                        <span style="font-weight:700; color:{{ $insight['color'] }};">{{ $insight['highlight'] }}</span>
+                @php
+                    $insightClasses = match ($insight['tone']) {
+                        'success' => 'border-emerald-500 bg-emerald-50/70 dark:border-emerald-400 dark:bg-emerald-950/25',
+                        'warning' => 'border-amber-500 bg-amber-50/70 dark:border-amber-400 dark:bg-amber-950/25',
+                        'danger' => 'border-red-500 bg-red-50/70 dark:border-red-400 dark:bg-red-950/25',
+                        'info' => 'border-blue-500 bg-blue-50/70 dark:border-blue-400 dark:bg-blue-950/25',
+                        default => 'border-primary-500 bg-primary-50/70 dark:border-primary-400 dark:bg-primary-950/25',
+                    };
+                    $insightTextClasses = match ($insight['tone']) {
+                        'success' => 'text-emerald-700 dark:text-emerald-300',
+                        'warning' => 'text-amber-700 dark:text-amber-300',
+                        'danger' => 'text-red-700 dark:text-red-300',
+                        'info' => 'text-blue-700 dark:text-blue-300',
+                        default => 'text-primary-700 dark:text-primary-300',
+                    };
+                @endphp
+                <div class="flex items-start gap-3 rounded-lg border-l-4 px-3.5 py-3 {{ $insightClasses }}">
+                    <span class="mt-1.5 size-2 shrink-0 rounded-full bg-current {{ $insightTextClasses }}" aria-hidden="true"></span>
+                    <p class="text-[13px] leading-5 text-gray-700 dark:text-gray-200">
+                        <span class="font-bold {{ $insightTextClasses }}">{{ $insight['highlight'] }}</span>
                         {{ $insight['text'] }}
                     </p>
                 </div>
@@ -148,22 +169,34 @@
         @endif
 
         @if (!empty($topStories))
-        <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
-            <div style="padding:14px 24px 10px; border-bottom:1px solid #f3f4f6; background:#fafafa;">
-                <p style="margin:0 0 2px; font-size:15px; font-weight:600; color:#111827;">Top Stories</p>
-                <p style="margin:0; font-size:12px; color:#9ca3af;">Ranked by game starts since baseline</p>
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Top Stories</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Ranked by game starts since baseline</p>
             </div>
-            <div style="padding:16px 24px; display:flex; flex-direction:column; gap:12px;">
+            <div class="flex flex-col gap-3 px-6 py-4">
                 @foreach ($topStories as $rank => $story)
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span style="width:22px; height:22px; border-radius:50%; background:{{ $rank === 0 ? '#6366f1' : ($rank === 1 ? '#8b5cf6' : '#d1d5db') }}; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ $rank + 1 }}</span>
-                    <div style="flex:1; min-width:0;">
-                        <p style="margin:0 0 4px; font-size:13px; font-weight:600; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $story['title'] }}</p>
-                        <div style="height:6px; background:#f3f4f6; border-radius:3px; overflow:hidden;">
-                            <div style="height:100%; background:{{ $rank === 0 ? '#6366f1' : ($rank === 1 ? '#8b5cf6' : '#a5b4fc') }}; border-radius:3px; width:{{ $story['pct'] }}%;"></div>
+                @php
+                    $rankBadgeClasses = match ($rank) {
+                        0 => 'bg-primary-600 dark:bg-primary-400',
+                        1 => 'bg-primary-500 dark:bg-primary-500',
+                        default => 'bg-gray-300 dark:bg-gray-600',
+                    };
+                    $rankBarColor = match ($rank) {
+                        0 => '#6366f1',
+                        1 => '#8b5cf6',
+                        default => '#a5b4fc',
+                    };
+                @endphp
+                <div class="flex items-center gap-3">
+                    <span class="flex size-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white {{ $rankBadgeClasses }}">{{ $rank + 1 }}</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="mb-1 truncate text-[13px] font-semibold text-gray-950 dark:text-white">{{ $story['title'] }}</p>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                            <div class="h-full rounded-full" style="background:{{ $rankBarColor }}; width:{{ $story['pct'] }}%;"></div>
                         </div>
                     </div>
-                    <span style="flex-shrink:0; font-size:13px; font-weight:700; color:#374151; width:65px; text-align:right;">{{ $story['starts'] }} start{{ $story['starts'] !== 1 ? 's' : '' }}</span>
+                    <span class="w-[65px] shrink-0 text-right text-[13px] font-bold text-gray-700 dark:text-gray-200">{{ $story['starts'] }} start{{ $story['starts'] !== 1 ? 's' : '' }}</span>
                 </div>
                 @endforeach
             </div>
@@ -177,17 +210,17 @@
     @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget::class)
 
     {{-- ── Metric Glossary ─────────────────────────────────────────── --}}
-    <div style="border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden;">
-        <div style="padding:14px 24px 10px; border-bottom:1px solid #f3f4f6; background:#fafafa;">
-            <p style="margin:0 0 2px; font-size:15px; font-weight:600; color:#111827;">Metric Glossary</p>
-            <p style="margin:0; font-size:13px; color:#9ca3af;">Precise definitions for every number on this page — read before interpreting funnel percentages.</p>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
+            <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Metric Glossary</p>
+            <p class="text-[13px] text-gray-500 dark:text-gray-400">Precise definitions for every number on this page — read before interpreting funnel percentages.</p>
         </div>
-        <div style="padding:20px 24px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0;">
+        <div class="px-6 py-5">
+            <div class="grid grid-cols-1 md:grid-cols-2">
                 @foreach ($defs as $i => $def)
-                <div style="padding:12px 16px; display:flex; gap:10px; align-items:baseline; {{ $i >= 2 ? 'border-top:1px solid #f3f4f6;' : '' }} {{ $i % 2 === 1 ? 'border-left:1px solid #f3f4f6;' : '' }}">
-                    <span style="font-weight:700; font-size:13px; color:#111827; white-space:nowrap; flex-shrink:0;">{{ $def[0] }}</span>
-                    <span style="font-size:12px; color:#6b7280; line-height:1.5;">{{ $def[1] }}</span>
+                <div class="flex items-baseline gap-2 border-gray-100 px-4 py-3 dark:border-gray-800 {{ $i >= 2 ? 'border-t' : '' }} {{ $i % 2 === 1 ? 'md:border-l' : '' }}">
+                    <span class="shrink-0 whitespace-nowrap text-[13px] font-bold text-gray-900 dark:text-white">{{ $def[0] }}</span>
+                    <span class="text-xs leading-5 text-gray-600 dark:text-gray-400">{{ $def[1] }}</span>
                 </div>
                 @endforeach
             </div>

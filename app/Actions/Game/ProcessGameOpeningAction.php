@@ -6,6 +6,8 @@ namespace App\Actions\Game;
 
 use App\Models\Game;
 use App\Models\GameSessionCompletion;
+use App\Models\PlayableMoment;
+use App\Models\PlayerTokenUsage;
 use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
@@ -13,7 +15,9 @@ use App\Services\NarrationAudioService;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
+use App\Services\Runtime\PlayerTokenUsageRecorder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
@@ -29,6 +33,7 @@ final class ProcessGameOpeningAction
         private readonly PlayableMomentResolver $momentResolver,
         private readonly NarrationResultNormalizer $resultNormalizer,
         private readonly NarrationAudioService $audio,
+        private readonly PlayerTokenUsageRecorder $tokenUsage,
     ) {}
 
     public function pendingKey(string $gameId): string
@@ -70,6 +75,10 @@ final class ProcessGameOpeningAction
                 throw new RuntimeException('This story has not been adapted yet.');
             }
 
+            $usageMoment = $game->current_playable_moment_id === null
+                ? null
+                : PlayableMoment::query()->findOrFail($game->current_playable_moment_id);
+
             $emptyWorldState = $this->engine->emptyWorldState();
             $emptyAlignment = $this->engine->emptyAlignmentScaffold();
             $systemPrompt = $this->engine->renderSystemPrompt(
@@ -82,6 +91,7 @@ final class ProcessGameOpeningAction
                 isClimacticThisTurn: false,
             );
 
+            $usageOccurredAt = now()->toImmutable()->utc();
             $llmStartedAt = microtime(true);
             $result = $this->engine->callAgent(
                 model: $game->model,
@@ -113,46 +123,69 @@ final class ProcessGameOpeningAction
                 $story->adaptation?->sessionAdaptations,
             );
 
-            $game->update([
-                'world_state' => $worldState,
-                'alignment_scaffold' => $alignmentScaffold,
-                'symbolic_memory' => $symbolicMemory,
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
-                'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : null,
-                'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : null,
-                'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : null,
-                'current_session_complete' => $game->current_playable_moment_id !== null
-                    ? false
-                    : $result['session_complete'],
-            ]);
+            $narration = DB::transaction(function () use (
+                $game,
+                $worldState,
+                $alignmentScaffold,
+                $symbolicMemory,
+                $result,
+                $branchCommit,
+                $normalizedChoices,
+                $story,
+                $usageMoment,
+                $usageOccurredAt,
+                $systemPrompt,
+            ): Prompt {
+                $game->update([
+                    'world_state' => $worldState,
+                    'alignment_scaffold' => $alignmentScaffold,
+                    'symbolic_memory' => $symbolicMemory,
+                    'is_climactic_choice' => (bool) $result['is_climactic_choice'],
+                    'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : null,
+                    'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : null,
+                    'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : null,
+                    'current_session_complete' => $usageMoment === null
+                        ? $result['session_complete']
+                        : false,
+                ]);
 
-            $openingMomentKey = $game->current_playable_moment_id !== null
-                ? $game->currentPlayableMoment()->value('moment_key')
-                : null;
-
-            $narration = $game->prompts()->create([
-                'session_number' => 1,
-                'moment_key' => $openingMomentKey,
-                'exit_condition_met' => $openingMomentKey !== null ? false : null,
-                'moment_result' => null,
-                'moment_footnote' => null,
-                'response' => $result['response'],
-                'choices' => $normalizedChoices,
-            ]);
-
-            GameSessionCompletion::updateOrCreate(
-                [
-                    'game_id' => $game->id,
-                    'story_cycle_number' => $game->current_story_cycle_number,
+                $openingMomentKey = $usageMoment?->moment_key;
+                $prompt = $game->prompts()->create([
                     'session_number' => 1,
-                ],
-                [
-                    'story_id' => $story->id,
-                    'user_id' => $game->user_id,
-                    'started_at' => now(),
-                    'completed_at' => null,
-                ],
-            );
+                    'moment_key' => $openingMomentKey,
+                    'exit_condition_met' => $openingMomentKey !== null ? false : null,
+                    'moment_result' => null,
+                    'moment_footnote' => null,
+                    'response' => $result['response'],
+                    'choices' => $normalizedChoices,
+                ]);
+
+                GameSessionCompletion::updateOrCreate(
+                    [
+                        'game_id' => $game->id,
+                        'story_cycle_number' => $game->current_story_cycle_number,
+                        'session_number' => 1,
+                    ],
+                    [
+                        'story_id' => $story->id,
+                        'user_id' => $game->user_id,
+                        'started_at' => now(),
+                        'completed_at' => null,
+                    ],
+                );
+
+                $this->tokenUsage->record(
+                    game: $game,
+                    prompt: $prompt,
+                    rawUsage: (array) ($result['_usage'] ?? []),
+                    kind: PlayerTokenUsage::KIND_BEGIN,
+                    moment: $usageMoment,
+                    occurredAt: $usageOccurredAt,
+                    systemPrompt: $systemPrompt,
+                );
+
+                return $prompt;
+            });
 
             UserActivityDay::record($game->user_id);
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
@@ -256,6 +289,10 @@ final class ProcessGameOpeningAction
                 throw new RuntimeException('The next session has not been adapted yet.');
             }
 
+            $usageMoment = $game->current_playable_moment_id === null
+                ? null
+                : PlayableMoment::query()->findOrFail($game->current_playable_moment_id);
+
             $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
             $carriedAlignment = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
             $carriedMemory = $game->symbolic_memory;
@@ -271,6 +308,7 @@ final class ProcessGameOpeningAction
                 isEpisodeTransition: true,
             );
 
+            $usageOccurredAt = now()->toImmutable()->utc();
             $llmStartedAt = microtime(true);
             $result = $this->engine->callAgent(
                 model: $game->model,
@@ -305,52 +343,77 @@ final class ProcessGameOpeningAction
 
             $currentSessionNumber = $nextSessionNumber - 1;
 
-            $game->update([
-                'current_session_number' => $nextSessionNumber,
-                'current_session_complete' => $game->current_playable_moment_id !== null
-                    ? false
-                    : $result['session_complete'],
-                'world_state' => $worldState,
-                'alignment_scaffold' => $alignmentScaffold,
-                'symbolic_memory' => $symbolicMemory,
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'],
-                'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : $game->defining_choice_id,
-                'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $game->defining_path_label,
-                'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
-            ]);
+            $narration = DB::transaction(function () use (
+                $game,
+                $nextSessionNumber,
+                $result,
+                $worldState,
+                $alignmentScaffold,
+                $symbolicMemory,
+                $branchCommit,
+                $normalizedChoices,
+                $currentSessionNumber,
+                $story,
+                $usageMoment,
+                $usageOccurredAt,
+                $systemPrompt,
+            ): Prompt {
+                $game->update([
+                    'current_session_number' => $nextSessionNumber,
+                    'current_session_complete' => $usageMoment === null
+                        ? $result['session_complete']
+                        : false,
+                    'world_state' => $worldState,
+                    'alignment_scaffold' => $alignmentScaffold,
+                    'symbolic_memory' => $symbolicMemory,
+                    'is_climactic_choice' => (bool) $result['is_climactic_choice'],
+                    'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : $game->defining_choice_id,
+                    'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $game->defining_path_label,
+                    'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $game->defining_choice_line,
+                ]);
 
-            $openingMomentKey = $game->current_playable_moment_id !== null
-                ? $game->currentPlayableMoment()->value('moment_key')
-                : null;
-
-            $narration = $game->prompts()->create([
-                'session_number' => $nextSessionNumber,
-                'moment_key' => $openingMomentKey,
-                'exit_condition_met' => $openingMomentKey !== null ? false : null,
-                'moment_result' => null,
-                'moment_footnote' => null,
-                'response' => $result['response'],
-                'choices' => $normalizedChoices,
-            ]);
-
-            GameSessionCompletion::where('game_id', $game->id)
-                ->where('story_cycle_number', $game->current_story_cycle_number)
-                ->where('session_number', $currentSessionNumber)
-                ->update(['completed_at' => now()]);
-
-            GameSessionCompletion::updateOrCreate(
-                [
-                    'game_id' => $game->id,
-                    'story_cycle_number' => $game->current_story_cycle_number,
+                $openingMomentKey = $usageMoment?->moment_key;
+                $prompt = $game->prompts()->create([
                     'session_number' => $nextSessionNumber,
-                ],
-                [
-                    'story_id' => $story->id,
-                    'user_id' => $game->user_id,
-                    'started_at' => now(),
-                    'completed_at' => null,
-                ],
-            );
+                    'moment_key' => $openingMomentKey,
+                    'exit_condition_met' => $openingMomentKey !== null ? false : null,
+                    'moment_result' => null,
+                    'moment_footnote' => null,
+                    'response' => $result['response'],
+                    'choices' => $normalizedChoices,
+                ]);
+
+                GameSessionCompletion::where('game_id', $game->id)
+                    ->where('story_cycle_number', $game->current_story_cycle_number)
+                    ->where('session_number', $currentSessionNumber)
+                    ->update(['completed_at' => now()]);
+
+                GameSessionCompletion::updateOrCreate(
+                    [
+                        'game_id' => $game->id,
+                        'story_cycle_number' => $game->current_story_cycle_number,
+                        'session_number' => $nextSessionNumber,
+                    ],
+                    [
+                        'story_id' => $story->id,
+                        'user_id' => $game->user_id,
+                        'started_at' => now(),
+                        'completed_at' => null,
+                    ],
+                );
+
+                $this->tokenUsage->record(
+                    game: $game,
+                    prompt: $prompt,
+                    rawUsage: (array) ($result['_usage'] ?? []),
+                    kind: PlayerTokenUsage::KIND_NEXT_SESSION,
+                    moment: $usageMoment,
+                    occurredAt: $usageOccurredAt,
+                    systemPrompt: $systemPrompt,
+                );
+
+                return $prompt;
+            });
 
             UserActivityDay::record($game->user_id);
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
