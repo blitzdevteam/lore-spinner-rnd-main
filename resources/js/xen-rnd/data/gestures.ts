@@ -7,31 +7,26 @@ import xenBold from '../assets/poses/XEN-05.png';
 import xenYesMaster from '../assets/poses/XEN-06.png';
 
 /**
- * XEN portal emerge — simple printer model
+ * Printer-hole model
  *
- * Finish frame = original PNG, unstretched.
- * During motion: a fixed "hole" (clip line) sits at the portal mouth.
- * The image slides so the hand feeds through that hole — fingertips first,
- * wrist last — then settles exactly on the source art.
+ * 1. Cover (clip out) the baked white portal in the PNG.
+ * 2. Draw our own fixed white portal = the hole.
+ * 3. Clip so only the “outside” of that hole is visible.
+ * 4. Slide the image so the hand feeds through the hole.
+ * 5. Rest = translate(0): wrist sits in the center of the portal,
+ *    same composition as the original art.
  *
- * Portal coords are % of the image (same aspect stage, object-fit contain).
+ * All coords are % of the image. Stage aspect matches the PNG;
+ * object-fit: contain — never stretch.
  */
 
 export type XenEmergeFrom = 'bottom' | 'left' | 'right';
 
 export interface XenPortal {
-    /** Center of the white ellipse in the original art */
     cx: number;
     cy: number;
     rx: number;
     ry: number;
-    /**
-     * Mouth of the hole — clip plane where the hand exits.
-     * bottom → Y% (top edge of ellipse)
-     * left   → X% (right edge of ellipse)
-     * right  → X% (left edge of ellipse)
-     */
-    mouth: number;
 }
 
 export interface XenGesture {
@@ -41,9 +36,11 @@ export interface XenGesture {
     src: string;
     aspectRatio: number;
     emergeFrom: XenEmergeFrom;
-    /** null for match (no baked portal — synthetic rim at mouth only while animating) */
-    portal: XenPortal | null;
-    /** How far to retract the image at start (% of stage) */
+    /** Our hole — also used to cover the baked portal in the PNG. */
+    portal: XenPortal;
+    /** Extra baked whites to cover (lower reflection, etc.). */
+    coverExtra?: XenPortal[];
+    /** How far the image starts behind the hole (% of stage). */
     emergeDistance: number;
 }
 
@@ -54,8 +51,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenPoint,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 49.84, cy: 88.54, rx: 15.63, ry: 3.44, mouth: 85.1 },
-        emergeDistance: 70,
+        portal: { cx: 49.84, cy: 88.54, rx: 15.63, ry: 3.44 },
+        emergeDistance: 72,
     },
     {
         id: 'chef-kiss',
@@ -63,8 +60,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenChefKiss,
         aspectRatio: 1280 / 960,
         emergeFrom: 'left',
-        portal: { cx: 21.29, cy: 51.61, rx: 8.32, ry: 31.61, mouth: 29.61 },
-        emergeDistance: 55,
+        portal: { cx: 22.07, cy: 51.61, rx: 9.1, ry: 31.61 },
+        emergeDistance: 58,
     },
     {
         id: 'match',
@@ -73,8 +70,9 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 99.0, cy: 71.0, rx: 1.6, ry: 16.0, mouth: 97.5 },
-        emergeDistance: 50,
+        // No baked portal — synthetic hole at the wrist edge, vertically centered on the arm
+        portal: { cx: 99.2, cy: 71.2, rx: 1.8, ry: 14.0 },
+        emergeDistance: 52,
     },
     {
         id: 'surprise',
@@ -83,8 +81,9 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenSurprise,
         aspectRatio: 1280 / 961,
         emergeFrom: 'bottom',
-        portal: { cx: 45.51, cy: 83.98, rx: 13.48, ry: 3.95, mouth: 80.02 },
-        emergeDistance: 65,
+        portal: { cx: 44.73, cy: 82.62, rx: 14.73, ry: 4.68 },
+        coverExtra: [{ cx: 50, cy: 90.5, rx: 18, ry: 3.5 }],
+        emergeDistance: 68,
     },
     {
         id: 'your-move',
@@ -93,8 +92,9 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYourMove,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 45.43, cy: 84.01, rx: 13.4, ry: 3.91, mouth: 80.1 },
-        emergeDistance: 65,
+        portal: { cx: 44.69, cy: 82.66, rx: 14.69, ry: 4.74 },
+        coverExtra: [{ cx: 50, cy: 90.5, rx: 18, ry: 3.5 }],
+        emergeDistance: 68,
     },
     {
         id: 'bold',
@@ -103,8 +103,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenBold,
         aspectRatio: 1024 / 1280,
         emergeFrom: 'bottom',
-        portal: { cx: 59.23, cy: 86.84, rx: 18.41, ry: 3.55, mouth: 83.28 },
-        emergeDistance: 60,
+        portal: { cx: 59.23, cy: 86.84, rx: 18.41, ry: 3.55 },
+        emergeDistance: 64,
     },
     {
         id: 'yes-master',
@@ -113,13 +113,19 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYesMaster,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 83.44, cy: 51.35, rx: 5.78, ry: 31.35, mouth: 77.66 },
-        emergeDistance: 55,
+        portal: { cx: 83.44, cy: 51.35, rx: 5.78, ry: 31.35 },
+        emergeDistance: 56,
     },
 ];
 
-export function xenHoleClip(mouth: number, from: XenEmergeFrom): string {
-    // Visible = the side the hand exits into (outside the hole).
+/** Hole mouth = portal center along the emerge axis. Hand rests in the middle of the hole. */
+export function xenMouth(portal: XenPortal, from: XenEmergeFrom): number {
+    return from === 'bottom' ? portal.cy : portal.cx;
+}
+
+/** Visible = outside the hole (the direction the hand exits). */
+export function xenHoleClip(portal: XenPortal, from: XenEmergeFrom): string {
+    const mouth = xenMouth(portal, from);
     switch (from) {
         case 'bottom':
             return `inset(0 0 ${(100 - mouth).toFixed(3)}% 0)`;
