@@ -8,6 +8,7 @@ use App\Filament\Manager\Resources\PlayerTokenUsages\Pages\ListPlayerTokenUsages
 use App\Filament\Manager\Resources\PlayerTokenUsages\Pages\ViewPlayerTokenUsage;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Schemas\PlayerTokenUsageInfolist;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Tables\PlayerTokenUsagesTable;
+use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenProviderEfficiencyChart;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageBreakdownChart;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageOverview;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageTrendChart;
@@ -81,6 +82,7 @@ final class PlayerTokenUsageResource extends Resource
             TokenUsageOverview::class,
             TokenUsageTrendChart::class,
             TokenUsageBreakdownChart::class,
+            TokenProviderEfficiencyChart::class,
         ];
     }
 }

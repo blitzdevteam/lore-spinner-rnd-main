@@ -41,6 +41,7 @@ use Override;
  * @property-read PlayableMoment|null $currentPlayableMoment
  * @property-read Collection<int, Prompt> $prompts
  * @property-read Collection<int, PlayerTokenUsage> $tokenUsages
+ * @property-read Collection<int, PlayerVoiceUsage> $voiceUsages
  * @property-read Collection<int, GameSessionCompletion> $sessionCompletions
  * @property-read Collection<int, GameReset> $resets
  * @property-read Collection<int, GameCompletion> $completionHistory
@@ -69,11 +70,13 @@ final class Game extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<PlayableSessionCut, $this> */
     public function currentPlayableSessionCut(): BelongsTo
     {
         return $this->belongsTo(PlayableSessionCut::class, 'current_playable_session_cut_id');
     }
 
+    /** @return BelongsTo<PlayableMoment, $this> */
     public function currentPlayableMoment(): BelongsTo
     {
         return $this->belongsTo(PlayableMoment::class, 'current_playable_moment_id');
@@ -95,6 +98,12 @@ final class Game extends Model
     public function tokenUsages(): HasMany
     {
         return $this->hasMany(PlayerTokenUsage::class);
+    }
+
+    /** @return HasMany<PlayerVoiceUsage, $this> */
+    public function voiceUsages(): HasMany
+    {
+        return $this->hasMany(PlayerVoiceUsage::class);
     }
 
     /**
