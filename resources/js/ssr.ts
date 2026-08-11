@@ -7,6 +7,7 @@ import { renderToString } from 'vue/server-renderer';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 const voiceLabPages = import.meta.glob<DefineComponent>('./voice-lab/pages/**/*.vue');
+const xenRndPages = import.meta.glob<DefineComponent>('./xen-rnd/pages/**/*.vue');
 const mainPages = import.meta.glob<DefineComponent>('./pages/**/*.vue');
 
 createServer(
@@ -19,6 +20,10 @@ createServer(
                 if (name.startsWith('VoiceLab/')) {
                     const file = name.replace('VoiceLab/', '');
                     return resolvePageComponent(`./voice-lab/pages/${file}.vue`, voiceLabPages);
+                }
+                if (name.startsWith('XenRnd/')) {
+                    const file = name.replace('XenRnd/', '');
+                    return resolvePageComponent(`./xen-rnd/pages/${file}.vue`, xenRndPages);
                 }
                 return resolvePageComponent(`./pages/${name}.vue`, mainPages);
             },
