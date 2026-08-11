@@ -177,6 +177,8 @@ final class ProcessGameTurnAction
                 isClimacticThisTurn: $isClimactic,
             );
 
+            Log::info('game.turn.system_prompt', ['system_prompt' => $systemPrompt]);
+
             if ($explicitBranch !== null) {
                 $systemPrompt .= "\n\nVALIDATED PLAYER SELECTION (authoritative): "
                     .$explicitBranch['defining_choice_id'].' path '.$explicitBranch['defining_path_label']
