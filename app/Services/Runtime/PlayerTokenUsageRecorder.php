@@ -30,6 +30,7 @@ final readonly class PlayerTokenUsageRecorder
         string $kind,
         ?PlayableMoment $moment = null,
         ?CarbonInterface $occurredAt = null,
+        ?string $systemPrompt = null,
     ): PlayerTokenUsage {
         if ($prompt->game_id !== $game->id) {
             throw new LogicException('Player token usage prompt does not belong to the supplied game.');
@@ -39,7 +40,7 @@ final readonly class PlayerTokenUsageRecorder
             ? CarbonImmutable::now('UTC')
             : CarbonImmutable::instance($occurredAt)->utc();
         $calculated = $this->calculator->calculate($game->model, $rawUsage, $at);
-        $attribution = $this->resolveAttribution($game, $prompt, $moment);
+        $attribution = $this->resolveAttribution($game, $moment);
 
         return DB::transaction(function () use (
             $game,
@@ -50,6 +51,7 @@ final readonly class PlayerTokenUsageRecorder
             $at,
             $calculated,
             $attribution,
+            $systemPrompt,
         ): PlayerTokenUsage {
             $sessionCompletionId = GameSessionCompletion::query()
                 ->where('game_id', $game->id)
@@ -75,6 +77,8 @@ final readonly class PlayerTokenUsageRecorder
                     'source_event_ids' => $attribution['event_ids'],
                     'source_chapter_ids' => $attribution['chapter_ids'],
                     'kind' => $kind,
+                    'system_prompt' => $systemPrompt,
+                    'generated_output' => $prompt->response,
                     ...$calculated,
                     'raw_usage' => $rawUsage,
                     'occurred_at' => $at,
@@ -91,10 +95,11 @@ final readonly class PlayerTokenUsageRecorder
     }
 
     /**
-     * Boiler calls are attributed to the active moment's source events. Legacy
-     * calls have no event cursor, so they are attributed to every event assigned
-     * to that runtime session. Chapter pivots are de-duplicated, which ensures a
-     * chapter counts a call once even when several of its events fed the call.
+     * Moment-based calls are attributed to that moment's exact source events.
+     * Legacy calls have no reliable event cursor, so they intentionally remain
+     * scoped to the game and session instead of being assigned to every event in
+     * the session. Chapter pivots are de-duplicated, which ensures a chapter
+     * counts a call once even when several of its events fed the moment.
      *
      * @return array{
      *     anchor_event_id:?int,
@@ -107,32 +112,35 @@ final readonly class PlayerTokenUsageRecorder
      */
     private function resolveAttribution(
         Game $game,
-        Prompt $prompt,
         ?PlayableMoment $moment,
     ): array {
-        $requestedEventIds = null;
-        if ($moment !== null) {
-            $requestedEventIds = [];
-            foreach ($moment->source_event_ids as $eventId) {
-                if ($eventId > 0) {
-                    $requestedEventIds[] = $eventId;
-                }
-            }
-            if ($moment->anchor_event_id !== null && $moment->anchor_event_id > 0) {
-                $requestedEventIds[] = $moment->anchor_event_id;
-            }
-            $requestedEventIds = array_values(array_unique($requestedEventIds));
+        if ($moment === null) {
+            return [
+                'anchor_event_id' => null,
+                'anchor_chapter_id' => null,
+                'event_ids' => [],
+                'chapter_ids' => [],
+                'event_pivot' => [],
+                'chapter_pivot' => [],
+            ];
         }
+
+        $requestedEventIds = [];
+        foreach ($moment->source_event_ids as $eventId) {
+            if ($eventId > 0) {
+                $requestedEventIds[] = $eventId;
+            }
+        }
+        if ($moment->anchor_event_id !== null && $moment->anchor_event_id > 0) {
+            $requestedEventIds[] = $moment->anchor_event_id;
+        }
+        $requestedEventIds = array_values(array_unique($requestedEventIds));
 
         /** @var Collection<int, Event> $events */
         $events = Event::query()
             ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
             ->where('chapters.story_id', $game->story_id)
-            ->when(
-                $requestedEventIds !== null,
-                fn ($query) => $query->whereIn('events.id', $requestedEventIds),
-                fn ($query) => $query->where('events.session_number', $prompt->session_number),
-            )
+            ->whereIn('events.id', $requestedEventIds)
             ->orderBy('chapters.position')
             ->orderBy('events.position')
             ->get(['events.id', 'events.chapter_id']);
@@ -148,19 +156,18 @@ final readonly class PlayerTokenUsageRecorder
             ->all();
         $anchorEvent = $this->anchorEvent($events, $moment);
         $anchorChapterId = $anchorEvent === null ? null : (int) $anchorEvent->chapter_id;
-        $fallbackRole = $moment === null ? 'session_source' : 'moment_source';
 
         $eventPivot = [];
         foreach ($eventIds as $eventId) {
             $eventPivot[$eventId] = [
-                'attribution_role' => $eventId === $anchorEvent?->id ? 'anchor' : $fallbackRole,
+                'attribution_role' => $eventId === $anchorEvent?->id ? 'anchor' : 'moment_source',
             ];
         }
 
         $chapterPivot = [];
         foreach ($chapterIds as $chapterId) {
             $chapterPivot[$chapterId] = [
-                'attribution_role' => $chapterId === $anchorChapterId ? 'anchor' : $fallbackRole,
+                'attribution_role' => $chapterId === $anchorChapterId ? 'anchor' : 'moment_source',
             ];
         }
 

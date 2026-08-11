@@ -235,6 +235,7 @@ final class ProcessGameTurnAction
                 $explicitBranch,
                 $usageMoment,
                 $usageOccurredAt,
+                $systemPrompt,
             ): Prompt {
                 $committedPrompt = $boilerActive
                     ? $this->momentResolver->applyPlayerTurn(
@@ -262,6 +263,7 @@ final class ProcessGameTurnAction
                     kind: PlayerTokenUsage::KIND_TURN,
                     moment: $usageMoment,
                     occurredAt: $usageOccurredAt,
+                    systemPrompt: $systemPrompt,
                 );
 
                 return $committedPrompt;

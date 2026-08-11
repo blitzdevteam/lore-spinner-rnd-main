@@ -134,6 +134,7 @@ final class ProcessGameOpeningAction
                 $story,
                 $usageMoment,
                 $usageOccurredAt,
+                $systemPrompt,
             ): Prompt {
                 $game->update([
                     'world_state' => $worldState,
@@ -180,6 +181,7 @@ final class ProcessGameOpeningAction
                     kind: PlayerTokenUsage::KIND_BEGIN,
                     moment: $usageMoment,
                     occurredAt: $usageOccurredAt,
+                    systemPrompt: $systemPrompt,
                 );
 
                 return $prompt;
@@ -354,6 +356,7 @@ final class ProcessGameOpeningAction
                 $story,
                 $usageMoment,
                 $usageOccurredAt,
+                $systemPrompt,
             ): Prompt {
                 $game->update([
                     'current_session_number' => $nextSessionNumber,
@@ -406,6 +409,7 @@ final class ProcessGameOpeningAction
                     kind: PlayerTokenUsage::KIND_NEXT_SESSION,
                     moment: $usageMoment,
                     occurredAt: $usageOccurredAt,
+                    systemPrompt: $systemPrompt,
                 );
 
                 return $prompt;
