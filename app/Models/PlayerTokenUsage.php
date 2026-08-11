@@ -33,6 +33,8 @@ use Override;
  * @property array<int, int> $source_event_ids
  * @property array<int, int> $source_chapter_ids
  * @property string $kind
+ * @property string|null $system_prompt
+ * @property string|null $generated_output
  * @property string $provider
  * @property string $model
  * @property string $currency

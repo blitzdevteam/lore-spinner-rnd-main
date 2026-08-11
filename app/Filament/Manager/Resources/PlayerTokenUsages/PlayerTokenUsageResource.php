@@ -59,8 +59,8 @@ final class PlayerTokenUsageResource extends Resource
             'user:id,email,first_name,last_name',
             'game:id,is_preview',
             'playableMoment:id,moment_key',
-            'chapters:id,title',
-            'events:id,title,chapter_id',
+            'chapters:id,title,position',
+            'events:id,title,chapter_id,position,session_number',
         ]);
     }
 

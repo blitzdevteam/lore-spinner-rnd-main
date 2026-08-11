@@ -105,6 +105,16 @@ beforeEach(function () {
         'migrations/2026_08_10_000002_add_dashboard_indexes_to_player_token_usages_table.php',
     );
     $dashboardIndexes->up();
+
+    $promptSnapshots = require database_path(
+        'migrations/2026_08_11_000001_add_prompt_snapshots_to_player_token_usages.php',
+    );
+    $promptSnapshots->up();
+
+    $legacyAttributionCleanup = require database_path(
+        'migrations/2026_08_11_000002_remove_legacy_session_event_attribution.php',
+    );
+    $legacyAttributionCleanup->up();
 });
 
 afterEach(function () {
@@ -180,6 +190,7 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
         PlayerTokenUsage::KIND_TURN,
         $moment,
         CarbonImmutable::parse('2026-08-10T12:00:00Z'),
+        systemPrompt: 'You are the runtime narrator for this exact moment.',
     );
     $duplicate = $recorder->record(
         $game,
@@ -198,6 +209,8 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
         ->and($usage->anchor_chapter_id)->toBe($chapterId)
         ->and($usage->source_event_ids)->toBe([$firstEventId, $secondEventId])
         ->and($usage->source_chapter_ids)->toBe([$chapterId])
+        ->and($usage->system_prompt)->toBe('You are the runtime narrator for this exact moment.')
+        ->and($usage->generated_output)->toBe('The door opens.')
         ->and($usage->events)->toHaveCount(2)
         ->and($usage->chapters)->toHaveCount(1)
         ->and($usage->total_tokens)->toBe(200)
@@ -226,6 +239,81 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     expect($usage->prompt_id)->toBeNull()
         ->and($usage->prompt_reference_id)->toBe($promptReference)
         ->and(PlayerTokenUsage::query()->count())->toBe(1);
+});
+
+it('keeps legacy usage at session scope and removes historical inferred event links', function () {
+    $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $chapterId = DB::table('chapters')->insertGetId([
+        'story_id' => $storyId,
+        'position' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $eventId = DB::table('events')->insertGetId([
+        'chapter_id' => $chapterId,
+        'position' => 1,
+        'session_number' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $game = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $prompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Legacy narration.',
+        'choices' => [],
+    ]);
+
+    $usage = app(PlayerTokenUsageRecorder::class)->record(
+        game: $game,
+        prompt: $prompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_TURN,
+        systemPrompt: 'Legacy runtime prompt.',
+    );
+
+    $summary = app(PlayerTokenUsageSummary::class);
+
+    expect($usage->playable_moment_id)->toBeNull()
+        ->and($usage->anchor_event_id)->toBeNull()
+        ->and($usage->anchor_chapter_id)->toBeNull()
+        ->and($usage->source_event_ids)->toBe([])
+        ->and($usage->source_chapter_ids)->toBe([])
+        ->and($usage->events)->toBeEmpty()
+        ->and($usage->chapters)->toBeEmpty()
+        ->and($summary->forGame($game->id)['requests'])->toBe(1)
+        ->and($summary->forSession($game->id, 1, 1)['requests'])->toBe(1)
+        ->and($summary->forEvent($eventId)['requests'])->toBe(0)
+        ->and($summary->forChapter($chapterId)['requests'])->toBe(0);
+
+    // Recreate the historical bug, then verify the data migration removes it.
+    $usage->forceFill([
+        'anchor_event_id' => $eventId,
+        'anchor_chapter_id' => $chapterId,
+        'source_event_ids' => [$eventId],
+        'source_chapter_ids' => [$chapterId],
+    ])->save();
+    $usage->events()->sync([$eventId => ['attribution_role' => 'session_source']]);
+    $usage->chapters()->sync([$chapterId => ['attribution_role' => 'session_source']]);
+
+    $cleanup = require database_path(
+        'migrations/2026_08_11_000002_remove_legacy_session_event_attribution.php',
+    );
+    $cleanup->up();
+    $usage->refresh()->load(['events', 'chapters']);
+
+    expect($usage->anchor_event_id)->toBeNull()
+        ->and($usage->anchor_chapter_id)->toBeNull()
+        ->and($usage->source_event_ids)->toBe([])
+        ->and($usage->source_chapter_ids)->toBe([])
+        ->and($usage->events)->toBeEmpty()
+        ->and($usage->chapters)->toBeEmpty();
 });
 
 it('builds filterable game player session chapter and daily dashboard insights', function () {
