@@ -124,7 +124,7 @@ NARRATIVE CANON (beats that MUST occur; player changes HOW, never WHETHER):
 
 MAJOR TURNING POINTS (do not detonate before the player earns them):
 @foreach($spine['major_turning_points'] as $turn)
-- [{{ $turn['reference'] }}] {{ $turn['description'] }}
+- ({{ $turn['reference'] }}) {{ $turn['description'] }}
 @endforeach
 
 IRREVERSIBLE EVENTS (facts the narration must not contradict):
@@ -373,7 +373,7 @@ BRANCHING CHOICE #{{ $choice['choice_id'] ?? '' }} [{{ $choice['category'] ?? ''
 @endforeach
 
 @foreach($emotionalChoices as $ec)
-EMOTIONAL CHOICE [{{ $ec['emotional_register'] ?? '' }}] source: {{ $ec['source_moment'] ?? '' }} | asks (never spoken): {{ $ec['choice_question'] ?? '' }}
+EMOTIONAL CHOICE ({{ $ec['emotional_register'] ?? '' }}) source: {{ $ec['source_moment'] ?? '' }} | asks (never spoken): {{ $ec['choice_question'] ?? '' }}
 @foreach($ec['options'] ?? [] as $opt)
   {{ $opt['label'] ?? '' }}: {{ $opt['text'] ?? '' }} | tone: {{ $opt['tonal_effect'] ?? '' }}
 @endforeach
@@ -407,7 +407,7 @@ PLAYABLE PROMISE: {{ $boilerManifest['playable_promise'] ?? '' }}
 
 ORDERED MOMENTS:
 @foreach($boilerMoments as $moment)
-- {{ $moment['moment_order'] }}. {{ $moment['moment_key'] }} — {{ $moment['title'] }} [{{ $moment['treatment'] }}]
+- {{ $moment['moment_order'] }}. {{ $moment['moment_key'] }} — {{ $moment['title'] }} ({{ $moment['treatment'] }})
   Goal: {{ $moment['runtime_goal'] }}
   Pressure: {{ $moment['live_pressure'] }}
   Canon: {{ implode(' / ', $moment['canon_must_keep'] ?? []) ?: 'local card constraints apply' }}
