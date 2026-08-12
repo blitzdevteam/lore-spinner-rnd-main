@@ -69,7 +69,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: withMouth({ cx: 98.5, cy: 73.18, rx: 2.1, ry: 10.12 }, 'right'),
+        // Synthetic hole sized to wrist (~21% tall) with white shoulders above/below
+        portal: withMouth({ cx: 98.55, cy: 74.3, rx: 2.85, ry: 15.4 }, 'right'),
         emergeDistance: 56,
     },
     {
