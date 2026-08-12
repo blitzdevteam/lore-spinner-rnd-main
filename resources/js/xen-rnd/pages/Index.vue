@@ -91,14 +91,14 @@ function goBack(): void {
 
 <style scoped>
 .xen-rnd {
-    --xen-rnd-bg: #050409;
+    --xen-rnd-bg: #0a0a0b;
     display: flex;
     flex-direction: column;
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
     background: var(--xen-rnd-bg);
-    color: white;
+    color: #f4f4f5;
 }
 
 .xen-rnd__header {
@@ -108,6 +108,7 @@ function goBack(): void {
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .xen-rnd__header .xen-rnd__icon-btn:first-child {
@@ -123,17 +124,24 @@ function goBack(): void {
     align-items: center;
     gap: 0.5rem;
     border-radius: 9999px;
-    border: 1px solid color-mix(in srgb, white 15%, transparent);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     background: transparent;
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    color: color-mix(in srgb, white 70%, transparent);
-    transition: border-color 0.15s ease, color 0.15s ease;
+    font-size: 0.8125rem;
+    color: rgba(244, 244, 245, 0.65);
+    transition:
+        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .xen-rnd__icon-btn:hover {
-    border-color: color-mix(in srgb, white 30%, transparent);
-    color: white;
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #f4f4f5;
+}
+
+.xen-rnd__icon-btn:active {
+    transform: scale(0.98);
 }
 
 .xen-rnd__title-block {
@@ -141,20 +149,18 @@ function goBack(): void {
 }
 
 .xen-rnd__eyebrow {
-    font-size: 0.65rem;
-    letter-spacing: 0.45em;
+    font-size: 0.625rem;
+    letter-spacing: 0.42em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-primary-300) 80%, transparent);
+    color: rgba(244, 244, 245, 0.4);
 }
 
 .xen-rnd__title {
-    font-size: clamp(1rem, 3vw, 1.35rem);
-    letter-spacing: 0.35em;
+    font-size: clamp(0.95rem, 2.6vw, 1.2rem);
+    letter-spacing: 0.32em;
     text-transform: uppercase;
-    background: linear-gradient(135deg, #9fecf7 0%, #5fdbf0 45%, #009eb5 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-weight: 500;
+    color: #f4f4f5;
 }
 
 .xen-rnd__main {
@@ -162,9 +168,9 @@ function goBack(): void {
     min-height: 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto auto;
-    gap: 0.75rem;
-    padding: 0 1rem 1rem;
-    max-width: 56rem;
+    gap: 0.65rem;
+    padding: 0.5rem 1rem 1rem;
+    max-width: 52rem;
     width: 100%;
     margin-inline: auto;
 }
@@ -175,28 +181,27 @@ function goBack(): void {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    /* Give the aspect-box a real containing block to fit into */
     width: 100%;
-    padding: 0.25rem 0;
 }
 
 .xen-rnd__meta {
     flex: 0 0 auto;
     text-align: center;
+    padding-top: 0.15rem;
 }
 
 .xen-rnd__label {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
-    color: var(--color-primary-200);
+    letter-spacing: 0.06em;
+    color: #e4e4e7;
 }
 
 .xen-rnd__caption {
-    margin-top: 0.15rem;
-    font-size: 0.8125rem;
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
     font-style: italic;
-    color: color-mix(in srgb, white 55%, transparent);
+    color: rgba(244, 244, 245, 0.45);
 }
 
 .xen-rnd__picker {
@@ -204,18 +209,18 @@ function goBack(): void {
 }
 
 .xen-rnd__picker-heading {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.45rem;
     text-align: center;
-    font-size: 0.6875rem;
-    letter-spacing: 0.3em;
+    font-size: 0.625rem;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: color-mix(in srgb, white 40%, transparent);
+    color: rgba(244, 244, 245, 0.35);
 }
 
 .xen-rnd__picker-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 @media (min-width: 640px) {
@@ -225,24 +230,32 @@ function goBack(): void {
 }
 
 .xen-rnd__pose-btn {
-    border-radius: 0.75rem;
-    border: 1px solid color-mix(in srgb, white 10%, transparent);
-    background: color-mix(in srgb, white 3%, transparent);
-    padding: 0.65rem 0.75rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+    padding: 0.6rem 0.7rem;
     text-align: left;
-    font-size: 0.8125rem;
-    color: color-mix(in srgb, white 65%, transparent);
-    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    font-size: 0.78rem;
+    color: rgba(244, 244, 245, 0.6);
+    transition:
+        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .xen-rnd__pose-btn:hover {
-    border-color: color-mix(in srgb, white 20%, transparent);
-    color: white;
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f4f4f5;
+}
+
+.xen-rnd__pose-btn:active {
+    transform: scale(0.98);
 }
 
 .xen-rnd__pose-btn--active {
-    border-color: color-mix(in srgb, var(--color-primary-400) 60%, transparent);
-    background: color-mix(in srgb, var(--color-primary-500) 10%, transparent);
-    color: var(--color-primary-100);
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fafafa;
 }
 </style>

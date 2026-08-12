@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * Simple XEN emerge
+ * XEN emerge — taste-calibrated
  *
- * - Cut white portal out of the PNG
- * - Draw a white ellipse sized to match
- * - Hand on top, clipped at portal center, slides out
+ * Matte white hole under the hand. Punch baked portal whites.
+ * Clip at the exit face (mouth). Slide hand out. Rest = wrist on the hole.
+ * Motion: transform only, cubic-bezier. No neon glow.
  */
 import type { XenGesture } from '../data/gestures';
 import { xenClip, xenRetract } from '../data/gestures';
@@ -22,7 +22,6 @@ const retracted = ref(true);
 const frameSize = ref({ width: 0, height: 0 });
 
 let token = 0;
-let settleTimer: ReturnType<typeof setTimeout> | null = null;
 let ro: ResizeObserver | null = null;
 
 const frameStyle = computed(() => {
@@ -45,7 +44,7 @@ const portalStyle = computed(() => {
 });
 
 const clipStyle = computed(() => ({
-    clipPath: xenClip(props.gesture.portal, props.gesture.emergeFrom),
+    clipPath: xenClip(props.gesture.portal.mouth, props.gesture.emergeFrom),
 }));
 
 const handTransform = computed(() =>
@@ -69,10 +68,6 @@ function fit(cw: number, ch: number): void {
 }
 
 async function play(): Promise<void> {
-    if (settleTimer) {
-        clearTimeout(settleTimer);
-        settleTimer = null;
-    }
     retracted.value = true;
     await nextTick();
     requestAnimationFrame(() => {
@@ -89,11 +84,7 @@ async function load(): Promise<void> {
     handSrc.value = '';
 
     try {
-        const punched = await punchPortalWhite(
-            props.gesture.src,
-            props.gesture.emergeFrom,
-            props.gesture.portal,
-        );
+        const punched = await punchPortalWhite(props.gesture);
         if (t !== token) {
             return;
         }
@@ -105,7 +96,6 @@ async function load(): Promise<void> {
         if (t !== token) {
             return;
         }
-        // Fallback: show original unpunched
         handSrc.value = props.gesture.src;
         ready.value = true;
         await play();
@@ -141,9 +131,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     token += 1;
-    if (settleTimer) {
-        clearTimeout(settleTimer);
-    }
     ro?.disconnect();
 });
 
@@ -151,17 +138,19 @@ defineExpose({ replay: play });
 </script>
 
 <template>
-    <div ref="rootEl" class="xen">
+    <div ref="rootEl" class="xen" :class="`xen--${gesture.emergeFrom}`">
         <div class="xen__frame" :style="frameStyle">
-            <!-- 1. White portal ellipse (under the hand) -->
-            <div class="xen__portal" :style="portalStyle" aria-hidden="true" />
+            <!-- Portal hole under the hand — matte disc, no neon -->
+            <div class="xen__portal" :style="portalStyle" aria-hidden="true">
+                <span class="xen__portal-core" />
+            </div>
 
-            <!-- 2. Hand on top, clipped at portal center, slides out -->
+            <!-- Hand clipped at exit face, slides out on top -->
             <div class="xen__clip" :style="clipStyle">
                 <img
                     v-if="handSrc"
                     class="xen__hand"
-                    :class="{ 'xen__hand--ready': ready }"
+                    :class="{ 'xen__hand--in': ready }"
                     :src="handSrc"
                     :alt="gesture.label"
                     :style="{ transform: handTransform }"
@@ -174,6 +163,10 @@ defineExpose({ replay: play });
 
 <style scoped>
 .xen {
+    --xen-void: #0a0a0b;
+    --xen-disc: #f4f4f5;
+    --xen-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --xen-duration: 1.05s;
     width: 100%;
     height: 100%;
     min-height: 12rem;
@@ -186,18 +179,25 @@ defineExpose({ replay: play });
     position: relative;
     flex: 0 0 auto;
     overflow: hidden;
-    background: #050409;
+    background: var(--xen-void);
 }
 
 .xen__portal {
     position: absolute;
     z-index: 1;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow:
-        0 0 12px rgba(255, 255, 255, 0.55),
-        0 0 28px color-mix(in srgb, var(--color-primary-300) 30%, transparent);
     pointer-events: none;
+}
+
+.xen__portal-core {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--xen-disc);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 6px rgba(0, 0, 0, 0.18),
+        0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .xen__clip {
@@ -214,8 +214,8 @@ defineExpose({ replay: play });
     object-fit: fill;
     opacity: 0;
     transition:
-        transform 1.15s cubic-bezier(0.22, 0.9, 0.28, 1),
-        opacity 0.2s ease;
+        transform var(--xen-duration) var(--xen-ease),
+        opacity 0.18s ease;
     will-change: transform;
     backface-visibility: hidden;
     user-select: none;
@@ -223,7 +223,7 @@ defineExpose({ replay: play });
     pointer-events: none;
 }
 
-.xen__hand--ready {
+.xen__hand--in {
     opacity: 1;
 }
 

@@ -7,10 +7,8 @@ import xenBold from '../assets/poses/XEN-05.png';
 import xenYesMaster from '../assets/poses/XEN-06.png';
 
 /**
- * Simple model:
- * 1) Punch baked white portal out of the PNG
- * 2) Draw our white ellipse (size-matched to the original)
- * 3) Hand sits on top and slides out of that ellipse
+ * Hand over a matched white ellipse.
+ * mouth = exit face of the hole (where the wrist sits in the original art).
  */
 
 export type XenEmergeFrom = 'bottom' | 'left' | 'right';
@@ -20,6 +18,8 @@ export interface XenPortal {
     cy: number;
     rx: number;
     ry: number;
+    /** Exit face % — bottom: top of ellipse; left: right edge; right: left edge */
+    mouth: number;
 }
 
 export interface XenGesture {
@@ -30,6 +30,8 @@ export interface XenGesture {
     aspectRatio: number;
     emergeFrom: XenEmergeFrom;
     portal: XenPortal;
+    /** Extra whites to punch (lower reflection rings, etc.) */
+    punchExtra?: Array<Pick<XenPortal, 'cx' | 'cy' | 'rx' | 'ry'>>;
     emergeDistance: number;
 }
 
@@ -40,8 +42,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenPoint,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 50, cy: 88.5, rx: 15.6, ry: 3.4 },
-        emergeDistance: 70,
+        portal: { cx: 49.84, cy: 88.54, rx: 15.63, ry: 3.44, mouth: 85.1 },
+        emergeDistance: 68,
     },
     {
         id: 'chef-kiss',
@@ -49,8 +51,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenChefKiss,
         aspectRatio: 1280 / 960,
         emergeFrom: 'left',
-        portal: { cx: 20.5, cy: 51.5, rx: 8.5, ry: 28 },
-        emergeDistance: 55,
+        portal: { cx: 20.4, cy: 51.6, rx: 7.8, ry: 30.5, mouth: 28.2 },
+        emergeDistance: 52,
     },
     {
         id: 'match',
@@ -59,8 +61,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 98.5, cy: 62, rx: 2.2, ry: 16 },
-        emergeDistance: 55,
+        portal: { cx: 98.4, cy: 71.0, rx: 2.0, ry: 15.5, mouth: 96.4 },
+        emergeDistance: 52,
     },
     {
         id: 'surprise',
@@ -69,8 +71,9 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenSurprise,
         aspectRatio: 1280 / 961,
         emergeFrom: 'bottom',
-        portal: { cx: 50, cy: 86, rx: 17, ry: 3.5 },
-        emergeDistance: 65,
+        portal: { cx: 47.0, cy: 84.8, rx: 16.5, ry: 3.6, mouth: 81.2 },
+        punchExtra: [{ cx: 50, cy: 90.2, rx: 18, ry: 3.2 }],
+        emergeDistance: 62,
     },
     {
         id: 'your-move',
@@ -79,8 +82,9 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYourMove,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 50, cy: 86, rx: 17, ry: 3.5 },
-        emergeDistance: 65,
+        portal: { cx: 47.0, cy: 84.8, rx: 16.5, ry: 3.6, mouth: 81.2 },
+        punchExtra: [{ cx: 50, cy: 90.2, rx: 18, ry: 3.2 }],
+        emergeDistance: 62,
     },
     {
         id: 'bold',
@@ -89,8 +93,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenBold,
         aspectRatio: 1024 / 1280,
         emergeFrom: 'bottom',
-        portal: { cx: 59, cy: 87, rx: 18, ry: 3.5 },
-        emergeDistance: 60,
+        portal: { cx: 59.23, cy: 86.84, rx: 18.41, ry: 3.55, mouth: 83.28 },
+        emergeDistance: 58,
     },
     {
         id: 'yes-master',
@@ -99,20 +103,19 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYesMaster,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 84, cy: 51.5, rx: 6, ry: 28 },
-        emergeDistance: 55,
+        portal: { cx: 83.44, cy: 51.35, rx: 5.9, ry: 30.5, mouth: 77.5 },
+        emergeDistance: 52,
     },
 ];
 
-/** Clip so the hand only exists on the exit side of the portal center. */
-export function xenClip(portal: XenPortal, from: XenEmergeFrom): string {
+export function xenClip(mouth: number, from: XenEmergeFrom): string {
     switch (from) {
         case 'bottom':
-            return `inset(0 0 ${(100 - portal.cy).toFixed(2)}% 0)`;
+            return `inset(0 0 ${(100 - mouth).toFixed(2)}% 0)`;
         case 'left':
-            return `inset(0 0 0 ${portal.cx.toFixed(2)}%)`;
+            return `inset(0 0 0 ${mouth.toFixed(2)}%)`;
         case 'right':
-            return `inset(0 ${(100 - portal.cx).toFixed(2)}% 0 0)`;
+            return `inset(0 ${(100 - mouth).toFixed(2)}% 0 0)`;
     }
 }
 
