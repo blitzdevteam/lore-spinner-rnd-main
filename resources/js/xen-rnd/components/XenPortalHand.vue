@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * XEN emerge — taste-calibrated
+ * XEN emerge — printer / stop-motion pull
  *
- * Matte white hole under the hand. Punch baked portal whites.
- * Clip at the exit face (mouth). Slide hand out. Rest = wrist on the hole.
- * Motion: transform only, cubic-bezier. No neon glow.
+ * 1. Punch baked white portal (+ clean wrist past the mouth)
+ * 2. Draw matched white ellipse under the hand
+ * 3. Clip at portal mouth; slide hand out in stepped frames
+ * 4. Rest = wrist seated on the hole, centered like the original
  */
-import type { XenGesture } from '../data/gestures';
+import type { XenGesture, XenPortal } from '../data/gestures';
 import { xenClip, xenRetract } from '../data/gestures';
 import { punchPortalWhite } from '../lib/punchPortal';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -17,12 +18,15 @@ const props = defineProps<{
 
 const rootEl = ref<HTMLElement | null>(null);
 const handSrc = ref('');
+const portal = ref<XenPortal | null>(null);
 const ready = ref(false);
 const retracted = ref(true);
 const frameSize = ref({ width: 0, height: 0 });
 
 let token = 0;
 let ro: ResizeObserver | null = null;
+
+const activePortal = computed(() => portal.value ?? props.gesture.portal);
 
 const frameStyle = computed(() => {
     const { width, height } = frameSize.value;
@@ -33,7 +37,7 @@ const frameStyle = computed(() => {
 });
 
 const portalStyle = computed(() => {
-    const p = props.gesture.portal;
+    const p = activePortal.value;
     return {
         left: `${p.cx}%`,
         top: `${p.cy}%`,
@@ -44,7 +48,7 @@ const portalStyle = computed(() => {
 });
 
 const clipStyle = computed(() => ({
-    clipPath: xenClip(props.gesture.portal.mouth, props.gesture.emergeFrom),
+    clipPath: xenClip(activePortal.value.mouth, props.gesture.emergeFrom),
 }));
 
 const handTransform = computed(() =>
@@ -82,13 +86,15 @@ async function load(): Promise<void> {
     ready.value = false;
     retracted.value = true;
     handSrc.value = '';
+    portal.value = null;
 
     try {
         const punched = await punchPortalWhite(props.gesture);
         if (t !== token) {
             return;
         }
-        handSrc.value = punched;
+        handSrc.value = punched.url;
+        portal.value = punched.portal;
         ready.value = true;
         await play();
     } catch (e) {
@@ -97,6 +103,7 @@ async function load(): Promise<void> {
             return;
         }
         handSrc.value = props.gesture.src;
+        portal.value = props.gesture.portal;
         ready.value = true;
         await play();
     }
@@ -140,12 +147,10 @@ defineExpose({ replay: play });
 <template>
     <div ref="rootEl" class="xen" :class="`xen--${gesture.emergeFrom}`">
         <div class="xen__frame" :style="frameStyle">
-            <!-- Portal hole under the hand — matte disc, no neon -->
-            <div class="xen__portal" :style="portalStyle" aria-hidden="true">
-                <span class="xen__portal-core" />
-            </div>
+            <!-- Fixed hole — does not move -->
+            <div class="xen__portal" :style="portalStyle" aria-hidden="true" />
 
-            <!-- Hand clipped at exit face, slides out on top -->
+            <!-- Hand clipped at exit face, feeds out like a printer -->
             <div class="xen__clip" :style="clipStyle">
                 <img
                     v-if="handSrc"
@@ -164,9 +169,10 @@ defineExpose({ replay: play });
 <style scoped>
 .xen {
     --xen-void: #0a0a0b;
-    --xen-disc: #f4f4f5;
-    --xen-ease: cubic-bezier(0.16, 1, 0.3, 1);
-    --xen-duration: 1.05s;
+    --xen-disc: #f5f5f5;
+    /* Stepped pull = stop-motion / printer feed */
+    --xen-ease: steps(14, end);
+    --xen-duration: 0.85s;
     width: 100%;
     height: 100%;
     min-height: 12rem;
@@ -186,18 +192,8 @@ defineExpose({ replay: play });
     position: absolute;
     z-index: 1;
     pointer-events: none;
-}
-
-.xen__portal-core {
-    display: block;
-    width: 100%;
-    height: 100%;
     border-radius: 50%;
     background: var(--xen-disc);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.55),
-        inset 0 -2px 6px rgba(0, 0, 0, 0.18),
-        0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .xen__clip {
@@ -211,11 +207,12 @@ defineExpose({ replay: play });
     inset: 0;
     width: 100%;
     height: 100%;
+    /* Frame is aspect-locked to the PNG — fill keeps 1:1 pixel mapping */
     object-fit: fill;
     opacity: 0;
     transition:
         transform var(--xen-duration) var(--xen-ease),
-        opacity 0.18s ease;
+        opacity 0.12s ease;
     will-change: transform;
     backface-visibility: hidden;
     user-select: none;

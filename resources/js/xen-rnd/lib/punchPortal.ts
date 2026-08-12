@@ -1,5 +1,10 @@
 import type { XenGesture, XenPortal } from '../data/gestures';
 
+export interface PunchResult {
+    url: string;
+    portal: XenPortal;
+}
+
 function inEllipse(
     x: number,
     y: number,
@@ -13,8 +18,11 @@ function inEllipse(
     return nx * nx + ny * ny <= 1;
 }
 
-/** Punch whites only inside the portal ellipse(s) — never band-wipe the card. */
-export async function punchPortalWhite(gesture: XenGesture): Promise<string> {
+/**
+ * Punch baked portal whites only. Leave the hand pixels alone so the wrist
+ * can sit in the hole at rest (same as the original composite).
+ */
+export async function punchPortalWhite(gesture: XenGesture): Promise<PunchResult> {
     const img = await loadImage(gesture.src);
     const w = img.naturalWidth;
     const h = img.naturalHeight;
@@ -24,22 +32,22 @@ export async function punchPortalWhite(gesture: XenGesture): Promise<string> {
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
-        return gesture.src;
+        return { url: gesture.src, portal: gesture.portal };
     }
 
     ctx.drawImage(img, 0, 0);
     const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
 
-    const ellipses: Array<Pick<XenPortal, 'cx' | 'cy' | 'rx' | 'ry'>> = [
-        gesture.portal,
+    const portal = gesture.portal;
+    const ellipses: Array<{ cx: number; cy: number; rx: number; ry: number }> = [
+        portal,
         ...(gesture.punchExtra ?? []),
     ].map((p) => ({
         cx: (p.cx / 100) * w,
         cy: (p.cy / 100) * h,
-        // Slight oversize to clear anti-aliased rim
-        rx: (p.rx / 100) * w * 1.18,
-        ry: (p.ry / 100) * h * 1.22,
+        rx: (p.rx / 100) * w * 1.14,
+        ry: (p.ry / 100) * h * 1.16,
     }));
 
     for (let y = 0; y < h; y++) {
@@ -52,7 +60,7 @@ export async function punchPortalWhite(gesture: XenGesture): Promise<string> {
             if (a < 8) {
                 continue;
             }
-            // Strict white — leave cream cards alone
+            // Strict white only — cream cards stay
             if (r < 245 || g < 245 || b < 245) {
                 continue;
             }
@@ -66,7 +74,7 @@ export async function punchPortalWhite(gesture: XenGesture): Promise<string> {
     }
 
     ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL('image/png');
+    return { url: canvas.toDataURL('image/png'), portal };
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

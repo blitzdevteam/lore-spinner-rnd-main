@@ -7,8 +7,8 @@ import xenBold from '../assets/poses/XEN-05.png';
 import xenYesMaster from '../assets/poses/XEN-06.png';
 
 /**
- * Hand over a matched white ellipse.
- * mouth = exit face of the hole (where the wrist sits in the original art).
+ * Portal from PNG white blobs. mouth = center of the hole (exit face),
+ * so the wrist seats IN the ellipse — not floating on the rim, not beside it.
  */
 
 export type XenEmergeFrom = 'bottom' | 'left' | 'right';
@@ -18,7 +18,7 @@ export interface XenPortal {
     cy: number;
     rx: number;
     ry: number;
-    /** Exit face % — bottom: top of ellipse; left: right edge; right: left edge */
+    /** Exit face through the middle of the hole */
     mouth: number;
 }
 
@@ -30,9 +30,17 @@ export interface XenGesture {
     aspectRatio: number;
     emergeFrom: XenEmergeFrom;
     portal: XenPortal;
-    /** Extra whites to punch (lower reflection rings, etc.) */
     punchExtra?: Array<Pick<XenPortal, 'cx' | 'cy' | 'rx' | 'ry'>>;
     emergeDistance: number;
+}
+
+function withMouth(
+    p: Omit<XenPortal, 'mouth'>,
+    from: XenEmergeFrom,
+): XenPortal {
+    // Mouth through the center of the hole so the wrist is seated inside it
+    const mouth = from === 'bottom' ? p.cy : p.cx;
+    return { ...p, mouth };
 }
 
 export const XEN_GESTURES: XenGesture[] = [
@@ -42,8 +50,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenPoint,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 49.84, cy: 88.54, rx: 15.63, ry: 3.44, mouth: 85.1 },
-        emergeDistance: 68,
+        portal: withMouth({ cx: 49.84, cy: 88.18, rx: 15.55, ry: 3.07 }, 'bottom'),
+        emergeDistance: 72,
     },
     {
         id: 'chef-kiss',
@@ -51,8 +59,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenChefKiss,
         aspectRatio: 1280 / 960,
         emergeFrom: 'left',
-        portal: { cx: 20.4, cy: 51.6, rx: 7.8, ry: 30.5, mouth: 28.2 },
-        emergeDistance: 52,
+        portal: withMouth({ cx: 18.98, cy: 51.67, rx: 6.02, ry: 31.56 }, 'left'),
+        emergeDistance: 58,
     },
     {
         id: 'match',
@@ -61,8 +69,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 98.4, cy: 71.0, rx: 2.0, ry: 15.5, mouth: 96.4 },
-        emergeDistance: 52,
+        portal: withMouth({ cx: 98.5, cy: 73.18, rx: 2.1, ry: 10.12 }, 'right'),
+        emergeDistance: 56,
     },
     {
         id: 'surprise',
@@ -71,9 +79,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenSurprise,
         aspectRatio: 1280 / 961,
         emergeFrom: 'bottom',
-        portal: { cx: 47.0, cy: 84.8, rx: 16.5, ry: 3.6, mouth: 81.2 },
-        punchExtra: [{ cx: 50, cy: 90.2, rx: 18, ry: 3.2 }],
-        emergeDistance: 62,
+        portal: withMouth({ cx: 51.02, cy: 84.65, rx: 20.5, ry: 5.1 }, 'bottom'),
+        emergeDistance: 64,
     },
     {
         id: 'your-move',
@@ -82,9 +89,8 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYourMove,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: { cx: 47.0, cy: 84.8, rx: 16.5, ry: 3.6, mouth: 81.2 },
-        punchExtra: [{ cx: 50, cy: 90.2, rx: 18, ry: 3.2 }],
-        emergeDistance: 62,
+        portal: withMouth({ cx: 50.94, cy: 84.74, rx: 20.5, ry: 5.1 }, 'bottom'),
+        emergeDistance: 64,
     },
     {
         id: 'bold',
@@ -93,7 +99,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenBold,
         aspectRatio: 1024 / 1280,
         emergeFrom: 'bottom',
-        portal: { cx: 59.23, cy: 86.84, rx: 18.41, ry: 3.55, mouth: 83.28 },
+        portal: withMouth({ cx: 59.28, cy: 86.64, rx: 18.36, ry: 3.2 }, 'bottom'),
         emergeDistance: 58,
     },
     {
@@ -103,11 +109,12 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYesMaster,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: { cx: 83.44, cy: 51.35, rx: 5.9, ry: 30.5, mouth: 77.5 },
-        emergeDistance: 52,
+        portal: withMouth({ cx: 83.32, cy: 51.3, rx: 5.59, ry: 31.3 }, 'right'),
+        emergeDistance: 58,
     },
 ];
 
+/** Hard slot through the portal center — printer mouth. */
 export function xenClip(mouth: number, from: XenEmergeFrom): string {
     switch (from) {
         case 'bottom':
