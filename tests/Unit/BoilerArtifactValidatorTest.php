@@ -6,6 +6,7 @@ use App\Ai\Adaptation\BoilerDraftCanonicalizer;
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
+use App\Ai\Adaptation\BoilerMomentRangeResolver;
 use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
@@ -208,17 +209,73 @@ it('rejects an event assigned to more than one moment', function () {
         'moment_order' => 2,
     ]);
     $draft['playable_promise_arc']['final_cash_out'] = 'S1_M02';
+    $draft['event_role_map'][] = [
+        'event_id' => 102,
+        'role' => 'ECHO',
+        'why' => 'Carried forward through the shard rather than played directly.',
+        'included_moment_key' => '',
+        'reintroduction_note' => 'Returns in the later confrontation.',
+    ];
     $storyMap = boilerTestStoryMap();
     $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 2;
     $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 2;
 
-    (new BoilerDraftValidator())->validate(
-        $draft,
-        boilerTestSession(),
-        $storyMap,
-        boilerTestEvents(),
-    );
+    // Two playable events keep the two-moment budget satisfiable, so the duplicate
+    // assignment is what fails rather than the feasibility check.
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 102, 'session_number' => 1]),
+    ]);
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
 })->throws(RuntimeException::class, 'Boiler event 101 is assigned to more than one moment.');
+
+it('caps the moment budget at the events left playable after the entry point', function () {
+    $draft = boilerTestDraft();
+    $storyMap = boilerTestStoryMap();
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 3;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 4;
+
+    // One event survives the entry-point cut, so three moments can never be built.
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 100, 'session_number' => 1])
+            ->setAttribute('before_entry_point', true),
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1])
+            ->setAttribute('before_entry_point', false),
+    ]);
+
+    expect(BoilerMomentRangeResolver::resolve(
+        $storyMap['boiling_profile']['per_session_guidance'][0],
+        $events,
+    ))->toMatchArray(['min' => 1, 'max' => 1, 'playable_event_count' => 1, 'clamped' => true]);
+
+    // The single-moment draft is legal against the clamped range even though the
+    // Story Session Map asked for three.
+    $draft['event_role_map'][] = [
+        'event_id' => 100,
+        'role' => 'CUT',
+        'why' => 'Pre-entry material trimmed by the cold open.',
+        'included_moment_key' => '',
+        'reintroduction_note' => 'Established through the opening narration.',
+    ];
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
+
+    expect($draft['session_budget_decision']['target_moment_count'])->toBe(1);
+});
+
+it('leaves an uncut session on its authored moment range', function () {
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 102, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 103, 'session_number' => 1]),
+    ]);
+
+    expect(BoilerMomentRangeResolver::resolve(
+        ['recommended_moment_count_min' => 1, 'recommended_moment_count_max' => 2],
+        $events,
+    ))->toMatchArray(['min' => 1, 'max' => 2, 'playable_event_count' => 3, 'clamped' => false]);
+});
 
 it('rejects playable promise arc shorthand instead of an exact drafted key', function () {
     $draft = boilerTestDraft();

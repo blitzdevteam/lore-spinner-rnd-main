@@ -59,11 +59,16 @@ final class BoilerDraftValidator
         if ($targetMinutes !== ($guidance['target_playtime_minutes'] ?? null)) {
             throw new RuntimeException('Boiler Draft target_playtime_minutes must equal Story Session Map guidance.');
         }
-        if (
-            $targetCount < ($guidance['recommended_moment_count_min'] ?? PHP_INT_MAX)
-            || $targetCount > ($guidance['recommended_moment_count_max'] ?? 0)
-        ) {
-            throw new RuntimeException('Boiler Draft target_moment_count is outside the approved Story Session Map range.');
+        $range = BoilerMomentRangeResolver::resolve($guidance, $events);
+        if ($targetCount < $range['min'] || $targetCount > $range['max']) {
+            throw new RuntimeException(sprintf(
+                'Boiler Draft target_moment_count %d is outside the satisfiable range %d-%d '
+                .'(%d playable events after the entry point).',
+                $targetCount,
+                $range['min'],
+                $range['max'],
+                $range['playable_event_count'],
+            ));
         }
 
         foreach (['must_compress_event_ids', 'must_breathe_event_ids'] as $field) {
@@ -100,12 +105,12 @@ final class BoilerDraftValidator
             if (! in_array($role['role'] ?? null, self::ROLES, true)) {
                 throw new RuntimeException("Boiler event {$eventId} has an invalid role.");
             }
-            if (! is_string($role['why'] ?? null) || trim($role['why']) === '') {
+            if (! is_string($role['why'] ?? null) || mb_trim($role['why']) === '') {
                 throw new RuntimeException("Boiler event {$eventId} requires a role reason.");
             }
             if (
                 in_array($role['role'], ['PLAY', 'PULSE', 'CHOICE'], true)
-                && trim((string) ($role['included_moment_key'] ?? '')) === ''
+                && mb_trim((string) ($role['included_moment_key'] ?? '')) === ''
             ) {
                 throw new RuntimeException("Playable Boiler event {$eventId} must belong to a moment.");
             }
@@ -130,7 +135,7 @@ final class BoilerDraftValidator
             $momentKey = $moment['moment_key'] ?? null;
             if (
                 ! is_string($momentKey)
-                || ! preg_match('/^S' . $session->session_number . '_M\d{2}$/', $momentKey)
+                || ! preg_match('/^S'.$session->session_number.'_M\d{2}$/', $momentKey)
                 || in_array($momentKey, $momentKeys, true)
             ) {
                 throw new RuntimeException('Boiler moment keys must be unique, session-local, and use S{session}_M{nn}.');
@@ -163,13 +168,13 @@ final class BoilerDraftValidator
             }
 
             foreach (['runtime_goal', 'live_pressure'] as $field) {
-                if (! is_string($moment[$field] ?? null) || trim($moment[$field]) === '') {
+                if (! is_string($moment[$field] ?? null) || mb_trim($moment[$field]) === '') {
                     throw new RuntimeException("Boiler moment {$momentKey} requires {$field}.");
                 }
             }
 
             $exitCondition = $moment['exit_condition_draft'] ?? null;
-            if (! is_string($exitCondition) || mb_strlen(trim($exitCondition)) < 30 || mb_strlen($exitCondition) > 1_000) {
+            if (! is_string($exitCondition) || mb_strlen(mb_trim($exitCondition)) < 30 || mb_strlen($exitCondition) > 1_000) {
                 throw new RuntimeException("Boiler moment {$momentKey} requires a bounded semantic exit condition.");
             }
 
@@ -197,7 +202,7 @@ final class BoilerDraftValidator
             }
             if (
                 in_array($role['role'] ?? null, ['MONTAGE', 'CUT'], true)
-                && trim((string) ($role['reintroduction_note'] ?? '')) === ''
+                && mb_trim((string) ($role['reintroduction_note'] ?? '')) === ''
             ) {
                 throw new RuntimeException('A must-breathe event assigned MONTAGE or CUT requires a reintroduction_note.');
             }

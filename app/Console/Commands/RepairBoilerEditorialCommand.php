@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Ai\Adaptation\BoilerMomentRangeResolver;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
 use App\Enums\Adaptation\AdaptationStatusEnum;
@@ -19,6 +20,7 @@ use App\Jobs\Adaptation\SessionArchitectureJob;
 use App\Jobs\Adaptation\SessionCloseJob;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
+use App\Services\Adaptation\SessionEventLoader;
 use App\Support\Adaptation\SessionAdaptationChain;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Bus;
@@ -222,21 +224,37 @@ final class RepairBoilerEditorialCommand extends Command
     {
         $guidance = collect((array) data_get($story->adaptation->story_session_map, 'boiling_profile.per_session_guidance', []))
             ->firstWhere('session_number', $sessionNumber);
-        $eventCount = $story->events()->where('session_number', $sessionNumber)->count();
-        $minimum = (int) data_get($guidance, 'recommended_moment_count_min', 0);
 
-        // Redispatching into guidance the Draft validator can never satisfy just burns
-        // model calls and lands back on FAILED, so refuse it with the actual numbers.
-        if ($minimum > $eventCount) {
+        // Pre-entry events cannot become moments, so the playable count — not the raw
+        // allocation — is what the Draft has to work with. Redispatching into guidance
+        // the validator can never satisfy just burns model calls and lands back on
+        // FAILED, so refuse it with the actual numbers.
+        $startPosition = isset($session->entry_point_diagnosis['start_event_position'])
+            ? (int) $session->entry_point_diagnosis['start_event_position']
+            : null;
+        $events = app(SessionEventLoader::class)->forSession($story, $sessionNumber, $startPosition);
+        $range = BoilerMomentRangeResolver::resolve((array) $guidance, $events);
+
+        if ($range['playable_event_count'] < 1) {
             $this->error(sprintf(
-                'Session %d Session Map guidance requires at least %d moments but only %d events are allocated to it. '
-                .'A Boiler draft cannot satisfy that. Regenerate the Story Session Map before rerunning this session.',
+                'Session %d has no playable events after its entry point, so no Boiler draft can be built. '
+                .'Re-run Entry Point diagnosis or regenerate the Story Session Map before rerunning this session.',
                 $sessionNumber,
-                $minimum,
-                $eventCount,
             ));
 
             return self::FAILURE;
+        }
+
+        if ($range['clamped']) {
+            $this->warn(sprintf(
+                'Session %d Session Map recommends %s moments but only %d events are playable after the entry point. '
+                .'The Draft will be asked for %d-%d instead.',
+                $sessionNumber,
+                data_get($guidance, 'recommended_moment_count_min', '?').'-'.data_get($guidance, 'recommended_moment_count_max', '?'),
+                $range['playable_event_count'],
+                $range['min'],
+                $range['max'],
+            ));
         }
 
         DB::transaction(function () use ($story, $session): void {
