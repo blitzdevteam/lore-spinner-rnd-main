@@ -67,14 +67,13 @@ resources/js/xen-rnd/
 
 ## How the portal animation works
 
-**Pixel-split printer model** (synced to the originals):
+**Simple model:**
 
-1. At runtime, `splitXenLayers.ts` punches the largest white portal blob out of the PNG → **hand layer** + **portal layer**.
-2. Portal layer stays fixed. Hand layer slides through a clip at the portal mouth.
-3. Rest frame = hand @ `translate(0)` + portal = **exact original composite** (unstretched).
-4. Match (no baked portal) gets a synthetic rim at the wrist edge.
+1. Punch baked white portal pixels out of the PNG (`punchPortal.ts`).
+2. Draw a white ellipse sized to match the original portal (`gestures.ts` → `portal`).
+3. Hand sits **on top**, clipped at the portal center, and slides out (printer pull).
 
-Tune only `emergeFrom` / `emergeDistance` in `gestures.ts` — mouth comes from the image.
+Tune per gesture: `portal.{cx,cy,rx,ry}`, `emergeFrom`, `emergeDistance`.
 
 ---
 

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * XEN printer-hole emerge
+ * Simple XEN emerge
  *
- * Frame is sized with ResizeObserver so it never collapses to 0×0
- * (absolute-positioned layers don't give intrinsic size).
+ * - Cut white portal out of the PNG
+ * - Draw a white ellipse sized to match
+ * - Hand on top, clipped at portal center, slides out
  */
 import type { XenGesture } from '../data/gestures';
-import { xenHoleClip, xenRetractTransform } from '../data/gestures';
-import { splitXenLayers, type XenSplitLayers } from '../lib/splitXenLayers';
+import { xenClip, xenRetract } from '../data/gestures';
+import { punchPortalWhite } from '../lib/punchPortal';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -15,51 +16,25 @@ const props = defineProps<{
 }>();
 
 const rootEl = ref<HTMLElement | null>(null);
-const frameEl = ref<HTMLElement | null>(null);
-const handImg = ref<HTMLImageElement | null>(null);
-const portalImg = ref<HTMLImageElement | null>(null);
-
-const layers = ref<XenSplitLayers | null>(null);
-const loading = ref(true);
-const error = ref('');
+const handSrc = ref('');
+const ready = ref(false);
 const retracted = ref(true);
-const settled = ref(false);
-const layersReady = ref(false);
 const frameSize = ref({ width: 0, height: 0 });
 
-let loadToken = 0;
+let token = 0;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
-let resizeObserver: ResizeObserver | null = null;
+let ro: ResizeObserver | null = null;
 
 const frameStyle = computed(() => {
     const { width, height } = frameSize.value;
     if (width <= 0 || height <= 0) {
         return { width: '100%', height: '100%' };
     }
-    return {
-        width: `${Math.round(width)}px`,
-        height: `${Math.round(height)}px`,
-    };
+    return { width: `${Math.round(width)}px`, height: `${Math.round(height)}px` };
 });
 
-const holeClipStyle = computed(() => {
-    if (!layers.value || settled.value) {
-        return { clipPath: 'none' };
-    }
-    return { clipPath: xenHoleClip(layers.value.mouth, props.gesture.emergeFrom) };
-});
-
-const trackTransform = computed(() =>
-    retracted.value
-        ? xenRetractTransform(props.gesture.emergeFrom, props.gesture.emergeDistance)
-        : 'translate3d(0, 0, 0)',
-);
-
-const syntheticRimStyle = computed(() => {
-    if (!layers.value || layers.value.portalUrl || settled.value) {
-        return null;
-    }
-    const p = layers.value.portal;
+const portalStyle = computed(() => {
+    const p = props.gesture.portal;
     return {
         left: `${p.cx}%`,
         top: `${p.cy}%`,
@@ -69,126 +44,82 @@ const syntheticRimStyle = computed(() => {
     };
 });
 
-/** Always have something to show — original while loading / on failure. */
-const showOriginal = computed(() => settled.value || !layers.value || !!error.value);
+const clipStyle = computed(() => ({
+    clipPath: xenClip(props.gesture.portal, props.gesture.emergeFrom),
+}));
 
-function fitFrame(containerW: number, containerH: number): void {
+const handTransform = computed(() =>
+    retracted.value
+        ? xenRetract(props.gesture.emergeFrom, props.gesture.emergeDistance)
+        : 'translate3d(0, 0, 0)',
+);
+
+function fit(cw: number, ch: number): void {
     const aspect = props.gesture.aspectRatio;
-    if (containerW <= 0 || containerH <= 0 || !Number.isFinite(aspect) || aspect <= 0) {
+    if (cw <= 0 || ch <= 0 || aspect <= 0) {
         return;
     }
-    let width = containerW;
+    let width = cw;
     let height = width / aspect;
-    if (height > containerH) {
-        height = containerH;
+    if (height > ch) {
+        height = ch;
         width = height * aspect;
     }
     frameSize.value = { width, height };
 }
 
-function waitForImage(el: HTMLImageElement | null): Promise<void> {
-    if (!el) {
-        return Promise.resolve();
-    }
-    if (el.complete && el.naturalWidth > 0) {
-        return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-        el.addEventListener('load', () => resolve(), { once: true });
-        el.addEventListener('error', () => resolve(), { once: true });
-    });
-}
-
-function clearSettleTimer(): void {
+async function play(): Promise<void> {
     if (settleTimer) {
         clearTimeout(settleTimer);
         settleTimer = null;
     }
-}
-
-async function startEmergence(): Promise<void> {
-    clearSettleTimer();
-    settled.value = false;
     retracted.value = true;
     await nextTick();
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             retracted.value = false;
-            // Fallback if transitionend never fires
-            clearSettleTimer();
-            settleTimer = setTimeout(() => {
-                settled.value = true;
-            }, 1400);
         });
     });
 }
 
-function onTrackTransitionEnd(event: TransitionEvent): void {
-    if (event.propertyName !== 'transform') {
-        return;
-    }
-    if (!retracted.value) {
-        clearSettleTimer();
-        settled.value = true;
-    }
-}
-
-async function afterLayersMounted(token: number): Promise<void> {
-    await nextTick();
-    await Promise.all([waitForImage(handImg.value), waitForImage(portalImg.value)]);
-    if (token !== loadToken) {
-        return;
-    }
-    layersReady.value = true;
-    await startEmergence();
-}
-
-async function loadLayers(): Promise<void> {
-    const token = ++loadToken;
-    loading.value = true;
-    error.value = '';
-    layersReady.value = false;
+async function load(): Promise<void> {
+    const t = ++token;
+    ready.value = false;
     retracted.value = true;
-    settled.value = false;
-    layers.value = null;
-    clearSettleTimer();
+    handSrc.value = '';
 
     try {
-        const split = await splitXenLayers(props.gesture.src, props.gesture.emergeFrom);
-        if (token !== loadToken) {
+        const punched = await punchPortalWhite(
+            props.gesture.src,
+            props.gesture.emergeFrom,
+            props.gesture.portal,
+        );
+        if (t !== token) {
             return;
         }
-        layers.value = split;
-        loading.value = false;
-        await afterLayersMounted(token);
+        handSrc.value = punched;
+        ready.value = true;
+        await play();
     } catch (e) {
-        if (token !== loadToken) {
+        console.error(e);
+        if (t !== token) {
             return;
         }
-        console.error('XEN split failed', e);
-        error.value = e instanceof Error ? e.message : 'Failed to split image';
-        loading.value = false;
-        settled.value = true; // show original fallback via gesture.src in template
+        // Fallback: show original unpunched
+        handSrc.value = props.gesture.src;
+        ready.value = true;
+        await play();
     }
-}
-
-async function replay(): Promise<void> {
-    if (!layers.value) {
-        await loadLayers();
-        return;
-    }
-    await startEmergence();
 }
 
 watch(
     () => props.gesture.id,
     () => {
-        // Re-fit in case aspect changed
         if (rootEl.value) {
-            const rect = rootEl.value.getBoundingClientRect();
-            fitFrame(rect.width, rect.height);
+            const r = rootEl.value.getBoundingClientRect();
+            fit(r.width, r.height);
         }
-        void loadLayers();
+        void load();
     },
     { immediate: true },
 );
@@ -197,80 +128,44 @@ onMounted(() => {
     if (!rootEl.value) {
         return;
     }
-    resizeObserver = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (!entry) {
-            return;
+    ro = new ResizeObserver((entries) => {
+        const e = entries[0];
+        if (e) {
+            fit(e.contentRect.width, e.contentRect.height);
         }
-        fitFrame(entry.contentRect.width, entry.contentRect.height);
     });
-    resizeObserver.observe(rootEl.value);
-    const rect = rootEl.value.getBoundingClientRect();
-    fitFrame(rect.width, rect.height);
+    ro.observe(rootEl.value);
+    const r = rootEl.value.getBoundingClientRect();
+    fit(r.width, r.height);
 });
 
 onBeforeUnmount(() => {
-    loadToken += 1;
-    clearSettleTimer();
-    resizeObserver?.disconnect();
-    resizeObserver = null;
+    token += 1;
+    if (settleTimer) {
+        clearTimeout(settleTimer);
+    }
+    ro?.disconnect();
 });
 
-defineExpose({ replay });
+defineExpose({ replay: play });
 </script>
 
 <template>
-    <div
-        ref="rootEl"
-        class="xen-portal-hand"
-        :class="{
-            'xen-portal-hand--loading': loading,
-            [`xen-portal-hand--from-${gesture.emergeFrom}`]: true,
-        }"
-    >
-        <div ref="frameEl" class="xen-portal-hand__frame" :style="frameStyle">
-            <!-- Fallback / settled: always-visible original -->
-            <img
-                v-show="showOriginal"
-                class="xen-portal-hand__original"
-                :src="layers?.originalUrl ?? gesture.src"
-                :alt="gesture.label"
-                draggable="false"
-            />
+    <div ref="rootEl" class="xen">
+        <div class="xen__frame" :style="frameStyle">
+            <!-- 1. White portal ellipse (under the hand) -->
+            <div class="xen__portal" :style="portalStyle" aria-hidden="true" />
 
-            <p v-if="error" class="xen-portal-hand__error">{{ error }}</p>
-
-            <div v-if="layers && !settled" class="xen-portal-hand__anim" :class="{ 'is-ready': layersReady }">
-                <div class="xen-portal-hand__hole" :style="holeClipStyle">
-                    <div
-                        class="xen-portal-hand__track"
-                        :style="{ transform: trackTransform }"
-                        @transitionend="onTrackTransitionEnd"
-                    >
-                        <img
-                            ref="handImg"
-                            class="xen-portal-hand__layer"
-                            :src="layers.handUrl"
-                            :alt="gesture.label"
-                            draggable="false"
-                        />
-                    </div>
-                </div>
-
+            <!-- 2. Hand on top, clipped at portal center, slides out -->
+            <div class="xen__clip" :style="clipStyle">
                 <img
-                    v-if="layers.portalUrl"
-                    ref="portalImg"
-                    class="xen-portal-hand__portal-layer"
-                    :src="layers.portalUrl"
-                    alt=""
+                    v-if="handSrc"
+                    class="xen__hand"
+                    :class="{ 'xen__hand--ready': ready }"
+                    :src="handSrc"
+                    :alt="gesture.label"
+                    :style="{ transform: handTransform }"
                     draggable="false"
-                />
-
-                <div
-                    v-else-if="syntheticRimStyle"
-                    class="xen-portal-hand__synthetic-rim"
-                    :style="syntheticRimStyle"
-                    aria-hidden="true"
                 />
             </div>
         </div>
@@ -278,98 +173,62 @@ defineExpose({ replay });
 </template>
 
 <style scoped>
-.xen-portal-hand {
-    --xen-stage-bg: #050409;
-    --xen-emerge-duration: 1.2s;
-    --xen-emerge-ease: cubic-bezier(0.22, 0.9, 0.28, 1);
-    box-sizing: border-box;
+.xen {
     width: 100%;
     height: 100%;
+    min-height: 12rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 12rem;
 }
 
-.xen-portal-hand__frame {
+.xen__frame {
     position: relative;
     flex: 0 0 auto;
     overflow: hidden;
-    background: var(--xen-stage-bg);
+    background: #050409;
 }
 
-.xen-portal-hand__anim {
+.xen__portal {
     position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.xen-portal-hand__anim.is-ready {
-    opacity: 1;
-}
-
-.xen-portal-hand__hole {
-    position: absolute;
-    inset: 0;
     z-index: 1;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow:
+        0 0 12px rgba(255, 255, 255, 0.55),
+        0 0 28px color-mix(in srgb, var(--color-primary-300) 30%, transparent);
+    pointer-events: none;
 }
 
-.xen-portal-hand__track {
+.xen__clip {
     position: absolute;
     inset: 0;
-    transition: transform var(--xen-emerge-duration) var(--xen-emerge-ease);
-    will-change: transform;
-    backface-visibility: hidden;
+    z-index: 2;
 }
 
-.xen-portal-hand__layer,
-.xen-portal-hand__portal-layer,
-.xen-portal-hand__original {
+.xen__hand {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: fill;
-    display: block;
+    opacity: 0;
+    transition:
+        transform 1.15s cubic-bezier(0.22, 0.9, 0.28, 1),
+        opacity 0.2s ease;
+    will-change: transform;
+    backface-visibility: hidden;
     user-select: none;
     -webkit-user-drag: none;
     pointer-events: none;
 }
 
-.xen-portal-hand__portal-layer {
-    z-index: 3;
-}
-
-.xen-portal-hand__original {
-    z-index: 2;
-}
-
-.xen-portal-hand__synthetic-rim {
-    position: absolute;
-    z-index: 3;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow:
-        0 0 10px color-mix(in srgb, #fff 55%, transparent),
-        0 0 22px color-mix(in srgb, var(--color-primary-300) 25%, transparent);
-    pointer-events: none;
-}
-
-.xen-portal-hand__error {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0.75rem;
-    z-index: 6;
-    padding: 0 1rem;
-    color: #f87171;
-    font-size: 0.75rem;
-    text-align: center;
+.xen__hand--ready {
+    opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .xen-portal-hand__track {
+    .xen__hand {
         transition-duration: 0.01ms;
     }
 }
