@@ -175,6 +175,9 @@ function goBack(): void {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    /* Give the aspect-box a real containing block to fit into */
+    width: 100%;
+    padding: 0.25rem 0;
 }
 
 .xen-rnd__meta {

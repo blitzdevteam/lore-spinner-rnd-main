@@ -47,7 +47,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        emergeDistance: 55,
+        emergeDistance: 62,
     },
     {
         id: 'surprise',
