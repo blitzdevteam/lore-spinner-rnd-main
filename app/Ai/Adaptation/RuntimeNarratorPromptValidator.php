@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ai\Adaptation;
 
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 final class RuntimeNarratorPromptValidator
@@ -35,8 +36,20 @@ final class RuntimeNarratorPromptValidator
     public function validate(string $prompt, bool $boilerEnabled): void
     {
         $length = mb_strlen($prompt);
-        if ($length === 0 || $length > RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS) {
-            throw new RuntimeException('Runtime narrator prompt is empty or exceeds the supported size limit.');
+        if ($length === 0) {
+            throw new RuntimeException('Runtime narrator prompt is empty.');
+        }
+
+        // The builder already exhausted its compression cascade before returning
+        // an over-cap prompt, so rejecting it here would discard a finalized cut
+        // that has no smaller representation. Narration runs on a 200k-context
+        // model; warn and keep the prompt rather than failing the session.
+        if ($length > RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS) {
+            Log::channel('narration')->warning('runtime_narrator_prompt.over_cap_accepted', [
+                'char_count' => $length,
+                'cap' => RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS,
+                'overage' => $length - RuntimeNarratorTemplateBuilder::MAX_PROMPT_CHARS,
+            ]);
         }
 
         if (preg_match('/\{\{[^}]+\}\}/', $prompt)) {
