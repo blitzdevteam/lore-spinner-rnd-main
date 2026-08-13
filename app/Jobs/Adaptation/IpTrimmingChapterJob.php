@@ -40,9 +40,10 @@ final class IpTrimmingChapterJob implements ShouldQueue
     public int $tries = 3;
 
     /**
-     * Generous timeout: a heavily-chunked chapter can require many sequential
-     * agent calls. 10 chunks × 60 s each = 600 s worst-case, so 900 s gives
-     * comfortable headroom for retries and slow API responses.
+     * Default for single-pass chapters. Chunked chapters override this in
+     * {@see resolveTimeout()} (~90 s per chunk + headroom).
+     *
+     * Cloud worker command must use --timeout >= longest job timeout here.
      */
     public int $timeout = 900;
 
@@ -53,6 +54,26 @@ final class IpTrimmingChapterJob implements ShouldQueue
         private Chapter $chapter,
     ) {
         $this->onQueue('adaptation');
+        $this->timeout = self::resolveTimeout($chapter);
+    }
+
+    /**
+     * Treasure Island Ch4 (~100 k chars) splits into ~25 chunks; at ~40–50 s
+     * per agent call that exceeds a flat 900 s ceiling. Scale timeout to chunk
+     * count so long novel chapters can finish in one job.
+     */
+    public static function resolveTimeout(Chapter $chapter): int
+    {
+        $chapterLength = mb_strlen($chapter->content ?? '');
+
+        if ($chapterLength <= self::CHUNK_SIZE) {
+            return 900;
+        }
+
+        $step = self::CHUNK_SIZE - self::CHUNK_OVERLAP;
+        $estimatedChunks = (int) max(1, ceil($chapterLength / $step));
+
+        return min(7200, max(900, ($estimatedChunks * 90) + 180));
     }
 
     /**

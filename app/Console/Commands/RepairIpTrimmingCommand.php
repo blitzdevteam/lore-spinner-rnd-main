@@ -59,7 +59,7 @@ final class RepairIpTrimmingCommand extends Command
         RepairIpTrimmingJob::dispatch($story, $rerunSessions)->onQueue('adaptation');
 
         $this->line('Job dispatched to the [adaptation] queue.');
-        $this->line('After the worker finishes, verify with the Matrix IP trim probe.');
+        $this->line('After the worker finishes, verify trimmed chapter_segments match total chapters.');
 
         return self::SUCCESS;
     }
