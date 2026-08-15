@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * XEN emerge — printer pull + contact depth + tip-fan settle
+ * XEN emerge — creamy curved mouth + uniform fit + tip-fan settle
  *
  * 1. Punch baked white portal
- * 2. Draw matched white ellipse (rim highlight + contact shadow)
- * 3. Clip at portal mouth; stepped slide out
- * 4. Short pendulum shiver from the wrist base (tip fans)
+ * 2. Cream ellipse under the hand (rim light + contact shade)
+ * 3. Clip along the portal arc (not a hard straight cut)
+ * 4. Scale hand about the mouth for uniform wrist fit
+ * 5. Stepped printer pull + short pendulum shiver
  */
 import type { XenGesture, XenPortal } from '../data/gestures';
-import { xenClip, xenRetract } from '../data/gestures';
+import { xenArcClipPath, xenRetract } from '../data/gestures';
 import { punchPortalWhite } from '../lib/punchPortal';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -31,6 +32,8 @@ let shiverTimer: ReturnType<typeof setTimeout> | null = null;
 const EMERGE_MS = 850;
 const SHIVER_MS = 380;
 
+const clipId = computed(() => `xen-clip-${props.gesture.id}`);
+
 const activePortal = computed(() => portal.value ?? props.gesture.portal);
 
 const frameStyle = computed(() => {
@@ -52,11 +55,15 @@ const portalStyle = computed(() => {
     };
 });
 
+const clipPathD = computed(() =>
+    xenArcClipPath(activePortal.value, props.gesture.emergeFrom),
+);
+
 const clipStyle = computed(() => ({
-    clipPath: xenClip(activePortal.value.mouth, props.gesture.emergeFrom),
+    clipPath: `url(#${clipId.value})`,
 }));
 
-/** Pivot at the wrist / portal mouth so the tip fans. */
+/** Pivot at the wrist / portal mouth so scale + tip fan stay anchored. */
 const handOrigin = computed(() => {
     const m = activePortal.value.mouth;
     switch (props.gesture.emergeFrom) {
@@ -68,21 +75,23 @@ const handOrigin = computed(() => {
     }
 });
 
-const handTransform = computed(() =>
-    retracted.value
-        ? xenRetract(props.gesture.emergeFrom, props.gesture.emergeDistance)
-        : 'translate3d(0, 0, 0)',
-);
+const handTransform = computed(() => {
+    const s = props.gesture.handScale;
+    const scale = `scale(${s})`;
+    if (retracted.value) {
+        return `${xenRetract(props.gesture.emergeFrom, props.gesture.emergeDistance)} ${scale}`;
+    }
+    return `translate3d(0, 0, 0) ${scale}`;
+});
 
 const handShadow = computed(() => {
-    // Soft cast into the hole where wrist meets portal
     switch (props.gesture.emergeFrom) {
         case 'bottom':
-            return 'drop-shadow(0 5px 4px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18))';
+            return 'drop-shadow(0 6px 5px rgba(40, 28, 18, 0.45)) drop-shadow(0 1px 0 rgba(255, 248, 235, 0.35))';
         case 'left':
-            return 'drop-shadow(-4px 1px 4px rgba(0, 0, 0, 0.5)) drop-shadow(1px 0 0 rgba(255, 255, 255, 0.14))';
+            return 'drop-shadow(-5px 1px 5px rgba(40, 28, 18, 0.42)) drop-shadow(1px 0 0 rgba(255, 248, 235, 0.28))';
         case 'right':
-            return 'drop-shadow(4px 1px 4px rgba(0, 0, 0, 0.5)) drop-shadow(-1px 0 0 rgba(255, 255, 255, 0.14))';
+            return 'drop-shadow(5px 1px 5px rgba(40, 28, 18, 0.42)) drop-shadow(-1px 0 0 rgba(255, 248, 235, 0.28))';
     }
 });
 
@@ -199,15 +208,28 @@ defineExpose({ replay: play });
 </script>
 
 <template>
-    <div ref="rootEl" class="xen" :class="`xen--${gesture.emergeFrom}`">
+    <div
+        ref="rootEl"
+        class="xen"
+        :class="`xen--${gesture.emergeFrom}`"
+        :style="{ '--xen-hand-scale': String(gesture.handScale) }"
+    >
         <div class="xen__frame" :style="frameStyle">
-            <!-- Fixed hole — rim highlight + contact shadow into the mouth -->
+            <svg class="xen__defs" aria-hidden="true" focusable="false">
+                <defs>
+                    <clipPath :id="clipId" clipPathUnits="objectBoundingBox">
+                        <path :d="clipPathD" />
+                    </clipPath>
+                </defs>
+            </svg>
+
+            <!-- Cream hole — soft rim, contact shade -->
             <div class="xen__portal" :style="portalStyle" aria-hidden="true">
                 <span class="xen__portal-core" />
                 <span class="xen__portal-contact" />
             </div>
 
-            <!-- Hand clipped at exit face, feeds out like a printer -->
+            <!-- Hand clipped along portal arc -->
             <div class="xen__clip" :style="clipStyle">
                 <img
                     v-if="handSrc"
@@ -233,7 +255,9 @@ defineExpose({ replay: play });
 <style scoped>
 .xen {
     --xen-void: #0a0a0b;
-    --xen-disc: #f4f4f5;
+    /* Creamier portal — warm paper, not cold white */
+    --xen-cream: #f3ebe0;
+    --xen-cream-hi: #fffaf3;
     --xen-ease: steps(14, end);
     --xen-duration: 0.85s;
     width: 100%;
@@ -251,6 +275,13 @@ defineExpose({ replay: play });
     background: var(--xen-void);
 }
 
+.xen__defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
 .xen__portal {
     position: absolute;
     z-index: 1;
@@ -262,46 +293,52 @@ defineExpose({ replay: play });
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: var(--xen-disc);
+    background:
+        radial-gradient(
+            ellipse at 35% 30%,
+            var(--xen-cream-hi) 0%,
+            var(--xen-cream) 55%,
+            #e8dfd2 100%
+        );
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.72),
-        inset 0 -3px 7px rgba(0, 0, 0, 0.22),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-        0 1px 2px rgba(0, 0, 0, 0.35);
+        inset 0 1px 0 rgba(255, 252, 245, 0.9),
+        inset 0 -4px 10px rgba(60, 40, 20, 0.16),
+        inset 0 0 0 1px rgba(255, 248, 235, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.4),
+        0 0 18px rgba(243, 235, 224, 0.12);
 }
 
-/* Soft pool of shade where the wrist sits in the hole */
 .xen__portal-contact {
     position: absolute;
     border-radius: 50%;
     pointer-events: none;
     background: radial-gradient(
         ellipse at center,
-        rgba(0, 0, 0, 0.42) 0%,
-        rgba(0, 0, 0, 0.18) 42%,
-        transparent 72%
+        rgba(50, 32, 18, 0.38) 0%,
+        rgba(50, 32, 18, 0.14) 45%,
+        transparent 74%
     );
 }
 
 .xen--bottom .xen__portal-contact {
-    left: 18%;
-    right: 18%;
-    top: 8%;
-    height: 55%;
+    left: 16%;
+    right: 16%;
+    top: 4%;
+    height: 58%;
 }
 
 .xen--left .xen__portal-contact {
-    top: 22%;
-    bottom: 22%;
-    right: 6%;
-    width: 58%;
+    top: 18%;
+    bottom: 18%;
+    right: 2%;
+    width: 62%;
 }
 
 .xen--right .xen__portal-contact {
-    top: 22%;
-    bottom: 22%;
-    left: 6%;
-    width: 58%;
+    top: 18%;
+    bottom: 18%;
+    left: 2%;
+    width: 62%;
 }
 
 .xen__clip {
@@ -332,7 +369,6 @@ defineExpose({ replay: play });
     opacity: 1;
 }
 
-/* Quick clock-pendulum settle — base locked at mouth, tip fans */
 .xen__hand--shiver {
     animation: xen-pendulum 0.38s cubic-bezier(0.33, 1.2, 0.4, 1) both;
 }
@@ -346,39 +382,40 @@ defineExpose({ replay: play });
     animation-name: xen-pendulum-x;
 }
 
+/* Pendulum must re-apply handScale (keyframes replace transform) */
 @keyframes xen-pendulum-y {
     0% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(0deg);
     }
     18% {
-        transform: translate3d(0, 0, 0) rotate(1.55deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(1.55deg);
     }
     42% {
-        transform: translate3d(0, 0, 0) rotate(-1.05deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(-1.05deg);
     }
     68% {
-        transform: translate3d(0, 0, 0) rotate(0.45deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(0.45deg);
     }
     100% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(0deg);
     }
 }
 
 @keyframes xen-pendulum-x {
     0% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(0deg);
     }
     18% {
-        transform: translate3d(0, 0, 0) rotate(-1.55deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(-1.55deg);
     }
     42% {
-        transform: translate3d(0, 0, 0) rotate(1.05deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(1.05deg);
     }
     68% {
-        transform: translate3d(0, 0, 0) rotate(-0.45deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(-0.45deg);
     }
     100% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(var(--xen-hand-scale, 1)) rotate(0deg);
     }
 }
 
