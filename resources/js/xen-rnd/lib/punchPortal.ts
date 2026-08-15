@@ -1,4 +1,4 @@
-import type { XenGesture, XenPortal } from '../data/gestures';
+import type { XenEmergeFrom, XenGesture, XenPortal } from '../data/gestures';
 
 export interface PunchResult {
     url: string;
@@ -18,9 +18,27 @@ function inEllipse(
     return nx * nx + ny * ny <= 1;
 }
 
+function isPastMouth(
+    x: number,
+    y: number,
+    mouthPx: number,
+    from: XenEmergeFrom,
+): boolean {
+    switch (from) {
+        case 'bottom':
+            return y > mouthPx;
+        case 'left':
+            return x < mouthPx;
+        case 'right':
+            return x > mouthPx;
+    }
+}
+
 /**
- * Punch baked portal whites only. Leave the hand pixels alone so the wrist
- * can sit in the hole at rest (same as the original composite).
+ * Strip the baked / cropped portal from the PNG.
+ * Punch near-white in a generous hole, plus leftover wrist pixels
+ * past the mouth so the new creamy disc is the only opening.
+ * Cream cards stay (not strict white).
  */
 export async function punchPortalWhite(gesture: XenGesture): Promise<PunchResult> {
     const img = await loadImage(gesture.src);
@@ -40,14 +58,18 @@ export async function punchPortalWhite(gesture: XenGesture): Promise<PunchResult
     const d = imageData.data;
 
     const portal = gesture.portal;
+    const from = gesture.emergeFrom;
+    const mouthPx =
+        from === 'bottom' ? (portal.mouth / 100) * h : (portal.mouth / 100) * w;
+
     const ellipses: Array<{ cx: number; cy: number; rx: number; ry: number }> = [
         portal,
         ...(gesture.punchExtra ?? []),
     ].map((p) => ({
         cx: (p.cx / 100) * w,
         cy: (p.cy / 100) * h,
-        rx: (p.rx / 100) * w * 1.14,
-        ry: (p.ry / 100) * h * 1.16,
+        rx: (p.rx / 100) * w * 1.45,
+        ry: (p.ry / 100) * h * 1.5,
     }));
 
     for (let y = 0; y < h; y++) {
@@ -60,15 +82,18 @@ export async function punchPortalWhite(gesture: XenGesture): Promise<PunchResult
             if (a < 8) {
                 continue;
             }
-            // Strict white only — cream cards stay
-            if (r < 245 || g < 245 || b < 245) {
+
+            const inside = ellipses.some((e) => inEllipse(x, y, e.cx, e.cy, e.rx, e.ry));
+            if (!inside) {
                 continue;
             }
-            for (const e of ellipses) {
-                if (inEllipse(x, y, e.cx, e.cy, e.rx, e.ry)) {
-                    d[i + 3] = 0;
-                    break;
-                }
+
+            const isWhite = r >= 242 && g >= 242 && b >= 242;
+            const pastMouth = isPastMouth(x, y, mouthPx, from);
+            const isNearBlack = r < 28 && g < 28 && b < 28;
+
+            if (isWhite || (pastMouth && !isNearBlack)) {
+                d[i + 3] = 0;
             }
         }
     }
