@@ -204,6 +204,9 @@ final class RepairBoilerEditorialCommand extends Command
                 ...($regenerateConsequenceMap
                     ? [new ConsequenceMappingJob($story, $sessionNumber)]
                     : []),
+                // This path resets boiler_status to DRAFTED and drops the final cut,
+                // so Finalize has to rebuild it before Editorial has anything to audit.
+                new BoilerFinalizeJob($story, $sessionNumber),
                 new EditorialVerificationJob($story, $sessionNumber),
                 new RuntimeNarratorAssemblyJob($story, $sessionNumber),
                 new AdaptationStatusReconciliationJob($story),
