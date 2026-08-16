@@ -51,7 +51,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenPoint,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 49.84, cy: 88.18, rx: 18.5, ry: 6.4 }, 'bottom'),
+        portal: withMouth({ cx: 49.84, cy: 88.18, rx: 20.5, ry: 8.2 }, 'bottom'),
         emergeDistance: 72,
     },
     {
@@ -60,7 +60,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenChefKiss,
         aspectRatio: 1280 / 960,
         emergeFrom: 'left',
-        portal: withMouth({ cx: 18.98, cy: 51.67, rx: 9.2, ry: 28.0 }, 'left'),
+        portal: withMouth({ cx: 18.98, cy: 51.67, rx: 11.5, ry: 34.0 }, 'left'),
         emergeDistance: 58,
     },
     {
@@ -70,7 +70,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenMatch,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: withMouth({ cx: 97.4, cy: 74.3, rx: 5.4, ry: 22.0 }, 'right'),
+        portal: withMouth({ cx: 97.2, cy: 74.3, rx: 6.8, ry: 26.0 }, 'right'),
         emergeDistance: 56,
     },
     {
@@ -80,7 +80,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenSurprise,
         aspectRatio: 1280 / 961,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 51.02, cy: 84.65, rx: 22.0, ry: 7.2 }, 'bottom'),
+        portal: withMouth({ cx: 51.02, cy: 84.65, rx: 23.5, ry: 8.6 }, 'bottom'),
         emergeDistance: 64,
     },
     {
@@ -90,7 +90,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYourMove,
         aspectRatio: 1280 / 960,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 50.94, cy: 84.74, rx: 22.0, ry: 7.2 }, 'bottom'),
+        portal: withMouth({ cx: 50.94, cy: 84.74, rx: 23.5, ry: 8.6 }, 'bottom'),
         emergeDistance: 64,
     },
     {
@@ -100,7 +100,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenBold,
         aspectRatio: 1024 / 1280,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 59.28, cy: 86.64, rx: 20.5, ry: 6.6 }, 'bottom'),
+        portal: withMouth({ cx: 59.28, cy: 86.64, rx: 22.0, ry: 8.2 }, 'bottom'),
         emergeDistance: 58,
     },
     {
@@ -110,7 +110,7 @@ export const XEN_GESTURES: XenGesture[] = [
         src: xenYesMaster,
         aspectRatio: 1280 / 960,
         emergeFrom: 'right',
-        portal: withMouth({ cx: 83.32, cy: 51.3, rx: 9.0, ry: 28.0 }, 'right'),
+        portal: withMouth({ cx: 83.32, cy: 51.3, rx: 11.2, ry: 34.0 }, 'right'),
         emergeDistance: 58,
     },
 ];

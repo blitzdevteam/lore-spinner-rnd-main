@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * XEN emerge — new creamy hole + previous positioning
+ * XEN emerge — cream opens, then the hand is pulled through
  *
- * 1. Punch the baked / cropped portal out of the PNG
- * 2. Draw a new creamy ellipse, opened for the wrist
- * 3. Clip at portal center; stepped printer pull
- * 4. Short pendulum shiver from the wrist
+ * 1. Punch baked portal + leftover crop rim
+ * 2. Cream hole blooms open
+ * 3. Hand feeds out of the opened cream
+ * 4. Short pendulum shiver
  */
 import type { XenGesture, XenPortal } from '../data/gestures';
 import { xenClip, xenRetract } from '../data/gestures';
@@ -20,14 +20,19 @@ const rootEl = ref<HTMLElement | null>(null);
 const handSrc = ref('');
 const portal = ref<XenPortal | null>(null);
 const ready = ref(false);
+const opened = ref(false);
 const retracted = ref(true);
 const shivering = ref(false);
 const frameSize = ref({ width: 0, height: 0 });
 
 let token = 0;
 let ro: ResizeObserver | null = null;
+let emergeTimer: ReturnType<typeof setTimeout> | null = null;
 let shiverTimer: ReturnType<typeof setTimeout> | null = null;
 
+const OPEN_MS = 560;
+/** Beat of fully-open, empty cream so the opening reads before the hand moves. */
+const HOLD_MS = 150;
 const EMERGE_MS = 850;
 const SHIVER_MS = 380;
 
@@ -48,7 +53,6 @@ const portalStyle = computed(() => {
         top: `${p.cy}%`,
         width: `${p.rx * 2}%`,
         height: `${p.ry * 2}%`,
-        transform: 'translate(-50%, -50%)',
     };
 });
 
@@ -76,11 +80,11 @@ const handTransform = computed(() =>
 const handShadow = computed(() => {
     switch (props.gesture.emergeFrom) {
         case 'bottom':
-            return 'drop-shadow(0 6px 5px rgba(40, 28, 18, 0.45)) drop-shadow(0 1px 0 rgba(255, 248, 235, 0.32))';
+            return 'drop-shadow(0 7px 6px rgba(40, 28, 18, 0.5)) drop-shadow(0 1px 0 rgba(255, 248, 235, 0.34))';
         case 'left':
-            return 'drop-shadow(-5px 1px 5px rgba(40, 28, 18, 0.42)) drop-shadow(1px 0 0 rgba(255, 248, 235, 0.26))';
+            return 'drop-shadow(-6px 1px 6px rgba(40, 28, 18, 0.46)) drop-shadow(1px 0 0 rgba(255, 248, 235, 0.28))';
         case 'right':
-            return 'drop-shadow(5px 1px 5px rgba(40, 28, 18, 0.42)) drop-shadow(-1px 0 0 rgba(255, 248, 235, 0.26))';
+            return 'drop-shadow(6px 1px 6px rgba(40, 28, 18, 0.46)) drop-shadow(-1px 0 0 rgba(255, 248, 235, 0.28))';
     }
 });
 
@@ -98,7 +102,11 @@ function fit(cw: number, ch: number): void {
     frameSize.value = { width, height };
 }
 
-function clearShiverTimer(): void {
+function clearTimers(): void {
+    if (emergeTimer !== null) {
+        clearTimeout(emergeTimer);
+        emergeTimer = null;
+    }
     if (shiverTimer !== null) {
         clearTimeout(shiverTimer);
         shiverTimer = null;
@@ -106,7 +114,9 @@ function clearShiverTimer(): void {
 }
 
 function queueShiver(): void {
-    clearShiverTimer();
+    if (shiverTimer !== null) {
+        clearTimeout(shiverTimer);
+    }
     shivering.value = false;
     shiverTimer = setTimeout(() => {
         shivering.value = true;
@@ -118,14 +128,19 @@ function queueShiver(): void {
 }
 
 async function play(): Promise<void> {
-    clearShiverTimer();
+    clearTimers();
     shivering.value = false;
+    opened.value = false;
     retracted.value = true;
     await nextTick();
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            retracted.value = false;
-            queueShiver();
+            opened.value = true;
+            emergeTimer = setTimeout(() => {
+                retracted.value = false;
+                queueShiver();
+                emergeTimer = null;
+            }, OPEN_MS + HOLD_MS);
         });
     });
 }
@@ -133,9 +148,10 @@ async function play(): Promise<void> {
 async function load(): Promise<void> {
     const t = ++token;
     ready.value = false;
+    opened.value = false;
     retracted.value = true;
     shivering.value = false;
-    clearShiverTimer();
+    clearTimers();
     handSrc.value = '';
     portal.value = null;
 
@@ -189,7 +205,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     token += 1;
-    clearShiverTimer();
+    clearTimers();
     ro?.disconnect();
 });
 
@@ -197,7 +213,14 @@ defineExpose({ replay: play });
 </script>
 
 <template>
-    <div ref="rootEl" class="xen" :class="`xen--${gesture.emergeFrom}`">
+    <div
+        ref="rootEl"
+        class="xen"
+        :class="[
+            `xen--${gesture.emergeFrom}`,
+            { 'xen--open': opened },
+        ]"
+    >
         <div class="xen__frame" :style="frameStyle">
             <div class="xen__portal" :style="portalStyle" aria-hidden="true">
                 <span class="xen__portal-core" />
@@ -209,7 +232,7 @@ defineExpose({ replay: play });
                     v-if="handSrc"
                     class="xen__hand"
                     :class="{
-                        'xen__hand--in': ready,
+                        'xen__hand--in': ready && opened,
                         'xen__hand--shiver': shivering && !retracted,
                     }"
                     :src="handSrc"
@@ -217,7 +240,7 @@ defineExpose({ replay: play });
                     :style="{
                         transform: handTransform,
                         transformOrigin: handOrigin,
-                        filter: ready ? handShadow : undefined,
+                        filter: ready && opened ? handShadow : undefined,
                     }"
                     draggable="false"
                 />
@@ -233,6 +256,7 @@ defineExpose({ replay: play });
     --xen-cream-hi: #fffaf3;
     --xen-ease: steps(14, end);
     --xen-duration: 0.85s;
+    --xen-open: 0.56s;
     width: 100%;
     height: 100%;
     min-height: 12rem;
@@ -252,6 +276,29 @@ defineExpose({ replay: play });
     position: absolute;
     z-index: 1;
     pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.12, 0.28);
+    transform-origin: center center;
+    opacity: 0.35;
+    filter: blur(1.5px);
+    transition:
+        transform var(--xen-open) cubic-bezier(0.22, 1.15, 0.36, 1),
+        opacity 0.28s ease,
+        filter var(--xen-open) ease;
+}
+
+.xen--bottom .xen__portal {
+    transform: translate(-50%, -50%) scale(0.22, 0.05);
+}
+
+.xen--left .xen__portal,
+.xen--right .xen__portal {
+    transform: translate(-50%, -50%) scale(0.05, 0.24);
+}
+
+.xen--open .xen__portal {
+    transform: translate(-50%, -50%) scale(1, 1);
+    opacity: 1;
+    filter: blur(0);
 }
 
 .xen__portal-core {
@@ -263,15 +310,15 @@ defineExpose({ replay: play });
         radial-gradient(
             ellipse at 35% 30%,
             var(--xen-cream-hi) 0%,
-            var(--xen-cream) 55%,
-            #e8dfd2 100%
+            var(--xen-cream) 52%,
+            #e4d8c8 100%
         );
     box-shadow:
-        inset 0 1px 0 rgba(255, 252, 245, 0.9),
-        inset 0 -4px 10px rgba(60, 40, 20, 0.16),
-        inset 0 0 0 1px rgba(255, 248, 235, 0.35),
-        0 2px 6px rgba(0, 0, 0, 0.4),
-        0 0 18px rgba(243, 235, 224, 0.12);
+        inset 0 1px 0 rgba(255, 252, 245, 0.92),
+        inset 0 -5px 12px rgba(60, 40, 20, 0.18),
+        inset 0 0 0 1px rgba(255, 248, 235, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.42),
+        0 0 22px rgba(243, 235, 224, 0.18);
 }
 
 .xen__portal-contact {
@@ -280,7 +327,7 @@ defineExpose({ replay: play });
     pointer-events: none;
     background: radial-gradient(
         ellipse at center,
-        rgba(50, 32, 18, 0.38) 0%,
+        rgba(50, 32, 18, 0.4) 0%,
         rgba(50, 32, 18, 0.14) 45%,
         transparent 74%
     );
@@ -322,7 +369,7 @@ defineExpose({ replay: play });
     opacity: 0;
     transition:
         transform var(--xen-duration) var(--xen-ease),
-        opacity 0.12s ease,
+        opacity 0.16s ease,
         filter 0.25s ease;
     will-change: transform;
     backface-visibility: hidden;
@@ -385,6 +432,7 @@ defineExpose({ replay: play });
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .xen__portal,
     .xen__hand {
         transition-duration: 0.01ms;
     }
