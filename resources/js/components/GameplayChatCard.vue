@@ -83,7 +83,7 @@ const showContinueButton = computed(() => {
 });
 
 const renderedResponse = computed(() => {
-    if (props.animate && props.isLatest) {
+    if (props.isStreamingResponse || (props.animate && props.isLatest)) {
         return typewriter.displayedHtml.value;
     }
     return props.prompt.response;
@@ -173,7 +173,9 @@ const beginNarration = (response: string) => {
 };
 
 onMounted(() => {
-    if (props.animate && props.isLatest && props.prompt.response) {
+    if (props.isStreamingResponse && props.prompt.response) {
+        typewriter.streamTo(props.prompt.response);
+    } else if (props.animate && props.isLatest && props.prompt.response) {
         beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
@@ -184,7 +186,9 @@ watch(
     () => props.prompt.response,
     (newVal) => {
         if (!newVal) return;
-        if (props.animate && props.isLatest) {
+        if (props.isStreamingResponse) {
+            typewriter.streamTo(newVal);
+        } else if (props.animate && props.isLatest) {
             beginNarration(newVal);
         } else {
             typewriter.complete(newVal);
