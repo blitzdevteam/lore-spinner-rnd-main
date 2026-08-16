@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AnimatedStreamingHtml from '@/components/AnimatedStreamingHtml.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import GameplayContinueIcon from '@/components/icons/GameplayContinueIcon.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
@@ -87,30 +88,6 @@ const renderedResponse = computed(() => {
         return typewriter.displayedHtml.value;
     }
     return props.prompt.response;
-});
-
-const streamingSegments = computed(() => {
-    if (!props.isStreamingResponse || !renderedResponse.value) {
-        return [];
-    }
-
-    let text: string;
-
-    if (typeof document === 'undefined') {
-        text = renderedResponse.value
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<\/(?:p|div|blockquote|li|h[1-6])>/gi, '\n')
-            .replace(/<[^>]+>/g, '');
-    } else {
-        const element = document.createElement('div');
-        element.innerHTML = renderedResponse.value;
-        text = element.innerText;
-    }
-
-    return (text.match(/\s+|\S+/g) ?? []).map((segment) => ({
-        text: segment,
-        isWhitespace: /^\s+$/.test(segment),
-    }));
 });
 
 const showChoicesAndActions = computed(() => {
@@ -265,16 +242,10 @@ watch(choicesVisible, (visible, wasVisible) => {
         >
             <div
                 class="text-justify leading-relaxed font-normal tracking-[0.04em]"
-                :class="{ 'whitespace-pre-wrap': props.isStreamingResponse }"
                 style="font-size: inherit"
             >
                 <template v-if="props.isStreamingResponse">
-                    <span
-                        v-for="(segment, index) in streamingSegments"
-                        :key="index"
-                        :class="{ 'streaming-word': !segment.isWhitespace }"
-                        v-text="segment.text"
-                    ></span>
+                    <AnimatedStreamingHtml :html="renderedResponse ?? ''" />
                     <span class="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
                 </template>
                 <div v-else v-html="renderedResponse"></div>
@@ -461,7 +432,7 @@ watch(choicesVisible, (visible, wasVisible) => {
         0 0 0 1px rgba(229, 173, 83, 0.35);
 }
 
-.streaming-word {
+.narration-card :deep(.streaming-word) {
     animation: streaming-word-reveal 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -478,7 +449,7 @@ watch(choicesVisible, (visible, wasVisible) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .streaming-word {
+    .narration-card :deep(.streaming-word) {
         animation: none;
     }
 }
