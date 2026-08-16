@@ -89,19 +89,28 @@ const renderedResponse = computed(() => {
     return props.prompt.response;
 });
 
-const streamingWords = computed(() => {
+const streamingSegments = computed(() => {
     if (!props.isStreamingResponse || !renderedResponse.value) {
         return [];
     }
 
+    let text: string;
+
     if (typeof document === 'undefined') {
-        return renderedResponse.value.replace(/<[^>]+>/g, ' ').match(/\S+\s*/g) ?? [];
+        text = renderedResponse.value
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/(?:p|div|blockquote|li|h[1-6])>/gi, '\n')
+            .replace(/<[^>]+>/g, '');
+    } else {
+        const element = document.createElement('div');
+        element.innerHTML = renderedResponse.value;
+        text = element.innerText;
     }
 
-    const element = document.createElement('div');
-    element.innerHTML = renderedResponse.value;
-
-    return element.innerText.match(/\S+\s*/g) ?? [];
+    return (text.match(/\s+|\S+/g) ?? []).map((segment) => ({
+        text: segment,
+        isWhitespace: /^\s+$/.test(segment),
+    }));
 });
 
 const showChoicesAndActions = computed(() => {
@@ -260,7 +269,12 @@ watch(choicesVisible, (visible, wasVisible) => {
                 style="font-size: inherit"
             >
                 <template v-if="props.isStreamingResponse">
-                    <span v-for="(word, index) in streamingWords" :key="index" class="streaming-word">{{ word }}</span>
+                    <span
+                        v-for="(segment, index) in streamingSegments"
+                        :key="index"
+                        :class="{ 'streaming-word': !segment.isWhitespace }"
+                        v-text="segment.text"
+                    ></span>
                     <span class="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
                 </template>
                 <div v-else v-html="renderedResponse"></div>
