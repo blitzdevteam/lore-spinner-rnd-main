@@ -482,13 +482,9 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
                 streamingPromptId.value = null;
                 pendingSelection.value = {};
                 lastAttempt.value = null;
-                // The typewriter and autoplay both key off this. Left false, the
-                // turn renders but narration never starts on its own.
-                shouldAnimate.value = true;
-                // Session completion and the moment pointer live on the game prop,
-                // not on the committed turn, so the page still needs a refresh —
-                // but the committed turn is already authoritative and mergeServerPrompts
-                // keeps it if this response is stale by the time it lands.
+                // Do not flip shouldAnimate here. streamTo already revealed the text;
+                // setting animate remounts the committed card and restarts the typewriter
+                // from empty — the vanish-then-rerender glitch.
                 router.reload({ only: ['game'] });
             }
 

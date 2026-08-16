@@ -180,6 +180,9 @@ onMounted(() => {
         beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
+        if (props.isLatest && gameplaySettings.autoplay) {
+            tts.play(props.gameId, props.prompt.id);
+        }
     }
 });
 
