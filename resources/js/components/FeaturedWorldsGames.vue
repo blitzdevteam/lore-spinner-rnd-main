@@ -1,11 +1,4 @@
 <script setup lang="ts">
-import aliceCover from '@/assets/featured/alice.png';
-import animaCover from '@/assets/featured/anima.png';
-import draculaCover from '@/assets/featured/dracula.png';
-import nocturneCover from '@/assets/featured/nocturne.png';
-import pridePrejudiceCover from '@/assets/featured/Pride-prejudice.png';
-import redDeathCover from '@/assets/featured/redDeath.png';
-import treasureCover from '@/assets/featured/treasure.png';
 import sherlockCover from '@/assets/featured/sherlock.png';
 import wizardozCover from '@/assets/featured/wizardoz.png';
 import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
@@ -16,11 +9,12 @@ import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
+import { ComingSoonStoryInterface } from '@/types';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface FeaturedGame {
-    id: string;
+    id: string | number;
     title: string;
     cover: string;
     playable: boolean;
@@ -28,7 +22,16 @@ interface FeaturedGame {
     teaser: string;
 }
 
-const games: FeaturedGame[] = [
+const props = withDefaults(
+    defineProps<{
+        comingSoonStories?: ComingSoonStoryInterface[];
+    }>(),
+    {
+        comingSoonStories: () => [],
+    },
+);
+
+const playableGames: FeaturedGame[] = [
     {
         id: 'the-adventure-of-the-speckled-band',
         title: 'The Adventure of the Speckled Band',
@@ -45,63 +48,19 @@ const games: FeaturedGame[] = [
         slug: 'the-wonderful-wizard-of-oz',
         teaser: 'Swept away to a magical land, Dorothy must journey across emerald cities, enchanted forests, and treacherous mountains to find her way home.',
     },
-    {
-        id: 'nocturne',
-        title: 'Nocturne',
-        cover: nocturneCover,
-        playable: false,
-        slug: 'nocturne',
-        teaser: 'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
-    },
-    {
-        id: 'red-death',
-        title: 'The Masque of the Red Death',
-        cover: redDeathCover,
-        playable: false,
-        slug: 'the-masque-of-the-red-death',
-        teaser: 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
-    },
-    {
-        id: 'anima-machina',
-        title: 'Anima Machina',
-        cover: animaCover,
-        playable: false,
-        slug: 'anima-machina',
-        teaser: 'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
-    },
-    {
-        id: 'alice-in-wonderland',
-        title: "Alice's Adventures in Wonderland",
-        cover: aliceCover,
-        playable: false,
-        slug: 'alice-in-wonderland',
-        teaser: 'Follow Alice into a curious world of talking cats, mad tea parties, and impossible adventures where every path leads somewhere unexpected.',
-    },
-    {
-        id: 'dracula',
-        title: 'Dracula',
-        cover: draculaCover,
-        playable: false,
-        slug: 'dracula',
-        teaser: 'Step into a world where love, faith, and reason are tested by a hunger older than death.',
-    },
-    {
-        id: 'pride-and-prejudice',
-        title: 'Pride and Prejudice',
-        cover: pridePrejudiceCover,
-        playable: false,
-        slug: 'pride-and-prejudice',
-        teaser: 'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
-    },
-    {
-        id: 'treasure-island',
-        title: 'Treasure Island',
-        cover: treasureCover,
-        playable: false,
-        slug: 'treasure-island',
-        teaser: 'Every choice at sea carries a price: who to trust, when to run, and what kind of courage survives betrayal. The map is only the beginning.',
-    },
 ];
+
+const games = computed<FeaturedGame[]>(() => [
+    ...playableGames,
+    ...props.comingSoonStories.map((story) => ({
+        id: story.id,
+        title: story.title,
+        cover: story.cover,
+        playable: false,
+        slug: story.slug ?? undefined,
+        teaser: story.teaser ?? '',
+    })),
+]);
 
 const sliderEl = ref<HTMLElement | null>(null);
 
@@ -130,7 +89,7 @@ function toSheetData(game: FeaturedGame): StorySheetData {
         id: game.id,
         title: game.title,
         cover: game.cover,
-        themes: getStoryDescriptorThemes(game.slug ?? game.id),
+        themes: getStoryDescriptorThemes(game.slug ?? String(game.id)),
         isComingSoon: !game.playable,
         teaser: game.teaser,
         slug: game.slug,
@@ -175,23 +134,23 @@ function openSheet(game: FeaturedGame) {
                                 <div class="story-slider-track">
                                     <StoryExpandableCard
                                         v-for="game in games"
-                                        :key="game.id"
-                                        :expanded="isExpanded(game.id)"
-                                        :dimmed="isDimmed(game.id)"
+                                        :key="String(game.id)"
+                                        :expanded="isExpanded(String(game.id))"
+                                        :dimmed="isDimmed(String(game.id))"
                                         :desktop-expand="isDesktopHover"
                                         :class="!game.playable && 'cursor-pointer'"
-                                        @mouseenter="isDesktopHover && onCardEnter(game.id)"
+                                        @mouseenter="isDesktopHover && onCardEnter(String(game.id))"
                                         @mouseleave="isDesktopHover && onCardLeave()"
                                         @click="!game.playable && openSheet(game)"
                                     >
                                         <HomePortraitStoryCard
                                             :title="game.title"
                                             :cover="game.cover"
-                                            :themes="getStoryDescriptorThemes(game.slug ?? game.id)"
+                                            :themes="getStoryDescriptorThemes(game.slug ?? String(game.id))"
                                             :teaser="game.teaser"
                                             :playable="game.playable"
                                             :slug="game.slug"
-                                            :focused="isDesktopHover && isExpanded(game.id)"
+                                            :focused="isDesktopHover && isExpanded(String(game.id))"
                                             :is-desktop-hover="isDesktopHover"
                                             @preview="openSheet(game)"
                                         />

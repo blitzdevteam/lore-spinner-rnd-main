@@ -3,50 +3,44 @@ import SectionHeader from '@/components/SectionHeader.vue';
 import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
-import janeCover from '@/assets/commingSoon/jane-comming.png';
-import frankensteinCover from '@/assets/commingSoon/frankstein-comming.png';
-import underseaCover from '@/assets/commingSoon/undersea-comming.JPG';
-import romeoCover from '@/assets/commingSoon/romeo-comming.png';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
-import { ref } from 'vue';
+import { ComingSoonStoryInterface } from '@/types';
+import { computed, ref } from 'vue';
 
 interface ComingSoonCard {
-    id: string;
+    id: string | number;
     title: string;
     cover: string;
-    teaser: string;
+    teaser: string | null;
+    slug?: string;
+    category?: string;
+    rating?: string;
 }
 
-const cards: ComingSoonCard[] = [
+const props = withDefaults(
+    defineProps<{
+        stories?: ComingSoonStoryInterface[];
+    }>(),
     {
-        id: 'jane-eyre',
-        title: 'Jane Eyre',
-        cover: janeCover,
-        teaser: 'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love, and the search for belonging may change the course of her life forever.',
+        stories: () => [],
     },
-    {
-        id: 'frankenstein',
-        title: 'Frankenstein',
-        cover: frankensteinCover,
-        teaser: 'Step inside a world where creation, rejection, and consequence follow you like a shadow.',
-    },
-    {
-        id: 'leagues',
-        title: '20,000 Leagues Under the Sea',
-        cover: underseaCover,
-        teaser: 'Step aboard the Nautilus, where each choice pulls you deeper into beauty, danger, and the mystery of Captain Nemo.',
-    },
-    {
-        id: 'romeo-and-juliet',
-        title: 'Romeo & Juliet',
-        cover: romeoCover,
-        teaser: 'A masked room. A borrowed name. A city holding its breath. Somewhere in the dark of Verona, love discovers it has enemies.',
-    },
-];
+);
+
+const cards = computed<ComingSoonCard[]>(() =>
+    props.stories.map((story) => ({
+        id: story.id,
+        title: story.title,
+        cover: story.cover,
+        teaser: story.teaser,
+        slug: story.slug ?? undefined,
+        category: story.category ?? undefined,
+        rating: story.rating ?? undefined,
+    })),
+);
 
 const sliderEl = ref<HTMLElement | null>(null);
 
@@ -75,7 +69,9 @@ function toSheetData(card: ComingSoonCard): StorySheetData {
         id: card.id,
         title: card.title,
         cover: card.cover,
-        themes: getStoryDescriptorThemes(card.id),
+        themes: getStoryDescriptorThemes(card.slug ?? String(card.id)),
+        category: card.category,
+        rating: card.rating,
         isComingSoon: true,
         teaser: card.teaser,
     };
@@ -87,7 +83,7 @@ function openSheet(card: ComingSoonCard) {
 </script>
 
 <template>
-    <section class="home-section-y overflow-visible !pb-2 md:!pb-2">
+    <section v-if="cards.length > 0" class="home-section-y overflow-visible !pb-2 md:!pb-2">
         <div class="container">
             <div class="container-content home-section-gap">
                 <SectionHeader
@@ -114,23 +110,23 @@ function openSheet(card: ComingSoonCard) {
                                 <div class="story-slider-track">
                                     <StoryExpandableCard
                                         v-for="card in cards"
-                                        :key="card.id"
-                                        :expanded="isExpanded(card.id)"
-                                        :dimmed="isDimmed(card.id)"
+                                        :key="String(card.id)"
+                                        :expanded="isExpanded(String(card.id))"
+                                        :dimmed="isDimmed(String(card.id))"
                                         :desktop-expand="isDesktopHover"
                                         class="cursor-pointer"
-                                        @mouseenter="isDesktopHover && onCardEnter(card.id)"
+                                        @mouseenter="isDesktopHover && onCardEnter(String(card.id))"
                                         @mouseleave="isDesktopHover && onCardLeave()"
                                         @click="openSheet(card)"
                                     >
                                         <HomePortraitStoryCard
                                             :title="card.title"
                                             :cover="card.cover"
-                                            :themes="getStoryDescriptorThemes(card.id)"
+                                            :themes="getStoryDescriptorThemes(card.slug ?? String(card.id))"
                                             :teaser="card.teaser"
                                             :playable="false"
                                             :show-cta="false"
-                                            :focused="isDesktopHover && isExpanded(card.id)"
+                                            :focused="isDesktopHover && isExpanded(String(card.id))"
                                             :is-desktop-hover="isDesktopHover"
                                             @preview="openSheet(card)"
                                         />

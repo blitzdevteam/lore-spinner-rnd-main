@@ -61,6 +61,26 @@ export interface StoryInterface {
     is_bookmarked?: boolean;
 }
 
+export type ComingSoonStorySection = 'hero' | 'featured-worlds' | 'new-stories' | 'coming-soon';
+
+export interface ComingSoonStoryInterface {
+    id: number;
+    title: string;
+    slug: string | null;
+    section: ComingSoonStorySection;
+    section_label: string;
+    teaser: string | null;
+    category: string | null;
+    rating: string | null;
+    author: string | null;
+    series_label: string | null;
+    image_position: string | null;
+    position: number;
+    is_active: boolean;
+    cover: string;
+    updated_at: string | null;
+}
+
 export interface CategoryInterface {
     id: number;
     title: string;
@@ -165,4 +185,3 @@ export interface GameInterface {
     opening_pending?: boolean;
     opening_error?: string | null;
 }
-
