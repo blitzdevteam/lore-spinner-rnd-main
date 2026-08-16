@@ -89,6 +89,21 @@ const renderedResponse = computed(() => {
     return props.prompt.response;
 });
 
+const streamingWords = computed(() => {
+    if (!props.isStreamingResponse || !renderedResponse.value) {
+        return [];
+    }
+
+    if (typeof document === 'undefined') {
+        return renderedResponse.value.replace(/<[^>]+>/g, ' ').match(/\S+\s*/g) ?? [];
+    }
+
+    const element = document.createElement('div');
+    element.innerHTML = renderedResponse.value;
+
+    return element.innerText.match(/\S+\s*/g) ?? [];
+});
+
 const showChoicesAndActions = computed(() => {
     if (props.isStreamingResponse) {
         return false;
@@ -239,8 +254,18 @@ watch(choicesVisible, (visible, wasVisible) => {
             :style="panelGlassStyle"
             @click="handleNarrationClick"
         >
-            <div class="text-justify leading-relaxed font-normal tracking-[0.04em]" style="font-size: inherit" v-html="renderedResponse"></div>
-            <span v-if="typewriter.isTyping.value || props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
+            <div
+                class="text-justify leading-relaxed font-normal tracking-[0.04em]"
+                :class="{ 'whitespace-pre-wrap': props.isStreamingResponse }"
+                style="font-size: inherit"
+            >
+                <template v-if="props.isStreamingResponse">
+                    <span v-for="(word, index) in streamingWords" :key="index" class="streaming-word">{{ word }}</span>
+                    <span class="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
+                </template>
+                <div v-else v-html="renderedResponse"></div>
+            </div>
+            <span v-if="typewriter.isTyping.value && !props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
         <!-- ── Player's action echo ── -->
@@ -420,6 +445,28 @@ watch(choicesVisible, (visible, wasVisible) => {
         inset 0 0 52px 6px var(--glass-tint-strong, rgba(229, 173, 83, 0.25)),
         inset 1px 1px 0.5px -1px rgba(255, 255, 255, 0.14),
         0 0 0 1px rgba(229, 173, 83, 0.35);
+}
+
+.streaming-word {
+    animation: streaming-word-reveal 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes streaming-word-reveal {
+    from {
+        opacity: 0;
+        filter: blur(3px);
+    }
+
+    to {
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .streaming-word {
+        animation: none;
+    }
 }
 
 .narration-card :deep(p) {
