@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import janeEyreImage from '@/assets/carosel/Ultrawide jane eyre.png';
-import masqueImage from '@/assets/carosel/Ultrawide 21_9 The Masque of the Red Death.png';
-import nocturneImage from '@/assets/carosel/Ultrawide nocturne.png';
 import ozImage from '@/assets/carosel/Ultrawide Oz.png';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
-import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
 import BaseButton from '@/components/BaseButton.vue';
-import { LORE_SPINNER_CLASSIC, LORE_SPINNER_ORIGINAL } from '@/data/loreSpinnerSeriesLabels';
-import { StoryInterface } from '@/types';
+import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
+import { ComingSoonStoryInterface, StoryInterface } from '@/types';
 import { show } from '@/wayfinder/routes/stories';
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
 import type { Swiper as SwiperInstance } from 'swiper';
@@ -22,13 +18,15 @@ import 'swiper/css/pagination';
 const props = withDefaults(
     defineProps<{
         stories?: StoryInterface[];
+        comingSoonStories?: ComingSoonStoryInterface[];
     }>(),
     {
         stories: () => [],
+        comingSoonStories: () => [],
     },
 );
 
-interface HeroSlideConfig {
+interface FeaturedHeroSlideConfig {
     slug: string;
     image: string;
     imagePosition: string;
@@ -38,10 +36,9 @@ interface HeroSlideConfig {
     fallbackTeaser: string;
     fallbackAuthor: string;
     seriesLabel: string;
-    comingSoon?: boolean;
 }
 
-const heroSlideConfigs: HeroSlideConfig[] = [
+const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
     {
         slug: 'the-adventure-of-the-speckled-band',
         image: sherlockImage,
@@ -71,66 +68,6 @@ const heroSlideConfigs: HeroSlideConfig[] = [
             'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
         fallbackAuthor: 'L. Frank Baum',
         seriesLabel: LORE_SPINNER_CLASSIC,
-    },
-    {
-        slug: 'the-tell-tale-heart',
-        image: tellTaleImage,
-        imagePosition: 'object-[62%_top] md:object-top',
-        titleLines: ['The Tell-Tale', 'Heart'],
-        fallbackTitle: 'The Tell-Tale Heart',
-        teaserLines: [
-            'As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape:',
-            "the beating of a dead man's heart.",
-        ],
-        fallbackTeaser:
-            "As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape: the beating of a dead man's heart.",
-        fallbackAuthor: 'Edgar Allan Poe',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-        comingSoon: true,
-    },
-    {
-        slug: 'the-masque-of-the-red-death',
-        image: masqueImage,
-        imagePosition: 'object-[68%_top] md:object-top',
-        titleLines: ['The Masque of', 'the Red Death'],
-        fallbackTitle: 'The Masque of the Red Death',
-        teaserLines: ['Behind locked gates and glittering masks, a night of celebration slowly transforms into', 'a nightmare no one can escape.'],
-        fallbackTeaser: 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
-        fallbackAuthor: 'Edgar Allan Poe',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-        comingSoon: true,
-    },
-    {
-        slug: 'nocturne',
-        image: nocturneImage,
-        imagePosition: 'object-[70%_top] md:object-top',
-        titleLines: null,
-        fallbackTitle: 'Nocturne',
-        teaserLines: [
-            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten',
-            'and nothing is quite as voluntary as it seems.',
-        ],
-        fallbackTeaser:
-            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
-        fallbackAuthor: 'Thomas Wittmer',
-        seriesLabel: LORE_SPINNER_ORIGINAL,
-        comingSoon: true,
-    },
-    {
-        slug: 'jane-eyre',
-        image: janeEyreImage,
-        imagePosition: 'object-[72%_top] md:object-top',
-        titleLines: null,
-        fallbackTitle: 'Jane Eyre',
-        teaserLines: [
-            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love,',
-            'and the search for belonging may change the course of her life forever.',
-        ],
-        fallbackTeaser:
-            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love, and the search for belonging may change the course of her life forever.',
-        fallbackAuthor: 'Charlotte Brontë',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-        comingSoon: true,
     },
 ];
 
@@ -180,8 +117,8 @@ function resolveTeaserLines(teaser: string): [string, string] | null {
     return null;
 }
 
-const slides = computed((): ResolvedHeroSlide[] =>
-    heroSlideConfigs.map((config) => {
+const featuredSlides = computed((): ResolvedHeroSlide[] =>
+    featuredHeroSlideConfigs.map((config) => {
         const story = props.stories.find((s) => s.slug === config.slug);
         const title = story?.title ?? config.fallbackTitle;
         const teaser = story?.teaser?.trim() ?? config.fallbackTeaser;
@@ -197,10 +134,35 @@ const slides = computed((): ResolvedHeroSlide[] =>
             author: config.fallbackAuthor,
             seriesLabel: config.seriesLabel,
             storyUrl: show(config.slug).url,
-            comingSoon: config.comingSoon ?? false,
+            comingSoon: false,
         };
     }),
 );
+
+const comingSoonSlides = computed((): ResolvedHeroSlide[] =>
+    props.comingSoonStories
+        .filter((story) => story.cover.trim() !== '')
+        .map((story) => {
+            const title = story.title.trim();
+            const teaser = story.teaser?.trim() || 'A new world is taking shape behind the curtain.';
+
+            return {
+                slug: story.slug ?? `coming-soon-${story.id}`,
+                image: story.cover,
+                imagePosition: story.image_position?.trim() || 'object-center',
+                titleLines: resolveTitleLines(title),
+                title,
+                teaserLines: resolveTeaserLines(teaser),
+                teaser,
+                author: story.author,
+                seriesLabel: story.series_label ?? '',
+                storyUrl: story.slug ? show(story.slug).url : '#',
+                comingSoon: true,
+            };
+        }),
+);
+
+const slides = computed((): ResolvedHeroSlide[] => [...featuredSlides.value, ...comingSoonSlides.value]);
 
 const activeSlide = computed(() => slides.value[activeIndex.value] ?? slides.value[0]);
 

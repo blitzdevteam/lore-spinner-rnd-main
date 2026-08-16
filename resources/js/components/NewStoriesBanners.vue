@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
-import animaNewCover from '@/assets/top-moods/Anima machina 16_9 untitled.png';
 import ozNewCover from '@/assets/newStories/Oz landscape titled.png';
 import sherlockNewCover from '@/assets/newStories/sherlock-new.png';
-import tellTaleNewCover from '@/assets/newStories/Tell Tale 5_3 landscape.png';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { show as storyShow } from '@/wayfinder/routes/stories';
+import { ComingSoonStoryInterface } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface NewStory {
-    id: string;
+    id: string | number;
     title: string;
     cover: string;
     coverHover?: string;
@@ -24,7 +23,16 @@ interface NewStory {
     teaser: string;
 }
 
-const stories: NewStory[] = [
+const props = withDefaults(
+    defineProps<{
+        comingSoonStories?: ComingSoonStoryInterface[];
+    }>(),
+    {
+        comingSoonStories: () => [],
+    },
+);
+
+const playableStories: NewStory[] = [
     {
         id: 'the-adventure-of-the-speckled-band',
         title: 'Sherlock Holmes in The Speckled Band',
@@ -47,29 +55,21 @@ const stories: NewStory[] = [
         teaser:
             'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
     },
-    {
-        id: 'the-tell-tale-heart',
-        title: 'The Tell-Tale Heart',
-        cover: tellTaleNewCover,
-        category: 'Gothic Horror',
-        rating: 'Everyone',
-        playable: false,
-        slug: 'the-tell-tale-heart',
-        teaser:
-            "As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape: the beating of a dead man's heart.",
-    },
-    {
-        id: 'anima-machina',
-        title: 'Anima Machina',
-        cover: animaNewCover,
-        category: 'Science Fiction',
-        rating: 'Everyone',
-        playable: false,
-        slug: 'anima-machina',
-        teaser:
-            'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
-    },
 ];
+
+const stories = computed<NewStory[]>(() => [
+    ...playableStories,
+    ...props.comingSoonStories.map((story) => ({
+        id: story.id,
+        title: story.title,
+        cover: story.cover,
+        category: story.category ?? 'Story',
+        rating: story.rating ?? 'Everyone',
+        playable: false,
+        slug: story.slug ?? undefined,
+        teaser: story.teaser ?? '',
+    })),
+]);
 
 const sliderEl = ref<HTMLElement | null>(null);
 
@@ -95,7 +95,7 @@ function toSheetData(story: NewStory): StorySheetData {
         id: story.id,
         title: story.title,
         cover: story.coverHover ?? story.cover,
-        themes: getStoryDescriptorThemes(story.slug ?? story.id),
+        themes: getStoryDescriptorThemes(story.slug ?? String(story.id)),
         category: story.category,
         rating: story.rating,
         isComingSoon: !story.playable,
@@ -140,7 +140,7 @@ function openSheet(story: NewStory) {
                                 <div class="story-slider-track">
                                     <component
                                         v-for="story in stories"
-                                        :key="story.id"
+                                        :key="String(story.id)"
                                         :is="story.playable && story.slug ? Link : 'button'"
                                         :href="story.playable && story.slug ? storyShow(story.slug).url : undefined"
                                         type="button"
@@ -158,7 +158,7 @@ function openSheet(story: NewStory) {
                                             <span class="flex min-w-0 flex-1 flex-col gap-[0.1875rem]">
                                                 <span class="truncate text-[0.8125rem] font-semibold text-white">{{ story.title }}</span>
                                                 <span class="flex items-center gap-3 text-[0.75rem] text-[#7e7e7e]">
-                                                    <span v-for="theme in getStoryDescriptorThemes(story.slug ?? story.id)" :key="theme">
+                                                    <span v-for="theme in getStoryDescriptorThemes(story.slug ?? String(story.id))" :key="theme">
                                                         {{ theme }}
                                                     </span>
                                                 </span>

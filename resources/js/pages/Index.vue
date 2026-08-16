@@ -10,7 +10,7 @@ import XenBanner from '@/components/XenBanner.vue';
 import ContinueStories from '@/components/ContinueStories.vue';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import { filterVisibleLibraryStories } from '@/data/hiddenLibraryStorySlugs';
-import { GameInterface, StoryInterface } from '@/types';
+import { ComingSoonStoryInterface, GameInterface, StoryInterface } from '@/types';
 import { computed } from 'vue';
 
 const props = withDefaults(
@@ -18,21 +18,27 @@ const props = withDefaults(
         featuredStory?: StoryInterface | null;
         lastGame?: GameInterface | null;
         stories?: StoryInterface[];
+        comingSoonStories?: ComingSoonStoryInterface[];
     }>(),
     {
         featuredStory: null,
         lastGame: null,
         stories: () => [],
+        comingSoonStories: () => [],
     },
 );
 
 const visibleStories = computed(() => filterVisibleLibraryStories(props.stories));
+const heroComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'hero'));
+const featuredWorldComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'featured-worlds'));
+const newStoriesComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'new-stories'));
+const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'coming-soon'));
 </script>
 
 <template>
     <HomeLayout>
         <!-- Hero -->
-        <HeroBanner :stories="visibleStories" />
+        <HeroBanner :stories="visibleStories" :coming-soon-stories="heroComingSoonStories" />
 
         <!-- Story Changes With You -->
         <StoryChangesWithYou />
@@ -41,7 +47,7 @@ const visibleStories = computed(() => filterVisibleLibraryStories(props.stories)
         <ContinueStories v-if="lastGame" :game="lastGame" />
 
         <!-- Top Stories -->
-        <FeaturedWorldsGames />
+        <FeaturedWorldsGames :coming-soon-stories="featuredWorldComingSoonStories" />
 
         <!-- Xen Banner -->
         <XenBanner />
@@ -50,9 +56,9 @@ const visibleStories = computed(() => filterVisibleLibraryStories(props.stories)
         <ExploreByMood />
 
         <!-- Featured Worlds -->
-        <NewStoriesBanners />
+        <NewStoriesBanners :coming-soon-stories="newStoriesComingSoonStories" />
 
-        <ComingSoonBanners />
+        <ComingSoonBanners :stories="comingSoonSectionStories" />
 
         <!-- FAQ: slightly tighter top padding after Coming Soon so spacing matches Figma (hover glow → heading). -->
         <div class="pt-10 pb-14 md:pt-12 md:pb-[3.75rem]">

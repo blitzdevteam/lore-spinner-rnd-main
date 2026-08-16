@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\ComingSoonStory;
 use App\Models\Creator;
 use App\Models\Game;
 use App\Models\Story;
@@ -71,6 +72,14 @@ final class IndexController extends Controller
                 ])
                 ->published()
                 ->latest('published_at')
+                ->get()
+                ->toResourceCollection(),
+            'comingSoonStories' => fn () => ComingSoonStory::query()
+                ->with(['media'])
+                ->active()
+                ->orderBy('section')
+                ->orderBy('position')
+                ->orderBy('id')
                 ->get()
                 ->toResourceCollection(),
         ];
