@@ -53,4 +53,12 @@ return [
     // Set TTS_PROVIDER to "deepgram" or "elevenlabs" (default: elevenlabs)
     'tts_provider' => env('TTS_PROVIDER', 'elevenlabs'),
 
+    'stripe' => [
+        'prices' => [
+            'explorer' => env('STRIPE_PRICE_EXPLORER'),
+            'adventurer' => env('STRIPE_PRICE_ADVENTURER'),
+            'chronicle' => env('STRIPE_PRICE_CHRONICLE'),
+        ],
+    ],
+
 ];

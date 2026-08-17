@@ -33,6 +33,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
         });
     });
 
+    Route::middleware('auth:user')->get('checkout/{plan}', User\CheckoutController::class)
+        ->name('checkout');
+
     // Dashboard
     Route::middleware([
         'auth:user',

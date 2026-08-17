@@ -18,6 +18,7 @@ Route::middleware(['auth:manager'])
 Route::middleware(RecordPageView::class)->group(function (): void {
     Route::get('/', Controllers\IndexController::class)->name('index');
     Route::get('about-us', Controllers\AboutUsController::class)->name('about-us');
+    Route::get('pricing', Controllers\PricingController::class)->name('pricing');
 
     Route::resource('creators', Controllers\CreatorController::class)
         ->scoped(['creator' => 'username'])
