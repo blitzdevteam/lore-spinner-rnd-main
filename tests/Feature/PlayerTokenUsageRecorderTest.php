@@ -234,6 +234,7 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     ] as $totals) {
         expect($totals['requests'])->toBe(1)
             ->and($totals['input_tokens'])->toBe(100)
+            ->and($totals['total_input_tokens'])->toBe(150)
             ->and($totals['output_tokens'])->toBe(50)
             ->and($totals['cached_input_tokens'])->toBe(50)
             ->and($totals['total_tokens'])->toBe(200)

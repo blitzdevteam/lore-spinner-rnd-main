@@ -24,6 +24,8 @@ const usage = computed<GameplayUsageSummary>(
     () =>
         props.usage ?? {
             prompt_count: 0,
+            prompt_input_tokens: 0,
+            prompt_output_tokens: 0,
             prompt_tokens: 0,
             voice_count: 0,
             voice_characters: 0,
@@ -212,6 +214,20 @@ const onVolumeInput = (event: Event) => {
                     <span class="mt-1 block text-xs text-gray-500">
                         {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
                     </span>
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
+                        <div>
+                            <span class="block text-[11px] text-gray-500">Input</span>
+                            <span class="block text-xs font-medium tabular-nums text-gray-300">
+                                {{ formatUsageCount(usage.prompt_input_tokens) }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="block text-[11px] text-gray-500">Output</span>
+                            <span class="block text-xs font-medium tabular-nums text-gray-300">
+                                {{ formatUsageCount(usage.prompt_output_tokens) }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Voice renders</span>
@@ -364,6 +380,20 @@ const onVolumeInput = (event: Event) => {
                     <span class="mt-1 block text-xs text-gray-500">
                         {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
                     </span>
+                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
+                        <div>
+                            <span class="block text-[11px] text-gray-500">Input</span>
+                            <span class="block text-xs font-medium tabular-nums text-gray-300">
+                                {{ formatUsageCount(usage.prompt_input_tokens) }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="block text-[11px] text-gray-500">Output</span>
+                            <span class="block text-xs font-medium tabular-nums text-gray-300">
+                                {{ formatUsageCount(usage.prompt_output_tokens) }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Voice renders</span>

@@ -268,6 +268,8 @@ final class GameController extends Controller
     /**
      * @return array{
      *     prompt_count:int,
+     *     prompt_input_tokens:int,
+     *     prompt_output_tokens:int,
      *     prompt_tokens:int,
      *     voice_count:int,
      *     voice_characters:int,
@@ -281,6 +283,8 @@ final class GameController extends Controller
 
         return [
             'prompt_count' => $tokenUsage['requests'],
+            'prompt_input_tokens' => $tokenUsage['total_input_tokens'],
+            'prompt_output_tokens' => $tokenUsage['output_tokens'],
             'prompt_tokens' => $tokenUsage['total_tokens'],
             'voice_count' => $voiceUsage['requests'],
             'voice_characters' => $voiceUsage['billable_units'],

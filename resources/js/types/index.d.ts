@@ -156,6 +156,8 @@ export type PromptChoice = string | VisibleSuggestionInterface;
 
 export interface GameplayUsageSummary {
     prompt_count: number;
+    prompt_input_tokens: number;
+    prompt_output_tokens: number;
     prompt_tokens: number;
     voice_count: number;
     voice_characters: number;
