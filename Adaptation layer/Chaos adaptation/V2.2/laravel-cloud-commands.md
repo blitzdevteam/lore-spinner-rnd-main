@@ -3,7 +3,7 @@
 Practical command reference from the **Wizard of Oz** V2.2 re-adaptation on Laravel Cloud (June 2026).  
 Replace `the-wonderful-wizard-of-oz` with your story slug where needed.
 
-**Boiler pacing** commands (export bundle, probes, `--boiler` runs) are in **§6** — example slug: `the-adventure-of-the-speckled-band`.
+**Boiler pacing** commands (export bundle, probes, **`stories:rebuild-runtime-prompts`**, `--boiler` runs) are in **§6** — example slug: `the-adventure-of-the-speckled-band`.
 
 Companion exports live in `Exported JSON/` (`Oz-V2-2.json`, `oz-voice-profile.json`).
 
@@ -567,6 +567,70 @@ echo "uploaded: " . Illuminate\Support\Facades\Storage::disk("public")->size($de
 php artisan stories:boiler-status the-adventure-of-the-speckled-band
 ```
 
+### Boiler — rebuild runtime narrator prompts (after template deploy)
+
+Every edit to `runtime-narrator-template.blade.php` (agency rules, dialogue, pacing, etc.) only reaches players once the **cached** prompt on `session_adaptations.runtime_narrator_prompt` is rebuilt. This command re-runs `RuntimeNarratorAssemblyJob` only — it does **not** re-run adaptation, voice lock, Boiler draft/finalize, or scene cards. Authored content is untouched.
+
+- In-flight games pick up the new prompt on their **next turn**.
+- A failed session is reported and skipped; other stories/sessions still run (unlike a raw tinker loop that aborts on first throw).
+- Failed sessions keep their **previous** prompt and stay playable until you fix and re-run.
+
+**Dry run** — list current sizes, touch nothing:
+
+```bash
+php artisan stories:rebuild-runtime-prompts --dry-run
+```
+
+**All Boiler stories** (every story with `boiler_enabled = true`):
+
+```bash
+php artisan stories:rebuild-runtime-prompts
+```
+
+**Launch Boiler stories** (Sherlock, PJs, Wasteland, Treasure Island):
+
+```bash
+php artisan stories:rebuild-runtime-prompts \
+  the-adventure-of-the-speckled-band \
+  pjs \
+  wasteland \
+  treasure-island
+```
+
+**One story / one session:**
+
+```bash
+php artisan stories:rebuild-runtime-prompts the-adventure-of-the-speckled-band
+php artisan stories:rebuild-runtime-prompts wasteland --session=2
+```
+
+Expect a table: story slug, session number, `before → after` prompt char count, and `completed` or `FAILED: …`.
+
+After a successful rebuild, confirm with status grid:
+
+```bash
+php artisan stories:boiler-status the-adventure-of-the-speckled-band
+```
+
+Optional smoke check — new agency / dialogue blocks present in session 1:
+
+```bash
+php artisan tinker --execute='
+$rp = App\Models\Story::where("slug","the-adventure-of-the-speckled-band")->first()
+  ->adaptation->sessionAdaptations()->where("session_number",1)->value("runtime_narrator_prompt");
+echo "chars: " . strlen($rp) . PHP_EOL;
+foreach ([
+  "AGENCY HANDOFF",
+  "CONSEQUENCE HAS A CURRENCY",
+  "THE WAY BACK IS NOT A RESET",
+  "DIALOGUE — PUNCTUATION IS NOT OPTIONAL",
+  "DIALOGUE — A CHARACTER SPEAKS AS",
+] as $needle) {
+  echo $needle . ": " . (str_contains($rp, $needle) ? "yes" : "NO") . PHP_EOL;
+}
+'
+```
+
 **Opus / model diagnostic dump** (sessions, SSM, failures, queue, `boiler.*` logs → File explorer):
 
 ```bash
@@ -666,7 +730,8 @@ foreach (DB::table("failed_jobs")->orderByDesc("failed_at")->limit(5)->get() as 
 | 0-byte files in bucket | Failed upload or wrong disk | Verify source size; use `disk("public")` |
 | CLI "Command took longer than 30 minutes" | Cloud CLI limit | Background worker continues; check logs + pending count |
 | Queue idle after deploy mid-job | Worker killed; job reserved or batch chain stopped | Release reservations; check `failed_jobs`; re-run `--force --boiler` |
-| `boiler_status=finalizing` with no manifest/cut | Finalize interrupted (deploy) | Re-run adaptation; do not deploy during long Boiler jobs |
+| Template deploy but narration behaviour unchanged | Cached `runtime_narrator_prompt` not rebuilt | `php artisan stories:rebuild-runtime-prompts` (see §6) |
+| `runtime_narrator_assembly.failed` / session `failed` after rebuild | Prompt over cap or validator error | Check `boiler_error` via `stories:boiler-status`; fix template/cap; re-run rebuild for that slug |
 
 ---
 
