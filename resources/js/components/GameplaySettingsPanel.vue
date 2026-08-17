@@ -23,14 +23,14 @@ const tts = useTextToSpeech();
 const usage = computed<GameplayUsageSummary>(
     () =>
         props.usage ?? {
-            turns_played: 0,
-            voice_duration_ms: 0,
-            turns_used: 0,
-            turns_limit: 0,
-            turns_remaining: 0,
-            voice_duration_ms_used: 0,
-            voice_duration_ms_limit: 0,
-            voice_duration_ms_remaining: 0,
+            game: {
+                turns: 0,
+                voice_duration_ms: 0,
+            },
+            total: {
+                turns: 0,
+                voice_duration_ms: 0,
+            },
         },
 );
 
@@ -219,38 +219,34 @@ const onVolumeInput = (event: Event) => {
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Turns played</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.turns_played) }}
+                        {{ formatUsageCount(usage.game.turns) }}
                     </strong>
                     <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Voice generated</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatVoiceDuration(usage.voice_duration_ms) }}
+                        {{ formatVoiceDuration(usage.game.voice_duration_ms) }}
                     </strong>
                     <span class="mt-1 block text-xs text-gray-500">Narration time</span>
                 </div>
             </div>
-            <div class="pt-1">
-                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">Account balance</p>
+            <div class="border-t border-gray-700/40 pt-4">
+                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">Total (all games)</p>
                 <div class="mt-2 grid grid-cols-2 gap-2.5">
-                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
-                        <span class="block text-xs text-gray-400">Turns left</span>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Turns played</span>
                         <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                            {{ formatUsageCount(usage.turns_remaining) }}
+                            {{ formatUsageCount(usage.total.turns) }}
                         </strong>
-                        <span class="mt-1 block text-xs text-gray-500">
-                            {{ formatUsageCount(usage.turns_used) }} of {{ formatUsageCount(usage.turns_limit) }} used
-                        </span>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
                     </div>
-                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
-                        <span class="block text-xs text-gray-400">Voice left</span>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Voice generated</span>
                         <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                            {{ formatVoiceDuration(usage.voice_duration_ms_remaining) }}
+                            {{ formatVoiceDuration(usage.total.voice_duration_ms) }}
                         </strong>
-                        <span class="mt-1 block text-xs text-gray-500">
-                            {{ formatVoiceDuration(usage.voice_duration_ms_used) }} of {{ formatVoiceDuration(usage.voice_duration_ms_limit) }} used
-                        </span>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
                     </div>
                 </div>
             </div>
@@ -390,38 +386,34 @@ const onVolumeInput = (event: Event) => {
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Turns played</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.turns_played) }}
+                        {{ formatUsageCount(usage.game.turns) }}
                     </strong>
                     <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                     <span class="block text-xs text-gray-400">Voice generated</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatVoiceDuration(usage.voice_duration_ms) }}
+                        {{ formatVoiceDuration(usage.game.voice_duration_ms) }}
                     </strong>
                     <span class="mt-1 block text-xs text-gray-500">Narration time</span>
                 </div>
             </div>
-            <div>
-                <p class="gp-field-label">Account balance</p>
+            <div class="border-t border-gray-700/40 pt-4">
+                <p class="gp-field-label">Total (all games)</p>
                 <div class="mt-2 grid grid-cols-2 gap-3">
-                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
-                        <span class="block text-xs text-gray-400">Turns left</span>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Turns played</span>
                         <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                            {{ formatUsageCount(usage.turns_remaining) }}
+                            {{ formatUsageCount(usage.total.turns) }}
                         </strong>
-                        <span class="mt-1 block text-xs text-gray-500">
-                            {{ formatUsageCount(usage.turns_used) }} of {{ formatUsageCount(usage.turns_limit) }} used
-                        </span>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
                     </div>
-                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
-                        <span class="block text-xs text-gray-400">Voice left</span>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Voice generated</span>
                         <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                            {{ formatVoiceDuration(usage.voice_duration_ms_remaining) }}
+                            {{ formatVoiceDuration(usage.total.voice_duration_ms) }}
                         </strong>
-                        <span class="mt-1 block text-xs text-gray-500">
-                            {{ formatVoiceDuration(usage.voice_duration_ms_used) }} of {{ formatVoiceDuration(usage.voice_duration_ms_limit) }} used
-                        </span>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
                     </div>
                 </div>
             </div>

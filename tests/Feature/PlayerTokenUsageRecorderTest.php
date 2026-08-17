@@ -7,7 +7,6 @@ use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
 use App\Models\PlayerVoiceUsage;
-use App\Services\Runtime\GameplayAllowanceResolver;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
 use App\Services\Runtime\PlayerTokenUsageInsights;
 use App\Services\Runtime\PlayerTokenUsageRecorder;
@@ -332,11 +331,6 @@ it('summarizes voice usage for the active story cycle only', function () {
 });
 
 it('summarizes player-facing turns and generated voice duration across the account', function () {
-    config([
-        'gameplay-usage.default_plan.turns' => 250,
-        'gameplay-usage.default_plan.voice_minutes' => 60,
-    ]);
-
     $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
     $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
     $firstGame = Game::query()->create([
@@ -361,11 +355,13 @@ it('summarizes player-facing turns and generated voice duration across the accou
     ]);
     $firstTurnPrompt = $firstGame->prompts()->create([
         'session_number' => 1,
+        'prompt' => 'Open the door.',
         'response' => 'First player turn.',
         'choices' => [],
     ]);
     $secondTurnPrompt = $secondGame->prompts()->create([
         'session_number' => 1,
+        'prompt' => 'Follow the light.',
         'response' => 'Second player turn.',
         'choices' => [],
     ]);
@@ -427,9 +423,8 @@ it('summarizes player-facing turns and generated voice duration across the accou
     }
 
     $summary = app(PlayerGameplayUsageSummary::class);
-    $allowance = app(GameplayAllowanceResolver::class)->forUser($userId);
 
-    expect($summary->forGame($firstGame->id))
+    expect($summary->forGame($firstGame->id, $userId))
         ->toBe([
             'turns' => 1,
             'voice_duration_ms' => 75_000,
@@ -438,11 +433,6 @@ it('summarizes player-facing turns and generated voice duration across the accou
         ->toBe([
             'turns' => 2,
             'voice_duration_ms' => 165_000,
-        ])
-        ->and($allowance)
-        ->toBe([
-            'turns' => 250,
-            'voice_duration_ms' => 3_600_000,
         ]);
 });
 

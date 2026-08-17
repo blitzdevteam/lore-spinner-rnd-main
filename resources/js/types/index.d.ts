@@ -154,15 +154,14 @@ export interface VisibleSuggestionInterface {
 
 export type PromptChoice = string | VisibleSuggestionInterface;
 
-export interface GameplayUsageSummary {
-    turns_played: number;
+export interface GameplayUsageTotals {
+    turns: number;
     voice_duration_ms: number;
-    turns_used: number;
-    turns_limit: number;
-    turns_remaining: number;
-    voice_duration_ms_used: number;
-    voice_duration_ms_limit: number;
-    voice_duration_ms_remaining: number;
+}
+
+export interface GameplayUsageSummary {
+    game: GameplayUsageTotals;
+    total: GameplayUsageTotals;
 }
 
 export interface GameInterface {

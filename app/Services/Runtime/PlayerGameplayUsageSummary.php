@@ -6,6 +6,8 @@ namespace App\Services\Runtime;
 
 use App\Models\PlayerTokenUsage;
 use App\Models\PlayerVoiceUsage;
+use App\Models\Prompt;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Player-facing usage, deliberately expressed in turns and generated audio
@@ -16,9 +18,19 @@ final class PlayerGameplayUsageSummary
     /**
      * @return array{turns:int, voice_duration_ms:int}
      */
-    public function forGame(string $gameId): array
+    public function forGame(string $gameId, int $userId): array
     {
-        return $this->summarize('game_id', $gameId);
+        return [
+            'turns' => Prompt::query()
+                ->where('game_id', $gameId)
+                ->whereNotNull('prompt')
+                ->whereHas('game', fn (Builder $game): Builder => $game->where('user_id', $userId))
+                ->count(),
+            'voice_duration_ms' => (int) PlayerVoiceUsage::query()
+                ->where('game_id', $gameId)
+                ->where('user_id', $userId)
+                ->sum('audio_duration_ms'),
+        ];
     }
 
     /**
@@ -26,26 +38,24 @@ final class PlayerGameplayUsageSummary
      */
     public function forUser(int $userId): array
     {
-        return $this->summarize('user_id', $userId);
+        return $this->summarizeForUser($userId);
     }
 
     /**
-     * The durable ledgers intentionally outlive a game reset, whereas prompt
-     * rows are cleared. A turn ledger entry is recorded only after a player's
-     * action successfully produces its next narration.
+     * The durable ledgers intentionally outlive a game reset, so this is the
+     * account-wide total across all games and completed story cycles.
      *
-     * @param  'game_id'|'user_id'  $column
      * @return array{turns:int, voice_duration_ms:int}
      */
-    private function summarize(string $column, string|int $value): array
+    private function summarizeForUser(int $userId): array
     {
         return [
             'turns' => PlayerTokenUsage::query()
-                ->where($column, $value)
+                ->where('user_id', $userId)
                 ->where('kind', PlayerTokenUsage::KIND_TURN)
                 ->count(),
             'voice_duration_ms' => (int) PlayerVoiceUsage::query()
-                ->where($column, $value)
+                ->where('user_id', $userId)
                 ->sum('audio_duration_ms'),
         ];
     }
