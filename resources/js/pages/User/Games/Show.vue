@@ -13,6 +13,15 @@ import { router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const CONTINUE_MARKER = '__continue__';
+const TURN_FAILED_MESSAGE = 'Narration hiccuped — your move was not saved. Retry to send it again.';
+const TURN_REJECTED_MESSAGE = 'That move arrived out of turn — retry to send it again.';
+
+type SubmitOptions = {
+    promptId: string;
+    suggestionIndex?: number;
+    canonicalChoiceId?: string | null;
+    canonicalPathLabel?: 'A' | 'B' | 'C' | null;
+};
 
 const props = defineProps<{
     game: GameInterface;
@@ -56,17 +65,64 @@ const isStreamingTurn = ref(false);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
+const streamError = ref<string | null>(null);
+const lastAttempt = ref<{ prompt: string; options: SubmitOptions } | null>(null);
+
+/**
+ * A game refresh is fire-and-forget, so its response can land after a later turn
+ * has already been committed locally. The server list is authoritative for every
+ * turn it contains, but a committed turn it has not caught up with has to
+ * survive the merge: deleting narration the player has already read is far worse
+ * than showing it a moment before the server agrees it exists.
+ */
+function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[] {
+    const localById = new Map(localPrompts.value.map((item) => [String(item.id), item]));
+    const serverIds = new Set(serverPrompts.map((item) => String(item.id)));
+
+    const reconciled = serverPrompts.map((item) => {
+        const local = localById.get(String(item.id));
+        // A committed player action the server has not returned yet.
+        return local?.prompt && !item.prompt ? { ...item, prompt: local.prompt } : item;
+    });
+
+    // Only turns newer than everything the server returned. Prompt ids are ULIDs, so
+    // this is a time comparison, and it keeps the merge from resurrecting a turn the
+    // server deliberately removed — a reset or a rewind still takes effect.
+    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts[serverPrompts.length - 1].id) : '';
+    const newerLocalOnly = localPrompts.value.filter(
+        (item) =>
+            item.id !== streamingPromptId.value
+            && !serverIds.has(String(item.id))
+            && String(item.id) > newestServerId,
+    );
+
+    return [...reconciled, ...newerLocalOnly];
+}
 
 watch(
     () => props.game.prompts,
     (nextPrompts) => {
         if (isStreamingTurn.value) return;
-        localPrompts.value = [...(nextPrompts ?? [])];
+        localPrompts.value = mergeServerPrompts([...(nextPrompts ?? [])]);
     },
     { deep: true },
 );
 
 const prompts = computed(() => localPrompts.value);
+
+/**
+ * The card the player is answering: the newest turn with no committed action yet.
+ * Derived from the data rather than array position because the server accepts no
+ * other source prompt, and answers a mismatch with a redirect the turn stream
+ * cannot parse.
+ */
+const awaitingPrompt = computed(() => {
+    return (
+        [...prompts.value]
+            .reverse()
+            .find((item) => item.id !== streamingPromptId.value && !item.prompt) ?? null
+    );
+});
 const hasVisibleStreamedResponse = computed(() => {
     if (!streamingPromptId.value) return false;
 
@@ -160,13 +216,17 @@ watch(
 //   Move 3+: both, which is the normal game from here on.
 // `prompts` spans every session of this game, so the staging runs once per game
 // and never reappears at a later session boundary.
+//
+// Two different lifetimes here. The chat bar is a single live control, so it reads
+// the stage the game is in NOW (below). A card's staging belongs to its own turn and
+// is permanent: the first card was authored without buttons, so it must never grow
+// them once later turns arrive. That per-card rule is bound by index in the template.
 const introStage = computed(() => {
     if (prompts.value.length === 1) return 1;
     if (prompts.value.length === 2) return 2;
     return 0;
 });
 
-const choicesLocked = computed(() => introStage.value === 1);
 const freeformLocked = computed(() => introStage.value === 2);
 
 const canSubmitInput = computed(() => {
@@ -254,30 +314,34 @@ const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice:
 const handleContinue = () => {
     if (isSubmitting.value) return;
     tts.primeAudio();
-    const latestPrompt = prompts.value[prompts.value.length - 1];
-    if (latestPrompt) {
-        pendingSelection.value[latestPrompt.id] = CONTINUE_MARKER;
-        submitPrompt(CONTINUE_MARKER, { promptId: latestPrompt.id });
-    }
+    const source = awaitingPrompt.value;
+    if (!source) return;
+    pendingSelection.value[source.id] = CONTINUE_MARKER;
+    submitPrompt(CONTINUE_MARKER, { promptId: source.id });
 };
 
 const handleSubmit = (prompt: string) => {
     if (isSubmitting.value) return;
     tts.primeAudio();
-    const latestPrompt = prompts.value[prompts.value.length - 1];
-    if (!latestPrompt) return;
-    submitPrompt(prompt, { promptId: latestPrompt.id });
+    const source = awaitingPrompt.value;
+    if (!source) return;
+    submitPrompt(prompt, { promptId: source.id });
 };
 
-const submitPrompt = (
-    prompt: string,
-    options: {
-        promptId: string;
-        suggestionIndex?: number;
-        canonicalChoiceId?: string | null;
-        canonicalPathLabel?: 'A' | 'B' | 'C' | null;
-    },
-) => {
+const handleRetryTurn = () => {
+    const attempt = lastAttempt.value;
+    if (isSubmitting.value || !attempt) return;
+    tts.primeAudio();
+
+    // The source card may have been reissued by a refresh since the failure.
+    const source = awaitingPrompt.value;
+    submitPrompt(attempt.prompt, {
+        ...attempt.options,
+        promptId: source ? source.id : attempt.options.promptId,
+    });
+};
+
+const submitPrompt = (prompt: string, options: SubmitOptions) => {
     void streamPrompt(prompt, options);
 };
 
@@ -323,18 +387,12 @@ function commitStreamedPrompt(
     localPrompts.value = [...localPrompts.value, responsePrompt];
 }
 
-async function streamPrompt(
-    prompt: string,
-    options: {
-        promptId: string;
-        suggestionIndex?: number;
-        canonicalChoiceId?: string | null;
-        canonicalPathLabel?: 'A' | 'B' | 'C' | null;
-    },
-) {
+async function streamPrompt(prompt: string, options: SubmitOptions) {
     isSubmitting.value = true;
     isStreamingTurn.value = true;
     shouldAnimate.value = false;
+    streamError.value = null;
+    lastAttempt.value = { prompt, options };
 
     const activeStreamingPromptId = `stream-${options.promptId}`;
     streamingPromptId.value = activeStreamingPromptId;
@@ -374,7 +432,14 @@ async function streamPrompt(
         });
 
         if (!response.ok || !response.body) {
-            throw new Error(`Turn stream failed with HTTP ${response.status}`);
+            throw new Error(TURN_FAILED_MESSAGE);
+        }
+
+        // A rejected turn is answered with a redirect to the game page, which
+        // arrives as HTML. Reading it as NDJSON would throw on the first line and
+        // surface as a generic failure, so name it while we still can.
+        if (!(response.headers.get('Content-Type') ?? '').includes('application/x-ndjson')) {
+            throw new Error(TURN_REJECTED_MESSAGE);
         }
 
         const reader = response.body.getReader();
@@ -417,11 +482,15 @@ async function streamPrompt(
                 isStreamingTurn.value = false;
                 streamingPromptId.value = null;
                 pendingSelection.value = {};
+                lastAttempt.value = null;
+                // Do not flip shouldAnimate here. streamTo already revealed the text;
+                // setting animate remounts the committed card and restarts the typewriter
+                // from empty — the vanish-then-rerender glitch.
                 router.reload({ only: ['game', 'usage'] });
             }
 
             if (event.event === 'error') {
-                throw new Error(event.message ?? 'Narration hiccuped');
+                throw new Error(event.message ?? TURN_FAILED_MESSAGE);
             }
         };
 
@@ -446,14 +515,17 @@ async function streamPrompt(
         }
 
         if (!completed) {
-            throw new Error('Turn stream ended before choices were committed.');
+            throw new Error(TURN_FAILED_MESSAGE);
         }
-    } catch {
+    } catch (error) {
         isSubmitting.value = false;
         isStreamingTurn.value = false;
         streamingPromptId.value = null;
         pendingSelection.value = {};
         localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+        // Say so. A turn that vanishes with no explanation reads as a broken game
+        // rather than a failed request, and the player retypes instead of retrying.
+        streamError.value = error instanceof Error && error.message ? error.message : TURN_FAILED_MESSAGE;
         router.reload({ only: ['game'] });
     }
 }
@@ -687,8 +759,25 @@ onUnmounted(() => {
                 {{ game.turn_error }}
             </p>
 
+            <!-- A failed turn stream: name it and offer the move back, rather than
+                 letting the narration vanish with no explanation. -->
             <div
-                v-for="prompt in prompts"
+                v-if="streamError"
+                class="mb-4 flex flex-col items-center gap-3 rounded-xl border border-red-400/30 bg-red-400/5 px-4 py-3 text-center"
+            >
+                <p class="text-sm text-red-300/90">{{ streamError }}</p>
+                <button
+                    v-if="lastAttempt"
+                    class="rounded-full border border-primary-400/60 bg-primary-400/10 px-6 py-2 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="isSubmitting"
+                    @click="handleRetryTurn"
+                >
+                    Retry that move
+                </button>
+            </div>
+
+            <div
+                v-for="(prompt, index) in prompts"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
@@ -701,8 +790,8 @@ onUnmounted(() => {
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
                     :uses-playable-moments="game.uses_playable_moments"
-                    :choices-locked="choicesLocked && prompt.id === prompts[prompts.length - 1]?.id"
-                    :freeform-locked="freeformLocked && prompt.id === prompts[prompts.length - 1]?.id"
+                    :choices-locked="index === 0"
+                    :freeform-locked="index === 1"
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"

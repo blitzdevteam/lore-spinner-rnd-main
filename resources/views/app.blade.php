@@ -35,9 +35,14 @@
 
         @php
             $pageComponent = $page['component'];
-            $pageEntry = str_starts_with($pageComponent, 'VoiceLab/')
-                ? 'resources/js/voice-lab/pages/' . substr($pageComponent, strlen('VoiceLab/')) . '.vue'
-                : 'resources/js/pages/' . $pageComponent . '.vue';
+            $pageEntry = match (true) {
+                str_starts_with($pageComponent, 'VoiceLab/') =>
+                    'resources/js/voice-lab/pages/' . substr($pageComponent, strlen('VoiceLab/')) . '.vue',
+                str_starts_with($pageComponent, 'XenRnd/') =>
+                    'resources/js/xen-rnd/pages/' . substr($pageComponent, strlen('XenRnd/')) . '.vue',
+                default =>
+                    'resources/js/pages/' . $pageComponent . '.vue',
+            };
         @endphp
         @vite(['resources/js/app.ts', $pageEntry])
         @inertiaHead

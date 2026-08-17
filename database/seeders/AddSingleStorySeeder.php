@@ -81,7 +81,7 @@ class AddSingleStorySeeder extends Seeder
             'category_id' => $category->id,
             'creator_id' => $creator->id,
             'title' => $config['title'],
-            'slug' => Str::slug($config['title']),
+            'slug' => $config['slug'] ?? Str::slug($config['title']),
             'teaser' => $config['teaser'],
             'opening' => $config['opening'] ?? null,
             'status' => StoryStatusEnum::AWAITING_EXTRACTING_CHAPTERS_REQUEST->value,
@@ -256,6 +256,7 @@ class AddSingleStorySeeder extends Seeder
      *   SEED_STORY=nocturne                php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=wasteland               php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=pjs                     php artisan db:seed --class=AddSingleStorySeeder --force
+     *   SEED_STORY=treasure-island         php artisan db:seed --class=AddSingleStorySeeder --force
      *   SEED_STORY=momotaro                php artisan db:seed --class=AddSingleStorySeeder --force
      *
      * Defaults to Masque of the Red Death when SEED_STORY is not set.
@@ -271,6 +272,7 @@ class AddSingleStorySeeder extends Seeder
             'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
             'wasteland'                                                        => $this->configWasteland(),
             'pjs', 'pjs-final'                                                 => $this->configPjs(),
+            'treasure-island', 'treasure'                                      => $this->configTreasureIsland(),
             'momotaro', 'momotaro-the-peach-boy', 'peach-boy'                  => $this->configMomotaro(),
             'wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'                 => $this->configWizardOfOz(),
             default                                                              => $this->configMasque(),
@@ -411,6 +413,22 @@ class AddSingleStorySeeder extends Seeder
             'opening'    => null,
             'story_cover' => database_path('stories/covers/Momotaro.png'),
             'creator'    => $this->classicsCreator(),
+        ];
+    }
+
+    private function configTreasureIsland(): array
+    {
+        return [
+            'title'       => 'Treasure Island',
+            'slug'        => 'treasure-island',
+            'category'    => 'Adventure',
+            'script'      => 'Treasure_Island_script.txt',
+            'source_pdf'  => 'RnD/MORE R&D TITLES - JUNE 15/TREASURE ISLAND.pdf',
+            'teaser'      => 'Every choice at sea carries a price: who to trust, when to run, and what kind of courage survives betrayal. The map is only the beginning.',
+            'rating'      => StoryRatingEnum::TEEN->value,
+            'opening'     => null,
+            'story_cover' => resource_path('js/assets/featured/treasure.png'),
+            'creator'     => $this->classicsCreator(),
         ];
     }
 

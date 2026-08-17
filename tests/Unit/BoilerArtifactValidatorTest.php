@@ -6,6 +6,7 @@ use App\Ai\Adaptation\BoilerDraftCanonicalizer;
 use App\Ai\Adaptation\BoilerDraftValidator;
 use App\Ai\Adaptation\BoilerFinalCutCanonicalizer;
 use App\Ai\Adaptation\BoilerFinalCutValidator;
+use App\Ai\Adaptation\BoilerMomentRangeResolver;
 use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
@@ -208,17 +209,73 @@ it('rejects an event assigned to more than one moment', function () {
         'moment_order' => 2,
     ]);
     $draft['playable_promise_arc']['final_cash_out'] = 'S1_M02';
+    $draft['event_role_map'][] = [
+        'event_id' => 102,
+        'role' => 'ECHO',
+        'why' => 'Carried forward through the shard rather than played directly.',
+        'included_moment_key' => '',
+        'reintroduction_note' => 'Returns in the later confrontation.',
+    ];
     $storyMap = boilerTestStoryMap();
     $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 2;
     $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 2;
 
-    (new BoilerDraftValidator())->validate(
-        $draft,
-        boilerTestSession(),
-        $storyMap,
-        boilerTestEvents(),
-    );
+    // Two playable events keep the two-moment budget satisfiable, so the duplicate
+    // assignment is what fails rather than the feasibility check.
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 102, 'session_number' => 1]),
+    ]);
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
 })->throws(RuntimeException::class, 'Boiler event 101 is assigned to more than one moment.');
+
+it('caps the moment budget at the events left playable after the entry point', function () {
+    $draft = boilerTestDraft();
+    $storyMap = boilerTestStoryMap();
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 3;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 4;
+
+    // One event survives the entry-point cut, so three moments can never be built.
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 100, 'session_number' => 1])
+            ->setAttribute('before_entry_point', true),
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1])
+            ->setAttribute('before_entry_point', false),
+    ]);
+
+    expect(BoilerMomentRangeResolver::resolve(
+        $storyMap['boiling_profile']['per_session_guidance'][0],
+        $events,
+    ))->toMatchArray(['min' => 1, 'max' => 1, 'playable_event_count' => 1, 'clamped' => true]);
+
+    // The single-moment draft is legal against the clamped range even though the
+    // Story Session Map asked for three.
+    $draft['event_role_map'][] = [
+        'event_id' => 100,
+        'role' => 'CUT',
+        'why' => 'Pre-entry material trimmed by the cold open.',
+        'included_moment_key' => '',
+        'reintroduction_note' => 'Established through the opening narration.',
+    ];
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
+
+    expect($draft['session_budget_decision']['target_moment_count'])->toBe(1);
+});
+
+it('leaves an uncut session on its authored moment range', function () {
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 102, 'session_number' => 1]),
+        (new Event())->forceFill(['id' => 103, 'session_number' => 1]),
+    ]);
+
+    expect(BoilerMomentRangeResolver::resolve(
+        ['recommended_moment_count_min' => 1, 'recommended_moment_count_max' => 2],
+        $events,
+    ))->toMatchArray(['min' => 1, 'max' => 2, 'playable_event_count' => 3, 'clamped' => false]);
+});
 
 it('rejects playable promise arc shorthand instead of an exact drafted key', function () {
     $draft = boilerTestDraft();
@@ -274,6 +331,103 @@ it('overlays Finalize references from their authoritative upstream artifacts', f
         ->included_moment_key->toBe('S1_M01');
 });
 
+it('demotes a Draft CHOICE role when its moment carries only an emotional choice', function () {
+    $session = boilerTestSession();
+    $draft = boilerTestDraft();
+    $draft['event_role_map'][0]['role'] = 'CHOICE';
+    $session->boiler_draft = $draft;
+
+    // The moment owns an emotional choice but none of the four canonical branches,
+    // so the finalized role must read PRESSURE rather than CHOICE.
+    $session->session_choice_design = [
+        'branching_choices' => [],
+        'emotional_choices' => [[
+            'choice_id' => 'S1_E1',
+            'moment_key' => 'S1_M01',
+        ]],
+    ];
+
+    $canonical = (new BoilerFinalCutCanonicalizer())->canonicalize(
+        ['moments' => [], 'event_role_map' => []],
+        $session,
+    );
+
+    expect($canonical['event_role_map'][0])
+        ->primary_role->toBe('PRESSURE')
+        ->included_moment_key->toBe('S1_M01');
+});
+
+it('keeps the CHOICE role when the moment owns a canonical branching choice', function () {
+    $session = boilerTestSession();
+    $draft = boilerTestDraft();
+    $draft['event_role_map'][0]['role'] = 'CHOICE';
+    $session->boiler_draft = $draft;
+
+    $canonical = (new BoilerFinalCutCanonicalizer())->canonicalize(
+        ['moments' => [], 'event_role_map' => []],
+        $session,
+    );
+
+    expect($canonical['event_role_map'][0]->primary_role ?? $canonical['event_role_map'][0]['primary_role'])
+        ->toBe('CHOICE');
+});
+
+it('fits four canonical branching slots into a short bridge session', function () {
+    // A two-event bridge session yields two moments, so one branch per moment is
+    // impossible. Slots must share moments instead of failing the budget.
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [102],
+        'anchor_event_id' => 102,
+        'runtime_goal' => 'Carry the launch into the next arc.',
+    ]);
+
+    $architecture = [
+        // The model hedged: it reported a conflict even though the beats fit.
+        'boiler_budget_alignment' => ['aligned' => false, 'conflict' => 'Cannot place three non-final branches.'],
+        'beat_map' => [
+            ['time_range' => '00:00-03:00', 'moment' => 'Open', 'beat_type' => 'SETUP', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Identity', 'moment_key' => 'S1_M01'],
+            ['time_range' => '03:00-05:00', 'moment' => 'Press', 'beat_type' => 'ESCALATION', 'choice_slot' => 'none', 'dramatic_function' => 'Methodology', 'moment_key' => 'S1_M01'],
+            ['time_range' => '05:00-07:00', 'moment' => 'Turn', 'beat_type' => 'ESCALATION', 'choice_slot' => 'none', 'dramatic_function' => 'Moral weight', 'moment_key' => 'S1_M02'],
+            ['time_range' => '07:00-09:00', 'moment' => 'Close', 'beat_type' => 'RESOLUTION', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Session-end hook', 'moment_key' => 'S1_M02'],
+        ],
+    ];
+
+    $canonical = (new SessionArchitectureCanonicalizer())->canonicalize($architecture, $draft);
+    (new SessionArchitectureValidator())->validate($canonical, $draft);
+
+    $branching = collect($canonical['beat_map'])
+        ->filter(fn (array $beat): bool => $beat['choice_slot'] === 'BRANCHING');
+
+    expect($branching)->toHaveCount(4)
+        ->and($canonical['boiler_budget_alignment']['aligned'])->toBeTrue()
+        ->and($canonical['boiler_budget_alignment']['conflict'])->toBe('')
+        ->and($branching->pluck('moment_key')->contains('S1_M02'))->toBeTrue();
+});
+
+it('reports a real Architecture conflict instead of forcing alignment', function () {
+    // Too few beats to ever host four branches. PHP must not paper over that, even
+    // though the model claimed the architecture aligned.
+    $draft = boilerTestDraft();
+    $architecture = [
+        'boiler_budget_alignment' => ['aligned' => true, 'conflict' => ''],
+        'beat_map' => [
+            ['time_range' => '00:00-03:00', 'moment' => 'Open', 'beat_type' => 'SETUP', 'choice_slot' => 'BRANCHING', 'dramatic_function' => 'Identity', 'moment_key' => 'S1_M01'],
+        ],
+    ];
+
+    $canonical = (new SessionArchitectureCanonicalizer())->canonicalize($architecture, $draft);
+
+    expect($canonical['boiler_budget_alignment']['aligned'])->toBeFalse()
+        ->and($canonical['boiler_budget_alignment']['conflict'])
+        ->toContain('BRANCHING slots instead of 4');
+
+    expect(fn () => (new SessionArchitectureValidator())->validate($canonical, $draft))
+        ->toThrow(RuntimeException::class);
+});
+
 it('requires relationally sequential next moment evidence in final cards', function () {
     $session = boilerTestSession();
     $session->boiler_draft = boilerTestDraft();
@@ -316,7 +470,6 @@ it('requires relationally sequential next moment evidence in final cards', funct
 
     (new BoilerFinalCutValidator())->validate($finalCut, $session, boilerTestEvents());
 })->throws(RuntimeException::class);
-
 
 it('does not manufacture extra Architecture branches for every Draft CHOICE candidate', function () {
     $draft = boilerTestDraft();

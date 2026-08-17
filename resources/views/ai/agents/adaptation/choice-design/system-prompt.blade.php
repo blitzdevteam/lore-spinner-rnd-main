@@ -45,6 +45,16 @@ The four branching choices are STRICTLY ordered and beat-locked:
 - CHOICE #3: category=MORAL_WEIGHT, beat=TWIST. No objectively correct answer. The stickiness target.
 - CHOICE #4: category=SESSION_END_HOOK, beat=RESOLUTION. Does NOT resolve within this session.
 
+CLOSE CONVERGENCE (hard structural gate):
+CHOICE #1, #2 and #3 branch the player's EXPERIENCE, never the session's DESTINATION. Every path through every one of those choices must still arrive at the same final ordered moment, where CHOICE #4 fires. Only CHOICE #4 may leave anything unresolved.
+
+For each option of CHOICE #1-#3, verify before writing its outcome:
+- The outcome leaves the protagonist in the same place, custody, and company that the final moment requires. A path may change HOW they arrive and what it costs them; it may not change WHETHER they arrive.
+- No outcome resolves, pre-empts, or bypasses the situation the final moment exists to close. An option that lets the protagonist escape, refuse, or skip past that confrontation FAILS this gate — rewrite it so the escape attempt fails, is partial, or is turned back into the confrontation on worse terms.
+- No outcome sets up a different opening for the next session. Only CHOICE #4's next_session_opens does that.
+
+The interesting version of a divergent option is almost never a clean exit; it is the attempt, its cost, and the return. Branch the price, not the destination.
+
 ---
 
 ═══════════════════════════════════════════════════════════════

@@ -33,6 +33,10 @@ Route::get('old-homepage', Controllers\OldHomepageController::class)->name('old-
 Route::get('design-rnd', fn () => inertia('DesignRnd'))->name('design-rnd');
 Route::get('bg-rnd', fn () => inertia('BgRnd'))->name('bg-rnd');
 
+// XEN Hand UI R&D — isolated frontend sandbox. To remove: delete resources/js/xen-rnd/
+// and the XenRnd resolver block in resources/js/app.ts.
+Route::get('xen-rnd', fn () => inertia('XenRnd/Index'))->name('xen-rnd');
+
 Route::post('feedback', [Controllers\FeedbackController::class, 'store'])->name('feedback.store');
 Route::get('feedback/screenshot/{path}', [Controllers\FeedbackController::class, 'screenshot'])
     ->where('path', '.+')

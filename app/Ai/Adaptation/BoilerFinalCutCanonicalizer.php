@@ -80,11 +80,21 @@ final class BoilerFinalCutCanonicalizer
         }
         $finalCut['moments'] = $cards;
 
-        // Only moments that Phase 5 assigned a canonical branching choice carry the
+        // Only moments that Phase 5 assigned a canonical *branching* choice carry the
         // CHOICE role in the final cut. Draft CHOICE candidates that were not
         // selected by Phase 5 are reclassified as PRESSURE — they exert narrative
         // weight without owning a canonical branching ID.
-        $canonicalChoiceMoments = $choiceIdsByMoment->keys()->all();
+        //
+        // Emotional choices are deliberately excluded: they colour a room but are not
+        // one of the four canonical branches, so a moment carrying only an emotional
+        // choice must not keep a CHOICE event role. Including them here made the
+        // canonical branch count ambiguous in the final role artifacts.
+        $canonicalChoiceMoments = collect((array) ($choiceDesign['branching_choices'] ?? []))
+            ->filter(fn ($choice): bool => is_array($choice) && is_string($choice['moment_key'] ?? null))
+            ->pluck('moment_key')
+            ->unique()
+            ->values()
+            ->all();
 
         $finalCut['event_role_map'] = collect((array) ($draft['event_role_map'] ?? []))
             ->map(function ($role) use ($canonicalChoiceMoments): array {

@@ -7,6 +7,7 @@ use App\Filament\Manager\Resources\PlayerTokenUsages\Pages\ViewPlayerTokenUsage;
 use App\Filament\Manager\Resources\PlayerTokenUsages\PlayerTokenUsageResource;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Schemas\PlayerTokenUsageInfolist;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Tables\PlayerTokenUsagesTable;
+use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenProviderEfficiencyChart;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageBreakdownChart;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageOverview;
 use App\Filament\Manager\Resources\PlayerTokenUsages\Widgets\TokenUsageTrendChart;
@@ -31,6 +32,7 @@ it('registers token usage as a standalone read-only manager resource', function 
             TokenUsageOverview::class,
             TokenUsageTrendChart::class,
             TokenUsageBreakdownChart::class,
+            TokenProviderEfficiencyChart::class,
         ]);
 });
 

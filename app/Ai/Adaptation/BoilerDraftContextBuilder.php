@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 final class BoilerDraftContextBuilder
@@ -51,6 +52,23 @@ final class BoilerDraftContextBuilder
 
         if (! is_array($guidance)) {
             throw new RuntimeException("Missing boiling profile guidance for session {$sessionNumber}.");
+        }
+
+        // Ask the agent for a count the validator can accept. Both sides resolve the
+        // range the same way, so a deep entry-point cut narrows the ask instead of
+        // producing drafts that can never validate.
+        $range = BoilerMomentRangeResolver::resolve($guidance, $events);
+        $guidance['recommended_moment_count_min'] = $range['min'];
+        $guidance['recommended_moment_count_max'] = $range['max'];
+        $guidance['playable_event_count'] = $range['playable_event_count'];
+
+        if ($range['clamped']) {
+            Log::warning('boiler.moment_range_clamped', [
+                'story_id' => $story->id,
+                'session_number' => $sessionNumber,
+                'playable_event_count' => $range['playable_event_count'],
+                'resolved_range' => $range['min'].'-'.$range['max'],
+            ]);
         }
 
         $remainingChars = self::SESSION_SOURCE_CHAR_BUDGET;

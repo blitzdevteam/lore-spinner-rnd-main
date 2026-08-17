@@ -54,8 +54,11 @@ final class PromptController extends Controller
                 ->whereNull('prompt')
                 ->first();
 
+            // Newest by ULID, matching the order the play page renders. created_at
+            // ties would let the two sides disagree about which turn is current and
+            // reject a legitimate move as out of turn.
             if ($sourcePrompt === null
-                || $game->prompts()->latest()->value('id') !== $sourcePrompt->id
+                || $game->prompts()->orderByDesc('id')->value('id') !== $sourcePrompt->id
                 || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
             ) {
                 return to_route('user.games.show', $game);

@@ -71,9 +71,11 @@ final class RuntimeNarratorTemplateBuilder
     public function __construct(private SessionEventLoader $eventLoader) {}
 
     /**
-     * Soften [BRACKETED_TOKENS] in authored prose that gets rendered into the
-     * prompt verbatim. The runtime validator rejects unknown control tokens, so
-     * an incidental bracket in generated guidance must never block assembly.
+     * Soften [BRACKETED_TOKENS] in every authored value rendered into the prompt.
+     * The runtime validator rejects unknown control tokens, so an incidental
+     * bracket anywhere in generated artifacts must never block assembly. Control
+     * tokens the runtime actually reads are literals in the Blade template, never
+     * data, so nothing legitimate is lost here.
      *
      * @param  array<mixed>  $value
      * @return array<mixed>
@@ -412,7 +414,7 @@ final class RuntimeNarratorTemplateBuilder
                 ->all()
             : [];
 
-        $rendered = View::make('ai.agents.chaos.runtime-narrator-template', [
+        $rendered = View::make('ai.agents.chaos.runtime-narrator-template', self::withoutBracketTokens([
             'storyTitle' => $story->title,
             'authorName' => $story->creator?->full_name ?? 'the author',
             'sessionNumber' => $session->session_number,
@@ -439,17 +441,13 @@ final class RuntimeNarratorTemplateBuilder
             'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
             'postureShifts' => (array) ($choiceDesign['posture_shifts'] ?? []),
 
-            'consequenceMaps' => self::withoutBracketTokens(
-                $this->projectConsequenceVisibility(
-                    (array) ($consequenceMap['branching_consequences'] ?? []),
-                    $authoredDetail,
-                )
+            'consequenceMaps' => $this->projectConsequenceVisibility(
+                (array) ($consequenceMap['branching_consequences'] ?? []),
+                $authoredDetail,
             ),
-            'freeformGuidelines' => self::withoutBracketTokens(
-                $this->projectFreeformGuidelines(
-                    (array) ($consequenceMap['freeform_guidelines'] ?? []),
-                    $authoredDetail,
-                )
+            'freeformGuidelines' => $this->projectFreeformGuidelines(
+                (array) ($consequenceMap['freeform_guidelines'] ?? []),
+                $authoredDetail,
             ),
 
             'editorialStatus' => (string) (
@@ -457,7 +455,7 @@ final class RuntimeNarratorTemplateBuilder
                 ?? data_get($session->editorial_verification, 'production_status')
                 ?? 'UNVERIFIED'
             ),
-        ])->render();
+        ]))->render();
 
         return html_entity_decode($rendered, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
