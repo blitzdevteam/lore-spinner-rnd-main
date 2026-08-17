@@ -154,6 +154,13 @@ export interface VisibleSuggestionInterface {
 
 export type PromptChoice = string | VisibleSuggestionInterface;
 
+export interface GameplayUsageSummary {
+    prompt_count: number;
+    prompt_tokens: number;
+    voice_count: number;
+    voice_characters: number;
+}
+
 export interface GameInterface {
     id: string;
     story_id: number;

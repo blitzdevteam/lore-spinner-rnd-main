@@ -6,9 +6,11 @@ use App\Models\Game;
 use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
+use App\Models\PlayerVoiceUsage;
 use App\Services\Runtime\PlayerTokenUsageInsights;
 use App\Services\Runtime\PlayerTokenUsageRecorder;
 use App\Services\Runtime\PlayerTokenUsageSummary;
+use App\Services\Runtime\PlayerVoiceUsageSummary;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +117,11 @@ beforeEach(function () {
         'migrations/2026_08_11_000002_remove_legacy_session_event_attribution.php',
     );
     $legacyAttributionCleanup->up();
+
+    $voiceUsage = require database_path(
+        'migrations/2026_08_11_000003_create_player_voice_usages_table.php',
+    );
+    $voiceUsage->up();
 });
 
 afterEach(function () {
@@ -219,6 +226,7 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     $summary = app(PlayerTokenUsageSummary::class);
     foreach ([
         $summary->forGame($game->id),
+        $summary->forStoryCycle($game->id, 2),
         $summary->forSession($game->id, 2, 1),
         $summary->forMoment($moment->id),
         $summary->forEvent($secondEventId),
@@ -239,6 +247,77 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     expect($usage->prompt_id)->toBeNull()
         ->and($usage->prompt_reference_id)->toBe($promptReference)
         ->and(PlayerTokenUsage::query()->count())->toBe(1);
+});
+
+it('summarizes voice usage for the active story cycle only', function () {
+    $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $game = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 2,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $currentPrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Current narration.',
+        'choices' => [],
+    ]);
+    $previousPrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Previous narration.',
+        'choices' => [],
+    ]);
+
+    foreach ([
+        ['prompt' => $currentPrompt, 'cycle' => 2, 'characters' => 240],
+        ['prompt' => $previousPrompt, 'cycle' => 1, 'characters' => 960],
+    ] as $usage) {
+        PlayerVoiceUsage::query()->create([
+            'game_id' => $game->id,
+            'prompt_id' => $usage['prompt']->id,
+            'prompt_reference_id' => $usage['prompt']->id,
+            'story_id' => $storyId,
+            'user_id' => $userId,
+            'story_cycle_number' => $usage['cycle'],
+            'session_number' => 1,
+            'provider' => 'elevenlabs',
+            'model' => 'eleven_v3',
+            'voice_id' => 'voice-1',
+            'output_format' => 'mp3',
+            'billing_unit' => 'characters',
+            'input_characters' => $usage['characters'],
+            'billable_units' => $usage['characters'],
+            'audio_bytes' => 1_024,
+            'latency_ms' => 250,
+            'currency' => 'USD',
+            'pricing_available' => true,
+            'pricing_version' => 'test',
+            'pricing_effective_from' => now(),
+            'pricing_source' => 'test',
+            'rate_per_thousand_usd' => '0.100000',
+            'estimated_cost_usd' => '0.024000000000',
+            'text_snapshot' => $usage['prompt']->response,
+            'provider_metadata' => [],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    $summary = app(PlayerVoiceUsageSummary::class);
+
+    expect($summary->forGame($game->id))
+        ->toMatchArray([
+            'requests' => 2,
+            'input_characters' => 1_200,
+            'billable_units' => 1_200,
+        ])
+        ->and($summary->forStoryCycle($game->id, 2))
+        ->toMatchArray([
+            'requests' => 1,
+            'input_characters' => 240,
+            'billable_units' => 240,
+        ]);
 });
 
 it('keeps legacy usage at session scope and removes historical inferred event links', function () {

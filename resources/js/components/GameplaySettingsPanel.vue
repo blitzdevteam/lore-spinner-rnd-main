@@ -2,6 +2,7 @@
 import BaseButton from '@/components/BaseButton.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
+import { GameplayUsageSummary } from '@/types';
 import { glassTintVars } from '@/utils/color';
 import { router } from '@inertiajs/vue3';
 import { LucideExternalLink, LucideMinus, LucidePlus, LucideRefreshCw, LucideRotateCcw, LucideZap } from 'lucide-vue-next';
@@ -10,6 +11,7 @@ import { computed, ref } from 'vue';
 const props = withDefaults(
     defineProps<{
         gameId?: string;
+        usage?: GameplayUsageSummary;
         variant?: 'sidebar' | 'sheet';
     }>(),
     { variant: 'sidebar' },
@@ -17,6 +19,16 @@ const props = withDefaults(
 
 const { settings, fontColorPresets, backgroundPresets, reset } = useGameplaySettings();
 const tts = useTextToSpeech();
+
+const usage = computed<GameplayUsageSummary>(
+    () =>
+        props.usage ?? {
+            prompt_count: 0,
+            prompt_tokens: 0,
+            voice_count: 0,
+            voice_characters: 0,
+        },
+);
 
 const glassPreviewStyle = computed(() => glassTintVars(settings.backgroundColor));
 
@@ -26,6 +38,8 @@ const toggleAutoplay = () => {
 };
 
 const clampFontSize = (val: number) => Math.min(28, Math.max(12, val));
+
+const formatUsageCount = (value: number) => Math.max(0, value).toLocaleString();
 
 const isResetting = ref(false);
 
@@ -184,6 +198,33 @@ const onVolumeInput = (event: Event) => {
             </div>
         </div>
 
+        <div v-if="gameId" class="flex flex-col gap-3 border-t border-gray-700/40 pt-6">
+            <div>
+                <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Usage</label>
+                <p class="mt-1 text-xs text-gray-500">This playthrough</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Prompt tokens</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.prompt_tokens) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">
+                        {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
+                    </span>
+                </div>
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Voice renders</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.voice_count) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">
+                        {{ formatUsageCount(usage.voice_characters) }} characters used
+                    </span>
+                </div>
+            </div>
+        </div>
+
         <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
             <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Story</label>
             <BaseButton severity="gray-muted" class="w-full" :disabled="isResetting" @click="handleResetGame">
@@ -305,6 +346,33 @@ const onVolumeInput = (event: Event) => {
                     >
                         The ancient door creaked open, revealing a corridor bathed in moonlight...
                     </p>
+                </div>
+            </div>
+        </section>
+
+        <section v-if="gameId" class="gp-settings-section">
+            <div>
+                <h3 class="gp-section-title">Usage</h3>
+                <p class="mt-1 text-xs text-gray-500">This playthrough</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Prompt tokens</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.prompt_tokens) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">
+                        {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
+                    </span>
+                </div>
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Voice renders</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.voice_count) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">
+                        {{ formatUsageCount(usage.voice_characters) }} characters used
+                    </span>
                 </div>
             </div>
         </section>

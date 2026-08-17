@@ -6,7 +6,7 @@ import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import { GameInterface, PromptChoice, PromptInterface } from '@/types';
+import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -16,6 +16,7 @@ const CONTINUE_MARKER = '__continue__';
 
 const props = defineProps<{
     game: GameInterface;
+    usage: GameplayUsageSummary;
 }>();
 
 const tts = useTextToSpeech();
@@ -416,7 +417,7 @@ async function streamPrompt(
                 isStreamingTurn.value = false;
                 streamingPromptId.value = null;
                 pendingSelection.value = {};
-                router.reload({ only: ['game'] });
+                router.reload({ only: ['game', 'usage'] });
             }
 
             if (event.event === 'error') {
@@ -657,6 +658,7 @@ onUnmounted(() => {
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
+        :usage="usage"
         :latest-prompt-id="latestPromptId"
         :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"

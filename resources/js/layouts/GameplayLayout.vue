@@ -12,6 +12,8 @@ import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
+import { GameplayUsageSummary } from '@/types';
+import { router } from '@inertiajs/vue3';
 import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
@@ -25,6 +27,7 @@ const props = withDefaults(
     defineProps<{
         inputDisabled?: boolean;
         gameId?: string;
+        usage?: GameplayUsageSummary;
         latestPromptId?: string | null;
         coverUrl?: string | null;
         journalMeta?: JournalMeta;
@@ -151,9 +154,27 @@ const toggleJournal = () => {
     activePanel.value = activePanel.value === 'journal' ? null : 'journal';
 };
 
-const toggleSettings = () => {
-    activePanel.value = activePanel.value === 'settings' ? null : 'settings';
+const refreshUsage = () => {
+    router.reload({ only: ['usage'] });
 };
+
+const toggleSettings = () => {
+    const openingSettings = activePanel.value !== 'settings';
+    activePanel.value = openingSettings ? 'settings' : null;
+
+    if (openingSettings) {
+        refreshUsage();
+    }
+};
+
+watch(
+    () => tts.isLoading.value,
+    (isLoading, wasLoading) => {
+        if (!isLoading && wasLoading && activePanel.value === 'settings') {
+            refreshUsage();
+        }
+    },
+);
 
 const toggleAutoplay = () => {
     tts.primeAudio();
@@ -410,7 +431,7 @@ const handleInputSubmit = (prompt: string) => {
                     class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
                 >
                     <div class="flex h-full w-full flex-col px-6 pt-8">
-                        <GameplaySettingsPanel variant="sidebar" :game-id="props.gameId" />
+                        <GameplaySettingsPanel variant="sidebar" :game-id="props.gameId" :usage="props.usage" />
                     </div>
                 </div>
             </Transition>
@@ -429,7 +450,7 @@ const handleInputSubmit = (prompt: string) => {
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'settings'" title="Settings" @close="closeMobilePanel">
-            <GameplaySettingsPanel variant="sheet" :game-id="props.gameId" />
+            <GameplaySettingsPanel variant="sheet" :game-id="props.gameId" :usage="props.usage" />
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'audio'" title="Audio" @close="closeMobilePanel">

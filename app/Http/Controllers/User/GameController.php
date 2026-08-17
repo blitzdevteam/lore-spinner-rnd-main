@@ -14,8 +14,10 @@ use App\Models\GameSessionCompletion;
 use App\Models\Story;
 use App\Models\User;
 use App\Models\UserActivityDay;
-use App\Services\ChaosEngineService;
 use App\Services\Adaptation\StoryGameResetService;
+use App\Services\ChaosEngineService;
+use App\Services\Runtime\PlayerTokenUsageSummary;
+use App\Services\Runtime\PlayerVoiceUsageSummary;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -49,6 +51,8 @@ final class GameController extends Controller
         private readonly ChaosEngineService $engine,
         private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
+        private readonly PlayerTokenUsageSummary $tokenUsageSummary,
+        private readonly PlayerVoiceUsageSummary $voiceUsageSummary,
     ) {}
 
     public function index(): RedirectResponse
@@ -74,6 +78,7 @@ final class GameController extends Controller
 
         return inertia('User/Games/Show', [
             'game' => $game->toResource(),
+            'usage' => fn (): array => $this->gameplayUsage($game),
         ]);
     }
 
@@ -258,6 +263,28 @@ final class GameController extends Controller
         UserActivityDay::record($game->user_id);
 
         return to_route('user.games.show', $game);
+    }
+
+    /**
+     * @return array{
+     *     prompt_count:int,
+     *     prompt_tokens:int,
+     *     voice_count:int,
+     *     voice_characters:int,
+     * }
+     */
+    private function gameplayUsage(Game $game): array
+    {
+        $storyCycleNumber = $game->current_story_cycle_number;
+        $tokenUsage = $this->tokenUsageSummary->forStoryCycle($game->id, $storyCycleNumber);
+        $voiceUsage = $this->voiceUsageSummary->forStoryCycle($game->id, $storyCycleNumber);
+
+        return [
+            'prompt_count' => $tokenUsage['requests'],
+            'prompt_tokens' => $tokenUsage['total_tokens'],
+            'voice_count' => $voiceUsage['requests'],
+            'voice_characters' => $voiceUsage['billable_units'],
+        ];
     }
 
     /**
