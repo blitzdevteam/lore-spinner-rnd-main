@@ -7,6 +7,8 @@ use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
 use App\Models\PlayerVoiceUsage;
+use App\Services\Runtime\GameplayAllowanceResolver;
+use App\Services\Runtime\PlayerGameplayUsageSummary;
 use App\Services\Runtime\PlayerTokenUsageInsights;
 use App\Services\Runtime\PlayerTokenUsageRecorder;
 use App\Services\Runtime\PlayerTokenUsageSummary;
@@ -122,6 +124,11 @@ beforeEach(function () {
         'migrations/2026_08_11_000003_create_player_voice_usages_table.php',
     );
     $voiceUsage->up();
+
+    $voiceDuration = require database_path(
+        'migrations/2026_08_17_000001_add_audio_duration_to_player_voice_usages_table.php',
+    );
+    $voiceDuration->up();
 });
 
 afterEach(function () {
@@ -272,8 +279,8 @@ it('summarizes voice usage for the active story cycle only', function () {
     ]);
 
     foreach ([
-        ['prompt' => $currentPrompt, 'cycle' => 2, 'characters' => 240],
-        ['prompt' => $previousPrompt, 'cycle' => 1, 'characters' => 960],
+        ['prompt' => $currentPrompt, 'cycle' => 2, 'characters' => 240, 'duration_ms' => 18_000],
+        ['prompt' => $previousPrompt, 'cycle' => 1, 'characters' => 960, 'duration_ms' => 72_000],
     ] as $usage) {
         PlayerVoiceUsage::query()->create([
             'game_id' => $game->id,
@@ -291,6 +298,7 @@ it('summarizes voice usage for the active story cycle only', function () {
             'input_characters' => $usage['characters'],
             'billable_units' => $usage['characters'],
             'audio_bytes' => 1_024,
+            'audio_duration_ms' => $usage['duration_ms'],
             'latency_ms' => 250,
             'currency' => 'USD',
             'pricing_available' => true,
@@ -312,12 +320,129 @@ it('summarizes voice usage for the active story cycle only', function () {
             'requests' => 2,
             'input_characters' => 1_200,
             'billable_units' => 1_200,
+            'audio_duration_ms' => 90_000,
         ])
         ->and($summary->forStoryCycle($game->id, 2))
         ->toMatchArray([
             'requests' => 1,
             'input_characters' => 240,
             'billable_units' => 240,
+            'audio_duration_ms' => 18_000,
+        ]);
+});
+
+it('summarizes player-facing turns and generated voice duration across the account', function () {
+    config([
+        'gameplay-usage.default_plan.turns' => 250,
+        'gameplay-usage.default_plan.voice_minutes' => 60,
+    ]);
+
+    $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $firstGame = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $secondGame = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+
+    $openingPrompt = $firstGame->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Opening narration.',
+        'choices' => [],
+    ]);
+    $firstTurnPrompt = $firstGame->prompts()->create([
+        'session_number' => 1,
+        'response' => 'First player turn.',
+        'choices' => [],
+    ]);
+    $secondTurnPrompt = $secondGame->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Second player turn.',
+        'choices' => [],
+    ]);
+
+    $tokenUsage = app(PlayerTokenUsageRecorder::class);
+    $tokenUsage->record(
+        game: $firstGame,
+        prompt: $openingPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_BEGIN,
+    );
+    $tokenUsage->record(
+        game: $firstGame,
+        prompt: $firstTurnPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_TURN,
+    );
+    $tokenUsage->record(
+        game: $secondGame,
+        prompt: $secondTurnPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_TURN,
+    );
+
+    foreach ([
+        ['game' => $firstGame, 'prompt' => $openingPrompt, 'duration_ms' => 30_000],
+        ['game' => $firstGame, 'prompt' => $firstTurnPrompt, 'duration_ms' => 45_000],
+        ['game' => $secondGame, 'prompt' => $secondTurnPrompt, 'duration_ms' => 90_000],
+    ] as $voice) {
+        PlayerVoiceUsage::query()->create([
+            'game_id' => $voice['game']->id,
+            'prompt_id' => $voice['prompt']->id,
+            'prompt_reference_id' => $voice['prompt']->id,
+            'story_id' => $storyId,
+            'user_id' => $userId,
+            'story_cycle_number' => 1,
+            'session_number' => 1,
+            'provider' => 'elevenlabs',
+            'model' => 'eleven_v3',
+            'voice_id' => 'voice-1',
+            'output_format' => 'mp3',
+            'billing_unit' => 'characters',
+            'input_characters' => 100,
+            'billable_units' => 100,
+            'audio_bytes' => 1_024,
+            'audio_duration_ms' => $voice['duration_ms'],
+            'latency_ms' => 250,
+            'currency' => 'USD',
+            'pricing_available' => true,
+            'pricing_version' => 'test',
+            'pricing_effective_from' => now(),
+            'pricing_source' => 'test',
+            'rate_per_thousand_usd' => '0.100000',
+            'estimated_cost_usd' => '0.010000000000',
+            'text_snapshot' => $voice['prompt']->response,
+            'provider_metadata' => [],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    $summary = app(PlayerGameplayUsageSummary::class);
+    $allowance = app(GameplayAllowanceResolver::class)->forUser($userId);
+
+    expect($summary->forGame($firstGame->id))
+        ->toBe([
+            'turns' => 1,
+            'voice_duration_ms' => 75_000,
+        ])
+        ->and($summary->forUser($userId))
+        ->toBe([
+            'turns' => 2,
+            'voice_duration_ms' => 165_000,
+        ])
+        ->and($allowance)
+        ->toBe([
+            'turns' => 250,
+            'voice_duration_ms' => 3_600_000,
         ]);
 });
 

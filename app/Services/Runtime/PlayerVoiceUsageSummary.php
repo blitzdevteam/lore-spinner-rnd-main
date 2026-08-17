@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 final class PlayerVoiceUsageSummary
 {
     /**
-     * @return array{requests:int, input_characters:int, billable_units:int}
+     * @return array{requests:int, input_characters:int, billable_units:int, audio_duration_ms:int}
      */
     public function forGame(string $gameId): array
     {
@@ -20,7 +20,7 @@ final class PlayerVoiceUsageSummary
     }
 
     /**
-     * @return array{requests:int, input_characters:int, billable_units:int}
+     * @return array{requests:int, input_characters:int, billable_units:int, audio_duration_ms:int}
      */
     public function forStoryCycle(string $gameId, int $storyCycleNumber): array
     {
@@ -33,7 +33,7 @@ final class PlayerVoiceUsageSummary
 
     /**
      * @param  Builder<PlayerVoiceUsage>  $query
-     * @return array{requests:int, input_characters:int, billable_units:int}
+     * @return array{requests:int, input_characters:int, billable_units:int, audio_duration_ms:int}
      */
     private function summarize(Builder $query): array
     {
@@ -43,6 +43,7 @@ final class PlayerVoiceUsageSummary
                 'COUNT(*) AS requests',
                 'COALESCE(SUM(input_characters), 0) AS input_characters',
                 'COALESCE(SUM(billable_units), 0) AS billable_units',
+                'COALESCE(SUM(audio_duration_ms), 0) AS audio_duration_ms',
             ]))
             ->first();
 
@@ -50,6 +51,7 @@ final class PlayerVoiceUsageSummary
             'requests' => $this->integer($totals?->requests),
             'input_characters' => $this->integer($totals?->input_characters),
             'billable_units' => $this->integer($totals?->billable_units),
+            'audio_duration_ms' => $this->integer($totals?->audio_duration_ms),
         ];
     }
 

@@ -16,8 +16,8 @@ use App\Models\User;
 use App\Models\UserActivityDay;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
-use App\Services\Runtime\PlayerTokenUsageSummary;
-use App\Services\Runtime\PlayerVoiceUsageSummary;
+use App\Services\Runtime\GameplayAllowanceResolver;
+use App\Services\Runtime\PlayerGameplayUsageSummary;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -51,8 +51,8 @@ final class GameController extends Controller
         private readonly ChaosEngineService $engine,
         private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
-        private readonly PlayerTokenUsageSummary $tokenUsageSummary,
-        private readonly PlayerVoiceUsageSummary $voiceUsageSummary,
+        private readonly PlayerGameplayUsageSummary $gameplayUsageSummary,
+        private readonly GameplayAllowanceResolver $allowanceResolver,
     ) {}
 
     public function index(): RedirectResponse
@@ -267,27 +267,34 @@ final class GameController extends Controller
 
     /**
      * @return array{
-     *     prompt_count:int,
-     *     prompt_input_tokens:int,
-     *     prompt_output_tokens:int,
-     *     prompt_tokens:int,
-     *     voice_count:int,
-     *     voice_characters:int,
+     *     turns_played:int,
+     *     voice_duration_ms:int,
+     *     turns_used:int,
+     *     turns_limit:int,
+     *     turns_remaining:int,
+     *     voice_duration_ms_used:int,
+     *     voice_duration_ms_limit:int,
+     *     voice_duration_ms_remaining:int,
      * }
      */
     private function gameplayUsage(Game $game): array
     {
-        $storyCycleNumber = $game->current_story_cycle_number;
-        $tokenUsage = $this->tokenUsageSummary->forStoryCycle($game->id, $storyCycleNumber);
-        $voiceUsage = $this->voiceUsageSummary->forStoryCycle($game->id, $storyCycleNumber);
+        $gameUsage = $this->gameplayUsageSummary->forGame($game->id);
+        $accountUsage = $this->gameplayUsageSummary->forUser($game->user_id);
+        $allowance = $this->allowanceResolver->forUser($game->user_id);
 
         return [
-            'prompt_count' => $tokenUsage['requests'],
-            'prompt_input_tokens' => $tokenUsage['total_input_tokens'],
-            'prompt_output_tokens' => $tokenUsage['output_tokens'],
-            'prompt_tokens' => $tokenUsage['total_tokens'],
-            'voice_count' => $voiceUsage['requests'],
-            'voice_characters' => $voiceUsage['billable_units'],
+            'turns_played' => $gameUsage['turns'],
+            'voice_duration_ms' => $gameUsage['voice_duration_ms'],
+            'turns_used' => $accountUsage['turns'],
+            'turns_limit' => $allowance['turns'],
+            'turns_remaining' => max(0, $allowance['turns'] - $accountUsage['turns']),
+            'voice_duration_ms_used' => $accountUsage['voice_duration_ms'],
+            'voice_duration_ms_limit' => $allowance['voice_duration_ms'],
+            'voice_duration_ms_remaining' => max(
+                0,
+                $allowance['voice_duration_ms'] - $accountUsage['voice_duration_ms'],
+            ),
         ];
     }
 

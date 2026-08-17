@@ -23,12 +23,14 @@ const tts = useTextToSpeech();
 const usage = computed<GameplayUsageSummary>(
     () =>
         props.usage ?? {
-            prompt_count: 0,
-            prompt_input_tokens: 0,
-            prompt_output_tokens: 0,
-            prompt_tokens: 0,
-            voice_count: 0,
-            voice_characters: 0,
+            turns_played: 0,
+            voice_duration_ms: 0,
+            turns_used: 0,
+            turns_limit: 0,
+            turns_remaining: 0,
+            voice_duration_ms_used: 0,
+            voice_duration_ms_limit: 0,
+            voice_duration_ms_remaining: 0,
         },
 );
 
@@ -42,6 +44,14 @@ const toggleAutoplay = () => {
 const clampFontSize = (val: number) => Math.min(28, Math.max(12, val));
 
 const formatUsageCount = (value: number) => Math.max(0, value).toLocaleString();
+
+const formatVoiceDuration = (milliseconds: number) => {
+    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+};
 
 const isResetting = ref(false);
 
@@ -203,40 +213,45 @@ const onVolumeInput = (event: Event) => {
         <div v-if="gameId" class="flex flex-col gap-3 border-t border-gray-700/40 pt-6">
             <div>
                 <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Usage</label>
-                <p class="mt-1 text-xs text-gray-500">This playthrough</p>
+                <p class="mt-1 text-xs text-gray-500">This game</p>
             </div>
             <div class="grid grid-cols-2 gap-2.5">
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                    <span class="block text-xs text-gray-400">Prompt tokens</span>
+                    <span class="block text-xs text-gray-400">Turns played</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.prompt_tokens) }}
+                        {{ formatUsageCount(usage.turns_played) }}
                     </strong>
-                    <span class="mt-1 block text-xs text-gray-500">
-                        {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
-                    </span>
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
-                        <div>
-                            <span class="block text-[11px] text-gray-500">Input</span>
-                            <span class="block text-xs font-medium tabular-nums text-gray-300">
-                                {{ formatUsageCount(usage.prompt_input_tokens) }}
-                            </span>
-                        </div>
-                        <div>
-                            <span class="block text-[11px] text-gray-500">Output</span>
-                            <span class="block text-xs font-medium tabular-nums text-gray-300">
-                                {{ formatUsageCount(usage.prompt_output_tokens) }}
-                            </span>
-                        </div>
-                    </div>
+                    <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                    <span class="block text-xs text-gray-400">Voice renders</span>
+                    <span class="block text-xs text-gray-400">Voice generated</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.voice_count) }}
+                        {{ formatVoiceDuration(usage.voice_duration_ms) }}
                     </strong>
-                    <span class="mt-1 block text-xs text-gray-500">
-                        {{ formatUsageCount(usage.voice_characters) }} characters used
-                    </span>
+                    <span class="mt-1 block text-xs text-gray-500">Narration time</span>
+                </div>
+            </div>
+            <div class="pt-1">
+                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">Account balance</p>
+                <div class="mt-2 grid grid-cols-2 gap-2.5">
+                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
+                        <span class="block text-xs text-gray-400">Turns left</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatUsageCount(usage.turns_remaining) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">
+                            {{ formatUsageCount(usage.turns_used) }} of {{ formatUsageCount(usage.turns_limit) }} used
+                        </span>
+                    </div>
+                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
+                        <span class="block text-xs text-gray-400">Voice left</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatVoiceDuration(usage.voice_duration_ms_remaining) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">
+                            {{ formatVoiceDuration(usage.voice_duration_ms_used) }} of {{ formatVoiceDuration(usage.voice_duration_ms_limit) }} used
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -369,40 +384,45 @@ const onVolumeInput = (event: Event) => {
         <section v-if="gameId" class="gp-settings-section">
             <div>
                 <h3 class="gp-section-title">Usage</h3>
-                <p class="mt-1 text-xs text-gray-500">This playthrough</p>
+                <p class="mt-1 text-xs text-gray-500">This game</p>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                    <span class="block text-xs text-gray-400">Prompt tokens</span>
+                    <span class="block text-xs text-gray-400">Turns played</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.prompt_tokens) }}
+                        {{ formatUsageCount(usage.turns_played) }}
                     </strong>
-                    <span class="mt-1 block text-xs text-gray-500">
-                        {{ formatUsageCount(usage.prompt_count) }} {{ usage.prompt_count === 1 ? 'prompt' : 'prompts' }}
-                    </span>
-                    <div class="mt-3 grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
-                        <div>
-                            <span class="block text-[11px] text-gray-500">Input</span>
-                            <span class="block text-xs font-medium tabular-nums text-gray-300">
-                                {{ formatUsageCount(usage.prompt_input_tokens) }}
-                            </span>
-                        </div>
-                        <div>
-                            <span class="block text-[11px] text-gray-500">Output</span>
-                            <span class="block text-xs font-medium tabular-nums text-gray-300">
-                                {{ formatUsageCount(usage.prompt_output_tokens) }}
-                            </span>
-                        </div>
-                    </div>
+                    <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
                 </div>
                 <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                    <span class="block text-xs text-gray-400">Voice renders</span>
+                    <span class="block text-xs text-gray-400">Voice generated</span>
                     <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
-                        {{ formatUsageCount(usage.voice_count) }}
+                        {{ formatVoiceDuration(usage.voice_duration_ms) }}
                     </strong>
-                    <span class="mt-1 block text-xs text-gray-500">
-                        {{ formatUsageCount(usage.voice_characters) }} characters used
-                    </span>
+                    <span class="mt-1 block text-xs text-gray-500">Narration time</span>
+                </div>
+            </div>
+            <div>
+                <p class="gp-field-label">Account balance</p>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
+                        <span class="block text-xs text-gray-400">Turns left</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatUsageCount(usage.turns_remaining) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">
+                            {{ formatUsageCount(usage.turns_used) }} of {{ formatUsageCount(usage.turns_limit) }} used
+                        </span>
+                    </div>
+                    <div class="rounded-xl border border-primary/15 bg-primary/[0.04] p-3">
+                        <span class="block text-xs text-gray-400">Voice left</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatVoiceDuration(usage.voice_duration_ms_remaining) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">
+                            {{ formatVoiceDuration(usage.voice_duration_ms_used) }} of {{ formatVoiceDuration(usage.voice_duration_ms_limit) }} used
+                        </span>
+                    </div>
                 </div>
             </div>
         </section>
