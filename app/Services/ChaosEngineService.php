@@ -860,9 +860,23 @@ TEXT;
         return $history;
     }
 
+    /**
+     * Narration is stored as HTML, so `strip_tags` alone fuses paragraphs into a
+     * single run-on block ("straight at you.Barking."). That plain text is fed
+     * back to the narrator as its own conversation history and handed to TTS, so
+     * the block boundaries have to survive as newlines.
+     */
     public function stripHtml(string $html): string
     {
-        return mb_trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $withBreaks = preg_replace(
+            ['/<br\s*\/?>/i', '/<\/(?:p|div|h[1-6]|li|blockquote)>/i'],
+            ["\n", "\n\n"],
+            $html,
+        ) ?? $html;
+
+        $text = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return mb_trim((string) preg_replace(['/[ \t]+\n/', '/\n{3,}/'], ["\n", "\n\n"], $text));
     }
 
     /**

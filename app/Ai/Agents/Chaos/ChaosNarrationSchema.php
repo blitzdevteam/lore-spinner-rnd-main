@@ -111,7 +111,7 @@ final class ChaosNarrationSchema
                     ->required()
                     ->nullable()
                     ->title('Conditions')
-                    ->description('Complete replacement list only when active physical/mental conditions changed this turn. Return null when unchanged. Return [] only when the last active condition ended.')
+                    ->description('Active physical/mental conditions, including how the protagonist is dressed, presented, and physically able. Complete replacement list whenever any of that changed this turn — including when the player declared the state rather than acting it out. Return null when unchanged. Return [] only when the last active condition ended. On a location, scene, or session change, re-send the list with anything belonging to the place the story has left dropped.')
                     ->items($schema->string()->required()),
 
                 'items' => $schema

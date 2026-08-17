@@ -35,7 +35,10 @@ final class NarrationAudioService
 
     private const FAILURE_MESSAGE = 'Narration audio is unavailable for this turn.';
 
-    public function __construct(private readonly PlayerVoiceUsageRecorder $voiceUsage) {}
+    public function __construct(
+        private readonly PlayerVoiceUsageRecorder $voiceUsage,
+        private readonly ChaosEngineService $engine,
+    ) {}
 
     public function path(Prompt $prompt): string
     {
@@ -108,7 +111,7 @@ final class NarrationAudioService
         set_time_limit(self::LOCK_SECONDS);
 
         try {
-            $text = mb_trim(strip_tags((string) $prompt->response));
+            $text = $this->engine->stripHtml((string) $prompt->response);
 
             if ($text === '') {
                 throw new RuntimeException('Narration has no speakable text.');
