@@ -1,15 +1,15 @@
 <script setup lang="ts">
+import ComingSoonBanners from '@/components/ComingSoonBanners.vue';
+import ContinueStories from '@/components/ContinueStories.vue';
 import ExploreByMood from '@/components/ExploreByMood.vue';
+import FeaturedWorldsGames from '@/components/FeaturedWorldsGames.vue';
 import FrequentlyAskedQuestion from '@/components/FrequentlyAskedQuestion.vue';
 import HeroBanner from '@/components/HeroBanner.vue';
-import ComingSoonBanners from '@/components/ComingSoonBanners.vue';
-import FeaturedWorldsGames from '@/components/FeaturedWorldsGames.vue';
 import NewStoriesBanners from '@/components/NewStoriesBanners.vue';
 import StoryChangesWithYou from '@/components/StoryChangesWithYou.vue';
 import XenBanner from '@/components/XenBanner.vue';
-import ContinueStories from '@/components/ContinueStories.vue';
-import HomeLayout from '@/layouts/HomeLayout.vue';
 import { filterVisibleLibraryStories } from '@/data/hiddenLibraryStorySlugs';
+import HomeLayout from '@/layouts/HomeLayout.vue';
 import { ComingSoonStoryInterface, GameInterface, StoryInterface } from '@/types';
 import { computed } from 'vue';
 
@@ -61,7 +61,7 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 
         <!-- FAQ: slightly tighter top padding after Coming Soon so spacing matches Figma (hover glow → heading). -->
-        <div class="pt-10 pb-14 md:pt-12 md:pb-[3.75rem]">
+        <div id="faq" class="pt-10 pb-14 md:pt-12 md:pb-[3.75rem]">
             <div class="container">
                 <div class="container-content">
                     <FrequentlyAskedQuestion />

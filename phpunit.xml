@@ -28,5 +28,11 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="STRIPE_KEY" value="pk_test_cashier"/>
+        <env name="STRIPE_SECRET" value="sk_test_cashier"/>
+        <env name="STRIPE_PRICE_EXPLORER" value="price_explorer"/>
+        <env name="STRIPE_PRICE_ADVENTURER" value="price_adventurer"/>
+        <env name="STRIPE_PRICE_CHRONICLE" value="price_chronicle"/>
+        <env name="CASHIER_CURRENCY" value="usd"/>
     </php>
 </phpunit>
