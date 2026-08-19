@@ -80,4 +80,34 @@ final class StoryController extends Controller
             'isPlayable'     => $isPlayable,
         ]);
     }
+
+    public function multiplayer(Story $story): Response
+    {
+        $story
+            ->load([
+                'category:id,title',
+                'creator:id,first_name,last_name,username,avatar',
+                'media',
+            ])
+            ->loadCount('chapters');
+
+        return inertia('Multiplayer/Multiplayer', [
+            'story' => $story->toResource(),
+        ]);
+    }
+
+    public function multiplayerLobby(Story $story): Response
+    {
+        $story
+            ->load([
+                'category:id,title',
+                'creator:id,first_name,last_name,username,avatar',
+                'media',
+            ])
+            ->loadCount('chapters');
+
+        return inertia('Multiplayer/Lobby', [
+            'story' => $story->toResource(),
+        ]);
+    }
 }

@@ -9,6 +9,7 @@ import 'vue-sonner/style.css';
 const page = usePage();
 
 const flash = computed(() => page.props.flash);
+const showFeedbackWidget = computed(() => !['Multiplayer/Multiplayer', 'Multiplayer/Lobby'].includes(page.component));
 
 onMounted(() => {
     watch(
@@ -46,7 +47,7 @@ onMounted(() => {
         </template>
     </Toaster>
     <slot />
-    <FeedbackWidget />
+    <FeedbackWidget v-if="showFeedbackWidget" />
 </template>
 
 <style>

@@ -29,6 +29,14 @@ Route::middleware(RecordPageView::class)->group(function (): void {
         ->only(['index', 'show']);
 });
 
+Route::middleware(['auth:user', 'guard.profile-is-completed'])
+    ->get('stories/{story:slug}/multiplayer', [Controllers\StoryController::class, 'multiplayer'])
+    ->name('stories.multiplayer');
+
+Route::middleware(['auth:user', 'guard.profile-is-completed'])
+    ->get('stories/{story:slug}/multiplayer/lobby', [Controllers\StoryController::class, 'multiplayerLobby'])
+    ->name('stories.multiplayer.lobby');
+
 Route::get('old-homepage', Controllers\OldHomepageController::class)->name('old-homepage');
 
 Route::get('design-rnd', fn () => inertia('DesignRnd'))->name('design-rnd');
