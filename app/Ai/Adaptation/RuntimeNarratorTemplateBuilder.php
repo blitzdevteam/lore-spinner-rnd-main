@@ -55,6 +55,32 @@ final class RuntimeNarratorTemplateBuilder
     public const MAX_PROMPT_CHARS = 192_000;
 
     /**
+     * Never let same-scene filtering leave the Voice Anchor thinner than this.
+     * Below four exemplars the narrator loses its range of modes, which costs
+     * more voice than a colliding exemplar costs prose.
+     */
+    private const EXEMPLAR_FLOOR = 4;
+
+    /**
+     * Function words excluded when comparing an exemplar's source description
+     * against the scenes this session narrates. Words shorter than four
+     * characters are dropped separately, so this list only needs the longer
+     * connectives that would otherwise manufacture false collisions.
+     */
+    private const TOKEN_STOPWORDS = [
+        'about', 'after', 'again', 'against', 'along', 'also', 'among', 'around',
+        'because', 'been', 'before', 'being', 'below', 'beneath',
+        'between', 'both', 'during', 'each', 'else', 'even', 'ever',
+        'every', 'from', 'have', 'here', 'into', 'itself', 'just', 'less',
+        'like', 'made', 'make', 'many', 'more', 'most', 'much', 'must', 'near',
+        'next', 'once', 'only', 'onto', 'other', 'over', 'same', 'some', 'such',
+        'than', 'that', 'their', 'them', 'then', 'there', 'these', 'they',
+        'this', 'those', 'through', 'toward', 'under', 'until', 'upon', 'very',
+        'what', 'when', 'where', 'which', 'while', 'with', 'within', 'without',
+        'would', 'your',
+    ];
+
+    /**
      * Early-warning threshold — 15k below the cap. Prompts between this value
      * and MAX_PROMPT_CHARS get a near-cap log entry, which is the signal that a
      * session is approaching the point where detail would start degrading.
@@ -358,6 +384,159 @@ final class RuntimeNarratorTemplateBuilder
     }
 
     /**
+     * Remove voice exemplars that were translated from a scene this session is
+     * about to narrate.
+     *
+     * An exemplar is a texture model, but when it was written from the very beat
+     * in front of the narrator its wording becomes the obvious thing to write —
+     * so the narrator reproduces our translation of the scene instead of
+     * performing the authored material. Section 4A already forbids this in
+     * prose; the instruction is not reliably obeyed, so the colliding exemplar
+     * is withheld rather than argued with.
+     *
+     * Deliberately conservative — matching needs a shared two-word phrase or
+     * four shared distinctive words, so an exemplar that merely shares a
+     * character name survives. If dropping would take the pool below
+     * EXEMPLAR_FLOOR the exemplar is kept and flagged instead: a thin anchor
+     * costs more voice than a colliding exemplar costs prose.
+     *
+     * @param  array<string, mixed>             $voiceProfile
+     * @param  array<int, array<string, mixed>> $boilerMoments
+     * @return array<string, mixed>
+     */
+    private function withoutSameSceneExemplars(
+        array $voiceProfile,
+        array $boilerMoments,
+        Story $story,
+        SessionAdaptation $session,
+    ): array {
+        $exemplars = array_values((array) ($voiceProfile['voice_anchor'] ?? []));
+
+        if ($exemplars === [] || $boilerMoments === []) {
+            return $voiceProfile;
+        }
+
+        $sceneTokens  = [];
+        $sceneBigrams = [];
+
+        foreach ($boilerMoments as $moment) {
+            $sceneText = implode(' ', array_filter([
+                (string) ($moment['title'] ?? ''),
+                (string) ($moment['runtime_goal'] ?? ''),
+                (string) ($moment['live_pressure'] ?? ''),
+                (string) ($moment['opening_image'] ?? ''),
+            ]));
+
+            $sceneTokens  = array_merge($sceneTokens, $this->distinctiveTokens($sceneText));
+            $sceneBigrams = array_merge($sceneBigrams, $this->distinctiveBigrams($sceneText));
+        }
+
+        $sceneTokens  = array_unique($sceneTokens);
+        $sceneBigrams = array_unique($sceneBigrams);
+
+        $collisions = [];
+
+        foreach ($exemplars as $index => $exemplar) {
+            $source = trim((string) ($exemplar['source'] ?? ''));
+
+            if ($source === '') {
+                continue;
+            }
+
+            $sharedBigrams = array_intersect($this->distinctiveBigrams($source), $sceneBigrams);
+            $sharedTokens  = array_intersect($this->distinctiveTokens($source), $sceneTokens);
+
+            if (count($sharedBigrams) >= 1 || count($sharedTokens) >= 4) {
+                $collisions[$index] = [
+                    'source'         => $source,
+                    'shared_phrases' => array_values($sharedBigrams),
+                    'shared_words'   => array_values($sharedTokens),
+                ];
+            }
+        }
+
+        if ($collisions === []) {
+            return $voiceProfile;
+        }
+
+        $survivors = count($exemplars) - count($collisions);
+        $withhold  = $survivors >= self::EXEMPLAR_FLOOR;
+
+        \Log::channel('narration')->info('runtime_narrator_assembly.same_scene_exemplars', [
+            'story_id'        => $story->id,
+            'session_number'  => $session->session_number,
+            'exemplar_count'  => count($exemplars),
+            'collision_count' => count($collisions),
+            'collisions'      => array_values($collisions),
+            'action'          => $withhold
+                ? 'Withheld from Section 4A — the session narrates these beats.'
+                : 'Kept and flagged: withholding would leave fewer than ' . self::EXEMPLAR_FLOOR . ' exemplars.',
+        ]);
+
+        foreach (array_keys($collisions) as $index) {
+            if ($withhold) {
+                unset($exemplars[$index]);
+
+                continue;
+            }
+
+            $exemplars[$index]['same_scene_collision'] = true;
+        }
+
+        $voiceProfile['voice_anchor'] = array_values($exemplars);
+
+        return $voiceProfile;
+    }
+
+    /**
+     * Lowercase content words, punctuation and possessives stripped, stopwords
+     * and short words removed. Order is preserved so callers can build phrases.
+     *
+     * @return array<int, string>
+     */
+    private function tokenSequence(string $text): array
+    {
+        $normalized = preg_replace("/['\u{2019}]s\\b/u", '', mb_strtolower($text)) ?? '';
+        $words      = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_map(
+            fn (string $word): string => in_array($word, self::TOKEN_STOPWORDS, true) || mb_strlen($word) < 4
+                ? ''
+                : $word,
+            $words,
+        ));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function distinctiveTokens(string $text): array
+    {
+        return array_values(array_unique(array_filter($this->tokenSequence($text))));
+    }
+
+    /**
+     * Two-word phrases where both words are distinctive AND adjacent in the
+     * original text. Requiring raw adjacency is what stops a phrase from being
+     * invented across removed stopwords ("door in the wing" → "door wing").
+     *
+     * @return array<int, string>
+     */
+    private function distinctiveBigrams(string $text): array
+    {
+        $sequence = $this->tokenSequence($text);
+        $bigrams  = [];
+
+        for ($i = 0, $max = count($sequence) - 1; $i < $max; $i++) {
+            if ($sequence[$i] !== '' && $sequence[$i + 1] !== '') {
+                $bigrams[] = $sequence[$i] . ' ' . $sequence[$i + 1];
+            }
+        }
+
+        return array_values(array_unique($bigrams));
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $sessionEvents
      * @param  array<string, mixed>              $voiceProfile
      */
@@ -425,7 +604,7 @@ final class RuntimeNarratorTemplateBuilder
             'worldRules' => (array) ($trimming['world_rules'] ?? []),
             'storyGuard' => (array) ($sessionMap['story_guard_canon'] ?? []),
             'sceneRules' => (array) ($choiceDesign['scene_rules_layer_4'] ?? []),
-            'voice' => $voiceProfile,
+            'voice' => $this->withoutSameSceneExemplars($voiceProfile, $boilerMoments, $story, $session),
             'persistentState' => $persistentState,
             'reactivityRules' => (array) ($sessionMap['world_reactivity_rules'] ?? []),
             'alignmentLabels' => (array) ($sessionMap['alignment_labels'] ?? []),

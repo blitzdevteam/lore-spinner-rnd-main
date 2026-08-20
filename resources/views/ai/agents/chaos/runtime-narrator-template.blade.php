@@ -158,6 +158,13 @@ $voiceAnchorFiltered = collect($voice['voice_anchor'])
         } else {
             $priority = 1; // 'all_sessions' or unknown
         }
+        // An exemplar translated from a scene THIS session narrates always sorts
+        // last. The assembler withholds these outright when the pool can spare
+        // them; it only flags them when dropping would leave too few exemplars.
+        if ($ex['same_scene_collision'] ?? false) {
+            $priority = 50;
+        }
+
         return array_merge($ex, ['_priority' => $priority]);
     })
     ->filter(fn ($ex) => $ex['_priority'] < 90) // drop later_session on session 1
@@ -166,7 +173,7 @@ $voiceAnchorFiltered = collect($voice['voice_anchor'])
 @endphp
 
 @foreach($voiceAnchorFiltered as $exemplar)
---- EXEMPLAR | Mode: {{ $exemplar['mode'] }} | Translated from: {{ $exemplar['source'] }} | Demonstrates: {{ $exemplar['techniques'] }} ---
+--- EXEMPLAR | Mode: {{ $exemplar['mode'] }} | Translated from: {{ $exemplar['source'] }} | Demonstrates: {{ $exemplar['techniques'] }}@if($exemplar['same_scene_collision'] ?? false) | RHYTHM ONLY: this was written from a scene you narrate this session. Take nothing from it but cadence.@endif ---
 {{ $exemplar['prose'] }}
 
 @endforeach
