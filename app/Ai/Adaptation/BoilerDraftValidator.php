@@ -22,6 +22,24 @@ final class BoilerDraftValidator
     ];
 
     /**
+     * Prose fields in a Boiler Draft to scan for voice bans.
+     * Each entry is a dot-notation path into the draft artifact.
+     */
+    private const array PROSE_PATHS = [
+        'playable_promise',
+        'moment_drafts.*.runtime_goal',
+        'moment_drafts.*.live_pressure',
+        'moment_drafts.*.treatment',
+        'moment_drafts.*.source_extracts.*',
+        'event_role_map.*.why',
+        'event_role_map.*.reintroduction_note',
+        'cut_material.*.reason',
+        'cut_material.*.reintroduction_route',
+    ];
+
+    public function __construct(private readonly ?BannedProseValidator $bannedProseValidator = null) {}
+
+    /**
      * @param  array<string, mixed>  $draft
      * @param  array<string, mixed>  $storyMap
      * @param  Collection<int, Event>  $events
@@ -226,5 +244,66 @@ final class BoilerDraftValidator
         if ($startEventId > 0 && ! in_array($startEventId, $firstMoment['source_event_ids'], true)) {
             throw new RuntimeException('Boiler Draft first moment must include the Entry Point start event.');
         }
+
+        $this->validateVoiceBans($draft, $session);
+    }
+
+    /**
+     * Scan all prose fields in the draft for voice-ban violations.
+     * Catches em dashes, semicolons, trailing similes, and banned
+     * vocabulary on the same pass as structural validation, so the
+     * repair loop can fix them immediately rather than deferring to
+     * Editorial Verification at the end of the pipeline.
+     */
+    private function validateVoiceBans(array $draft, SessionAdaptation $session): void
+    {
+        $validator = $this->bannedProseValidator ?? new BannedProseValidator;
+        $voiceProfile = (array) ($session->storyAdaptation?->voice_profile ?? []);
+
+        $scan = $validator->scan(
+            $draft,
+            $voiceProfile,
+            $this->expandProsePaths($draft, self::PROSE_PATHS),
+        );
+
+        if ($scan['errors'] !== []) {
+            throw new RuntimeException(
+                "Boiler Draft voice-ban violations:\n- " . implode("\n- ", $scan['errors'])
+            );
+        }
+    }
+
+    /**
+     * Expand wildcard paths (moment_drafts.*.runtime_goal) into concrete
+     * paths (moment_drafts.0.runtime_goal, moment_drafts.1.runtime_goal, ...).
+     *
+     * @param  array<string, mixed>  $artifact
+     * @param  array<int, string>    $paths
+     * @return array<int, string>
+     */
+    private function expandProsePaths(array $artifact, array $paths): array
+    {
+        $expanded = [];
+
+        foreach ($paths as $path) {
+            if (! str_contains($path, '.*.')) {
+                $expanded[] = $path;
+
+                continue;
+            }
+
+            [$prefix, $suffix] = explode('.*.', $path, 2);
+            $collection = data_get($artifact, $prefix);
+
+            if (! is_array($collection)) {
+                continue;
+            }
+
+            foreach (array_keys($collection) as $index) {
+                $expanded[] = "{$prefix}.{$index}.{$suffix}";
+            }
+        }
+
+        return $expanded;
     }
 }

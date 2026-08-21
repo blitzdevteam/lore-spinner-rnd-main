@@ -12,6 +12,23 @@ use RuntimeException;
 final class BoilerFinalCutValidator
 {
     /**
+     * Prose fields in a Boiler Final Cut to scan for voice bans.
+     */
+    private const array PROSE_PATHS = [
+        'playable_promise',
+        'moments.*.title',
+        'moments.*.opening_image',
+        'moments.*.runtime_goal',
+        'moments.*.live_pressure',
+        'moments.*.next_bridge',
+        'moments.*.source_extracts.*',
+        'event_role_map.*.why',
+        'event_role_map.*.reintroduction_note',
+    ];
+
+    public function __construct(private readonly ?BannedProseValidator $bannedProseValidator = null) {}
+
+    /**
      * @param  array<string, mixed>  $finalCut
      * @param  Collection<int, Event>  $events
      */
@@ -194,5 +211,61 @@ final class BoilerFinalCutValidator
         if ($seenRoleEventIds !== $eventIds) {
             throw new RuntimeException('Final event-role coverage does not match the assigned session events.');
         }
+
+        $this->validateVoiceBans($finalCut, $session);
+    }
+
+    /**
+     * Scan all prose fields in the final cut for voice-ban violations.
+     */
+    private function validateVoiceBans(array $finalCut, SessionAdaptation $session): void
+    {
+        $validator = $this->bannedProseValidator ?? new BannedProseValidator;
+        $voiceProfile = (array) ($session->storyAdaptation?->voice_profile ?? []);
+
+        $scan = $validator->scan(
+            $finalCut,
+            $voiceProfile,
+            $this->expandProsePaths($finalCut, self::PROSE_PATHS),
+        );
+
+        if ($scan['errors'] !== []) {
+            throw new RuntimeException(
+                "Boiler Final Cut voice-ban violations:\n- " . implode("\n- ", $scan['errors'])
+            );
+        }
+    }
+
+    /**
+     * Expand wildcard paths (moments.*.title) into concrete paths.
+     *
+     * @param  array<string, mixed>  $artifact
+     * @param  array<int, string>    $paths
+     * @return array<int, string>
+     */
+    private function expandProsePaths(array $artifact, array $paths): array
+    {
+        $expanded = [];
+
+        foreach ($paths as $path) {
+            if (! str_contains($path, '.*.')) {
+                $expanded[] = $path;
+
+                continue;
+            }
+
+            [$prefix, $suffix] = explode('.*.', $path, 2);
+            $collection = data_get($artifact, $prefix);
+
+            if (! is_array($collection)) {
+                continue;
+            }
+
+            foreach (array_keys($collection) as $index) {
+                $expanded[] = "{$prefix}.{$index}.{$suffix}";
+            }
+        }
+
+        return $expanded;
     }
 }
