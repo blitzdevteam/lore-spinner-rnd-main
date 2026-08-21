@@ -1326,7 +1326,7 @@ TEXT;
             "Gravity begins: {$gravityAfter}",
             "Pacing state: {$pacingState}",
             'REQUIRED moment_progress.moment_key (exact string): '.$momentKey,
-            'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, honest route_relation and impact_scope, and after player input a non-empty moment_footnote ≤30 words).',
+            'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, honest route_relation and impact_scope, and after player input a non-empty moment_footnote of one to three sentences).',
         ];
 
         $targetWords = (int) ($context['target_words_per_turn'] ?? 0);

@@ -495,8 +495,8 @@ final class PlayableMomentResolver
 
     private function boundedFootnote(string $footnote, string $gameId): string
     {
-        $words = preg_split('/\s+/u', trim($footnote), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        if ($words === []) {
+        $footnote = trim($footnote);
+        if ($footnote === '') {
             Log::channel('narration')->warning('boiler.moment_footnote_missing_on_commit', [
                 'game_id' => $gameId,
             ]);
@@ -504,14 +504,14 @@ final class PlayableMomentResolver
             return '';
         }
 
-        if (count($words) > 30) {
-            Log::channel('narration')->warning('boiler.moment_footnote_truncated', [
+        $wordCount = count(preg_split('/\s+/u', $footnote, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        if ($wordCount > 80) {
+            Log::channel('narration')->info('boiler.moment_footnote_long', [
                 'game_id' => $gameId,
-                'original_word_count' => count($words),
+                'word_count' => $wordCount,
             ]);
-            $words = array_slice($words, 0, 30);
         }
 
-        return implode(' ', $words);
+        return $footnote;
     }
 }
