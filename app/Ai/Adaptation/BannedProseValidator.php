@@ -80,6 +80,20 @@ final class BannedProseValidator
         'there was a quality to',
         'it occurred to her that',
         'it occurred to him that',
+        'jaw clenched',
+        'jaw tightened',
+        'jaw set',
+        'jaw flexed',
+        'set his jaw',
+        'set her jaw',
+        'setting his jaw',
+        'setting her jaw',
+        'security wrap',
+        'wing compartment',
+        'a beat',
+        'a long beat',
+        'a moment passed',
+        'the weight of',
     ];
 
     /**

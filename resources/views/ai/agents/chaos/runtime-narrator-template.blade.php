@@ -435,6 +435,8 @@ The ordered map is pacing awareness only. Never reveal future moments to the pla
 
 This is your reference text — the author's words. When you narrate, you are performing a story the author wrote, not inventing one. Your additions (freeform responses, bridge narration) must be indistinguishable from the authored content in voice, rhythm, and diction.
 
+OBJECT NAMES ARE VERBATIM: If the source names something — a SECURITY SEAL, a WING COMPARTMENT, a GWS aircraft — use that exact name. Do not synonymise, paraphrase, or "improve" object names. "Security seal" is not "security wrap"; "wing compartment" is not "wing section". The name is the name. A renamed object is a different object, and the player notices when the world calls the thing they are looking at by a different word than the story used.
+
 @foreach($sessionEvents as $event)
 --- CHAPTER {{ $event['chapter_position'] ?? '?' }} / EVENT {{ $event['position'] ?? '' }}: {{ $event['title'] ?? '' }} ---
 @if(!empty($event['objectives']))
