@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use RuntimeException;
 
@@ -557,11 +559,12 @@ TEXT;
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
         $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
 
-        $promptText = view('ai.agents.chaos.turn-prompt', [
-            'conversationHistory' => $conversationHistory,
-            'playerAction' => $playerAction,
-            'protagonist' => $protagonist,
-        ])->render();
+        $messages = $this->conversationHistoryToMessages(
+            $conversationHistory,
+            $playerAction,
+            $protagonist,
+            $isOpening,
+        );
 
         $schemaArray = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
         $providerOptions = $this->providerOptionsFor($config);
@@ -573,7 +576,7 @@ TEXT;
         $request = Prism::structured()
             ->using($config['provider'], $model)
             ->withSchema(new NativeObjectSchema($schemaArray))
-            ->withPrompt($promptText)
+            ->withMessages($messages)
             ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
 
@@ -609,7 +612,7 @@ TEXT;
             structured: $structured,
             model: $model,
             config: $config,
-            promptText: $promptText,
+            promptText: $this->flattenMessagesForRepair($messages),
             playerAction: $playerAction,
             protagonist: $protagonist,
             game: $game,
@@ -665,11 +668,12 @@ TEXT;
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
         $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
 
-        $promptText = view('ai.agents.chaos.turn-prompt', [
-            'conversationHistory' => $conversationHistory,
-            'playerAction' => $playerAction,
-            'protagonist' => $protagonist,
-        ])->render();
+        $messages = $this->conversationHistoryToMessages(
+            $conversationHistory,
+            $playerAction,
+            $protagonist,
+            $isOpening,
+        );
 
         $schemaArray = array_map(
             static fn (mixed $type): mixed => $type instanceof JsonSchemaType
@@ -701,7 +705,7 @@ TEXT;
 
         $request = Prism::text()
             ->using($config['provider'], $model)
-            ->withPrompt($promptText)
+            ->withMessages($messages)
             ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
 
@@ -752,7 +756,7 @@ TEXT;
             structured: $structured,
             model: $model,
             config: $config,
-            promptText: $promptText,
+            promptText: $this->flattenMessagesForRepair($messages),
             playerAction: $playerAction,
             protagonist: $protagonist,
             game: $game,
@@ -2276,6 +2280,92 @@ TEXT;
     private function usageTokenCount(mixed $value): int
     {
         return is_numeric($value) ? max(0, (int) $value) : 0;
+    }
+
+    /**
+     * Convert the windowed conversation history into native Prism chat
+     * messages (alternating UserMessage / AssistantMessage), and append
+     * the current player action plus narration instructions as the final
+     * UserMessage. Native alternating turns give the model the conversational
+     * structure it was trained on, so pronouns like "it", "that", "him", "her"
+     * resolve against the immediately preceding turn the way ChatGPT does —
+     * instead of being flattened into a single text block the model has to
+     * parse by hand.
+     *
+     * @param  array<int, array{role?: string, text?: string, protagonist?: string}>  $conversationHistory
+     * @return array<int, UserMessage|AssistantMessage>
+     */
+    private function conversationHistoryToMessages(
+        array $conversationHistory,
+        ?string $playerAction,
+        string $protagonist,
+        bool $isOpening,
+    ): array {
+        $messages = [];
+        $protagonistUpper = strtoupper($protagonist);
+
+        foreach ($conversationHistory as $turn) {
+            $text = mb_trim((string) ($turn['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            if (($turn['role'] ?? '') === 'narrator') {
+                $messages[] = new AssistantMessage($text);
+                continue;
+            }
+
+            $speaker = strtoupper((string) ($turn['protagonist'] ?? $protagonist));
+            $messages[] = new UserMessage("[{$speaker}]: {$text}");
+        }
+
+        $instructions = $isOpening
+            ? $this->openingInstructions()
+            : $this->turnInstructions($protagonistUpper);
+
+        $actionBlock = $playerAction !== null && mb_trim($playerAction) !== ''
+            ? "{$protagonistUpper}'S ACTION: ".mb_trim($playerAction)."\n\n"
+            : '';
+
+        $finalUserText = $actionBlock.$instructions;
+        $messages[] = new UserMessage($finalUserText);
+
+        return $messages;
+    }
+
+    private function openingInstructions(): string
+    {
+        return "This is the opening of the adventure. Your narration MUST begin at the exact moment described in CURRENT OPENING SCENE — no earlier. Any events in your session script that precede that moment do not exist for this session. The player arrives already inside the action. Follow the CURRENT OPENING SCENE block's own delivery instructions on wording: where it states the text is authored and delivered verbatim, reproduce it exactly; otherwise render the opening in your own narrator voice. Either way, end on the live moment rather than a question aimed at the player. Return the full structured object.";
+    }
+
+    /**
+     * Flatten native messages back into a single text block for the
+     * legacy choice-repair call, which still uses withPrompt().
+     *
+     * @param  array<int, UserMessage|AssistantMessage>  $messages
+     */
+    private function flattenMessagesForRepair(array $messages): string
+    {
+        $lines = [];
+        foreach ($messages as $message) {
+            if ($message instanceof AssistantMessage) {
+                $lines[] = '[NARRATOR]: '.$message->content;
+            } else {
+                $lines[] = $message->content;
+            }
+        }
+
+        return implode("\n\n", $lines);
+    }
+
+    private function turnInstructions(string $protagonistUpper): string
+    {
+        return "Now narrate the world's response. Absorb the action fully — and that means absorbing WHAT they did, not just that they did something.\n\n".
+            "READ THE VERB: the player's action has a specific shape — they are demanding, asking, refusing, declaring, confessing, threatening, offering, or physically doing. That verb is their agency. \"I demand her to name it\" is a demand, not a request, not a suggestion, not an offer. The NPC is being demanded, not asked. Honor the exact shape of the action: a demand gets a demand's response, a question gets a question's response, a refusal gets a refusal's consequences. Softening the verb softens the agency.\n\n".
+            "RESOLVE THE PRONOUN: when the player uses a pronoun — it, that, this, him, her, them — resolve it against the immediately preceding narrator turn before you respond. \"I demand she name it\" means name the THING the previous turn just described (\"something she cannot name\"), not a different thing, not her own name. The pronoun points backward into the last thing said; find its referent and answer that referent.\n\n".
+            "HONOR THE OBJECT: if the player's action targets something specific — a person, an object, a name, a place — the world responds to THAT target, not a substitute. \"Name it\" means name the thing they asked about, not a different thing. \"Her\" means the specific person they addressed, not a different person. The player chose their target; the world does not redirect it.\n\n".
+            "THE PLAYER'S WORDS ARE THEIR AGENCY: do not paraphrase their intent into something safer, softer, or more convenient. If they said it, they meant it. The world responds to what they said, not to what would have been easier to respond to.\n\n".
+            "Move the scene forward by however much the action deserves. End on the unresolved live moment — image, gesture, or status condition — not with a question aimed at the player. Return the full structured object.";
     }
 
     /**
