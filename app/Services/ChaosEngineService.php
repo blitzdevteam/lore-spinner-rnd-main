@@ -83,12 +83,34 @@ final class ChaosEngineService
 
     private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
 
+    /**
+     * Function words excluded when computing a memory stem. Words
+     * shorter than four characters are dropped separately, so this list
+     * only needs the longer connectives that would otherwise manufacture
+     * false stems.
+     */
+    private const MEMORY_STEM_STOPWORDS = [
+        'about', 'after', 'again', 'against', 'along', 'also', 'among',
+        'around', 'because', 'been', 'before', 'being', 'below',
+        'between', 'both', 'during', 'each', 'else', 'even', 'ever',
+        'every', 'from', 'have', 'here', 'into', 'itself', 'just',
+        'less', 'like', 'made', 'make', 'many', 'more', 'most', 'much',
+        'must', 'near', 'next', 'once', 'only', 'onto', 'other', 'over',
+        'same', 'some', 'such', 'than', 'that', 'their', 'them', 'then',
+        'there', 'these', 'they', 'this', 'those', 'through', 'toward',
+        'under', 'until', 'upon', 'very', 'what', 'when', 'where',
+        'which', 'while', 'with', 'within', 'without', 'would', 'your',
+        'kind', 'wants', 'trying', 'feels', 'keeps', 'seems', 'looks',
+        'knows',
+    ];
+
     private const SPARSE_STATE_DELTA_CONTRACT = <<<'TEXT'
 RUNTIME STATE OUTPUT — SPARSE AND NON-DESTRUCTIVE:
 - In state_delta, null means unchanged. Never repeat unchanged world state.
 - conditions, items, and unresolved_promises are complete replacement lists only when they changed; [] explicitly clears the list.
 - object_states, relationship_updates, and world_flags contain changed keyed entries only.
 - knowledge, notes, player_style, and emotional_ledger_entries contain new entries only.
+- ITEMS ARE CONTEXTUAL: if an item lives inside a container (a suit pocket, a bag, a drawer), report the container's state alongside the item. "suit (with match in pocket)" when worn, "suit" when taken off, "suit (with match in pocket)" when put back on. The world remembers what a container holds; taking the container off does not destroy its contents.
 - If uncertain whether state changed, return null. Narration must continue; state bookkeeping must never block play.
 TEXT;
 
@@ -826,16 +848,32 @@ TEXT;
         }
 
         $lines = preg_split("/\r\n|\n|\r/", mb_trim($existing)) ?: [];
-        $recent = array_slice($lines, -8);
-        $normalizedUpdate = $this->normalizeMemoryLine($update);
+        $updateStem = $this->memoryStem($update);
 
-        foreach ($recent as $line) {
-            if ($this->normalizeMemoryLine((string) $line) === $normalizedUpdate) {
-                return $existing;
+        // Replace any existing line whose stem matches the new update's stem.
+        // The new line is more recent and more earned — it should replace the
+        // stale variant, not accumulate alongside it. This stops the
+        // "Emmit is the kind of man who..." cascade where the model writes
+        // five variants of the same observation and feeds them all back as
+        // authoritative guidance next turn.
+        $replaced = false;
+        foreach ($lines as $index => $line) {
+            if ($this->memoryStem((string) $line) === $updateStem) {
+                $lines[$index] = $update;
+                $replaced = true;
             }
         }
 
-        return mb_trim($existing)."\n".$update;
+        if ($replaced) {
+            return implode("\n", $lines);
+        }
+
+        // Keep a rolling window of recent lines so the memory stays focused
+        // on what the player is actually doing now, not what they did 20
+        // turns ago.
+        $recent = array_slice($lines, -8);
+
+        return implode("\n", $recent)."\n".$update;
     }
 
     /**
@@ -1108,6 +1146,41 @@ TEXT;
         $line = preg_replace('/\s+/u', ' ', $line) ?? $line;
 
         return $line;
+    }
+
+    /**
+     * Extract the first few distinctive content words from a line so
+     * variants of the same observation can be detected and replaced
+     * instead of accumulated.
+     *
+     * "Emmit is the kind of man who opens the door"
+     * "Emmit is the kind of man who opens the door — and then reaches for..."
+     * Both reduce to the same stem: "emmit kind opens door" — the second
+     * replaces the first rather than sitting alongside it.
+     *
+     * Stopwords and words shorter than four characters are dropped so
+     * "the kind of" does not become part of the stem. The first five
+     * surviving content words are enough to identify the observation
+     * without being so narrow that a rephrasing escapes detection.
+     */
+    private function memoryStem(string $line): string
+    {
+        $normalized = preg_replace("/['\u{2019}]s\b/u", '', mb_strtolower($line)) ?? mb_strtolower($line);
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $stem = [];
+        foreach ($words as $word) {
+            if (in_array($word, self::MEMORY_STEM_STOPWORDS, true) || mb_strlen($word) < 4) {
+                continue;
+            }
+
+            $stem[] = $word;
+            if (count($stem) >= 5) {
+                break;
+            }
+        }
+
+        return implode(' ', $stem);
     }
 
     /**
@@ -2008,21 +2081,29 @@ TEXT;
      */
     private function appendUniqueStringList(array $previous, array $delta): array
     {
-        $seen = [];
-        $merged = [];
+        $entries = [];
+        $stems = [];
+        $ordered = [];
 
+        // Process previous first, then delta, so delta entries replace
+        // previous entries that share the same stem. This stops the
+        // notes/player_style fields from accumulating five phrasings of
+        // the same observation and feeding them back as instruction.
         foreach (array_merge($this->cleanStringList($previous), $this->cleanStringList($delta)) as $entry) {
-            $key = preg_replace('/\s+/u', ' ', mb_strtolower(mb_trim($entry))) ?? mb_strtolower($entry);
+            $stem = $this->memoryStem($entry);
 
-            if (isset($seen[$key])) {
+            if (isset($stems[$stem])) {
+                // Replace the existing entry with the more recent one.
+                $entries[$stems[$stem]] = $entry;
+
                 continue;
             }
 
-            $seen[$key] = true;
-            $merged[] = $entry;
+            $stems[$stem] = count($entries);
+            $entries[] = $entry;
         }
 
-        return $merged;
+        return array_values($entries);
     }
 
     /**

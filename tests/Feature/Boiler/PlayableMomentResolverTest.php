@@ -737,15 +737,29 @@ it('blocks session complete until an authored session-ending choice is resolved'
         ->and($completed->moment_result)->toBe('completed');
 });
 
-it('skips near-duplicate symbolic_memory and player_style appends', function () {
+it('replaces near-duplicate symbolic_memory and player_style entries by stem', function () {
     $engine = app(ChaosEngineService::class);
 
+    // Exact duplicate: stem matches, replaces with identical text — no line added.
     $first = $engine->appendMemory(null, 'Instinct: press for proof before trusting the room.');
     $duped = $engine->appendMemory($first, 'Instinct: press for proof before trusting the room.');
+
+    expect($duped)->toBe($first);
+
+    // Spacing variant: stem matches, replaces with the new spacing — no line added.
     $spaced = $engine->appendMemory($first, 'Instinct:   press for proof before trusting the room.');
 
-    expect($duped)->toBe($first)
-        ->and($spaced)->toBe($first);
+    expect(mb_substr_count($spaced, "\n"))->toBe(0)
+        ->and($engine->appendMemory($first, 'Completely different instinct about caution.'))->not->toBe($first);
+
+    // Stem variant: same observation, evolved phrasing — replaces, not accumulates.
+    $evolved = $engine->appendMemory(
+        'Emmit is the kind of man who opens the door.',
+        'Emmit is the kind of man who opens the door — and then reaches for the nearest warm thing.',
+    );
+
+    expect(mb_substr_count($evolved, "\n"))->toBe(0)
+        ->and($evolved)->toContain('reaches for the nearest warm thing');
 
     $merged = $engine->mergeStateDelta(
         [
@@ -768,6 +782,29 @@ it('skips near-duplicate symbolic_memory and player_style appends', function () 
     );
 
     expect($merged['player_style'])->toBe(['Presses for proof']);
+
+    // Stem-based replacement in player_style: evolved phrasing replaces stale.
+    $styleMerged = $engine->mergeStateDelta(
+        [
+            ...$engine->emptyWorldState(),
+            'player_style' => ['Player is using Lilys drawing as a threshold object'],
+        ],
+        [
+            'location' => null,
+            'conditions' => null,
+            'items' => null,
+            'object_states' => null,
+            'relationship_updates' => null,
+            'world_flags' => null,
+            'knowledge' => null,
+            'notes' => null,
+            'player_style' => ['Player is using Lilys drawing as a pressure valve'],
+            'unresolved_promises' => null,
+            'emotional_ledger_entries' => null,
+        ],
+    );
+
+    expect($styleMerged['player_style'])->toBe(['Player is using Lilys drawing as a pressure valve']);
 });
 
 it('soft-holds malformed progress without inventing an exit and without a second agent call', function () {
