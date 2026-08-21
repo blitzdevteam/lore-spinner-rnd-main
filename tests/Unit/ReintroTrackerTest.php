@@ -125,4 +125,100 @@ final class ReintroTrackerTest extends TestCase
 
         $this->assertCount(0, $pending, 'Fact should be filtered out when narrator reports it');
     }
+
+    public function testParsesStructuredArrayFormat(): void
+    {
+        $mustReintroduce = [
+            [
+                'fact'              => 'Zoe knows about the hold',
+                'marker'            => 'COLD_OPEN',
+                'target_moment_key' => '',
+                'key_terms'         => ['Zoe', 'hold'],
+            ],
+            [
+                'fact'              => "Emmit's history with the company",
+                'marker'            => 'LATER',
+                'target_moment_key'  => 'S1_M02',
+                'key_terms'         => ['Emmit', 'company'],
+            ],
+        ];
+
+        $items = $this->tracker->parse($mustReintroduce);
+
+        $this->assertCount(2, $items);
+        $this->assertSame('Zoe knows about the hold', $items[0]['fact']);
+        $this->assertSame('COLD OPEN', $items[0]['marker']);
+        $this->assertSame('', $items[0]['target_moment_key']);
+        $this->assertSame(['Zoe', 'hold'], $items[0]['key_terms']);
+        $this->assertSame("Emmit's history with the company", $items[1]['fact']);
+        $this->assertSame('LATER', $items[1]['marker']);
+        $this->assertSame('S1_M02', $items[1]['target_moment_key']);
+        $this->assertSame(['Emmit', 'company'], $items[1]['key_terms']);
+    }
+
+    public function testPendingFiltersByTargetMomentKey(): void
+    {
+        $items = $this->tracker->parse([
+            [
+                'fact'              => 'Fact for M01',
+                'marker'            => 'LATER',
+                'target_moment_key' => 'S1_M01',
+                'key_terms'         => [],
+            ],
+            [
+                'fact'              => 'Fact for M02',
+                'marker'            => 'LATER',
+                'target_moment_key' => 'S1_M02',
+                'key_terms'         => [],
+            ],
+            [
+                'fact'              => 'Fact for any moment',
+                'marker'            => 'LATER',
+                'target_moment_key' => '',
+                'key_terms'         => [],
+            ],
+        ]);
+
+        // At M01: only M01-targeted and untargeted items appear
+        $pendingM01 = $this->tracker->pending($items, [], 'S1_M01');
+        $this->assertCount(2, $pendingM01);
+        $this->assertSame('Fact for M01', $pendingM01[0]['fact']);
+        $this->assertSame('Fact for any moment', $pendingM01[1]['fact']);
+
+        // At M02: only M02-targeted and untargeted items appear
+        $pendingM02 = $this->tracker->pending($items, [], 'S1_M02');
+        $this->assertCount(2, $pendingM02);
+        $this->assertSame('Fact for M02', $pendingM02[0]['fact']);
+        $this->assertSame('Fact for any moment', $pendingM02[1]['fact']);
+
+        // No active moment: all appear
+        $pendingAll = $this->tracker->pending($items, [], '');
+        $this->assertCount(3, $pendingAll);
+    }
+
+    public function testRenderIncludesTargetMomentKey(): void
+    {
+        $items = $this->tracker->parse([
+            [
+                'fact'              => 'Emmit\'s history',
+                'marker'            => 'LATER',
+                'target_moment_key' => 'S1_M02',
+                'key_terms'         => [],
+            ],
+        ]);
+
+        $rendered = $this->tracker->render($items);
+
+        $this->assertStringContainsString('target: S1_M02', $rendered);
+    }
+
+    public function testBackwardCompatibleWithFlatString(): void
+    {
+        $flatString = "Zoe knows about the hold — COLD OPEN\nEmmit's history — LATER";
+        $items = $this->tracker->parse($flatString);
+
+        $this->assertCount(2, $items);
+        $this->assertSame('', $items[0]['target_moment_key']);
+        $this->assertSame([], $items[0]['key_terms']);
+    }
 }

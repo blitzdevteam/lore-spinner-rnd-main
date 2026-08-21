@@ -22,15 +22,75 @@ namespace App\Ai\Adaptation;
 final class ReintroTracker
 {
     /**
-     * Parse a flat must_reintroduce string into structured items.
+     * Parse must_reintroduce into structured items.
+     *
+     * Handles two formats:
+     *   - Phase B (structured array): array of objects with fact, marker,
+     *     target_moment_key, and key_terms
+     *   - Phase A (flat string): lines with "fact — COLD OPEN" / "fact — LATER"
+     *     markers, parsed at runtime
+     *
+     * @param  array<int, mixed>|string  $mustReintroduce
+     * @return array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>
+     */
+    public function parse(array|string $mustReintroduce): array
+    {
+        if (is_array($mustReintroduce)) {
+            return $this->parseStructured($mustReintroduce);
+        }
+
+        return $this->parseFlatString($mustReintroduce);
+    }
+
+    /**
+     * Parse a Phase B structured array into items.
+     *
+     * @param  array<int, mixed>  $items
+     * @return array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>
+     */
+    private function parseStructured(array $items): array
+    {
+        $parsed = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $fact   = trim((string) ($item['fact'] ?? ''));
+            $marker = strtoupper(trim((string) ($item['marker'] ?? 'LATER')));
+            $target = trim((string) ($item['target_moment_key'] ?? ''));
+            $terms  = array_values(array_filter(
+                array_map(static fn ($t) => is_string($t) ? trim($t) : '', (array) ($item['key_terms'] ?? [])),
+                static fn (string $t): bool => $t !== '',
+            ));
+
+            if ($fact === '') {
+                continue;
+            }
+
+            $parsed[] = [
+                'fact'              => $fact,
+                'marker'            => $marker === 'COLD_OPEN' ? 'COLD OPEN' : 'LATER',
+                'key'               => $this->factKey($fact),
+                'target_moment_key' => $target,
+                'key_terms'         => $terms,
+            ];
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Parse a Phase A flat must_reintroduce string into structured items.
      *
      * Each line becomes one item. Lines are split on "—" (em dash) or
      * "--" (double hyphen) to separate the fact from its timing marker
      * (COLD OPEN / LATER). Lines without a marker are treated as LATER.
      *
-     * @return array<int, array{fact: string, marker: string, key: string}>
+     * @return array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>
      */
-    public function parse(string $mustReintroduce): array
+    private function parseFlatString(string $mustReintroduce): array
     {
         $mustReintroduce = trim($mustReintroduce);
         if ($mustReintroduce === '') {
@@ -61,9 +121,11 @@ final class ReintroTracker
             }
 
             $items[] = [
-                'fact'   => $fact,
-                'marker' => $marker,
-                'key'    => $this->factKey($fact),
+                'fact'              => $fact,
+                'marker'            => $marker,
+                'key'               => $this->factKey($fact),
+                'target_moment_key' => '',
+                'key_terms'         => [],
             ];
         }
 
@@ -73,17 +135,37 @@ final class ReintroTracker
     /**
      * Filter items to only those not yet reintroduced.
      *
-     * @param  array<int, array{fact: string, marker: string, key: string}>  $items
+     * Optionally filter by active moment key — when target_moment_key is
+     * set on an item, it only appears when the active moment matches
+     * (or is empty, meaning "any moment").
+     *
+     * @param  array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>  $items
      * @param  array<int, string>  $reintroducedKeys  Keys already reintroduced
-     * @return array<int, array{fact: string, marker: string, key: string}>
+     * @param  string  $activeMomentKey  Current moment key (for target_moment_key filtering)
+     * @return array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>
      */
-    public function pending(array $items, array $reintroducedKeys): array
+    public function pending(array $items, array $reintroducedKeys, string $activeMomentKey = ''): array
     {
         $done = array_flip($reintroducedKeys);
 
         return array_values(array_filter(
             $items,
-            static fn (array $item): bool => ! isset($done[$item['key']]),
+            function (array $item) use ($done, $activeMomentKey): bool {
+                if (isset($done[$item['key']])) {
+                    return false;
+                }
+
+                // If the item has a target_moment_key and we know the
+                // active moment, only show it when we're at or past the
+                // target. If activeMomentKey is empty (opening or unknown),
+                // show all pending.
+                $target = $item['target_moment_key'] ?? '';
+                if ($target !== '' && $activeMomentKey !== '' && $target !== $activeMomentKey) {
+                    return false;
+                }
+
+                return true;
+            },
         ));
     }
 
@@ -91,7 +173,7 @@ final class ReintroTracker
      * Render pending items as a prompt-ready string.
      * Falls back to the raw string if no items parsed.
      *
-     * @param  array<int, array{fact: string, marker: string, key: string}>  $pendingItems
+     * @param  array<int, array{fact: string, marker: string, key: string, target_moment_key: string, key_terms: array<int, string>}>  $pendingItems
      */
     public function render(array $pendingItems): string
     {
@@ -101,7 +183,12 @@ final class ReintroTracker
 
         $lines = [];
         foreach ($pendingItems as $item) {
-            $lines[] = "{$item['fact']} — {$item['marker']}";
+            $line = "{$item['fact']} — {$item['marker']}";
+            $target = $item['target_moment_key'] ?? '';
+            if ($target !== '') {
+                $line .= " (target: {$target})";
+            }
+            $lines[] = $line;
         }
 
         return implode("\n", $lines);

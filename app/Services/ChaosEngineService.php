@@ -230,7 +230,7 @@ TEXT;
             'cold_open' => $this->normalizeOpeningScene($entry['cold_open'] ?? ''),
             'opening_handoff' => $resolvedHandoff,
             'emotional_promise' => mb_trim((string) ($entry['emotional_promise'] ?? '')),
-            'must_reintroduce' => mb_trim((string) ($entry['format_specific_cut']['must_reintroduce'] ?? '')),
+            'must_reintroduce' => $entry['format_specific_cut']['must_reintroduce'] ?? '',
             'runtime_prompt' => (string) $sessionAdaptation->runtime_narrator_prompt,
             'alignment_labels' => (array) ($storyMap['alignment_labels'] ?? []),
             'full_session_events' => $events,
@@ -1613,9 +1613,10 @@ TEXT;
         $sessionNumber = (int) ($sessionContext['session_number'] ?? 1);
         $coldOpen = (string) ($sessionContext['cold_open'] ?? '');
         $openingHandoff = (string) ($sessionContext['opening_handoff'] ?? '');
-        $emotionalPromise = (string) ($sessionContext['emotional_promise'] ?? '');
-        $mustReintroduce = (string) ($sessionContext['must_reintroduce'] ?? '');
+        $emotionalPromise = (string) ($sessionContext['emotional_prompt'] ?? '');
+        $mustReintroduce = $sessionContext['must_reintroduce'] ?? '';
         $reintroducedFacts = (array) ($worldState['reintroduced_facts'] ?? []);
+        $activeMomentKey = (string) data_get($sessionContext, 'active_moment_context.moment_key', '');
 
         $lines = [];
 
@@ -1669,14 +1670,16 @@ TEXT;
         }
 
         // Cut material that must resurface through action, not exposition.
-        // Phase A: only inject items not yet reintroduced. The narrator
+        // Phase A/B: only inject items not yet reintroduced. The narrator
         // reports which facts it wove in via reintroduced_facts; the
         // commit path stores them in world_state.reintroduced_facts and
-        // they stop appearing here.
-        if ($mustReintroduce !== '') {
+        // they stop appearing here. Phase B adds target_moment_key filtering
+        // so items only appear when the active moment matches their target.
+        $mustReintroduceValue = $mustReintroduce;
+        if ($mustReintroduceValue !== '' && $mustReintroduceValue !== []) {
             $tracker = new ReintroTracker;
-            $items = $tracker->parse($mustReintroduce);
-            $pendingItems = $tracker->pending($items, $reintroducedFacts);
+            $items = $tracker->parse($mustReintroduceValue);
+            $pendingItems = $tracker->pending($items, $reintroducedFacts, $activeMomentKey);
             $rendered = $tracker->render($pendingItems);
 
             if ($rendered !== '') {

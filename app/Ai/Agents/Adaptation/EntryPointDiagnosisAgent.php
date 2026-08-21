@@ -118,8 +118,27 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                     'cut_point'          => $schema->string()->required()->title('Cut Point'),
                     'original_before_cut' => $schema->string()->required()->title('Original Before Cut'),
                     'cut_eliminates'     => $schema->string()->required()->title('Cut Eliminates'),
-                    'must_reintroduce'   => $schema->string()->required()->title('Must Reintroduce')
-                        ->description('List every essential fact the player needs to understand who they are and why this moment matters, but that was cut by starting at a later event. For each fact write: the specific fact itself, then "COLD OPEN" if it must appear in the cold open prose, or "LATER" if it can surface through dialogue/action/memory during the session. Be precise — not "backstory" but the exact piece of information and why the player cannot engage without it.'),
+                    'must_reintroduce'   => $schema
+                        ->array()
+                        ->required()
+                        ->title('Must Reintroduce')
+                        ->description('List every essential fact the player needs to understand who they are and why this moment matters, but that was cut by starting at a later event. Each item is a structured object — not a flat text block. The structure lets the runtime track which facts have landed and inject only pending ones at the right moment.')
+                        ->items(
+                            $schema->object([
+                                'fact'              => $schema->string()->required()->title('Fact')
+                                    ->description('The specific piece of information the player cannot engage without. Not "backstory" — the exact fact and why it matters.'),
+                                'marker'            => $schema->string()->required()->title('Marker')
+                                    ->description('COLD_OPEN if it must appear in the cold open prose. LATER if it can surface through dialogue/action/memory during the session.'),
+                                'target_moment_key' => $schema->string()->required()->title('Target Moment Key')
+                                    ->description('The moment key where this fact should ideally resurface (e.g. S1_M02). Use the earliest moment where the fact becomes dramatically relevant. Empty string if it has no specific target — the narrator weaves it whenever the opportunity arises.'),
+                                'key_terms'         => $schema
+                                    ->array()
+                                    ->required()
+                                    ->title('Key Terms')
+                                    ->description('2-4 distinctive words from the fact that the runtime uses to detect when the narrator has woven it in. These should be nouns, names, or specific terms — not function words.')
+                                    ->items($schema->string()->required()),
+                            ])->required()->withoutAdditionalProperties()->title('Reintroduction Item')
+                        ),
                 ])->required()->withoutAdditionalProperties()->title('Format-Specific Cut'),
 
             // --- Task 5: Cold Open prose (Task 5 / D8 Section 13) ---
@@ -142,7 +161,7 @@ class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
                     '• protagonist_introduction.reveal_lines carries the identity beat into the prose at the weight-bearing moment.' . "\n" .
                     '• first_choice_spec.setup_prose forms the final 2-3 sentences immediately before the question.' . "\n" .
                     '• first_choice_spec.question is the exact final sentence, word for word.' . "\n" .
-                    '• Any fact in format_specific_cut.must_reintroduce marked COLD OPEN must be woven into the prose as present-pressure or lived-in knowledge — never as backstory narration.' . "\n\n" .
+                    '• Any fact in format_specific_cut.must_reintroduce with marker "COLD_OPEN" must be woven into the prose as present-pressure or lived-in knowledge — never as backstory narration.' . "\n\n" .
                     'You MAY adjust connective wording where these pieces join, and you MUST do so when placing them side by side would repeat a sentence or an image. The cold open is one continuous piece of prose, not three pasted fragments. Before finalizing, re-read the draft for any sentence or clause that appears twice and merge it — a 120-180 word opening cannot afford to say anything a second time.' . "\n\n" .
                     'Sensory grounding within the first 50 words.'
                 ),
