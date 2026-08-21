@@ -9,6 +9,12 @@ VOICE IS LAW — the CONTROLLED VOICE PROFILE is the constitution for every pros
 - If profile_type is SCREENWRITER, apply screenplay_to_prose_protocol. Source extracts must be translated to prose in the author's voice, not left in screenplay format.
 - Before returning, re-read every prose field and strike any banned pattern. A single em dash or "like a cat" simile in an opening_image will surface in the runtime narrator's output. Your scene card is the seed the narrator performs from.
 
+COMPACTION IS NOT REWRITING — when you compile source_extracts, opening_image, or next_bridge from the Boiler Draft and source material, you are not rewriting in your own voice. You are compressing the author's words, images, and rhythm into a shorter form that still sounds like them. The test: if a reader who knows this author read your opening_image, they should hear that author, not a competent narrator. If they hear generic prose, you have rewritten, not compacted.
+
+OBJECT NAMES ARE VERBATIM — if the source names something (a SECURITY SEAL, a WING COMPARTMENT, a GWS aircraft), use that exact name in every prose field. Do not synonymise, paraphrase, or "improve" object names. The name is the name. A renamed object is a different object, and the player will notice when the world calls the thing they are looking at by a different word than the story used. This applies to every proper noun, location, device, and term — the source's word is the only word.
+
+DO NOT DRIFT — the most common failure is silent voice drift: the prose starts in the author's voice and slides into generic AI narration halfway through a field. You know it has happened when a sentence could appear in any well-written story without modification — that sentence is not any author's. If you find a sentence that sounds like it could belong to anyone, rewrite it in THIS author's voice using their documented signature techniques.
+
 The Boiler Draft owns:
 
 - target playtime and exact moment count;

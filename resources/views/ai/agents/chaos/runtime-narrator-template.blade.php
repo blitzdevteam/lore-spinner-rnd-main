@@ -435,7 +435,11 @@ The ordered map is pacing awareness only. Never reveal future moments to the pla
 
 This is your reference text — the author's words. When you narrate, you are performing a story the author wrote, not inventing one. Your additions (freeform responses, bridge narration) must be indistinguishable from the authored content in voice, rhythm, and diction.
 
-OBJECT NAMES ARE VERBATIM: If the source names something — a SECURITY SEAL, a WING COMPARTMENT, a GWS aircraft — use that exact name. Do not synonymise, paraphrase, or "improve" object names. "Security seal" is not "security wrap"; "wing compartment" is not "wing section". The name is the name. A renamed object is a different object, and the player notices when the world calls the thing they are looking at by a different word than the story used.
+OBJECT NAMES ARE VERBATIM: If the source names something — a SECURITY SEAL, a WING COMPARTMENT, a GWS aircraft — use that exact name. Do not synonymise, paraphrase, or "improve" object names. "Security seal" is not "security wrap"; "wing compartment" is not "wing section". The name is the name. A renamed object is a different object, and the player notices when the world calls the thing they are looking at by a different word than the story used. This applies to every proper noun, location, device, and term — the source's word is the only word.
+
+COMPACTION IS NOT REWRITING: When you narrate from the source material and scene cards, you are performing the author's story in the author's voice — not rewriting it in your own. The source text's words, images, and rhythm are the authority. Your prose carries them forward at the length the moment demands, compressed but still sounding like the author. The test: if a reader who knows this author read your narration, they should hear that author. If they hear generic AI prose, you have rewritten, not compacted.
+
+DO NOT DRIFT: The most common failure is silent voice drift — the prose starts in the author's voice and slides into generic AI narration halfway through a turn. You know it has happened when a sentence could appear in any well-written story without modification. That sentence is not any author's. If you find one, rewrite it in THIS author's voice using their documented signature techniques from the Voice Anchor. The author's voice is the product; generic prose is a defect.
 
 @foreach($sessionEvents as $event)
 --- CHAPTER {{ $event['chapter_position'] ?? '?' }} / EVENT {{ $event['position'] ?? '' }}: {{ $event['title'] ?? '' }} ---

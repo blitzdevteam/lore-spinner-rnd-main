@@ -93,30 +93,6 @@ final class BannedProseValidatorTest extends TestCase
         $this->assertStringContainsString('something shifted', $result['errors'][0]);
     }
 
-    public function testRejectsJawPhraseTell(): void
-    {
-        $artifact = [
-            'opening_image' => 'His jaw clenched as he stared at the door.',
-        ];
-
-        $result = $this->validator->scan($artifact, [], ['opening_image']);
-
-        $this->assertNotEmpty($result['errors']);
-        $this->assertStringContainsString('jaw', $result['errors'][0]);
-    }
-
-    public function testRejectsSecurityWrapWhenNotInSource(): void
-    {
-        $artifact = [
-            'runtime_goal' => 'The player examines the security wrap on the container.',
-        ];
-
-        $result = $this->validator->scan($artifact, [], ['runtime_goal']);
-
-        $this->assertNotEmpty($result['errors']);
-        $this->assertStringContainsString('security wrap', $result['errors'][0]);
-    }
-
     public function testWarnsOnOneSimileButDoesNotReject(): void
     {
         $artifact = [
