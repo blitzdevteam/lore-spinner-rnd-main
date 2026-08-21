@@ -237,6 +237,13 @@ final class ChaosNarrationSchema
                 ->required()
                 ->title('Session Memory Update')
                 ->description('One short sentence only when something narratively important happened this turn. Empty string otherwise.'),
+
+            'reintroduced_facts' => $schema
+                ->array()
+                ->required()
+                ->title('Reintroduced Facts')
+                ->description('List the MUST REINTRODUCE facts you wove into this turn\'s narration — the fact text as it appears in the MUST REINTRODUCE section, not your narration. The runtime marks them as done and stops injecting them. Empty array when you did not address any this turn. This is how the runtime tracks which cut material has landed — without it, every fact reappears every turn.')
+                ->items($schema->string()->required()),
         ];
     }
 }

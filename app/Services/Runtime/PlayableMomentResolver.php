@@ -196,6 +196,18 @@ final class PlayableMomentResolver
                 $lockedGame->world_state ?? $this->engine->emptyWorldState(),
                 (array) $result['state_delta'],
             );
+
+            // Phase A: track which MUST REINTRODUCE facts have landed.
+            // The narrator reports them in reintroduced_facts; we merge
+            // them into world_state.reintroduced_facts so they stop
+            // being injected on future turns.
+            $reportedReintro = (array) ($result['reintroduced_facts'] ?? []);
+            if ($reportedReintro !== []) {
+                $tracker = new \App\Ai\Adaptation\ReintroTracker;
+                $newKeys = $tracker->keysFromReportedFacts($reportedReintro);
+                $existing = (array) ($worldState['reintroduced_facts'] ?? []);
+                $worldState['reintroduced_facts'] = array_values(array_unique(array_merge($existing, $newKeys)));
+            }
             $alignment = $this->engine->mergeAlignmentDelta(
                 $lockedGame->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold(),
                 (array) $result['alignment_tally_delta'],

@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Ai\Agents\Chaos\ChaosNarrationSchema;
 use App\Ai\Agents\Chaos\NativeObjectSchema;
+use App\Ai\Adaptation\ReintroTracker;
 use App\Models\Game;
 use App\Models\PlayableMoment;
 use App\Models\SessionAdaptation;
@@ -311,7 +312,7 @@ TEXT;
             $prompt = strtr($prompt, [
                 '[SYMBOLIC_MEMORY_INJECTION_POINT]' => $symbolicBlock,
                 '[ALIGNMENT_TILT_INJECTION_POINT]' => $alignmentBlock,
-                '[OPENING_SCENE_INJECTION_POINT]' => $this->buildOpeningSection($sessionContext),
+                '[OPENING_SCENE_INJECTION_POINT]' => $this->buildOpeningSection($sessionContext, $worldState),
                 '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
                 '[CONSEQUENCE_ECHO_INJECTION_POINT]' => $consequenceBlock,
                 '[SESSION_CLOSE_INJECTION_POINT]' => $closeBlock,
@@ -1607,13 +1608,14 @@ TEXT;
      *
      * @param  array<string, mixed>  $sessionContext
      */
-    private function buildOpeningSection(array $sessionContext): string
+    private function buildOpeningSection(array $sessionContext, array $worldState = []): string
     {
         $sessionNumber = (int) ($sessionContext['session_number'] ?? 1);
         $coldOpen = (string) ($sessionContext['cold_open'] ?? '');
         $openingHandoff = (string) ($sessionContext['opening_handoff'] ?? '');
         $emotionalPromise = (string) ($sessionContext['emotional_promise'] ?? '');
         $mustReintroduce = (string) ($sessionContext['must_reintroduce'] ?? '');
+        $reintroducedFacts = (array) ($worldState['reintroduced_facts'] ?? []);
 
         $lines = [];
 
@@ -1667,10 +1669,26 @@ TEXT;
         }
 
         // Cut material that must resurface through action, not exposition.
+        // Phase A: only inject items not yet reintroduced. The narrator
+        // reports which facts it wove in via reintroduced_facts; the
+        // commit path stores them in world_state.reintroduced_facts and
+        // they stop appearing here.
         if ($mustReintroduce !== '') {
-            $lines[] = '';
-            $lines[] = 'MUST REINTRODUCE (weave through action and dialogue, never as an exposition dump):';
-            $lines[] = $mustReintroduce;
+            $tracker = new ReintroTracker;
+            $items = $tracker->parse($mustReintroduce);
+            $pendingItems = $tracker->pending($items, $reintroducedFacts);
+            $rendered = $tracker->render($pendingItems);
+
+            if ($rendered !== '') {
+                $lines[] = '';
+                $lines[] = 'MUST REINTRODUCE (weave through action and dialogue, never as an exposition dump):';
+                $lines[] = $rendered;
+                $lines[] = '';
+                $lines[] = 'After weaving in any of these facts, list them in your reintroduced_facts field so the runtime knows they have landed. Items you do not address this turn will remain available next turn.';
+            } elseif ($reintroducedFacts !== []) {
+                $lines[] = '';
+                $lines[] = 'ALL MUST REINTRODUCE ITEMS HAVE LANDED. No pending reintroduction items remain.';
+            }
         }
 
         return implode("\n", $lines);
