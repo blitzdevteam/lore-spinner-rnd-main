@@ -108,13 +108,22 @@ final class ChaosEngineService
     ];
 
     private const SPARSE_STATE_DELTA_CONTRACT = <<<'TEXT'
-RUNTIME STATE OUTPUT — SPARSE AND NON-DESTRUCTIVE:
+RUNTIME STATE OUTPUT — SPARSE, ACCURATE, NON-DESTRUCTIVE:
 - In state_delta, null means unchanged. Never repeat unchanged world state.
 - conditions, items, and unresolved_promises are complete replacement lists only when they changed; [] explicitly clears the list.
 - object_states, relationship_updates, and world_flags contain changed keyed entries only.
 - knowledge, notes, player_style, and emotional_ledger_entries contain new entries only.
 - ITEMS ARE CONTEXTUAL: if an item lives inside a container (a suit pocket, a bag, a drawer), report the container's state alongside the item. "suit (with match in pocket)" when worn, "suit" when taken off, "suit (with match in pocket)" when put back on. The world remembers what a container holds; taking the container off does not destroy its contents.
 - If uncertain whether state changed, return null. Narration must continue; state bookkeeping must never block play.
+
+MEMORY ACCURACY — THE WORLD REMEMBERS, OR WE ARE NOT DOING OUR JOB:
+- The state_delta is the world's memory. An inaccurate memory is worse than no memory: it makes the world confidently wrong. Before you write a field, ask: is this actually true of what just happened, or is it what I assumed happened?
+- OBJECTS: track what the player took, dropped, used, broke, gave away, or had taken from them. An item the player no longer has must be removed from items. An item whose state changed (broken, loaded, empty, lit, soaked) must be updated, not re-added as a duplicate.
+- LOCATIONS: the location field is where the protagonist physically IS right now. If they moved, it changed. If they did not move, it did not. A stale location is the most common memory bug — it makes the world describe the wrong room.
+- CHARACTERS AND NPCs: relationship_updates reflect how someone's feelings toward the protagonist changed THIS turn. A relationship that did not change is not in the delta. A character who was insulted, helped, threatened, or deceived has a new entry — not a re-statement of their old disposition.
+- PLAYER BEHAVIOUR AND EMOTIONAL MATRIX: player_style and emotional_ledger_entries track what this player is actually doing and reaching for, not what a generic player would do. If they keep choosing confrontation, player_style says so. If they keep choosing tenderness, player_style says so. This is the footnote's raw material — an inaccurate player_style makes the footnote lie, and a lying footnote steers the next turn wrong.
+- DROP WHAT IS NO LONGER TRUE: conditions that belonged to a scene the story has left must not survive into the next scene. A wound persists; a mood about a room that is now behind you does not. When the location changes, carry forward only what is still true of this body in this room.
+- DO NOT ACCUMULATE: the runtime deduplicates entries that share the same meaning (same stem). Your job is to write the CURRENT, EARNED version of an observation — not to pile a new phrasing on top of five old ones. If the player's style has evolved, the new entry replaces the old, not joins it.
 TEXT;
 
     /**
