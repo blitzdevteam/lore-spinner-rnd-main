@@ -254,7 +254,7 @@ final class ChaosModeController extends Controller
         $alignmentScaffold = $chaosSession->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
         $history         = (array) ($chaosSession->conversation_history ?? []);
 
-        $sentHistory = array_slice($history, -12);
+        $sentHistory = array_slice($history, -20);
 
         $systemPrompt = $this->engine->renderSystemPrompt(
             sessionContext:      $sessionContext,

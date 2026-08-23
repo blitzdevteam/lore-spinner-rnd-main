@@ -226,8 +226,8 @@ final class ProcessGameTurnAction
             // and a narrator that only remembers one exchange cannot honour what the
             // player did in the room they just left.
             $historyWindow = $boilerActive
-                ? array_slice($history, -max(12, ($game->playable_moment_turn_count + 1) * 2))
-                : array_slice($history, -12);
+                ? array_slice($history, -max(20, ($game->playable_moment_turn_count + 1) * 2))
+                : array_slice($history, -20);
 
             $usageOccurredAt = now()->toImmutable()->utc();
             $llmStartedAt = microtime(true);

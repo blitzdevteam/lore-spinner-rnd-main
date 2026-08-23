@@ -62,8 +62,8 @@ final class ChaosEngineService
 
     public const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
-    /** Production /user/games narration — tighter than chaos-mode lab defaults. */
-    public const GAME_TEMPERATURE = 0.6;
+    /** Production /user/games narration — matches chaos-mode temperature for maximum player agency. */
+    public const GAME_TEMPERATURE = 0.9;
 
     /**
      * Narrator self-reported relationship between a turn and the active room.
