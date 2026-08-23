@@ -29,13 +29,42 @@ Route::middleware(RecordPageView::class)->group(function (): void {
         ->only(['index', 'show']);
 });
 
-Route::middleware(['auth:user', 'guard.profile-is-completed'])
-    ->get('stories/{story:slug}/multiplayer', [Controllers\StoryController::class, 'multiplayer'])
+Route::get('stories/{story:slug}/multiplayer', [Controllers\StoryController::class, 'multiplayer'])
     ->name('stories.multiplayer');
 
-Route::middleware(['auth:user', 'guard.profile-is-completed'])
-    ->get('stories/{story:slug}/multiplayer/lobby', [Controllers\StoryController::class, 'multiplayerLobby'])
-    ->name('stories.multiplayer.lobby');
+Route::post('multiplayer/lobbies/join', [Controllers\User\MultiplayerLobbyController::class, 'join'])
+    ->name('multiplayer.lobbies.join');
+
+Route::middleware(['auth:user', 'guard.profile-is-completed'])->group(function (): void {
+    Route::post('stories/{story:slug}/multiplayer/lobbies', [Controllers\User\MultiplayerLobbyController::class, 'store'])
+        ->name('stories.multiplayer.lobbies.store');
+
+    Route::get('multiplayer/lobbies', [Controllers\User\MultiplayerLobbyController::class, 'index'])
+        ->name('multiplayer.lobbies.index');
+});
+
+Route::middleware('auth:user')->group(function (): void {
+    Route::patch('multiplayer/lobbies/{lobby:room_code}/readiness', [Controllers\User\MultiplayerLobbyController::class, 'updateReadiness'])
+        ->name('multiplayer.lobbies.readiness.update');
+
+    Route::post('multiplayer/lobbies/{lobby:room_code}/start', [Controllers\User\MultiplayerLobbyController::class, 'start'])
+        ->name('multiplayer.lobbies.start');
+
+    Route::post('multiplayer/lobbies/{lobby:room_code}/proposals', [Controllers\User\MultiplayerLobbyController::class, 'submitProposal'])
+        ->name('multiplayer.lobbies.proposals.store');
+
+    Route::post('multiplayer/lobbies/{lobby:room_code}/proposals/{proposal}/select', [Controllers\User\MultiplayerLobbyController::class, 'selectProposal'])
+        ->name('multiplayer.lobbies.proposals.select');
+
+    Route::post('multiplayer/lobbies/{lobby:room_code}/next-session', [Controllers\User\MultiplayerLobbyController::class, 'advanceSession'])
+        ->name('multiplayer.lobbies.next-session');
+
+    Route::get('multiplayer/lobbies/{lobby:room_code}', [Controllers\User\MultiplayerLobbyController::class, 'show'])
+        ->name('multiplayer.lobbies.show');
+
+    Route::delete('multiplayer/lobbies/{lobby:room_code}', [Controllers\User\MultiplayerLobbyController::class, 'destroy'])
+        ->name('multiplayer.lobbies.destroy');
+});
 
 Route::get('old-homepage', Controllers\OldHomepageController::class)->name('old-homepage');
 

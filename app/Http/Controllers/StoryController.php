@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\Comment\CommentStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Enums\Story\StoryStatusEnum;
 use App\Http\Controllers\User\GameController;
+use App\Http\Resources\MultiplayerLobbyCardResource;
+use App\Models\MultiplayerLobby;
 use App\Models\Story;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 
@@ -17,6 +22,19 @@ final class StoryController extends Controller
 {
     public function index(): Response
     {
+        $multiplayerRooms = MultiplayerLobby::query()
+            ->where('status', MultiplayerLobbyStatusEnum::Waiting)
+            ->with([
+                'story' => function (BelongsTo $query): void {
+                    $query->with('media');
+                },
+            ])
+            ->withCount('members')
+            ->latest()
+            ->get()
+            ->filter(static fn (MultiplayerLobby $lobby): bool => (int) $lobby->members_count < $lobby->max_players)
+            ->values();
+
         return inertia('Stories/Index', [
             'stories' => Story::query()
                 ->with([
@@ -35,6 +53,7 @@ final class StoryController extends Controller
                 ->latest()
                 ->get()
                 ->toResourceCollection(),
+            'multiplayerRooms' => MultiplayerLobbyCardResource::collection($multiplayerRooms),
         ]);
     }
 
@@ -81,8 +100,10 @@ final class StoryController extends Controller
         ]);
     }
 
-    public function multiplayer(Story $story): Response
+    public function multiplayer(Story $story, Request $request): Response
     {
+        $inviteRoomCode = $request->query('room');
+
         $story
             ->load([
                 'category:id,title',
@@ -93,21 +114,9 @@ final class StoryController extends Controller
 
         return inertia('Multiplayer/Multiplayer', [
             'story' => $story->toResource(),
-        ]);
-    }
-
-    public function multiplayerLobby(Story $story): Response
-    {
-        $story
-            ->load([
-                'category:id,title',
-                'creator:id,first_name,last_name,username,avatar',
-                'media',
-            ])
-            ->loadCount('chapters');
-
-        return inertia('Multiplayer/Lobby', [
-            'story' => $story->toResource(),
+            'inviteRoomCode' => is_string($inviteRoomCode)
+                ? mb_strtoupper(trim($inviteRoomCode))
+                : null,
         ]);
     }
 }

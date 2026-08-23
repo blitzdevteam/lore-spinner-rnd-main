@@ -32,7 +32,6 @@ import Rating from 'primevue/rating';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import { configureEcho } from '@laravel/echo-vue';
-import { configureEcho } from '@laravel/echo-vue';
 
 configureEcho({
     broadcaster: 'reverb',

@@ -46,6 +46,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $events_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read Collection<int, MultiplayerLobby> $multiplayerLobbies
  * @property-read StoryAdaptation|null $adaptation
  */
 final class Story extends Model implements HasMedia
@@ -136,6 +137,14 @@ final class Story extends Model implements HasMedia
     public function games(): HasMany
     {
         return $this->hasMany(Game::class);
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobby, $this>
+     */
+    public function multiplayerLobbies(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobby::class);
     }
 
     /**

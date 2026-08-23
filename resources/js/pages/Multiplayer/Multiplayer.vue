@@ -6,16 +6,15 @@ import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { StoryInterface } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import { join as joinMultiplayerLobby, store as storeMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import {
     LucideArrowRight,
     LucideCheck,
     LucideChevronDown,
     LucideCircleHelp,
-    LucideCopy,
     LucideGamepad2,
     LucideHandshake,
-    LucideLink,
     LucideScale,
     LucideUsers,
     LucideVenetianMask,
@@ -26,20 +25,58 @@ defineOptions({ layout: null });
 
 const props = defineProps<{
     story: StoryInterface;
+    inviteRoomCode?: string | null;
 }>();
 
-const roomCode = ref('');
 const showModeSelection = ref(false);
 const showSettings = ref(false);
-const selectedModeName = ref('Judge');
-const copiedRoomCode = ref(false);
+const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     customInput: 'On',
     voiceOver: 'Off',
     powerUpsPerUser: '10',
     votingTime: '20 Sec',
 });
+const lobbyCreationForm = useForm<{
+    mode: 'arbiter';
+    max_players: number;
+    settings: {
+        custom_input_enabled: boolean;
+        voice_over_enabled: boolean;
+        power_ups_per_user: number;
+        decision_window_seconds: number;
+    };
+}>({
+    mode: 'arbiter',
+    max_players: 4,
+    settings: {
+        custom_input_enabled: true,
+        voice_over_enabled: false,
+        power_ups_per_user: 10,
+        decision_window_seconds: 20,
+    },
+});
+const joinLobbyForm = useForm<{
+    room_code: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+}>({
+    room_code: props.inviteRoomCode ?? '',
+    email: '',
+    first_name: '',
+    last_name: '',
+});
 const storyCover = computed(() => resolveStoryCover(props.story.slug, props.story.cover) || treasureIslandBackdrop);
+const page = usePage();
+const joiningPlayer = computed(() => page.props.auth);
+const joiningPlayerName = computed(() => {
+    const player = joiningPlayer.value;
+    if (player === null) return '';
+
+    return player.full_name?.trim() || [player.first_name, player.last_name].filter(Boolean).join(' ') || player.email;
+});
+const joiningPlayerUsername = computed(() => (joiningPlayer.value?.username ? `@${joiningPlayer.value.username}` : 'Guest player'));
 
 type StoryMode = {
     name: string;
@@ -54,13 +91,13 @@ type StoryMode = {
 
 const storyModes: StoryMode[] = [
     {
-        name: 'Judge',
+        name: 'Arbiter',
         description: 'Everyone contributes. One player decides.',
-        details: 'Take turns being the judge and choose the final action after everyone has had a chance to contribute.',
+        details: 'Take turns being the Arbiter and choose the final action after everyone has had a chance to contribute.',
         accent: '#ffbe58',
         border: '#ffbe58',
         icon: LucideScale,
-        features: ['2-4 Players', 'Turn Based', 'One judge at a time'],
+        features: ['3-4 Players', 'Turn Based', 'One Arbiter at a time'],
         available: true,
     },
     {
@@ -120,28 +157,24 @@ function chooseMode(mode: StoryMode): void {
     showSettings.value = true;
 }
 
-async function copyRoomCode(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+function createLobby(): void {
+    lobbyCreationForm.mode = 'arbiter';
+    lobbyCreationForm.max_players = 4;
+    lobbyCreationForm.settings = {
+        custom_input_enabled: lobbySettings.value.customInput === 'On',
+        voice_over_enabled: lobbySettings.value.voiceOver === 'On',
+        power_ups_per_user: Number(lobbySettings.value.powerUpsPerUser),
+        decision_window_seconds: Number.parseInt(lobbySettings.value.votingTime, 10),
+    };
 
-    await navigator.clipboard.writeText('TRS-7X2Q');
-    copiedRoomCode.value = true;
-    window.setTimeout(() => {
-        copiedRoomCode.value = false;
-    }, 1800);
-}
-
-async function inviteViaLink(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-
-    await navigator.clipboard.writeText(window.location.href);
-}
-
-function openLobby(): void {
-    router.visit(`/stories/${props.story.slug}/multiplayer/lobby`);
+    lobbyCreationForm.post(storeMultiplayerLobby(props.story.slug).url);
 }
 
 function joinRoom(): void {
-    // Room joining is intentionally frontend-only until the multiplayer flow is connected.
+    joinLobbyForm.room_code = joinLobbyForm.room_code.trim().toUpperCase();
+    joinLobbyForm.post(joinMultiplayerLobby().url, {
+        preserveScroll: true,
+    });
 }
 </script>
 
@@ -248,22 +281,91 @@ function joinRoom(): void {
                             <label for="room-code" class="text-xs text-white">Enter room code</label>
                             <input
                                 id="room-code"
-                                v-model="roomCode"
+                                v-model="joinLobbyForm.room_code"
                                 type="text"
+                                autocomplete="off"
                                 class="h-[34px] w-full rounded-md border-[0.5px] border-[#8f8f8f] bg-[#101010] px-2 text-sm outline-none focus:border-[#ffbe58] focus:ring-1 focus:ring-[#ffbe58]"
                             />
                             <p class="flex items-start gap-1 text-[11px] leading-normal text-[#8f8f8f]">
                                 <LucideCircleHelp class="mt-px size-3.5 shrink-0" :stroke-width="1.5" />Don’t have a code? Ask your host for the room
                                 code.
                             </p>
+                            <p v-if="joinLobbyForm.errors.room_code" class="text-[11px] leading-normal text-[#fd6d6d]" role="alert">
+                                {{ joinLobbyForm.errors.room_code }}
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="joiningPlayer"
+                            class="w-full rounded-lg border border-[#ffbe58]/35 bg-[#191919] p-3"
+                        >
+                            <p class="text-[10px] font-medium tracking-[0.12em] text-[#8f8f8f] uppercase">Joining as</p>
+                            <div class="mt-2 flex items-center gap-2.5">
+                                <img :src="joiningPlayer.avatar" :alt="joiningPlayerName" class="size-9 rounded-full object-cover" />
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium text-white">{{ joiningPlayerName }}</p>
+                                    <p class="truncate text-xs text-[#ffbe58]">{{ joiningPlayerUsername }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else class="w-full rounded-lg border border-[#ffbe58]/35 bg-[#191919] p-3">
+                            <div class="flex flex-col gap-1">
+                                <p class="text-xs font-medium text-white">Play as a guest</p>
+                                <p class="text-[11px] leading-normal text-[#8f8f8f]">We’ll save a guest player for this room. You can complete your profile later.</p>
+                            </div>
+                            <div class="mt-3 flex flex-col gap-2">
+                                <div>
+                                    <label for="guest-email" class="text-[11px] text-white">Email</label>
+                                    <input
+                                        id="guest-email"
+                                        v-model="joinLobbyForm.email"
+                                        type="email"
+                                        autocomplete="email"
+                                        class="mt-1 h-[34px] w-full rounded-md border-[0.5px] border-[#5c5c5c] bg-[#101010] px-2 text-sm outline-none focus:border-[#ffbe58] focus:ring-1 focus:ring-[#ffbe58]"
+                                    />
+                                    <p v-if="joinLobbyForm.errors.email" class="mt-1 text-[11px] leading-normal text-[#fd6d6d]" role="alert">
+                                        {{ joinLobbyForm.errors.email }}
+                                    </p>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label for="guest-first-name" class="text-[11px] text-white">First name</label>
+                                        <input
+                                            id="guest-first-name"
+                                            v-model="joinLobbyForm.first_name"
+                                            type="text"
+                                            autocomplete="given-name"
+                                            class="mt-1 h-[34px] w-full rounded-md border-[0.5px] border-[#5c5c5c] bg-[#101010] px-2 text-sm outline-none focus:border-[#ffbe58] focus:ring-1 focus:ring-[#ffbe58]"
+                                        />
+                                        <p v-if="joinLobbyForm.errors.first_name" class="mt-1 text-[11px] leading-normal text-[#fd6d6d]" role="alert">
+                                            {{ joinLobbyForm.errors.first_name }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="guest-last-name" class="text-[11px] text-white">Last name</label>
+                                        <input
+                                            id="guest-last-name"
+                                            v-model="joinLobbyForm.last_name"
+                                            type="text"
+                                            autocomplete="family-name"
+                                            class="mt-1 h-[34px] w-full rounded-md border-[0.5px] border-[#5c5c5c] bg-[#101010] px-2 text-sm outline-none focus:border-[#ffbe58] focus:ring-1 focus:ring-[#ffbe58]"
+                                        />
+                                        <p v-if="joinLobbyForm.errors.last_name" class="mt-1 text-[11px] leading-normal text-[#fd6d6d]" role="alert">
+                                            {{ joinLobbyForm.errors.last_name }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <button
                         type="button"
-                        class="mt-5 flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#ffbe58] text-base transition-colors hover:bg-[#ffbe58]/10 focus-visible:ring-2 focus-visible:ring-[#ffbe58]"
+                        class="mt-5 flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#ffbe58] text-base transition-colors hover:bg-[#ffbe58]/10 focus-visible:ring-2 focus-visible:ring-[#ffbe58] disabled:cursor-wait disabled:opacity-60"
+                        :disabled="joinLobbyForm.processing"
                         @click="joinRoom"
                     >
-                        Join Room
+                        {{ joinLobbyForm.processing ? 'Joining Room...' : 'Join Room' }}
                         <LucideArrowRight class="size-[18px]" :stroke-width="1.5" />
                     </button>
                 </article>
@@ -408,38 +510,27 @@ function joinRoom(): void {
 
                 <div class="flex flex-col gap-2.5">
                     <h2 class="text-base">3. Invite Your Friends</h2>
-                    <div class="flex flex-col gap-2.5 sm:flex-row">
-                        <div class="flex h-[50px] flex-1 items-center justify-between rounded-md border-[0.5px] border-[#5c5c5c] bg-[#191919] px-2">
-                            <span class="text-base text-[#59c1ca]">TRS-7X2Q</span>
-                            <button
-                                type="button"
-                                class="flex size-9 items-center justify-center rounded-md bg-[#303030] text-white"
-                                :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'"
-                                @click="copyRoomCode"
-                            >
-                                <LucideCheck v-if="copiedRoomCode" class="size-5 text-[#58d9a1]" />
-                                <LucideCopy v-else class="size-5" :stroke-width="1.5" />
-                            </button>
-                        </div>
-                        <button
-                            type="button"
-                            class="flex h-[50px] flex-1 items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base transition-colors hover:bg-[#163f46]"
-                            @click="inviteViaLink"
-                        >
-                            <LucideLink class="size-6" :stroke-width="1.5" />
-                            Invite Via Link
-                        </button>
-                    </div>
+                    <p class="rounded-md border-[0.5px] border-[#5c5c5c] bg-[#191919] px-3 py-4 text-sm text-[#8f8f8f]">
+                        Create the lobby to get its room code and invite link.
+                    </p>
                 </div>
 
                 <button
                     type="button"
                     class="mx-auto flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-black bg-[#59c1ca] px-5 text-base text-black transition-colors hover:bg-[#7bd5dc]"
-                    @click="openLobby"
+                    :disabled="lobbyCreationForm.processing"
+                    @click="createLobby"
                 >
-                    Multiplayer Lobby
+                    {{ lobbyCreationForm.processing ? 'Creating Lobby...' : 'Create Lobby' }}
                     <LucideArrowRight class="size-[18px]" :stroke-width="1.5" />
                 </button>
+                <p
+                    v-if="lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings"
+                    class="text-center text-sm text-[#fd6d6d]"
+                    role="alert"
+                >
+                    {{ lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings }}
+                </p>
             </div>
         </section>
     </main>

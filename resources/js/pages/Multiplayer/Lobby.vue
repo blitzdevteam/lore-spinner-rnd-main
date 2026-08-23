@@ -1,47 +1,160 @@
 <script setup lang="ts">
 import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
-import checkCircleIcon from '@/assets/multiplayer/check-circle.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
-import playerBilly from '@/assets/multiplayer/player-billy.jpg';
 import plusCircleIcon from '@/assets/multiplayer/plus-circle.svg';
 import sparkleIcon from '@/assets/multiplayer/sparkle.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
-import { StoryInterface } from '@/types';
-import { Head } from '@inertiajs/vue3';
-import { LucideChevronDown, LucideMessageSquare, LucidePlus, LucideUsers } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import type { MultiplayerLobbyInterface } from '@/types';
+import {
+    destroy as destroyMultiplayerLobby,
+    show as showMultiplayerLobby,
+    start as startMultiplayerLobby,
+    updateReadiness as updateMultiplayerLobbyReadiness,
+} from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
+import { useEcho, useEchoPresence } from '@laravel/echo-vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { LucideCheck, LucideLink, LucidePlus, LucideUsers } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
 const props = defineProps<{
-    story: StoryInterface;
+    lobby: MultiplayerLobbyInterface;
 }>();
 
-const storyCover = computed(() => resolveStoryCover(props.story.slug, props.story.cover) || treasureIslandBackdrop);
-const roomCode = 'TRS-7X2Q';
-const showSettings = ref(true);
-const lobbySettings = ref({
-    customInput: 'On',
-    votingTime: '20 Sec',
-    powerUpsPerUser: '10',
+type MultiplayerLobbyRealtimePayload = {
+    lobby: Pick<MultiplayerLobbyInterface, 'id' | 'room_code' | 'mode' | 'status' | 'max_players' | 'settings' | 'members'>;
+};
+
+type MultiplayerLobbyDeletedPayload = {
+    lobby_id: string;
+};
+
+type MultiplayerLobbyEventPayload = MultiplayerLobbyRealtimePayload | MultiplayerLobbyDeletedPayload;
+
+const liveLobby = ref(props.lobby);
+watch(
+    () => props.lobby,
+    (lobby) => {
+        liveLobby.value = lobby;
+    },
+);
+
+const story = computed(() => liveLobby.value.story);
+const storyCover = computed(() => resolveStoryCover(story.value.slug, story.value.cover) || treasureIslandBackdrop);
+const roomCode = computed(() => liveLobby.value.room_code);
+const page = usePage();
+const inviteLink = computed(() => {
+    const path = multiplayerStoryRoute.url(story.value.slug, {
+        query: { room: roomCode.value },
+    });
+
+    return typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
 });
+const members = computed(() => liveLobby.value.members);
+const waitingSlots = computed(() => Math.max(liveLobby.value.max_players - members.value.length, 0));
+const currentUserId = computed(() => page.props.auth?.id ?? null);
+const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value));
+const isCurrentUserReady = computed(() => currentMember.value?.is_ready ?? false);
+const readyMemberCount = computed(() => members.value.filter((member) => member.is_ready).length);
+const isLobbyWaiting = computed(() => liveLobby.value.status === 'waiting');
+const allMembersReady = computed(() => members.value.length >= 3 && members.value.every((member) => member.is_ready));
+const canStartStory = computed(() => liveLobby.value.is_host && isLobbyWaiting.value && allMembersReady.value);
+const readinessMessage = computed(() => {
+    if (!isLobbyWaiting.value) {
+        return 'The story has started.';
+    }
+
+    if (members.value.length < 3) {
+        const playersNeeded = 3 - members.value.length;
+
+        return `Invite ${playersNeeded} more ${playersNeeded === 1 ? 'player' : 'players'} to begin.`;
+    }
+
+    return `${readyMemberCount.value}/${members.value.length} players ready`;
+});
+const showSettings = ref(true);
+const copiedInviteLink = ref(false);
+const leavingLobby = ref(false);
+const redirectingAfterLobbyDeletion = ref(false);
+const updatingReadiness = ref(false);
+const startingStory = ref(false);
+const readinessError = ref<string | null>(null);
+const startError = ref<string | null>(null);
+const lobbySettings = computed(() => ({
+    customInput: liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off',
+    votingTime: `${liveLobby.value.settings.decision_window_seconds} Sec`,
+    powerUpsPerUser: String(liveLobby.value.settings.power_ups_per_user),
+}));
 
 const rules = [
     {
-        title: 'Votes are secret',
-        description: 'Everyone votes at the same time. The majority moves the story forward.',
+        title: 'The Arbiter decides',
+        description: 'Everyone submits a choice. The current Arbiter selects the narration that becomes canon.',
     },
     {
-        title: 'Your choices matter',
-        description: 'Every decision shapes the world and your characters.',
+        title: 'Everyone contributes',
+        description: 'Choose a story point or write a custom action for each turn.',
     },
     {
-        title: 'One world, many paths',
-        description: 'Different choices, one shared storyline.',
+        title: 'The Arbiter rotates',
+        description: 'After a narration is chosen, the next player becomes the Arbiter.',
     },
 ];
+
+useEchoPresence<MultiplayerLobbyEventPayload>(
+    `multiplayer.lobby.${props.lobby.id}`,
+    [
+        '.multiplayer.lobby.created',
+        '.multiplayer.lobby.member.joined',
+        '.multiplayer.lobby.member.left',
+        '.multiplayer.lobby.member.readiness.changed',
+        '.multiplayer.lobby.started',
+        '.multiplayer.lobby.deleted',
+    ],
+    (payload) => {
+        if ('lobby_id' in payload) {
+            redirectAfterLobbyDeletion(payload.lobby_id);
+            return;
+        }
+
+        liveLobby.value = {
+            ...liveLobby.value,
+            ...payload.lobby,
+        };
+
+        if (payload.lobby.status === 'started') {
+            router.visit(showMultiplayerLobby(payload.lobby.room_code).url, {
+                preserveScroll: false,
+            });
+        }
+    },
+);
+
+if (currentUserId.value !== null) {
+    useEcho<MultiplayerLobbyDeletedPayload>(
+        `App.Models.User.${currentUserId.value}`,
+        '.multiplayer.lobby.deleted',
+        (payload) => {
+            redirectAfterLobbyDeletion(payload.lobby_id);
+        },
+    );
+}
+
+function redirectAfterLobbyDeletion(lobbyId: string): void {
+    if (lobbyId !== liveLobby.value.id || redirectingAfterLobbyDeletion.value) {
+        return;
+    }
+
+    redirectingAfterLobbyDeletion.value = true;
+
+    router.visit(multiplayerStoryRoute.url(story.value.slug), {
+        replace: true,
+    });
+}
 
 function goBack(): void {
     window.history.back();
@@ -50,11 +163,83 @@ function goBack(): void {
 async function copyRoomCode(): Promise<void> {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return;
 
-    await navigator.clipboard.writeText(roomCode);
+    await navigator.clipboard.writeText(roomCode.value);
+}
+
+async function copyInviteLink(): Promise<void> {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+
+    await navigator.clipboard.writeText(inviteLink.value);
+    copiedInviteLink.value = true;
+
+    window.setTimeout(() => {
+        copiedInviteLink.value = false;
+    }, 1800);
+}
+
+function leaveLobby(): void {
+    if (leavingLobby.value) return;
+
+    const confirmationMessage = liveLobby.value.is_host
+        ? 'Leave this lobby? This will delete the lobby for every player.'
+        : 'Leave this lobby? You can rejoin while it is still accepting players.';
+
+    if (!window.confirm(confirmationMessage)) return;
+
+    leavingLobby.value = true;
+
+    router.delete(destroyMultiplayerLobby(liveLobby.value.room_code).url, {
+        preserveScroll: true,
+        onFinish: () => {
+            leavingLobby.value = false;
+        },
+    });
+}
+
+function toggleReadiness(): void {
+    if (!currentMember.value || !isLobbyWaiting.value || updatingReadiness.value) {
+        return;
+    }
+
+    readinessError.value = null;
+    updatingReadiness.value = true;
+
+    router.patch(
+        updateMultiplayerLobbyReadiness(liveLobby.value.room_code).url,
+        { is_ready: !isCurrentUserReady.value },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                readinessError.value = errors.lobby ?? 'We could not update your ready status.';
+            },
+            onFinish: () => {
+                updatingReadiness.value = false;
+            },
+        },
+    );
 }
 
 function startStory(): void {
-    // Story start will connect to the multiplayer runtime when it is available.
+    if (!canStartStory.value || startingStory.value) {
+        return;
+    }
+
+    startError.value = null;
+    startingStory.value = true;
+
+    router.post(
+        startMultiplayerLobby(liveLobby.value.room_code).url,
+        {},
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                startError.value = errors.lobby ?? 'We could not start the story.';
+            },
+            onFinish: () => {
+                startingStory.value = false;
+            },
+        },
+    );
 }
 </script>
 
@@ -96,14 +281,14 @@ function startStory(): void {
                     <div class="flex items-center gap-2 rounded-lg bg-[#191919] p-2">
                         <div class="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#ffbe58] text-[#ffbe58]">⚖</div>
                         <div class="min-w-0">
-                            <p class="text-xs text-[#ffbe58]">Judge</p>
+                            <p class="text-xs text-[#ffbe58]">Arbiter</p>
                             <p class="text-[10px] leading-tight text-[#8f8f8f]">Everyone contributes, one player decides.</p>
                         </div>
                     </div>
                     <div class="border-t border-white/10 pt-3">
-                        <button type="button" class="mb-2 flex items-center gap-2 text-sm text-white">
+                        <p class="mb-2 flex items-center gap-2 text-sm text-white">
                             <LucideUsers class="size-4" :stroke-width="1.5" /> Invite Players
-                        </button>
+                        </p>
                         <div class="flex items-center justify-between rounded-md border border-[#373737] bg-[#191919] p-2">
                             <div>
                                 <p class="text-[11px] text-white">Room Code</p>
@@ -118,6 +303,17 @@ function startStory(): void {
                                 <LucidePlus class="size-4 rotate-45" :stroke-width="1.5" />
                             </button>
                         </div>
+                        <button
+                            v-if="liveLobby.is_host"
+                            type="button"
+                            class="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded border border-[#59c1ca]/60 bg-[#0e1f22] text-xs text-[#59c1ca] transition-colors hover:bg-[#163f46]"
+                            :aria-label="copiedInviteLink ? 'Invite link copied' : 'Copy invite link'"
+                            @click="copyInviteLink"
+                        >
+                            <LucideCheck v-if="copiedInviteLink" class="size-3.5 text-[#58d9a1]" :stroke-width="1.5" />
+                            <LucideLink v-else class="size-3.5" :stroke-width="1.5" />
+                            {{ copiedInviteLink ? 'Invite Link Copied' : 'Copy Invite Link' }}
+                        </button>
                     </div>
                     <div class="border-t border-white/10 pt-3">
                         <button type="button" class="mb-2 text-left text-base text-[#59c1ca]" @click="showSettings = !showSettings">
@@ -126,27 +322,28 @@ function startStory(): void {
                         <div v-if="showSettings" class="flex flex-col gap-2">
                             <label
                                 v-for="setting in [
-                                    { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
-                                    { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
-                                    { key: 'powerUpsPerUser', label: 'Power-ups Per User', options: ['5', '10', '15'] },
+                                    { key: 'customInput', label: 'Custom Input' },
+                                    { key: 'votingTime', label: 'Decision Time' },
+                                    { key: 'powerUpsPerUser', label: 'Power-ups Per User' },
                                 ]"
                                 :key="setting.key"
                                 class="flex items-center justify-between gap-2 text-[11px] text-[#838383]"
                             >
                                 <span>{{ setting.label }}</span>
-                                <span class="relative w-[5.5rem]">
-                                    <select
-                                        v-model="lobbySettings[setting.key as keyof typeof lobbySettings]"
-                                        class="w-full appearance-none rounded bg-[#1b1b1b] px-2 py-1 text-right text-xs text-white outline-none"
-                                    >
-                                        <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
-                                    </select>
-                                    <LucideChevronDown class="pointer-events-none absolute top-1 right-1 size-3 text-[#838383]" :stroke-width="1.5" />
+                                <span class="rounded bg-[#1b1b1b] px-2 py-1 text-right text-xs text-white">
+                                    {{ lobbySettings[setting.key as keyof typeof lobbySettings] }}
                                 </span>
                             </label>
                         </div>
                     </div>
-                    <button type="button" class="h-8 rounded border border-[#fd6d6d] text-xs text-[#fd6d6d]">Leave Lobby</button>
+                    <button
+                        type="button"
+                        class="h-8 rounded border border-[#fd6d6d] text-xs text-[#fd6d6d] disabled:cursor-wait disabled:opacity-60"
+                        :disabled="leavingLobby"
+                        @click="leaveLobby"
+                    >
+                        {{ leavingLobby ? (liveLobby.is_host ? 'Deleting Lobby...' : 'Leaving Lobby...') : 'Leave Lobby' }}
+                    </button>
                 </div>
             </aside>
 
@@ -159,49 +356,80 @@ function startStory(): void {
 
                 <div class="grid w-full grid-cols-2 gap-2.5 sm:grid-cols-4">
                     <article
+                        v-for="member in members"
+                        :key="member.id"
                         class="relative flex h-[13.7rem] flex-col items-center justify-end overflow-hidden rounded-xl border-[0.5px] border-[#59c1ca] p-2.5"
                     >
-                        <img :src="playerBilly" alt="" class="absolute inset-0 size-full object-cover opacity-80" />
+                        <img :src="member.user.avatar" :alt="member.user.full_name" class="absolute inset-0 size-full object-cover opacity-80" />
                         <div class="absolute inset-0 bg-linear-to-t from-black via-black/40 to-black/20" />
                         <div
-                            class="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-[#58d9a1]/15 px-2 py-0.5 text-[10px] text-[#58d9a1]"
+                            class="absolute top-2 left-2 z-[1] inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]"
+                            :class="member.is_ready ? 'border-[#58d9a1]/50 bg-[#103126]/90 text-[#58d9a1]' : 'border-white/15 bg-black/50 text-[#c5c5c5]'"
                         >
-                            <img :src="checkCircleIcon" alt="" class="size-3.5" />Ready
+                            <LucideCheck v-if="member.is_ready" class="size-3" :stroke-width="2" />
+                            {{ member.is_ready ? 'Ready' : 'Not ready' }}
                         </div>
                         <div class="relative z-[1] flex flex-col items-center gap-1">
-                            <div class="flex items-center gap-1 text-[10px] text-[#ffbe58]"><img :src="crownIcon" alt="" class="size-3.5" />Host</div>
-                            <p class="text-sm font-semibold text-[#59c1ca]">Billy (You)</p>
-                            <p class="text-xs text-white">The Scholar</p>
+                            <div v-if="member.role === 'host'" class="flex items-center gap-1 text-[10px] text-[#ffbe58]">
+                                <img :src="crownIcon" alt="" class="size-3.5" />Host
+                            </div>
+                            <p class="text-sm font-semibold text-[#59c1ca]">
+                                {{ member.user.full_name }}<span v-if="member.user.id === currentUserId"> (You)</span>
+                            </p>
+                            <p class="text-xs text-white">{{ member.role === 'host' ? 'Lobby host' : 'Player' }}</p>
                         </div>
                     </article>
-                    <button
-                        v-for="slot in 3"
+                    <div
+                        v-for="slot in waitingSlots"
                         :key="slot"
-                        type="button"
                         class="flex h-[13.7rem] flex-col items-center justify-center gap-3 rounded-xl border-[0.5px] border-dashed border-[#5c5c5c] bg-[#191919] text-[#8f8f8f] hover:border-[#59c1ca]"
                     >
                         <img :src="plusCircleIcon" alt="" class="size-6" />
                         <span class="text-xs">Waiting for player</span>
-                    </button>
+                    </div>
                 </div>
 
-                <div class="flex flex-col items-center gap-3">
+                <div v-if="isLobbyWaiting" class="flex w-full flex-col items-center gap-3">
                     <button
                         type="button"
-                        class="flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] px-4 text-base"
+                        class="flex h-10 items-center justify-center gap-2 rounded-[10px] border px-4 text-sm transition-colors disabled:cursor-wait disabled:opacity-60"
+                        :class="isCurrentUserReady ? 'border-[#58d9a1]/60 bg-[#103126] text-[#58d9a1] hover:bg-[#164533]' : 'border-[#59c1ca]/70 bg-[#0e1f22] text-[#59c1ca] hover:bg-[#163f46]'"
+                        :disabled="!currentMember || updatingReadiness"
+                        @click="toggleReadiness"
+                    >
+                        <LucideCheck class="size-4" :stroke-width="1.75" />
+                        {{ updatingReadiness ? 'Updating...' : isCurrentUserReady ? 'Ready — click to undo' : 'Ready to Play' }}
+                    </button>
+                    <button
+                        v-if="liveLobby.is_host"
+                        type="button"
+                        class="flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] px-4 text-base transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                        :class="canStartStory ? 'border-[#59c1ca] bg-[#0e1f22] text-white hover:bg-[#163f46]' : 'border-[#59c1ca] bg-[#0e1f22] text-white'"
+                        :disabled="!canStartStory || startingStory"
                         @click="startStory"
                     >
                         <span class="flex size-9 items-center justify-center rounded-full border border-[#59c1ca] text-[10px] text-white"
-                            ><span class="text-[#59c1ca]">1/</span>3</span
+                            ><span class="text-[#59c1ca]">{{ readyMemberCount }}/</span>{{ members.length }}</span
                         >
-                        Start Story
+                        {{ startingStory ? 'Starting Story...' : 'Start Story' }}
                         <img :src="arrowRightIcon" alt="" class="size-[18px]" />
                     </button>
+                    <p v-else class="text-xs tracking-wide text-[#838383]">
+                        {{ allMembersReady ? 'Everyone is ready. Waiting for the host to start.' : 'Waiting for every player to get ready.' }}
+                    </p>
+                    <p class="text-xs tracking-wide text-[#838383]">{{ readinessMessage }}</p>
+                    <p v-if="readinessError || startError" class="text-xs text-[#fd6d6d]">{{ readinessError || startError }}</p>
                     <p class="flex items-center gap-1.5 text-xs tracking-wide text-[#838383]">
                         <img :src="sparkleIcon" alt="" class="size-4" /><span
-                            ><strong class="font-normal text-[#d8d8d8]">Tip</strong>: All Players ready will start the story together.</span
+                            ><strong class="font-normal text-[#d8d8d8]">Tip</strong>: Share the room code to invite players.</span
                         >
                     </p>
+                </div>
+                <div v-else class="flex flex-col items-center gap-2 rounded-[10px] border border-[#58d9a1]/50 bg-[#103126]/60 px-5 py-4">
+                    <div class="flex items-center gap-2 text-sm text-[#58d9a1]">
+                        <LucideCheck class="size-4" :stroke-width="1.75" /> Story started
+                    </div>
+                    <p class="text-xs text-[#c5c5c5]">The lobby is locked while the group plays.</p>
                 </div>
             </section>
 
@@ -211,7 +439,7 @@ function startStory(): void {
                     <img :src="storyCover" alt="" class="size-14 rounded-md object-cover" />
                     <div class="min-w-0 self-center text-left">
                         <p class="truncate text-xs text-white">{{ story.title }}</p>
-                        <p class="text-[11px] text-[#59c1ca]">Episode 3 of 12</p>
+                        <p class="text-[11px] text-[#59c1ca]">{{ story.chapters_count ?? 0 }} Chapters</p>
                     </div>
                 </div>
                 <div class="my-4 border-t border-white/10" />
@@ -225,13 +453,5 @@ function startStory(): void {
                 <button type="button" class="mt-4 h-8 w-full rounded border border-[#5c5c5c] text-xs text-[#838383]">View Rules</button>
             </aside>
         </section>
-
-        <button
-            type="button"
-            class="fixed right-5 bottom-5 z-20 flex size-14 items-center justify-center rounded-full border border-[#373737] bg-[#191919] text-[#59c1ca] shadow-[0_4px_24px_rgba(0,0,0,0.35)] transition-colors hover:border-[#59c1ca] hover:bg-[#0e1f22] focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
-            aria-label="Open lobby chat"
-        >
-            <LucideMessageSquare class="size-6" :stroke-width="1.5" />
-        </button>
     </main>
 </template>
