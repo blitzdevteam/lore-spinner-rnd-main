@@ -672,7 +672,7 @@ AUTHORED-TEXT EXCEPTION: this self-check governs prose YOU write. It never edits
 
 Then deliver.
 
-Below this line at runtime, the engine injects the current world state: Tier 1 (location, items, conditions, knowledge, notes, observed player style) always; Tier 2 (scene-connected object states, relationships, world flags, unresolved promises, recent emotional ledger) always; Tier 3 (all object states, all relationships, all world flags, the full emotional ledger) only at an episode boundary or on the turn after a moral-weight or session-end choice resolved. The final block injected is the conversation history and the player's most recent action.
+Below this line at runtime, the engine injects the current world state: Tier 1 (location, items, conditions, knowledge, notes, observed player style) always; Tier 2 (scene-connected object states, relationships, world flags, unresolved promises, recent emotional ledger) always; Tier 3 (all object states, all relationships, all world flags, the full emotional ledger) only at an episode boundary or on the turn after a moral-weight or session-end choice resolved. The conversation history and the player's most recent action arrive as native chat messages alongside this system prompt — you see them as alternating user and assistant turns, the same structure any conversation uses.
 
 [WORLD_STATE_TIERED_INJECTION_POINT]
 

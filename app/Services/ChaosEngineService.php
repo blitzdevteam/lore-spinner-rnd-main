@@ -1626,7 +1626,7 @@ TEXT;
         $sessionNumber = (int) ($sessionContext['session_number'] ?? 1);
         $coldOpen = (string) ($sessionContext['cold_open'] ?? '');
         $openingHandoff = (string) ($sessionContext['opening_handoff'] ?? '');
-        $emotionalPromise = (string) ($sessionContext['emotional_prompt'] ?? '');
+        $emotionalPromise = (string) ($sessionContext['emotional_promise'] ?? '');
         $mustReintroduce = $sessionContext['must_reintroduce'] ?? '';
         $reintroducedFacts = (array) ($worldState['reintroduced_facts'] ?? []);
         $activeMomentKey = (string) data_get($sessionContext, 'active_moment_context.moment_key', '');
