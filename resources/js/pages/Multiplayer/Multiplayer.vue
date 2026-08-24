@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
+import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
+import checkCircleSelectedIcon from '@/assets/multiplayer/check-circle-selected.svg';
+import copyIcon from '@/assets/multiplayer/copy.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
+import linkSimpleIcon from '@/assets/multiplayer/link-simple.svg';
 import plusIcon from '@/assets/multiplayer/plus.svg';
 import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
@@ -8,17 +13,7 @@ import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { StoryInterface } from '@/types';
 import { join as joinMultiplayerLobby, store as storeMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import {
-    LucideArrowRight,
-    LucideCheck,
-    LucideChevronDown,
-    LucideCircleHelp,
-    LucideGamepad2,
-    LucideHandshake,
-    LucideScale,
-    LucideUsers,
-    LucideVenetianMask,
-} from 'lucide-vue-next';
+import { LucideCircleHelp, LucideGamepad2, LucideScale, LucideUsers, LucideVenetianMask } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 defineOptions({ layout: null });
@@ -28,8 +23,7 @@ const props = defineProps<{
     inviteRoomCode?: string | null;
 }>();
 
-const showModeSelection = ref(false);
-const showSettings = ref(false);
+const showHostSetup = ref(false);
 const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     customInput: 'On',
@@ -95,29 +89,19 @@ const storyModes: StoryMode[] = [
         description: 'Everyone contributes. One player decides.',
         details: 'Take turns being the Arbiter and choose the final action after everyone has had a chance to contribute.',
         accent: '#ffbe58',
-        border: '#ffbe58',
+        border: '#59c1ca',
         icon: LucideScale,
         features: ['3-4 Players', 'Turn Based', 'One Arbiter at a time'],
         available: true,
     },
     {
-        name: 'Role-playing',
-        description: 'Everyone has a character. Everyone plays in their own part.',
-        details: 'Make decisions for your own character while your actions become part of one shared story.',
+        name: 'Roulette',
+        description: 'one player decides, the story moves, and the turn changes.',
+        details: 'One player decides, the story moves, and the turn changes.',
         accent: '#59c1ca',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['2-4 Players', 'Shared story', 'Each player a character'],
-        available: false,
-    },
-    {
-        name: 'Parallel',
-        description: 'One character. One team. One decision.',
-        details: 'Work together, submit your choices, and let the group vote on what happens next.',
-        accent: '#58d9a1',
-        border: '#373737',
-        icon: LucideHandshake,
-        features: ['2-4 Players', 'Group voting', 'One shared character'],
+        features: ['2-4 Players', 'Turn Based', 'One player decides'],
         available: false,
     },
     {
@@ -133,13 +117,8 @@ const storyModes: StoryMode[] = [
 ];
 
 function goBack(): void {
-    if (showSettings.value) {
-        showSettings.value = false;
-        return;
-    }
-
-    if (showModeSelection.value) {
-        showModeSelection.value = false;
+    if (showHostSetup.value) {
+        showHostSetup.value = false;
         return;
     }
 
@@ -147,14 +126,16 @@ function goBack(): void {
 }
 
 function createRoom(): void {
-    showModeSelection.value = true;
+    selectedModeName.value = 'Arbiter';
+    showHostSetup.value = true;
 }
 
 function chooseMode(mode: StoryMode): void {
-    if (!mode.available) return;
+    if (!mode.available) {
+        return;
+    }
 
     selectedModeName.value = mode.name;
-    showSettings.value = true;
 }
 
 function createLobby(): void {
@@ -206,7 +187,7 @@ function joinRoom(): void {
         </button>
 
         <section
-            v-if="!showModeSelection"
+            v-if="!showHostSetup"
             class="relative z-[1] mx-auto flex min-h-svh w-full max-w-[43rem] flex-col items-center px-5 pt-[6.3rem] pb-10 sm:pt-[8.8rem]"
         >
             <div class="flex w-full flex-col items-center gap-2.5 text-center">
@@ -372,7 +353,7 @@ function joinRoom(): void {
                         @click="joinRoom"
                     >
                         {{ joinLobbyForm.processing ? 'Joining Room...' : 'Join Room' }}
-                        <LucideArrowRight class="size-[18px]" :stroke-width="1.5" />
+                        <img :src="arrowRightIcon" alt="" class="size-[18px]" />
                     </button>
                 </article>
             </div>
@@ -380,63 +361,6 @@ function joinRoom(): void {
             <div class="mt-8 hidden items-center gap-2 text-xs text-[#8f8f8f] sm:flex">
                 <LucideUsers class="size-4" :stroke-width="1.5" />
                 <span>Invite your friends to shape the story together.</span>
-            </div>
-        </section>
-
-        <section
-            v-else-if="!showSettings"
-            class="relative z-[1] mx-auto flex min-h-svh w-full max-w-[82rem] flex-col items-center px-5 pt-[6.3rem] pb-10 sm:pt-[8.8rem]"
-        >
-            <div class="flex w-full flex-col items-center gap-2.5 text-center">
-                <p class="text-sm font-medium tracking-tight text-[#ffbe58] sm:text-lg">MULTIPLAYER ADVENTURE</p>
-                <div class="flex flex-col gap-2.5">
-                    <h1 class="font-['Inria_Serif',serif] text-[2rem] leading-tight font-bold sm:text-4xl">Choose your story mode</h1>
-                    <p class="text-xs text-[#8f8f8f] sm:text-sm">Different ways to play. One unforgettable story.</p>
-                </div>
-            </div>
-
-            <div class="mt-8 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <article
-                    v-for="mode in storyModes"
-                    :key="mode.name"
-                    class="flex min-h-[16.5rem] flex-col rounded-xl border-[0.5px] bg-black p-2.5"
-                    :style="{ borderColor: mode.border }"
-                >
-                    <div class="flex flex-1 flex-col items-center text-center">
-                        <div class="flex flex-col items-center gap-1.5">
-                            <div
-                                class="flex size-[50px] items-center justify-center rounded-full border-[0.4px]"
-                                :style="{ borderColor: mode.accent, color: mode.accent }"
-                            >
-                                <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
-                            </div>
-                            <h2 class="text-xl" :style="{ color: mode.accent }">{{ mode.name }}</h2>
-                        </div>
-
-                        <div class="my-3 h-px w-full bg-white/20" />
-
-                        <p class="min-h-[2.5rem] text-sm leading-normal text-white">{{ mode.description }}</p>
-                        <p class="mt-1 min-h-[3.5rem] text-xs leading-normal text-[#8f8f8f]">{{ mode.details }}</p>
-
-                        <div class="mt-auto flex w-full justify-between gap-2 pt-4 text-left text-[11px] leading-tight text-[#8f8f8f]">
-                            <span v-for="feature in mode.features" :key="feature" class="flex flex-1 items-start gap-1">
-                                <span class="mt-1 size-1 shrink-0 rounded-full" :style="{ backgroundColor: mode.accent }" />
-                                {{ feature }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        class="mt-4 flex h-10 w-full items-center justify-center rounded-[5px] border-[0.5px] text-sm transition-colors focus-visible:ring-2"
-                        :class="mode.available ? 'hover:bg-white/[0.06]' : 'cursor-not-allowed text-[#8f8f8f]'"
-                        :style="mode.available ? { borderColor: mode.accent, color: mode.accent } : { borderColor: '#8f8f8f' }"
-                        :disabled="!mode.available"
-                        @click="chooseMode(mode)"
-                    >
-                        {{ mode.available ? 'Choose Mode' : 'Coming Soon' }}
-                    </button>
-                </article>
             </div>
         </section>
 
@@ -452,44 +376,49 @@ function joinRoom(): void {
                 </div>
             </div>
 
-            <div class="mt-8 flex w-full flex-col gap-6">
+            <div class="mt-10 flex w-full flex-col gap-5 rounded-[14px]">
                 <div class="flex flex-col gap-2.5">
-                    <h2 class="text-base">1. Chosen Story Mode</h2>
-                    <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base">1. Chosen Story Mode</h2>
+                        <span class="text-sm font-medium text-[#59c1ca]">View More</span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                         <button
                             v-for="mode in storyModes"
                             :key="mode.name"
                             type="button"
-                            class="relative flex min-h-[12.4rem] flex-col items-center justify-end rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
+                            class="relative flex h-[190px] flex-col items-center justify-end rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
                             :class="[
                                 selectedModeName === mode.name ? 'bg-[#141819]' : 'bg-black',
-                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-80',
+                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed',
                             ]"
                             :style="{ borderColor: selectedModeName === mode.name ? '#59c1ca' : '#373737' }"
                             :disabled="!mode.available"
                             @click="chooseMode(mode)"
                         >
-                            <span
+                            <img
                                 v-if="selectedModeName === mode.name"
-                                class="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-[#59c1ca] text-black"
-                            >
-                                <LucideCheck class="size-4" :stroke-width="2.5" />
-                            </span>
+                                :src="checkCircleSelectedIcon"
+                                alt=""
+                                class="absolute top-1.5 right-1.5 size-6"
+                            />
                             <span
-                                class="flex size-[50px] items-center justify-center rounded-full border-[0.4px]"
+                                class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
                                 :style="{ borderColor: mode.accent, color: mode.accent }"
                             >
                                 <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
                             </span>
-                            <span class="mt-1 text-xl" :style="{ color: mode.accent }">{{ mode.name }}</span>
-                            <span class="mt-2 min-h-[3.75rem] text-xs leading-normal text-[#8f8f8f]">{{ mode.description }}</span>
+                            <span class="mt-1.5 text-xl" :style="{ color: mode.accent }">{{ mode.name }}</span>
+                            <span class="mt-2.5 min-h-[3.375rem] text-xs leading-normal font-light text-[#8f8f8f]">{{ mode.description }}</span>
                         </button>
                     </div>
                 </div>
 
+                <div class="h-px w-full bg-white/20" />
+
                 <div class="flex flex-col gap-2.5">
                     <h2 class="text-base">2. Lobby Setting</h2>
-                    <div class="grid gap-2.5 sm:grid-cols-2">
+                    <div class="grid gap-3.5 sm:grid-cols-2">
                         <label
                             v-for="setting in [
                                 { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
@@ -504,40 +433,53 @@ function joinRoom(): void {
                             <span class="relative flex h-[38px] w-[8rem] items-center">
                                 <select
                                     v-model="lobbySettings[setting.key as keyof typeof lobbySettings]"
-                                    class="h-full w-full appearance-none rounded-md border-[0.5px] border-[#303030] bg-[#1b1b1b] px-3 pr-8 text-center text-sm text-white outline-none focus:border-[#59c1ca]"
+                                    class="h-full w-full appearance-none rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-3 pr-8 text-center text-sm text-white outline-none focus:border-[#59c1ca]"
                                 >
                                     <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
                                 </select>
-                                <LucideChevronDown class="pointer-events-none absolute right-2 size-4 text-[#838383]" :stroke-width="1.5" />
+                                <img :src="caretDownIcon" alt="" class="pointer-events-none absolute right-2 size-[18px]" />
                             </span>
                         </label>
                     </div>
                 </div>
 
+                <div class="h-px w-full bg-white/20" />
+
                 <div class="flex flex-col gap-2.5">
                     <h2 class="text-base">3. Invite Your Friends</h2>
-                    <p class="rounded-md border-[0.5px] border-[#5c5c5c] bg-[#191919] px-3 py-4 text-sm text-[#8f8f8f]">
-                        Create the lobby to get its room code and invite link.
-                    </p>
+                    <div class="grid gap-2.5 sm:grid-cols-2">
+                        <div
+                            class="flex h-[50px] items-center justify-between rounded-[5px] border-[0.5px] border-[#5c5c5c] bg-[#191919] px-2 py-1.5"
+                        >
+                            <p class="text-sm text-[#8f8f8f]">Room code after you open the lobby</p>
+                            <img :src="copyIcon" alt="" class="size-[38px]" />
+                        </div>
+                        <div
+                            class="flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base"
+                        >
+                            <img :src="linkSimpleIcon" alt="" class="size-6" />
+                            Invite Via Link
+                        </div>
+                    </div>
                 </div>
-
-                <button
-                    type="button"
-                    class="mx-auto flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-black bg-[#59c1ca] px-5 text-base text-black transition-colors hover:bg-[#7bd5dc]"
-                    :disabled="lobbyCreationForm.processing"
-                    @click="createLobby"
-                >
-                    {{ lobbyCreationForm.processing ? 'Creating Lobby...' : 'Create Lobby' }}
-                    <LucideArrowRight class="size-[18px]" :stroke-width="1.5" />
-                </button>
-                <p
-                    v-if="lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings"
-                    class="text-center text-sm text-[#fd6d6d]"
-                    role="alert"
-                >
-                    {{ lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings }}
-                </p>
             </div>
+
+            <button
+                type="button"
+                class="mt-10 flex h-[50px] w-[218px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-black bg-[#59c1ca] text-base font-medium text-black transition-colors hover:bg-[#7bd5dc] focus-visible:ring-2 focus-visible:ring-[#59c1ca] disabled:cursor-wait disabled:opacity-60"
+                :disabled="lobbyCreationForm.processing"
+                @click="createLobby"
+            >
+                {{ lobbyCreationForm.processing ? 'Opening Lobby...' : 'Multiplayer Lobby' }}
+                <img :src="arrowRightIcon" alt="" class="size-[18px] invert" />
+            </button>
+            <p
+                v-if="lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings"
+                class="mt-3 text-center text-sm text-[#fd6d6d]"
+                role="alert"
+            >
+                {{ lobbyCreationForm.errors.mode || lobbyCreationForm.errors.max_players || lobbyCreationForm.errors.settings }}
+            </p>
         </section>
     </main>
 </template>
