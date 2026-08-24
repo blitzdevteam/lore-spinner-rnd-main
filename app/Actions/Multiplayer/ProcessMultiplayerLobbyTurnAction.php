@@ -7,6 +7,7 @@ namespace App\Actions\Multiplayer;
 use App\Actions\Game\ProcessGameTurnAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
+use App\Events\MultiplayerArbiterNarrationStreamed;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Models\Game;
 use App\Models\MultiplayerLobby;
@@ -53,13 +54,27 @@ final class ProcessMultiplayerLobbyTurnAction
 
         try {
             if ($sourcePrompt->prompt === null) {
-                $this->processGameTurn->handle(
+                MultiplayerArbiterNarrationStreamed::dispatch(
+                    (string) $lobby->id,
+                    (string) $sourcePrompt->id,
+                    MultiplayerArbiterNarrationStreamed::PHASE_READY,
+                );
+
+                $this->processGameTurn->handleStreaming(
                     gameId: $lobby->game_id,
                     sourcePromptId: $sourcePrompt->id,
                     storedPromptValue: $proposal->text,
                     playerAction: $proposal->text,
                     explicitBranch: null,
                     userId: $lobby->host_user_id,
+                    onResponseDelta: static function (string $delta) use ($lobby, $sourcePrompt): void {
+                        MultiplayerArbiterNarrationStreamed::dispatch(
+                            (string) $lobby->id,
+                            (string) $sourcePrompt->id,
+                            MultiplayerArbiterNarrationStreamed::PHASE_DELTA,
+                            $delta,
+                        );
+                    },
                 );
             }
         } catch (Throwable $exception) {
@@ -78,6 +93,32 @@ final class ProcessMultiplayerLobbyTurnAction
             ->where('source_prompt_id', $sourcePrompt->id)
             ->orderByDesc('id')
             ->first();
+
+        if ($responsePrompt !== null) {
+            if ($responsePrompt->choices !== []) {
+                $responsePrompt->forceFill(['choices' => []])->save();
+            }
+
+            MultiplayerArbiterNarrationStreamed::dispatch(
+                (string) $lobby->id,
+                (string) $sourcePrompt->id,
+                MultiplayerArbiterNarrationStreamed::PHASE_DONE,
+                null,
+                $proposal->text,
+                $responsePrompt,
+            );
+        } else {
+            MultiplayerArbiterNarrationStreamed::dispatch(
+                (string) $lobby->id,
+                (string) $sourcePrompt->id,
+                MultiplayerArbiterNarrationStreamed::PHASE_ERROR,
+                null,
+                null,
+                null,
+                'Narration hiccuped — please retry this turn.',
+            );
+        }
+
         $updatedLobby = DB::transaction(function () use ($lobby, $proposal, $sourcePrompt, $responsePrompt): ?MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()

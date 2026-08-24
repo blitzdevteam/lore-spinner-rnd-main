@@ -8,15 +8,16 @@ import kevinAvatar from '@/assets/arbiter/kevin-avatar.png';
 import lightningIcon from '@/assets/arbiter/lightning.svg';
 import miraAvatar from '@/assets/arbiter/mira-avatar.png';
 import notesIcon from '@/assets/arbiter/notes.svg';
-import playIcon from '@/assets/arbiter/play.svg';
 import playersIcon from '@/assets/arbiter/players.svg';
 import questionIcon from '@/assets/arbiter/question.svg';
-import sceneImage from '@/assets/arbiter/scene.png';
 import sendIcon from '@/assets/arbiter/send.svg';
 import settingsIcon from '@/assets/arbiter/settings.svg';
 import BaseButton from '@/components/BaseButton.vue';
+import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
+import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
+import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
     GameInterface,
     MultiplayerArbiterStateInterface,
@@ -28,8 +29,8 @@ import type {
 import { show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { useEchoPresence } from '@laravel/echo-vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { LucideCrown, LucideList, LucidePause, LucideRotateCcw, LucideRotateCw, LucideVolume2, LucideVolumeX, LucideX } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { LucideCrown, LucideList } from 'lucide-vue-next';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
@@ -57,6 +58,16 @@ type ArbiterStateSignal = {
     lobby_id: string;
 };
 
+type ArbiterNarrationSignal = {
+    lobby_id: string;
+    source_prompt_id: string;
+    phase: 'ready' | 'delta' | 'done' | 'error';
+    text?: string;
+    source_prompt_value?: string;
+    prompt?: PromptInterface;
+    message?: string;
+};
+
 const props = defineProps<{
     lobby: MultiplayerLobbyInterface;
     game: GameInterface | null;
@@ -64,6 +75,10 @@ const props = defineProps<{
 }>();
 
 const page = usePage();
+const tts = useTextToSpeech();
+const gameplayBackgroundImage = computed(
+    () => props.game?.story?.banner || props.lobby.story.banner || props.game?.story?.cover || props.lobby.story.cover || null,
+);
 const roomCode = computed(() => props.lobby.room_code);
 const members = computed(() => props.lobby.members);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
@@ -71,13 +86,6 @@ const currentMember = computed(() => members.value.find((member) => member.user.
 const currentArbiter = computed(
     () => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null,
 );
-const currentPrompt = computed<PromptInterface | null>(() => {
-    const prompts = props.game?.prompts ?? [];
-    const sourcePromptId = props.arbiter.source_prompt_id;
-
-    return prompts.find((prompt) => prompt.id === sourcePromptId) ?? prompts.at(-1) ?? null;
-});
-const narration = computed(() => stripHtml(currentPrompt.value?.response ?? ''));
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
 const isCollectingProposals = computed(() => turnStatus.value === 'collecting_proposals');
@@ -120,6 +128,20 @@ const canAdvanceSession = computed(() =>
     isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host,
 );
 const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
+const streamingPromptId = ref<string | null>(null);
+const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
+const promptCardElements = ref<Record<string, HTMLElement | null>>({});
+const prompts = computed(() => localPrompts.value);
+const latestPromptId = computed(() => prompts.value.at(-1)?.id ?? null);
+const hasVisibleStreamedResponse = computed(() => {
+    if (!streamingPromptId.value) {
+        return false;
+    }
+
+    const streamingPrompt = prompts.value.find((prompt) => prompt.id === streamingPromptId.value);
+
+    return !!streamingPrompt?.response && stripHtml(streamingPrompt.response).length > 0;
+});
 
 const messages = ref<ChatMessage[]>([
     { name: 'Billy (Host)', text: 'This place gives me chills', time: '10:20 PM', tone: 'cyan' },
@@ -130,23 +152,13 @@ const messages = ref<ChatMessage[]>([
 
 const chatDraft = ref('');
 const copiedRoomCode = ref(false);
-const isNarrationPlaying = ref(false);
-const isMuted = ref(false);
-const narrationSeconds = ref(780);
-const narrationVolume = ref(36);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const isAdvancingSession = ref(false);
 const actionError = ref<string | null>(null);
 
-const formattedNarrationTime = computed(() => {
-    const minutes = Math.floor(narrationSeconds.value / 60);
-    const seconds = narrationSeconds.value % 60;
-
-    return [minutes, seconds.toString().padStart(2, '0')].join(':');
-});
-
 function goBack(): void {
+    tts.dismiss();
     window.history.back();
 }
 
@@ -159,6 +171,128 @@ function stripHtml(value: string): string {
     element.innerHTML = value;
 
     return (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[] {
+    const localById = new Map(localPrompts.value.map((prompt) => [String(prompt.id), prompt]));
+    const serverIds = new Set(serverPrompts.map((prompt) => String(prompt.id)));
+    const reconciled = serverPrompts.map((prompt) => {
+        const localPrompt = localById.get(String(prompt.id));
+
+        return localPrompt?.prompt && !prompt.prompt ? { ...prompt, prompt: localPrompt.prompt } : prompt;
+    });
+    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts.at(-1)?.id ?? '') : '';
+    const newerLocalPrompts = localPrompts.value.filter(
+        (prompt) =>
+            prompt.id !== streamingPromptId.value
+            && !serverIds.has(String(prompt.id))
+            && String(prompt.id) > newestServerId,
+    );
+
+    return [...reconciled, ...newerLocalPrompts];
+}
+
+watch(
+    () => props.game?.prompts,
+    (serverPrompts) => {
+        const streamingPrompt = streamingPromptId.value
+            ? localPrompts.value.find((prompt) => prompt.id === streamingPromptId.value) ?? null
+            : null;
+        const mergedPrompts = mergeServerPrompts([...(serverPrompts ?? [])]);
+
+        localPrompts.value = streamingPrompt
+            ? [...mergedPrompts.filter((prompt) => prompt.id !== streamingPrompt.id), streamingPrompt]
+            : mergedPrompts;
+    },
+    { deep: true },
+);
+
+watch(turnStatus, (status) => {
+    if (status === 'narrating' || !streamingPromptId.value) {
+        return;
+    }
+
+    const transientPromptId = streamingPromptId.value;
+    localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
+    streamingPromptId.value = null;
+});
+
+function ensureStreamingPrompt(sourcePromptId: string): string {
+    const promptId = `stream-${sourcePromptId}`;
+
+    if (streamingPromptId.value && streamingPromptId.value !== promptId) {
+        const stalePromptId = streamingPromptId.value;
+        localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== stalePromptId);
+    }
+
+    streamingPromptId.value = promptId;
+
+    if (!localPrompts.value.some((prompt) => prompt.id === promptId)) {
+        const sourcePrompt = localPrompts.value.find((prompt) => prompt.id === sourcePromptId);
+
+        localPrompts.value = [
+            ...localPrompts.value,
+            {
+                id: promptId,
+                game_id: props.game?.id ?? '',
+                session_number: sourcePrompt?.session_number ?? props.game?.current_session_number ?? null,
+                prompt: null,
+                response: '',
+                choices: [],
+                created_at: null,
+                updated_at: null,
+            },
+        ];
+    }
+
+    return promptId;
+}
+
+function appendNarrationDelta(sourcePromptId: string, text: string): void {
+    const promptId = ensureStreamingPrompt(sourcePromptId);
+
+    localPrompts.value = localPrompts.value.map((prompt) =>
+        prompt.id === promptId ? { ...prompt, response: `${prompt.response ?? ''}${text}` } : prompt,
+    );
+}
+
+function commitStreamedNarration(signal: ArbiterNarrationSignal): void {
+    const responsePrompt = signal.prompt;
+
+    if (!responsePrompt) {
+        return;
+    }
+
+    const transientPromptId = `stream-${signal.source_prompt_id}`;
+
+    localPrompts.value = localPrompts.value
+        .map((prompt) =>
+            prompt.id === signal.source_prompt_id
+                ? { ...prompt, prompt: signal.source_prompt_value ?? prompt.prompt }
+                : prompt,
+        )
+        .filter((prompt) => prompt.id !== transientPromptId && prompt.id !== responsePrompt.id);
+    localPrompts.value = [...localPrompts.value, responsePrompt];
+    if (streamingPromptId.value === transientPromptId) {
+        streamingPromptId.value = null;
+    }
+}
+
+function setPromptCardElement(promptId: string, element: unknown): void {
+    promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
+}
+
+function scrollToPromptStart(promptId: string): void {
+    const element = promptCardElements.value[promptId];
+
+    if (!element) {
+        return;
+    }
+
+    const headerOffset = 112;
+    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - headerOffset);
+
+    window.scrollTo({ top, behavior: 'smooth' });
 }
 
 function memberAvatar(member: MultiplayerLobbyMemberInterface, index: number): string {
@@ -270,7 +404,7 @@ const waitingStatus = computed(() => {
         return props.game.opening_error;
     }
 
-    if (props.game?.turn_error) {
+    if (props.game?.turn_error && !isNarrating.value) {
         return props.game.turn_error;
     }
 
@@ -305,14 +439,6 @@ const waitingStatus = computed(() => {
     return ownProposal.value ? 'Choice submitted. Waiting for the other players…' : 'Waiting for you to submit your choice…';
 });
 
-function toggleNarration(): void {
-    isNarrationPlaying.value = !isNarrationPlaying.value;
-}
-
-function seekNarration(seconds: number): void {
-    narrationSeconds.value = Math.min(1560, Math.max(0, narrationSeconds.value + seconds));
-}
-
 async function copyRoomCode(): Promise<void> {
     try {
         await navigator.clipboard.writeText(roomCode.value);
@@ -343,6 +469,7 @@ function submitProposal(proposal: string): void {
     }
 
     actionError.value = null;
+    tts.primeAudio();
     isSubmittingProposal.value = true;
 
     router.post(
@@ -366,6 +493,7 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
     }
 
     actionError.value = null;
+    tts.primeAudio();
     isSelectingProposal.value = true;
 
     router.post(
@@ -420,13 +548,70 @@ useEchoPresence<ArbiterStateSignal>(
         });
     },
 );
+
+useEchoPresence<ArbiterNarrationSignal>(
+    `multiplayer.lobby.${props.lobby.id}`,
+    '.multiplayer.arbiter.narration.streamed',
+    (signal) => {
+        if (signal.lobby_id !== props.lobby.id) {
+            return;
+        }
+
+        if (signal.phase === 'ready') {
+            actionError.value = null;
+            ensureStreamingPrompt(signal.source_prompt_id);
+
+            return;
+        }
+
+        if (signal.phase === 'delta' && signal.text) {
+            const isFirstVisibleDelta = !hasVisibleStreamedResponse.value;
+            const promptId = `stream-${signal.source_prompt_id}`;
+
+            appendNarrationDelta(signal.source_prompt_id, signal.text);
+
+            if (isFirstVisibleDelta) {
+                nextTick(() => {
+                    scrollToPromptStart(promptId);
+                });
+            }
+
+            return;
+        }
+
+        if (signal.phase === 'done') {
+            commitStreamedNarration(signal);
+
+            return;
+        }
+
+        if (signal.phase === 'error') {
+            const transientPromptId = `stream-${signal.source_prompt_id}`;
+
+            localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
+            if (streamingPromptId.value === transientPromptId) {
+                streamingPromptId.value = null;
+            }
+            actionError.value = signal.message ?? 'Narration hiccuped — please retry this turn.';
+        }
+    },
+);
+
+onUnmounted(() => {
+    tts.dismiss();
+});
 </script>
 
 <template>
     <Head title="Arbiter" />
 
     <main class="arbiter-page">
-        <div class="arbiter-scene" :style="{ backgroundImage: 'url(' + sceneImage + ')' }" aria-hidden="true" />
+        <div
+            v-if="gameplayBackgroundImage"
+            class="arbiter-scene"
+            :style="{ backgroundImage: `url(${gameplayBackgroundImage})` }"
+            aria-hidden="true"
+        />
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
@@ -434,56 +619,26 @@ useEchoPresence<ArbiterStateSignal>(
                     <img :src="backIcon" alt="" class="h-6 w-4" aria-hidden="true" />
                 </BaseButton>
 
-                <div class="arbiter-media-player gameplay-header-glass" aria-label="Narration controls">
-                    <button type="button" class="media-play-button" :aria-label="isNarrationPlaying ? 'Pause narration' : 'Play narration'" @click="toggleNarration">
-                        <LucidePause v-if="isNarrationPlaying" class="size-4 fill-current" />
-                        <img v-else :src="playIcon" alt="" class="size-7" aria-hidden="true" />
-                    </button>
-                    <span class="media-time">{{ formattedNarrationTime }}</span>
-                    <button type="button" class="media-icon-button" :aria-label="isMuted ? 'Unmute narration' : 'Mute narration'" @click="isMuted = !isMuted">
-                        <LucideVolumeX v-if="isMuted" class="size-4" />
-                        <LucideVolume2 v-else class="size-4" />
-                    </button>
-                    <input
-                        v-model.number="narrationVolume"
-                        class="media-volume"
-                        type="range"
-                        min="0"
-                        max="100"
-                        aria-label="Narration volume"
-                        :style="{ '--arbiter-range-progress': (isMuted ? 0 : narrationVolume) + '%' }"
-                    />
-                    <button type="button" class="media-icon-button media-volume-end" aria-label="Toggle volume" @click="isMuted = !isMuted">
-                        <LucideVolume2 class="size-4" />
-                    </button>
-                    <span class="media-separator" aria-hidden="true" />
-                    <button type="button" class="media-skip-button" aria-label="Rewind 15 seconds" @click="seekNarration(-15)">
-                        <LucideRotateCcw class="size-5" :stroke-width="1.5" />
-                        <span>15</span>
-                    </button>
-                    <button type="button" class="media-skip-button" aria-label="Forward 15 seconds" @click="seekNarration(15)">
-                        <LucideRotateCw class="size-5" :stroke-width="1.5" />
-                        <span>15</span>
-                    </button>
-                    <button type="button" class="media-close-button" aria-label="Close narration controls" @click="isNarrationPlaying = false">
-                        <LucideX class="size-6" :stroke-width="1.75" />
-                    </button>
+                <div v-if="tts.isActive.value" class="arbiter-media-player" aria-label="Narration controls">
+                    <GameplayMediaPlayer />
                 </div>
             </header>
 
             <div class="arbiter-grid">
                 <aside class="arbiter-rail arbiter-left-rail" aria-label="Players">
                     <div class="rail-tabs">
-                        <BaseButton severity="header-glass" :icon-only="true" title="Help">
+                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Help">
                             <img :src="questionIcon" alt="" class="size-6" aria-hidden="true" />
                         </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" title="Settings">
+                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
                             <img :src="settingsIcon" alt="" class="size-5" aria-hidden="true" />
                         </BaseButton>
-                        <div class="rail-tab">
-                            <img :src="playersIcon" alt="" class="size-7" aria-hidden="true" />
-                            <span>Players</span>
-                        </div>
+                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Players">
+                            <span class="rail-tab-content">
+                                <img :src="playersIcon" alt="" class="size-7" aria-hidden="true" />
+                                <span>Players</span>
+                            </span>
+                        </BaseButton>
                     </div>
 
                     <section class="arbiter-panel">
@@ -529,15 +684,36 @@ useEchoPresence<ArbiterStateSignal>(
                         <GameplayOrnamentDivider :label="`EPISODE ${props.game?.current_session_number ?? 1}`" color="#59C1CA" />
                     </div>
 
-                    <div class="story-narration">
-                        <p v-if="narration">
-                            <span class="drop-cap">{{ narration.slice(0, 1) }}</span>{{ narration.slice(1) }}
-                        </p>
-                        <p v-else class="story-narration--pending">Xen is preparing the next passage…</p>
-                        <button type="button" class="listen-again-button" @click="toggleNarration">
-                            <img :src="playIcon" alt="" class="size-9" aria-hidden="true" />
-                            <span><strong>{{ isNarrationPlaying ? 'Pause Narration' : 'Listen Again' }}</strong><small>Replay Narration</small></span>
-                        </button>
+                    <div class="story-history" aria-live="polite">
+                        <div
+                            v-for="prompt in prompts"
+                            :key="prompt.id"
+                            :ref="(element) => setPromptCardElement(prompt.id, element)"
+                            class="story-turn"
+                        >
+                            <GameplayChatCard
+                                :prompt="prompt"
+                                :game-id="props.game?.id ?? ''"
+                                :cover-url="props.lobby.story.cover"
+                                :is-latest="prompt.id === latestPromptId && !isSessionComplete"
+                                :is-submitting="isNarrating"
+                                :is-streaming-response="prompt.id === streamingPromptId"
+                                :narration-only="true"
+                            />
+                        </div>
+
+                        <div
+                            v-if="(turnStatus === 'opening' || isNarrating) && !hasVisibleStreamedResponse"
+                            class="story-stream-placeholder"
+                            aria-label="Xen is preparing the next passage"
+                        >
+                            <span />
+                            <span />
+                            <span />
+                            <span />
+                        </div>
+
+                        <p v-else-if="prompts.length === 0" class="story-history-empty">Xen is preparing the opening narration…</p>
                     </div>
 
                     <section class="decision-section" aria-labelledby="decision-title">
@@ -591,10 +767,6 @@ useEchoPresence<ArbiterStateSignal>(
                                 </p>
                             </article>
                         </div>
-                        <article v-if="props.arbiter.last_selected_proposal && !isNarrating" class="selected-choice-history">
-                            <span>Arbiter’s choice</span>
-                            <p>{{ props.arbiter.last_selected_proposal.text }}</p>
-                        </article>
                         <div v-if="isSessionComplete && !isStoryComplete" class="session-transition">
                             <button
                                 v-if="canAdvanceSession"
@@ -616,17 +788,19 @@ useEchoPresence<ArbiterStateSignal>(
 
                 <aside class="arbiter-rail arbiter-right-rail" aria-label="Chat">
                     <div class="rail-tabs rail-tabs--right">
-                        <div class="rail-tab">
-                            <img :src="chatIcon" alt="" class="size-7" aria-hidden="true" />
-                            <span>Chat</span>
-                        </div>
-                        <BaseButton severity="header-glass" :icon-only="true" title="Power">
+                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Chat">
+                            <span class="rail-tab-content">
+                                <img :src="chatIcon" alt="" class="size-7" aria-hidden="true" />
+                                <span>Chat</span>
+                            </span>
+                        </BaseButton>
+                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Power">
                             <img :src="lightningIcon" alt="" class="size-6" aria-hidden="true" />
                         </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" title="Game order">
+                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Game order">
                             <LucideList class="size-5 text-gray-300" :stroke-width="1.75" />
                         </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" title="Notes">
+                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Notes">
                             <img :src="notesIcon" alt="" class="size-5" aria-hidden="true" />
                         </BaseButton>
                     </div>
@@ -670,7 +844,8 @@ useEchoPresence<ArbiterStateSignal>(
 
 .arbiter-page {
     position: relative;
-    min-height: max(100svh, 93.75rem);
+    min-height: 100svh;
+    padding-bottom: 10rem;
     overflow-x: clip;
     background: #000;
     color: #fff;
@@ -679,16 +854,16 @@ useEchoPresence<ArbiterStateSignal>(
 
 .arbiter-scene {
     position: absolute;
-    top: 6.75rem;
+    top: 3.75rem;
     left: 50%;
-    width: min(48rem, 64vw);
-    height: min(43rem, 61vw);
+    width: min(52rem, 66vw);
+    height: min(34rem, 48vw);
     transform: translateX(-50%);
-    background-position: center 52%;
+    background-position: center;
     background-size: cover;
     opacity: 0.88;
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 9%, #000 49%, transparent 83%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 9%, #000 49%, transparent 83%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 58%, transparent 96%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 10%, #000 58%, transparent 96%);
 }
 
 .arbiter-scene::after {
@@ -711,7 +886,7 @@ useEchoPresence<ArbiterStateSignal>(
 .arbiter-topbar {
     position: absolute;
     z-index: 4;
-    top: 1.75rem;
+    top: 1.25rem;
     right: 0;
     left: 0;
     display: flex;
@@ -727,141 +902,12 @@ useEchoPresence<ArbiterStateSignal>(
 }
 
 .arbiter-media-player {
-    display: flex;
     width: min(39.75rem, calc(100vw - 15rem));
-    height: 4rem;
-    align-items: center;
-    gap: 0.5rem;
     margin-top: 2.65rem;
-    padding: 0 0.75rem;
-    border-radius: 9999px;
 }
 
-.media-play-button,
-.media-icon-button,
-.media-skip-button,
-.media-close-button {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    border: 0;
-    color: #d2d2d2;
-    background: transparent;
-    transition:
-        color 160ms ease,
-        transform 160ms ease;
-}
-
-.media-play-button:hover,
-.media-icon-button:hover,
-.media-skip-button:hover,
-.media-close-button:hover {
-    color: #fff;
-    transform: scale(1.06);
-}
-
-.media-play-button {
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 9999px;
-    color: #59c1ca;
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.media-time {
-    min-width: 3.125rem;
-    color: #59c1ca;
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.media-icon-button {
-    width: 1.375rem;
-    height: 1.75rem;
-    color: #9b9b9b;
-}
-
-.media-volume {
-    --arbiter-range-progress: 36%;
-    width: 8.5rem;
-    height: 1rem;
-    appearance: none;
-    cursor: pointer;
-    background: transparent;
-}
-
-.media-volume::-webkit-slider-runnable-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: linear-gradient(
-        to right,
-        #59c1ca 0%,
-        #59c1ca var(--arbiter-range-progress),
-        rgba(255, 255, 255, 0.24) var(--arbiter-range-progress),
-        rgba(255, 255, 255, 0.24) 100%
-    );
-}
-
-.media-volume::-webkit-slider-thumb {
-    width: 0.75rem;
-    height: 0.75rem;
-    margin-top: -0.25rem;
-    appearance: none;
-    border: 2px solid #59c1ca;
-    border-radius: 9999px;
-    background: #0f0f0f;
-}
-
-.media-volume::-moz-range-track {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.24);
-}
-
-.media-volume::-moz-range-progress {
-    height: 0.25rem;
-    border-radius: 9999px;
-    background: #59c1ca;
-}
-
-.media-volume::-moz-range-thumb {
-    width: 0.6rem;
-    height: 0.6rem;
-    border: 2px solid #59c1ca;
-    border-radius: 9999px;
-    background: #0f0f0f;
-}
-
-.media-separator {
-    width: 1px;
-    height: 1.75rem;
-    margin-left: 0.25rem;
-    background: rgba(255, 255, 255, 0.13);
-}
-
-.media-skip-button {
-    position: relative;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 9999px;
-    color: #a1a1a1;
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.media-skip-button span {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.5rem;
-    font-weight: 600;
-}
-
-.media-close-button {
-    width: 2.75rem;
-    height: 2.75rem;
-    margin-left: 0.1rem;
-    color: #8f8f8f;
+.arbiter-media-player :deep(.player-bar) {
+    width: 100%;
 }
 
 .arbiter-grid {
@@ -872,7 +918,16 @@ useEchoPresence<ArbiterStateSignal>(
 }
 
 .arbiter-rail {
-    padding-top: 8.25rem;
+    position: sticky;
+    top: 0;
+    display: flex;
+    max-height: 100svh;
+    min-width: 0;
+    flex-direction: column;
+    align-self: start;
+    box-sizing: border-box;
+    padding-top: 5.5rem;
+    padding-bottom: 0.75rem;
 }
 
 .rail-tabs {
@@ -887,38 +942,54 @@ useEchoPresence<ArbiterStateSignal>(
     justify-content: flex-end;
 }
 
+.rail-icon-button {
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+    flex: 0 0 auto;
+}
+
 .rail-tab {
-    display: inline-flex;
-    height: 3.25rem;
-    align-items: center;
-    gap: 0.35rem;
-    border: 0.5px solid rgba(255, 255, 255, 0.11);
-    border-radius: 9999px;
-    padding: 0 1rem 0 0.3rem;
-    box-shadow:
-        inset 1px 1px 0.5px -1px rgba(255, 255, 255, 0.18),
-        inset -1px -1px 0.5px -1px rgba(255, 255, 255, 0.08),
-        0 4px 24px rgba(0, 0, 0, 0.32);
+    width: auto !important;
+    height: 3.25rem !important;
+    flex: 0 0 auto;
+    border-radius: 9999px !important;
+    padding: 0 1rem 0 0.45rem !important;
     color: #ffbe58;
-    background: rgba(10, 10, 18, 0.32);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
     font-size: 1.125rem;
     font-weight: 500;
 }
 
+.rail-tab-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
 .arbiter-panel {
     border: 1px solid rgba(255, 255, 255, 0.035);
-    border-radius: 0.875rem;
+    border-radius: 1.125rem;
     padding: 1.5rem;
     background: rgba(15, 15, 15, 0.96);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
 }
 
+.arbiter-rail > .arbiter-panel {
+    min-height: 0;
+}
+
+.arbiter-left-rail > .arbiter-panel {
+    max-height: calc(100svh - 10.5rem);
+    overflow-y: auto;
+    scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-width: thin;
+}
+
 .panel-title {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 0.6rem;
     margin-bottom: 1.15rem;
     color: #59c1ca;
     font-size: 1.15rem;
@@ -1101,7 +1172,7 @@ useEchoPresence<ArbiterStateSignal>(
 
 .arbiter-story-column {
     min-width: 0;
-    padding-top: clamp(20rem, 32vh, 30.5rem);
+    padding-top: clamp(15rem, 25vh, 21.5rem);
 }
 
 .story-heading {
@@ -1119,75 +1190,68 @@ useEchoPresence<ArbiterStateSignal>(
     text-align: center;
 }
 
-.story-narration {
+.story-history {
+    display: grid;
+    gap: 1.75rem;
     margin-top: 1.55rem;
 }
 
-.story-narration p {
-    max-width: 36.5rem;
-    margin: 0 auto;
+.story-turn {
+    scroll-margin-top: 7rem;
+}
+
+.story-history :deep(.narration-card) {
     color: #f0f0f0;
-    font-size: 1.15rem;
-    line-height: 1.28;
-    letter-spacing: 0.055em;
-    text-align: justify;
+    font-size: 1.05rem;
+    line-height: 1.45;
 }
 
-.story-narration--pending {
-    color: #8f8f8f !important;
-    text-align: center !important;
+.story-history-empty {
+    margin: 0;
+    color: #8f8f8f;
+    text-align: center;
 }
 
-.drop-cap {
-    float: left;
-    margin: -0.04em 0.12em -0.08em 0;
-    color: #59c1ca;
-    font-family: 'Inria Serif', serif;
-    font-size: 2.75em;
-    line-height: 0.8;
+.story-stream-placeholder {
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    background: rgba(20, 20, 20, 0.64);
 }
 
-.story-link {
-    border: 0;
-    border-bottom: 1px solid rgba(89, 193, 202, 0.85);
-    padding: 0;
-    color: #59c1ca;
-    background: transparent;
-    font: inherit;
-}
-
-.listen-again-button {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin: 1.75rem 0 0;
-    border: 1px solid #373737;
+.story-stream-placeholder span {
+    height: 0.8rem;
     border-radius: 9999px;
-    padding: 0.25rem 0.9rem 0.25rem 0.3rem;
-    color: #59c1ca;
-    background: rgba(8, 8, 8, 0.45);
-    text-align: left;
+    background: rgba(126, 126, 126, 0.24);
+    animation: story-stream-pulse 1.4s ease-in-out infinite;
 }
 
-.listen-again-button:hover {
-    border-color: rgba(89, 193, 202, 0.6);
-    background: rgba(89, 193, 202, 0.1);
+.story-stream-placeholder span:nth-child(2) {
+    width: 92%;
+    animation-delay: 100ms;
 }
 
-.listen-again-button strong,
-.listen-again-button small {
-    display: block;
+.story-stream-placeholder span:nth-child(3) {
+    width: 78%;
+    animation-delay: 200ms;
 }
 
-.listen-again-button strong {
-    font-size: 0.875rem;
-    font-weight: 400;
+.story-stream-placeholder span:nth-child(4) {
+    width: 58%;
+    animation-delay: 300ms;
 }
 
-.listen-again-button small {
-    margin-top: 0.1rem;
-    color: #7e7e7e;
-    font-size: 0.75rem;
+@keyframes story-stream-pulse {
+    0%,
+    100% {
+        opacity: 0.42;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
 }
 
 .decision-section {
@@ -1252,10 +1316,11 @@ useEchoPresence<ArbiterStateSignal>(
 .proposal-choice-card {
     display: flex;
     width: 100%;
-    align-items: flex-start;
+    min-height: 5rem;
+    align-items: center;
     gap: 0.85rem;
     border: 1px solid #373737;
-    border-radius: 0.625rem;
+    border-radius: 0.75rem;
     padding: 1.15rem;
     color: #e6e6e6;
     background: rgba(7, 7, 7, 0.72);
@@ -1280,14 +1345,25 @@ useEchoPresence<ArbiterStateSignal>(
     opacity: 0.65;
 }
 
-.proposal-choice-card--selected,
 .contribution-card--selected {
     border-color: #59c1ca !important;
     background: rgba(18, 63, 68, 0.58) !important;
     box-shadow: 0 0 0 1px rgba(89, 193, 202, 0.15), 0 0 24px rgba(89, 193, 202, 0.1);
 }
 
+.proposal-choice-card--selected {
+    border-color: #4bcbd3 !important;
+    color: #fff;
+    background: #61d9d5 !important;
+    box-shadow: 0 0 0 1px rgba(89, 193, 202, 0.38), 0 0 28px rgba(89, 193, 202, 0.16);
+}
+
+.proposal-choice-card--selected:disabled {
+    opacity: 1;
+}
+
 .proposal-choice-radio {
+    position: relative;
     display: grid;
     width: 1.5rem;
     height: 1.5rem;
@@ -1304,23 +1380,18 @@ useEchoPresence<ArbiterStateSignal>(
     box-shadow: inset 0 0 0 4px #0f282b, inset 0 0 0 6px #59c1ca;
 }
 
-.selected-choice-history {
-    max-width: 38.5rem;
-    border-left: 1px solid rgba(230, 230, 230, 0.8);
-    margin: 1.65rem auto 0;
-    padding: 0.55rem 0 0.55rem 0.85rem;
-    color: #e6e6e6;
+.proposal-choice-card--selected .proposal-choice-radio {
+    border-color: #fff;
+    box-shadow: none;
 }
 
-.selected-choice-history > span {
-    color: #59c1ca;
-    font-size: 0.75rem;
-}
-
-.selected-choice-history > p {
-    margin: 0.3rem 0 0;
-    font-size: 0.9375rem;
-    line-height: 1.35;
+.proposal-choice-card--selected .proposal-choice-radio::after {
+    width: 0.65rem;
+    height: 0.35rem;
+    border-bottom: 2px solid #fff;
+    border-left: 2px solid #fff;
+    content: '';
+    transform: translateY(-0.08rem) rotate(-45deg);
 }
 
 .session-transition {
@@ -1456,12 +1527,18 @@ useEchoPresence<ArbiterStateSignal>(
 }
 
 .chat-panel {
+    display: flex;
+    height: min(40rem, calc(100svh - 10.5rem));
+    min-height: 27rem;
+    flex-direction: column;
     padding: 1.25rem;
+    overflow: hidden;
 }
 
 .chat-window {
     display: flex;
-    height: 31.75rem;
+    min-height: 0;
+    flex: 1;
     flex-direction: column;
     justify-content: flex-end;
     gap: 0.75rem;
@@ -1639,7 +1716,7 @@ useEchoPresence<ArbiterStateSignal>(
 
     .arbiter-story-column {
         order: 1;
-        padding-top: 9rem;
+        padding-top: 4.5rem;
     }
 
     .arbiter-left-rail {
@@ -1651,8 +1728,27 @@ useEchoPresence<ArbiterStateSignal>(
     }
 
     .arbiter-rail {
+        position: static;
+        max-height: none;
         width: 100%;
         padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .arbiter-left-rail > .arbiter-panel {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .chat-panel {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .chat-window {
+        height: 31.75rem;
+        flex: none;
     }
 
     .rail-tabs--right {
@@ -1660,9 +1756,9 @@ useEchoPresence<ArbiterStateSignal>(
     }
 
     .arbiter-scene {
-        top: 5rem;
+        top: 3.5rem;
         width: min(50rem, 100vw);
-        height: 43rem;
+        height: 30rem;
     }
 }
 
@@ -1681,39 +1777,19 @@ useEchoPresence<ArbiterStateSignal>(
     }
 
     .arbiter-media-player {
-        width: auto;
-        height: 3.45rem;
-        gap: 0.15rem;
+        width: min(31rem, calc(100vw - 6rem));
         margin-top: 0;
-        padding: 0 0.45rem;
-    }
-
-    .media-play-button {
-        width: 2.45rem;
-        height: 2.45rem;
-    }
-
-    .media-time {
-        min-width: 2.8rem;
-        font-size: 0.875rem;
-    }
-
-    .media-volume,
-    .media-volume-end,
-    .media-separator,
-    .media-skip-button {
-        display: none;
     }
 
     .arbiter-story-column {
-        padding-top: 7.25rem;
+        padding-top: 3.5rem;
     }
 
     .story-heading h1 {
         font-size: clamp(2.5rem, 11vw, 3.5rem);
     }
 
-    .story-narration p {
+    .story-history :deep(.narration-card) {
         font-size: 1rem;
         line-height: 1.35;
     }

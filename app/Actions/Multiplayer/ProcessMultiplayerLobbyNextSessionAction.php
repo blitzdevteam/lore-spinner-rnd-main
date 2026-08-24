@@ -121,6 +121,10 @@ final class ProcessMultiplayerLobbyNextSessionAction
             ->orderByDesc('id')
             ->first();
 
+        if ($sourcePrompt !== null && $sourcePrompt->choices !== []) {
+            $sourcePrompt->forceFill(['choices' => []])->save();
+        }
+
         $updatedLobby = DB::transaction(function () use ($lobby, $sourcePrompt): ?MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
