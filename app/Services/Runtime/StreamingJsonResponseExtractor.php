@@ -30,28 +30,32 @@ final class StreamingJsonResponseExtractor
 
         if (! $this->started) {
             if (! preg_match('/"response"\s*:\s*"/', $this->buffer, $matches, PREG_OFFSET_CAPTURE)) {
-                $this->buffer = mb_substr($this->buffer, max(0, mb_strlen($this->buffer) - 32));
+                $this->buffer = mb_substr(
+                    $this->buffer,
+                    max(0, mb_strlen($this->buffer, 'UTF-8') - 32),
+                    encoding: 'UTF-8',
+                );
 
                 return '';
             }
 
             $this->started = true;
             $matchStart = $matches[0][1];
-            $matchLength = mb_strlen($matches[0][0]);
-            $this->buffer = mb_substr($this->buffer, $matchStart + $matchLength);
+            $matchLength = strlen($matches[0][0]);
+            $this->buffer = substr($this->buffer, $matchStart + $matchLength);
         }
 
         $out = '';
-        $length = mb_strlen($this->buffer);
+        $length = mb_strlen($this->buffer, 'UTF-8');
         $consumed = 0;
 
         for ($i = 0; $i < $length; $i++) {
-            $char = $this->buffer[$i];
+            $char = mb_substr($this->buffer, $i, 1, 'UTF-8');
             $consumed = $i + 1;
 
             if ($this->unicodeEscape !== null) {
                 $this->unicodeEscape .= $char;
-                if (mb_strlen($this->unicodeEscape) === 4) {
+                if (strlen($this->unicodeEscape) === 4) {
                     $decoded = json_decode('"\\u'.$this->unicodeEscape.'"');
                     $out .= is_string($decoded) ? $decoded : '';
                     $this->unicodeEscape = null;
@@ -96,7 +100,7 @@ final class StreamingJsonResponseExtractor
             $out .= $char;
         }
 
-        $this->buffer = mb_substr($this->buffer, $consumed);
+        $this->buffer = mb_substr($this->buffer, $consumed, encoding: 'UTF-8');
 
         return $out;
     }
