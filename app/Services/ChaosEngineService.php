@@ -978,8 +978,6 @@ TEXT;
             ->withSchema(new NativeObjectSchema([
                 'choices' => $schema->array()
                     ->required()
-                    ->min(3)
-                    ->max(3)
                     ->items($schema->string()->required()),
             ], 'narration_choices_repair'))
             ->withSystemPrompt(implode("\n", [
