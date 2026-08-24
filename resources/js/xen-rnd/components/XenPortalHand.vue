@@ -1,16 +1,18 @@
 <script setup lang="ts">
 /**
- * XEN emerge — cream opens, then the hand is pulled through
+ * XEN emerge — cream portal tracks the silhouette coming through it.
  *
- * 1. Punch baked portal + leftover crop rim
- * 2. Cream hole blooms open
- * 3. Hand feeds out of the opened cream
- * 4. Short pendulum shiver
+ * 1. Cream blooms from a slit to the wrist (rest) opening.
+ * 2. Hand feeds out; the portal follows the precomputed cross-section curve,
+ *    growing for a wide payload (platter, card) and shrinking back to the wrist.
+ * 3. Short pendulum shiver at the end.
+ *
+ * Pose assets are pre-keyed (transparent, no baked portal), so there is no
+ * runtime punching — the cream hole is drawn behind the hand.
  */
-import type { XenGesture, XenPortal } from '../data/gestures';
+import type { XenEmergeFrom, XenGesture } from '../data/gestures';
 import { xenClip, xenRetract } from '../data/gestures';
-import { punchPortalWhite } from '../lib/punchPortal';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
     gesture: XenGesture;
@@ -18,25 +20,32 @@ const props = defineProps<{
 
 const rootEl = ref<HTMLElement | null>(null);
 const handSrc = ref('');
-const portal = ref<XenPortal | null>(null);
 const ready = ref(false);
-const opened = ref(false);
-const retracted = ref(true);
+
+/** 0 = retracted, 1 = fully emerged. */
+const progress = ref(0);
+/** Portal opening (half-size along the long axis), in % of frame. */
+const opening = ref(0);
 const shivering = ref(false);
 const frameSize = ref({ width: 0, height: 0 });
 
 let token = 0;
 let ro: ResizeObserver | null = null;
-let emergeTimer: ReturnType<typeof setTimeout> | null = null;
+let rafId: number | null = null;
 let shiverTimer: ReturnType<typeof setTimeout> | null = null;
 
-const OPEN_MS = 560;
-/** Beat of fully-open, empty cream so the opening reads before the hand moves. */
-const HOLD_MS = 150;
-const EMERGE_MS = 850;
+const OPEN_MS = 460;
+const FEED_MS = 820;
 const SHIVER_MS = 380;
+const PRINTER_STEPS = 14;
+/** Thin axis is this fraction of the long axis (ellipse aspect). */
+const THIN_RATIO = 0.42;
+/** Extra cream padding around the silhouette, in % of frame. */
+const PAD = 1.4;
 
-const activePortal = computed(() => portal.value ?? props.gesture.portal);
+const activeGesture = computed(() => props.gesture);
+const portal = computed(() => activeGesture.value.portal);
+const from = computed(() => activeGesture.value.emergeFrom);
 
 const frameStyle = computed(() => {
     const { width, height } = frameSize.value;
@@ -46,23 +55,13 @@ const frameStyle = computed(() => {
     return { width: `${Math.round(width)}px`, height: `${Math.round(height)}px` };
 });
 
-const portalStyle = computed(() => {
-    const p = activePortal.value;
-    return {
-        left: `${p.cx}%`,
-        top: `${p.cy}%`,
-        width: `${p.rx * 2}%`,
-        height: `${p.ry * 2}%`,
-    };
-});
-
 const clipStyle = computed(() => ({
-    clipPath: xenClip(activePortal.value.mouth, props.gesture.emergeFrom),
+    clipPath: xenClip(activeGesture.value.mouth, from.value),
 }));
 
 const handOrigin = computed(() => {
-    const m = activePortal.value.mouth;
-    switch (props.gesture.emergeFrom) {
+    const m = activeGesture.value.mouth;
+    switch (from.value) {
         case 'bottom':
             return `50% ${m}%`;
         case 'left':
@@ -71,14 +70,33 @@ const handOrigin = computed(() => {
     }
 });
 
-const handTransform = computed(() =>
-    retracted.value
-        ? xenRetract(props.gesture.emergeFrom, props.gesture.emergeDistance)
-        : 'translate3d(0, 0, 0)',
-);
+const handTransform = computed(() => {
+    const d = activeGesture.value.emergeDistance * (1 - progress.value);
+    return xenRetract(from.value, d);
+});
+
+const portalStyle = computed(() => {
+    const p = portal.value;
+    const long = opening.value + PAD;
+    const thin = Math.max(opening.value, p.rest) * THIN_RATIO + PAD * 0.5;
+    if (from.value === 'bottom') {
+        return {
+            left: `${p.cx}%`,
+            top: `${p.cy}%`,
+            width: `${long * 2}%`,
+            height: `${thin * 2}%`,
+        };
+    }
+    return {
+        left: `${p.cx}%`,
+        top: `${p.cy}%`,
+        width: `${thin * 2}%`,
+        height: `${long * 2}%`,
+    };
+});
 
 const handShadow = computed(() => {
-    switch (props.gesture.emergeFrom) {
+    switch (from.value) {
         case 'bottom':
             return 'drop-shadow(0 7px 6px rgba(40, 28, 18, 0.5)) drop-shadow(0 1px 0 rgba(255, 248, 235, 0.34))';
         case 'left':
@@ -89,7 +107,7 @@ const handShadow = computed(() => {
 });
 
 function fit(cw: number, ch: number): void {
-    const aspect = props.gesture.aspectRatio;
+    const aspect = activeGesture.value.aspectRatio;
     if (cw <= 0 || ch <= 0 || aspect <= 0) {
         return;
     }
@@ -102,78 +120,98 @@ function fit(cw: number, ch: number): void {
     frameSize.value = { width, height };
 }
 
-function clearTimers(): void {
-    if (emergeTimer !== null) {
-        clearTimeout(emergeTimer);
-        emergeTimer = null;
+function sampleCurve(p: number): number {
+    const curve = portal.value.curve;
+    if (curve.length === 0) {
+        return portal.value.rest;
     }
+    const idx = p * (curve.length - 1);
+    const a = Math.floor(idx);
+    const b = Math.min(curve.length - 1, a + 1);
+    const v = curve[a] + (curve[b] - curve[a]) * (idx - a);
+    return Math.max(portal.value.rest, v);
+}
+
+function cancelRaf(): void {
+    if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+    }
+}
+
+function clearShiver(): void {
     if (shiverTimer !== null) {
         clearTimeout(shiverTimer);
         shiverTimer = null;
     }
 }
 
-function queueShiver(): void {
-    if (shiverTimer !== null) {
-        clearTimeout(shiverTimer);
-    }
+function play(): void {
+    cancelRaf();
+    clearShiver();
     shivering.value = false;
-    shiverTimer = setTimeout(() => {
-        shivering.value = true;
-        shiverTimer = setTimeout(() => {
-            shivering.value = false;
-            shiverTimer = null;
-        }, SHIVER_MS);
-    }, EMERGE_MS);
-}
+    progress.value = 0;
+    opening.value = 0;
+    ready.value = true;
 
-async function play(): Promise<void> {
-    clearTimers();
-    shivering.value = false;
-    opened.value = false;
-    retracted.value = true;
-    await nextTick();
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            opened.value = true;
-            emergeTimer = setTimeout(() => {
-                retracted.value = false;
-                queueShiver();
-                emergeTimer = null;
-            }, OPEN_MS + HOLD_MS);
-        });
-    });
+    const t = ++token;
+    const start = performance.now();
+
+    function frame(now: number): void {
+        if (t !== token) {
+            return;
+        }
+        const elapsed = now - start;
+        if (elapsed < OPEN_MS) {
+            // Bloom: slit -> rest opening, hand still hidden.
+            const p = elapsed / OPEN_MS;
+            const eased = 1 - Math.pow(1 - p, 3);
+            opening.value = portal.value.rest * eased;
+            progress.value = 0;
+            rafId = requestAnimationFrame(frame);
+            return;
+        }
+        const feedElapsed = elapsed - OPEN_MS;
+        if (feedElapsed < FEED_MS) {
+            const p = feedElapsed / FEED_MS;
+            // Smooth portal tracking; stepped hand for the printer feel.
+            opening.value = sampleCurve(p);
+            progress.value = Math.round(p * PRINTER_STEPS) / PRINTER_STEPS;
+            rafId = requestAnimationFrame(frame);
+            return;
+        }
+        // Settle.
+        progress.value = 1;
+        opening.value = portal.value.rest;
+        shiverTimer = setTimeout(() => {
+            shivering.value = true;
+            shiverTimer = setTimeout(() => {
+                shivering.value = false;
+                shiverTimer = null;
+            }, SHIVER_MS);
+        }, 60);
+    }
+
+    rafId = requestAnimationFrame(frame);
 }
 
 async function load(): Promise<void> {
     const t = ++token;
     ready.value = false;
-    opened.value = false;
-    retracted.value = true;
+    progress.value = 0;
+    opening.value = 0;
     shivering.value = false;
-    clearTimers();
-    handSrc.value = '';
-    portal.value = null;
-
-    try {
-        const punched = await punchPortalWhite(props.gesture);
-        if (t !== token) {
-            return;
-        }
-        handSrc.value = punched.url;
-        portal.value = punched.portal;
-        ready.value = true;
-        await play();
-    } catch (e) {
-        console.error(e);
-        if (t !== token) {
-            return;
-        }
-        handSrc.value = props.gesture.src;
-        portal.value = props.gesture.portal;
-        ready.value = true;
-        await play();
+    cancelRaf();
+    clearShiver();
+    handSrc.value = activeGesture.value.src;
+    if (t !== token) {
+        return;
     }
+    await new Promise((r) => requestAnimationFrame(r));
+    if (t !== token) {
+        return;
+    }
+    play();
 }
 
 watch(
@@ -205,7 +243,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     token += 1;
-    clearTimers();
+    cancelRaf();
+    clearShiver();
     ro?.disconnect();
 });
 
@@ -216,10 +255,7 @@ defineExpose({ replay: play });
     <div
         ref="rootEl"
         class="xen"
-        :class="[
-            `xen--${gesture.emergeFrom}`,
-            { 'xen--open': opened },
-        ]"
+        :class="[`xen--${from}`, { 'xen--ready': ready }]"
     >
         <div class="xen__frame" :style="frameStyle">
             <div class="xen__portal" :style="portalStyle" aria-hidden="true">
@@ -231,16 +267,13 @@ defineExpose({ replay: play });
                 <img
                     v-if="handSrc"
                     class="xen__hand"
-                    :class="{
-                        'xen__hand--in': ready && opened,
-                        'xen__hand--shiver': shivering && !retracted,
-                    }"
+                    :class="{ 'xen__hand--shiver': shivering && progress >= 1 }"
                     :src="handSrc"
                     :alt="gesture.label"
                     :style="{
                         transform: handTransform,
                         transformOrigin: handOrigin,
-                        filter: ready && opened ? handShadow : undefined,
+                        filter: ready ? handShadow : undefined,
                     }"
                     draggable="false"
                 />
@@ -254,9 +287,6 @@ defineExpose({ replay: play });
     --xen-void: #0a0a0b;
     --xen-cream: #f3ebe0;
     --xen-cream-hi: #fffaf3;
-    --xen-ease: steps(14, end);
-    --xen-duration: 0.85s;
-    --xen-open: 0.56s;
     width: 100%;
     height: 100%;
     min-height: 12rem;
@@ -276,29 +306,9 @@ defineExpose({ replay: play });
     position: absolute;
     z-index: 1;
     pointer-events: none;
-    transform: translate(-50%, -50%) scale(0.12, 0.28);
+    transform: translate(-50%, -50%);
     transform-origin: center center;
-    opacity: 0.35;
-    filter: blur(1.5px);
-    transition:
-        transform var(--xen-open) cubic-bezier(0.22, 1.15, 0.36, 1),
-        opacity 0.28s ease,
-        filter var(--xen-open) ease;
-}
-
-.xen--bottom .xen__portal {
-    transform: translate(-50%, -50%) scale(0.22, 0.05);
-}
-
-.xen--left .xen__portal,
-.xen--right .xen__portal {
-    transform: translate(-50%, -50%) scale(0.05, 0.24);
-}
-
-.xen--open .xen__portal {
-    transform: translate(-50%, -50%) scale(1, 1);
-    opacity: 1;
-    filter: blur(0);
+    will-change: width, height;
 }
 
 .xen__portal-core {
@@ -366,20 +376,11 @@ defineExpose({ replay: play });
     width: 100%;
     height: 100%;
     object-fit: fill;
-    opacity: 0;
-    transition:
-        transform var(--xen-duration) var(--xen-ease),
-        opacity 0.16s ease,
-        filter 0.25s ease;
     will-change: transform;
     backface-visibility: hidden;
     user-select: none;
     -webkit-user-drag: none;
     pointer-events: none;
-}
-
-.xen__hand--in {
-    opacity: 1;
 }
 
 .xen__hand--shiver {
@@ -396,47 +397,22 @@ defineExpose({ replay: play });
 }
 
 @keyframes xen-pendulum-y {
-    0% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
-    }
-    18% {
-        transform: translate3d(0, 0, 0) rotate(1.55deg);
-    }
-    42% {
-        transform: translate3d(0, 0, 0) rotate(-1.05deg);
-    }
-    68% {
-        transform: translate3d(0, 0, 0) rotate(0.45deg);
-    }
-    100% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
-    }
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+    18%  { transform: translate3d(0, 0, 0) rotate(1.55deg); }
+    42%  { transform: translate3d(0, 0, 0) rotate(-1.05deg); }
+    68%  { transform: translate3d(0, 0, 0) rotate(0.45deg); }
+    100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 @keyframes xen-pendulum-x {
-    0% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
-    }
-    18% {
-        transform: translate3d(0, 0, 0) rotate(-1.55deg);
-    }
-    42% {
-        transform: translate3d(0, 0, 0) rotate(1.05deg);
-    }
-    68% {
-        transform: translate3d(0, 0, 0) rotate(-0.45deg);
-    }
-    100% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
-    }
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+    18%  { transform: translate3d(0, 0, 0) rotate(-1.55deg); }
+    42%  { transform: translate3d(0, 0, 0) rotate(1.05deg); }
+    68%  { transform: translate3d(0, 0, 0) rotate(-0.45deg); }
+    100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .xen__portal,
-    .xen__hand {
-        transition-duration: 0.01ms;
-    }
-
     .xen__hand--shiver {
         animation: none;
     }

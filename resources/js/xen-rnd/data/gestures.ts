@@ -7,10 +7,13 @@ import xenBold from '../assets/poses/XEN-05.png';
 import xenYesMaster from '../assets/poses/XEN-06.png';
 
 /**
- * New creamy portal — not the baked crop in the PNG.
- * Center stays synced to the wrist in the art.
- * Opening is sized so the wrist can pass through with cream shoulders.
- * mouth = center of the hole (printer slot).
+ * XEN emerge — cream portal that tracks the silhouette coming through it.
+ *
+ * The pose assets are pre-keyed (transparent background, no baked portal).
+ * Each gesture carries a `curve`: the portal half-opening as the hand feeds,
+ * sampled at 32 steps of emergence. The portal blooms to `rest` (wrist size),
+ * then follows the curve (growing for a wide payload, shrinking back to the
+ * wrist) so the hole is always just big enough for what is crossing the mouth.
  */
 
 export type XenEmergeFrom = 'bottom' | 'left' | 'right';
@@ -18,10 +21,10 @@ export type XenEmergeFrom = 'bottom' | 'left' | 'right';
 export interface XenPortal {
     cx: number;
     cy: number;
-    rx: number;
-    ry: number;
-    /** Exit face through the middle of the hole */
-    mouth: number;
+    /** Rest half-opening at the wrist, in % of the frame's long axis. */
+    rest: number;
+    /** Portal half-opening at 32 steps of emergence (0 = retracted, 31 = settled). */
+    curve: number[];
 }
 
 export interface XenGesture {
@@ -31,17 +34,11 @@ export interface XenGesture {
     src: string;
     aspectRatio: number;
     emergeFrom: XenEmergeFrom;
+    /** Mouth line (% of frame) — the portal sits here, hand clips below it. */
+    mouth: number;
     portal: XenPortal;
-    punchExtra?: Array<Pick<XenPortal, 'cx' | 'cy' | 'rx' | 'ry'>>;
+    /** How far the hand retracts (% of frame) before feeding through. */
     emergeDistance: number;
-}
-
-function withMouth(
-    p: Omit<XenPortal, 'mouth'>,
-    from: XenEmergeFrom,
-): XenPortal {
-    const mouth = from === 'bottom' ? p.cy : p.cx;
-    return { ...p, mouth };
 }
 
 export const XEN_GESTURES: XenGesture[] = [
@@ -49,73 +46,114 @@ export const XEN_GESTURES: XenGesture[] = [
         id: 'point',
         label: 'Point Up',
         src: xenPoint,
-        aspectRatio: 1280 / 960,
+        aspectRatio: 1.21,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 49.84, cy: 88.18, rx: 20.5, ry: 8.2 }, 'bottom'),
-        emergeDistance: 72,
+        mouth: 82,
+        portal: {
+            cx: 49.6,
+            cy: 82,
+            rest: 8,
+            curve: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8.3, 8.5, 9.6, 22.5, 23.7, 22, 20.4, 19.3, 18.1, 17.3, 16.7, 16.1, 15.7, 15.2, 14.5, 13.7, 12.8, 11.9, 10.8, 9.6, 8.6, 8.3],
+        },
+        emergeDistance: 73,
     },
     {
         id: 'chef-kiss',
         label: 'Chef Kiss',
         src: xenChefKiss,
-        aspectRatio: 1280 / 960,
+        aspectRatio: 1.355,
         emergeFrom: 'left',
-        portal: withMouth({ cx: 18.98, cy: 51.67, rx: 11.5, ry: 34.0 }, 'left'),
-        emergeDistance: 58,
+        mouth: 18,
+        portal: {
+            cx: 18,
+            cy: 67.3,
+            rest: 14.7,
+            curve: [14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7, 14.7],
+        },
+        emergeDistance: 20,
     },
     {
         id: 'match',
         label: 'Lit Match',
-        caption: 'Arm enters from the right — matchbox pull left.',
         src: xenMatch,
-        aspectRatio: 1280 / 960,
+        aspectRatio: 1.627,
         emergeFrom: 'right',
-        portal: withMouth({ cx: 97.2, cy: 74.3, rx: 6.8, ry: 26.0 }, 'right'),
-        emergeDistance: 56,
+        mouth: 81.9,
+        portal: {
+            cx: 81.9,
+            cy: 75.3,
+            rest: 13.2,
+            curve: [13.2, 16.7, 28.5, 67.1, 58.7, 48.6, 47.4, 46.7, 45.6, 44.8, 44.3, 44.2, 43.9, 42.9, 42.1, 41.2, 40.3, 39.4, 38.8, 37.2, 35, 33.3, 30.8, 28.6, 26.4, 21.9, 17.8, 16.2, 15.2, 14.6, 13.9, 13.5],
+        },
+        emergeDistance: 62,
     },
     {
         id: 'surprise',
         label: 'Surprise Me',
         caption: 'Go ahead. Surprise me.',
         src: xenSurprise,
-        aspectRatio: 1280 / 961,
+        aspectRatio: 1.191,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 51.02, cy: 84.65, rx: 23.5, ry: 8.6 }, 'bottom'),
-        emergeDistance: 64,
+        mouth: 82,
+        portal: {
+            cx: 66.1,
+            cy: 82,
+            rest: 8.6,
+            curve: [8.6, 51, 51.3, 51.2, 51.2, 51.3, 51.1, 51.3, 51.1, 51.1, 51.3, 51.1, 51.1, 51.2, 47.2, 25.6, 26.5, 26.6, 23.3, 23, 23.3, 22.4, 19.3, 10.3, 9.8, 9.2, 9.3, 9.6, 9.6, 9.7, 9.4, 9],
+        },
+        emergeDistance: 71,
     },
     {
         id: 'your-move',
         label: 'Your Move',
         caption: 'Your move.',
         src: xenYourMove,
-        aspectRatio: 1280 / 960,
-        emergeFrom: 'bottom',
-        portal: withMouth({ cx: 50.94, cy: 84.74, rx: 23.5, ry: 8.6 }, 'bottom'),
-        emergeDistance: 64,
+        aspectRatio: 1.627,
+        emergeFrom: 'right',
+        mouth: 81.9,
+        portal: {
+            cx: 81.9,
+            cy: 75.7,
+            rest: 13,
+            curve: [13, 35.1, 35.9, 34, 55.5, 57.7, 55.2, 51.2, 47.2, 57.1, 67.6, 65.2, 59.4, 53.5, 47.3, 40.3, 61.6, 68.5, 64.5, 54.9, 39.7, 32, 28, 25.7, 30.3, 38.5, 43.2, 45.2, 46.2, 44.9, 13, 13],
+        },
+        emergeDistance: 65,
     },
     {
         id: 'bold',
         label: 'Bold Tray',
         caption: 'Bold. Possibly Unwise.',
         src: xenBold,
-        aspectRatio: 1024 / 1280,
+        aspectRatio: 0.728,
         emergeFrom: 'bottom',
-        portal: withMouth({ cx: 59.28, cy: 86.64, rx: 22.0, ry: 8.2 }, 'bottom'),
-        emergeDistance: 58,
+        mouth: 81.9,
+        portal: {
+            cx: 59.6,
+            cy: 81.9,
+            rest: 8.4,
+            curve: [8.4, 32.3, 35.1, 35.1, 35.1, 35.1, 35.1, 35.1, 35.1, 35.1, 35.1, 35.1, 44.5, 54.5, 45.5, 34, 30.1, 28, 26.4, 25, 23.6, 21.1, 18, 15.5, 13.6, 11.4, 9.9, 10, 9.9, 9.4, 9.3, 8.9],
+        },
+        emergeDistance: 70,
     },
     {
         id: 'yes-master',
         label: 'Yes, Master',
         caption: 'Yes, Master.',
         src: xenYesMaster,
-        aspectRatio: 1280 / 960,
+        aspectRatio: 1.627,
         emergeFrom: 'right',
-        portal: withMouth({ cx: 83.32, cy: 51.3, rx: 11.2, ry: 34.0 }, 'right'),
-        emergeDistance: 58,
+        mouth: 81.9,
+        portal: {
+            cx: 81.9,
+            cy: 56,
+            rest: 15.4,
+            curve: [15.4, 17.6, 17.6, 17.6, 17.6, 17.6, 17.6, 17.6, 17.6, 17.5, 17.5, 17.7, 18.9, 20, 21.3, 22.8, 24.2, 25.3, 25.7, 26.2, 26.4, 26.8, 27.3, 28.1, 28.6, 27.7, 26, 23.9, 22.2, 20.5, 18.9, 17.3],
+        },
+        emergeDistance: 74,
     },
 ];
 
-/** Hard slot through the portal center — printer mouth. */
+/** Hard slot through the portal mouth — printer clip. */
 export function xenClip(mouth: number, from: XenEmergeFrom): string {
     switch (from) {
         case 'bottom':
