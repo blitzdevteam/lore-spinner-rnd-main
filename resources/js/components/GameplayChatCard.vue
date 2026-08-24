@@ -26,6 +26,7 @@ const props = defineProps<{
     animate?: boolean;
     isStreamingResponse?: boolean;
     usesPlayableMoments?: boolean;
+    narrationOnly?: boolean;
     /**
      * Onboarding staging (first two turns of a game only).
      * choicesLocked → turn 1: no buttons at all, the player must type or speak.
@@ -80,7 +81,7 @@ const playerActionLabel = computed(() => {
 // Suppressed on the choices-locked turn: that turn exists to teach that typing is
 // a real move, and Continue would let the player skip the lesson.
 const showContinueButton = computed(() => {
-    return canInteract.value && !!props.prompt.response && !props.choicesLocked;
+    return canInteract.value && !!props.prompt.response && !props.choicesLocked && !props.narrationOnly;
 });
 
 const renderedResponse = computed(() => {
@@ -101,13 +102,13 @@ const showChoicesAndActions = computed(() => {
     return true;
 });
 
-const showChoiceList = computed(() => hasChoices.value && showChoicesAndActions.value && !props.choicesLocked);
+const showChoiceList = computed(() => hasChoices.value && showChoicesAndActions.value && !props.choicesLocked && !props.narrationOnly);
 
 // Turn 1 of a game: no buttons, so the note becomes an instruction rather than an aside.
-const showTypeItPrompt = computed(() => !!props.choicesLocked && canInteract.value && showChoicesAndActions.value);
+const showTypeItPrompt = computed(() => !!props.choicesLocked && canInteract.value && showChoicesAndActions.value && !props.narrationOnly);
 
 // Turn 2 of a game: the chat bar is disabled, so the off-path invitation would be a lie.
-const showFreeformNote = computed(() => canInteract.value && showChoicesAndActions.value && !props.freeformLocked && !props.choicesLocked);
+const showFreeformNote = computed(() => canInteract.value && showChoicesAndActions.value && !props.freeformLocked && !props.choicesLocked && !props.narrationOnly);
 
 const showResponseActions = computed(() => {
     return !!props.prompt.response && (props.isStreamingResponse || showChoicesAndActions.value);
@@ -224,7 +225,7 @@ watch(
 // Nudge trigger: fire once when this card first becomes actionable. Not conditioned
 // on listed choices — the player can always act by speaking or writing.
 const choicesVisible = computed(
-    () => !!props.isLatest && canInteract.value && showChoicesAndActions.value && !!props.prompt.response,
+    () => !props.narrationOnly && !!props.isLatest && canInteract.value && showChoicesAndActions.value && !!props.prompt.response,
 );
 
 watch(choicesVisible, (visible, wasVisible) => {

@@ -6,10 +6,13 @@ namespace App\Services\Adaptation;
 
 use App\Models\Game;
 use App\Models\GameReset;
+use App\Services\ChaosEngineService;
 use Illuminate\Support\Facades\DB;
 
 final class StoryGameResetService
 {
+    public function __construct(private readonly ChaosEngineService $engine) {}
+
     public function reset(Game $game): void
     {
         DB::transaction(function () use ($game): void {
@@ -26,6 +29,7 @@ final class StoryGameResetService
             $lockedGame->update([
                 'current_session_number' => 1,
                 'current_story_cycle_number' => $lockedGame->current_story_cycle_number + 1,
+                'model'                  => $this->engine->defaultGameModel(),
                 'current_session_complete' => false,
                 'world_state' => null,
                 'symbolic_memory' => null,

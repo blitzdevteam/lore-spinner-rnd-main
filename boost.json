@@ -1,9 +1,27 @@
 {
     "agents": [
-        "copilot"
+        "copilot",
+        "codex"
     ],
-    "editors": [
-        "phpstorm"
+    "guidelines": true,
+    "herd_mcp": false,
+    "mcp": true,
+    "nightwatch_mcp": false,
+    "packages": [
+        "filament/filament",
+        "spatie/laravel-medialibrary",
+        "laravel/ai",
+        "laravel/cashier"
     ],
-    "guidelines": []
+    "sail": true,
+    "skills": [
+        "wayfinder-development",
+        "pest-testing",
+        "inertia-vue-development",
+        "tailwindcss-development",
+        "echo-development",
+        "ai-sdk-development",
+        "cashier-stripe-development",
+        "medialibrary-development"
+    ]
 }

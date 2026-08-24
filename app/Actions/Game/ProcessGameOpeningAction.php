@@ -53,6 +53,8 @@ final class ProcessGameOpeningAction
             return;
         }
 
+        $this->ensureConfiguredNarrationModel($game);
+
         Cache::put($this->pendingKey($gameId), 'begin', 180);
         Cache::forget($this->errorKey($gameId));
         $narration = null;
@@ -255,6 +257,8 @@ final class ProcessGameOpeningAction
         if ($game === null) {
             return;
         }
+
+        $this->ensureConfiguredNarrationModel($game);
 
         Cache::put($this->pendingKey($gameId), 'next_session', 180);
         Cache::forget($this->errorKey($gameId));
@@ -487,5 +491,21 @@ final class ProcessGameOpeningAction
 
         $this->audio->markPending($narration);
         $this->audio->generate($game, $narration);
+    }
+
+    private function ensureConfiguredNarrationModel(Game $game): void
+    {
+        $configuredModel = $this->engine->modelForConfiguredProvider($game->model);
+        if ($configuredModel === $game->model) {
+            return;
+        }
+
+        Log::channel('narration')->warning('game.model_provider_fallback', [
+            'game_id' => $game->id,
+            'from_model' => $game->model,
+            'to_model' => $configuredModel,
+        ]);
+
+        $game->update(['model' => $configuredModel]);
     }
 }
