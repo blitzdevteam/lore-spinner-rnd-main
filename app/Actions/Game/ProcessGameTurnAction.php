@@ -363,7 +363,7 @@ final class ProcessGameTurnAction
         // Deliberately after the pending flag is cleared so the UI is not held
         // back by the voice provider.
         if ($deferred) {
-            $this->audio->markPending($responsePrompt);
+            $this->audio->markPendingRecommended($game, $responsePrompt);
             $this->audio->generate($game, $responsePrompt);
         }
 

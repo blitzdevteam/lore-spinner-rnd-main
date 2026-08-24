@@ -1,4 +1,32 @@
 import { computed, onUnmounted, ref } from 'vue';
+import { useGameplaySettings } from '@/composables/useGameplaySettings';
+import { useTtsVoices } from '@/composables/useTtsVoices';
+
+function resolveVoiceId(): string {
+    const { settings } = useGameplaySettings();
+    const { recommendedVoiceId } = useTtsVoices();
+
+    if (settings.voiceId) {
+        return settings.voiceId;
+    }
+
+    return recommendedVoiceId.value;
+}
+
+function cacheKey(gameId: string, promptId: string): string {
+    return `${gameId}:${promptId}:${resolveVoiceId()}`;
+}
+
+function ttsEndpoint(gameId: string, promptId: string): string {
+    const { settings } = useGameplaySettings();
+    const base = `/user/games/${gameId}/tts/${promptId}`;
+
+    if (!settings.voiceId) {
+        return base;
+    }
+
+    return `${base}?voice=${encodeURIComponent(settings.voiceId)}`;
+}
 
 const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
 
@@ -184,7 +212,7 @@ function queuePendingAutoplay(gameId: string, promptId: string) {
     // The UI is about to point at this turn, so nothing from an earlier one may
     // keep playing underneath it. A retry of the current turn keeps its position.
     // Ordered before the queue is recorded because stop() clears the queue.
-    const key = `${gameId}:${promptId}`;
+    const key = cacheKey(gameId, promptId);
     if (currentKey !== key) {
         stop();
         currentAudio = null;
@@ -411,14 +439,14 @@ async function downloadNarration(endpoint: string): Promise<Blob> {
 }
 
 function narrationUrl(gameId: string, promptId: string): Promise<string> {
-    const key = `${gameId}:${promptId}`;
+    const key = cacheKey(gameId, promptId);
     const ready = objectUrls.get(key);
     if (ready) return Promise.resolve(ready);
 
     const pending = inFlightUrls.get(key);
     if (pending) return pending;
 
-    const request = downloadNarration(`/user/games/${gameId}/tts/${promptId}`)
+    const request = downloadNarration(ttsEndpoint(gameId, promptId))
         .then((blob) => {
             const url = URL.createObjectURL(blob);
             objectUrls.set(key, url);
@@ -448,7 +476,7 @@ function applyAudioSettings(audio: HTMLAudioElement) {
 }
 
 function play(gameId: string, promptId: string) {
-    const key = `${gameId}:${promptId}`;
+    const key = cacheKey(gameId, promptId);
 
     // Guard: AudioContext exists but is still suspended — audio would play silently
     // (context suppresses output). Queue and show the spinner; the statechange
@@ -575,11 +603,8 @@ function dismiss() {
     activeKey.value = null;
 }
 
-/** Stop playback and discard cached narrations (e.g. after resetting the story). */
-function resetForNewStory() {
-    dismiss();
-    currentAudio = null;
-    currentKey = null;
+/** Drop cached narration blobs (e.g. after the player changes voice). */
+function invalidateCache() {
     for (const audio of audioCache.values()) {
         audio.pause();
         audio.currentTime = 0;
@@ -593,7 +618,21 @@ function resetForNewStory() {
     objectUrls.clear();
     inFlightUrls.clear();
     playedKeys.clear();
+    awaitingSourceKey = null;
+    currentAudio = null;
+    currentKey = null;
+    activeKey.value = null;
+    isPlaying.value = false;
+    isLoading.value = false;
+    currentTime.value = 0;
     duration.value = 0;
+    stopTimeUpdates();
+}
+
+/** Stop playback and discard cached narrations (e.g. after resetting the story). */
+function resetForNewStory() {
+    dismiss();
+    invalidateCache();
     mediaCollapsed.value = false;
 }
 
@@ -638,7 +677,7 @@ function togglePause() {
 
 function toggle(gameId: string, promptId: string) {
     primeAudio();
-    const key = `${gameId}:${promptId}`;
+    const key = cacheKey(gameId, promptId);
     if (currentKey === key && isPlaying.value) {
         pause();
     } else if (currentKey === key && currentAudio && !currentAudio.ended) {
@@ -753,6 +792,7 @@ export function useTextToSpeech() {
         seekTo,
         seekBy,
         primeAudio,
-        hasPlayed: (gameId: string, promptId: string) => playedKeys.has(`${gameId}:${promptId}`),
+        hasPlayed: (gameId: string, promptId: string) => playedKeys.has(cacheKey(gameId, promptId)),
+        invalidateCache,
     };
 }

@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Services\NarrationAudioService;
+use App\Tts\TtsVoiceCatalog;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,24 +27,28 @@ final class TextToSpeechController extends Controller
 {
     public function __construct(private readonly NarrationAudioService $audio) {}
 
-    public function __invoke(Game $game, Prompt $prompt): Response
+    public function __invoke(Request $request, Game $game, Prompt $prompt): Response
     {
         abort_unless($prompt->game_id === $game->id, 404);
         abort_unless(filled($prompt->response), 404);
 
-        if ($this->audio->isReady($prompt)) {
-            return $this->serve($prompt);
+        $game->loadMissing('story');
+        $recommendedVoiceId = TtsVoiceCatalog::recommendedForGame($game);
+        $voiceId = TtsVoiceCatalog::resolveForGame($request->query('voice'), $game);
+
+        if ($this->audio->isReady($prompt, $voiceId, $recommendedVoiceId)) {
+            return $this->serve($prompt, $voiceId, $recommendedVoiceId);
         }
 
-        $failure = $this->audio->failure($prompt);
+        $failure = $this->audio->failure($prompt, $voiceId, $recommendedVoiceId);
 
         if ($failure !== null) {
             return response()->json(['status' => 'failed', 'message' => $failure], 503);
         }
 
-        if (! $this->audio->isGenerating($prompt)) {
-            $this->audio->markPending($prompt);
-            $this->renderAfterResponse((string) $game->id, (string) $prompt->id);
+        if (! $this->audio->isGenerating($prompt, $voiceId, $recommendedVoiceId)) {
+            $this->audio->markPending($prompt, $voiceId, $recommendedVoiceId);
+            $this->renderAfterResponse((string) $game->id, (string) $prompt->id, $voiceId);
         }
 
         return response()->json(['status' => 'generating'], 202)
@@ -50,9 +56,9 @@ final class TextToSpeechController extends Controller
             ->header('Cache-Control', 'no-store');
     }
 
-    private function renderAfterResponse(string $gameId, string $promptId): void
+    private function renderAfterResponse(string $gameId, string $promptId, string $voiceId): void
     {
-        dispatch(function () use ($gameId, $promptId): void {
+        dispatch(function () use ($gameId, $promptId, $voiceId): void {
             $game = Game::query()->find($gameId);
             $prompt = Prompt::query()->whereKey($promptId)->first();
 
@@ -60,14 +66,16 @@ final class TextToSpeechController extends Controller
                 return;
             }
 
-            app(NarrationAudioService::class)->generate($game, $prompt);
+            app(NarrationAudioService::class)->generate($game, $prompt, $voiceId);
         })->afterResponse();
     }
 
-    private function serve(Prompt $prompt): BinaryFileResponse
+    private function serve(Prompt $prompt, string $voiceId, string $recommendedVoiceId): BinaryFileResponse
     {
         $response = new BinaryFileResponse(
-            Storage::disk('local')->path($this->audio->path($prompt)),
+            Storage::disk('local')->path(
+                $this->audio->resolveStoragePath($prompt, $voiceId, $recommendedVoiceId),
+            ),
             200,
             [
                 'Content-Type' => 'audio/mpeg',

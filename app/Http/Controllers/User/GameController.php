@@ -15,7 +15,9 @@ use App\Models\Story;
 use App\Models\User;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
+use App\ChaosMode\ChaosStoryConfig;
 use App\Services\Adaptation\StoryGameResetService;
+use App\Tts\TtsVoiceCatalog;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -77,6 +79,8 @@ final class GameController extends Controller
 
         return inertia('User/Games/Show', [
             'game' => $game->toResource(),
+            'ttsVoices' => TtsVoiceCatalog::options(),
+            'recommendedVoiceId' => ChaosStoryConfig::ttsVoiceId($game->story->slug ?? ''),
         ]);
     }
 

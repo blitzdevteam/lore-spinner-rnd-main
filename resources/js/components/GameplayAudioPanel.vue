@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameplayVoicePicker from '@/components/GameplayVoicePicker.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { LucideLoader, LucidePause, LucidePlay, LucideRotateCcw, LucideRotateCw, LucideVolume2, LucideVolumeX, LucideZap } from 'lucide-vue-next';
@@ -113,6 +114,11 @@ const onProgressInput = (event: Event) => {
                     Tap Listen on any narration to start audio playback.
                 </p>
             </div>
+        </section>
+
+        <!-- Voice -->
+        <section class="gp-audio-section">
+            <GameplayVoicePicker />
         </section>
 
         <!-- Volume -->

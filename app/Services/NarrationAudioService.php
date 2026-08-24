@@ -40,72 +40,126 @@ final class NarrationAudioService
         private readonly ChaosEngineService $engine,
     ) {}
 
-    public function path(Prompt $prompt): string
+    /**
+     * Legacy cache path used for story-recommended voice renders (pre-selection).
+     */
+    public function legacyPath(Prompt $prompt): string
     {
         return "tts/{$this->provider()}/{$prompt->id}.mp3";
     }
 
-    public function isReady(Prompt $prompt): bool
+    public function path(Prompt $prompt, string $voiceId): string
     {
-        return Storage::disk('local')->exists($this->path($prompt));
+        return "tts/{$this->provider()}/{$voiceId}/{$prompt->id}.mp3";
     }
 
-    public function isGenerating(Prompt $prompt): bool
+    public function isReady(Prompt $prompt, string $voiceId, string $recommendedVoiceId): bool
     {
-        return Cache::has($this->pendingKey((string) $prompt->id));
+        if (Storage::disk('local')->exists($this->path($prompt, $voiceId))) {
+            return true;
+        }
+
+        if ($voiceId === $recommendedVoiceId && Storage::disk('local')->exists($this->legacyPath($prompt))) {
+            return true;
+        }
+
+        return false;
     }
 
-    public function failure(Prompt $prompt): ?string
+    public function isGenerating(Prompt $prompt, string $voiceId, string $recommendedVoiceId): bool
     {
-        $message = Cache::get($this->errorKey((string) $prompt->id));
+        return Cache::has($this->pendingKey((string) $prompt->id, $voiceId, $recommendedVoiceId));
+    }
+
+    public function failure(Prompt $prompt, string $voiceId, string $recommendedVoiceId): ?string
+    {
+        $message = Cache::get($this->errorKey((string) $prompt->id, $voiceId, $recommendedVoiceId));
 
         return is_string($message) ? $message : null;
     }
 
-    public function pendingKey(string $promptId): string
+    public function pendingKey(string $promptId, string $voiceId, string $recommendedVoiceId): string
     {
-        return "tts-pending:{$promptId}";
+        if ($voiceId === $recommendedVoiceId) {
+            return "tts-pending:{$promptId}";
+        }
+
+        return "tts-pending:{$promptId}:{$voiceId}";
     }
 
-    public function errorKey(string $promptId): string
+    public function errorKey(string $promptId, string $voiceId, string $recommendedVoiceId): string
     {
-        return "tts-error:{$promptId}";
+        if ($voiceId === $recommendedVoiceId) {
+            return "tts-error:{$promptId}";
+        }
+
+        return "tts-error:{$promptId}:{$voiceId}";
+    }
+
+    public function resolveStoragePath(Prompt $prompt, string $voiceId, string $recommendedVoiceId): string
+    {
+        $voicePath = $this->path($prompt, $voiceId);
+
+        if (Storage::disk('local')->exists($voicePath)) {
+            return $voicePath;
+        }
+
+        if ($voiceId === $recommendedVoiceId && Storage::disk('local')->exists($this->legacyPath($prompt))) {
+            return $this->legacyPath($prompt);
+        }
+
+        return $voicePath;
     }
 
     /**
      * Flag a render as queued so concurrent player requests wait instead of
      * kicking off a second (billed) generation.
      */
-    public function markPending(Prompt $prompt): void
+    public function markPending(Prompt $prompt, string $voiceId, string $recommendedVoiceId): void
     {
         $promptId = (string) $prompt->id;
 
-        Cache::put($this->pendingKey($promptId), true, self::PENDING_SECONDS);
-        Cache::forget($this->errorKey($promptId));
+        Cache::put($this->pendingKey($promptId, $voiceId, $recommendedVoiceId), true, self::PENDING_SECONDS);
+        Cache::forget($this->errorKey($promptId, $voiceId, $recommendedVoiceId));
+    }
+
+    /**
+     * Queue the story-recommended voice render (used by turn/opening pipelines).
+     */
+    public function markPendingRecommended(Game $game, Prompt $prompt): void
+    {
+        $voiceId = $this->voiceIdFor($game);
+        $this->markPending($prompt, $voiceId, $voiceId);
     }
 
     /**
      * Blocking render. Never call this from a request that a browser is
      * waiting on — the gateway will time out long before the provider answers.
      */
-    public function generate(Game $game, Prompt $prompt): void
+    public function generate(Game $game, Prompt $prompt, ?string $voiceId = null): void
     {
         $promptId = (string) $prompt->id;
-        $path = $this->path($prompt);
+        $voiceId = $voiceId ?? $this->voiceIdFor($game);
+        $recommendedVoiceId = $this->voiceIdFor($game);
+        $path = $this->storagePathForGeneration($prompt, $voiceId, $recommendedVoiceId);
 
         if (Storage::disk('local')->exists($path)) {
-            Cache::forget($this->pendingKey($promptId));
+            Cache::forget($this->pendingKey($promptId, $voiceId, $recommendedVoiceId));
 
             return;
         }
 
-        $lock = Cache::lock("tts-generate:{$promptId}", self::LOCK_SECONDS);
+        $lockKey = $voiceId === $recommendedVoiceId
+            ? "tts-generate:{$promptId}"
+            : "tts-generate:{$promptId}:{$voiceId}";
+
+        $lock = Cache::lock($lockKey, self::LOCK_SECONDS);
 
         if (! $lock->get()) {
             return;
         }
 
-        Cache::put($this->pendingKey($promptId), true, self::PENDING_SECONDS);
+        Cache::put($this->pendingKey($promptId, $voiceId, $recommendedVoiceId), true, self::PENDING_SECONDS);
 
         // Runs post-response, so the request's execution budget no longer applies.
         set_time_limit(self::LOCK_SECONDS);
@@ -122,7 +176,7 @@ final class NarrationAudioService
             $providerStartedAt = microtime(true);
             $rendered = match ($provider) {
                 'deepgram' => $this->renderDeepgram($text),
-                'elevenlabs' => $this->renderElevenLabs($text, $this->voiceIdFor($game)),
+                'elevenlabs' => $this->renderElevenLabs($text, $voiceId),
                 default => throw new RuntimeException("Unsupported TTS provider [{$provider}]."),
             };
             $latencyMs = (int) round((microtime(true) - $providerStartedAt) * 1_000);
@@ -157,9 +211,13 @@ final class NarrationAudioService
             }
 
             Storage::disk('local')->put($path, $rendered['audio']);
-            Cache::forget($this->errorKey($promptId));
+            Cache::forget($this->errorKey($promptId, $voiceId, $recommendedVoiceId));
         } catch (Throwable $e) {
-            Cache::put($this->errorKey($promptId), self::FAILURE_MESSAGE, self::ERROR_SECONDS);
+            Cache::put(
+                $this->errorKey($promptId, $voiceId, $recommendedVoiceId),
+                self::FAILURE_MESSAGE,
+                self::ERROR_SECONDS,
+            );
 
             Log::warning('tts.generate_failed', [
                 'prompt_id' => $promptId,
@@ -169,9 +227,18 @@ final class NarrationAudioService
                 'message' => $e->getMessage(),
             ]);
         } finally {
-            Cache::forget($this->pendingKey($promptId));
+            Cache::forget($this->pendingKey($promptId, $voiceId, $recommendedVoiceId));
             $lock->release();
         }
+    }
+
+    private function storagePathForGeneration(Prompt $prompt, string $voiceId, string $recommendedVoiceId): string
+    {
+        if ($voiceId === $recommendedVoiceId) {
+            return $this->legacyPath($prompt);
+        }
+
+        return $this->path($prompt, $voiceId);
     }
 
     private function provider(): string

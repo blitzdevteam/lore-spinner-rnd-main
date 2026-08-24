@@ -5,6 +5,8 @@ export interface GameplaySettings {
     fontColor: string;
     backgroundColor: string;
     autoplay: boolean;
+    /** Empty string = use the story's recommended voice. */
+    voiceId: string;
 }
 
 const STORAGE_KEY = 'gameplay-settings';
@@ -14,6 +16,7 @@ const defaults: GameplaySettings = {
     fontColor: '#e5e5e5',
     backgroundColor: '',
     autoplay: true,
+    voiceId: '',
 };
 
 const fontColorPresets = [

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BaseButton from '@/components/BaseButton.vue';
+import GameplayVoicePicker from '@/components/GameplayVoicePicker.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { glassTintVars } from '@/utils/color';
@@ -185,6 +186,10 @@ const onVolumeInput = (event: Event) => {
         </div>
 
         <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
+            <GameplayVoicePicker />
+        </div>
+
+        <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
             <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Story</label>
             <BaseButton severity="gray-muted" class="w-full" :disabled="isResetting" @click="handleResetGame">
                 <LucideRefreshCw :size="16" :class="{ 'animate-spin': isResetting }" />
@@ -335,6 +340,9 @@ const onVolumeInput = (event: Event) => {
 
         <section class="gp-settings-section">
             <h3 class="gp-section-title">Audio</h3>
+            <div class="gp-settings-group">
+                <GameplayVoicePicker />
+            </div>
             <div class="gp-settings-group">
                 <label class="gp-field-label">Narration Volume</label>
                 <div class="flex items-center gap-3">

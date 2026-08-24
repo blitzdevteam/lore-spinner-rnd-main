@@ -485,7 +485,7 @@ final class ProcessGameOpeningAction
             return;
         }
 
-        $this->audio->markPending($narration);
+        $this->audio->markPendingRecommended($game, $narration);
         $this->audio->generate($game, $narration);
     }
 }
