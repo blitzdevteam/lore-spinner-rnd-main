@@ -217,9 +217,13 @@ function joinRoom(): void {
                 </div>
             </div>
 
-            <div class="mt-7 flex w-full flex-col items-stretch gap-4 sm:mt-8 sm:flex-row sm:items-center sm:gap-3.5">
-                <article class="flex min-h-[21.25rem] flex-1 flex-col rounded-xl border-[0.5px] border-[#59c1ca] bg-black p-2.5">
-                    <div class="flex flex-1 flex-col items-center gap-5 px-1.5 pt-1">
+            <div
+                class="mt-7 grid w-full grid-cols-1 items-stretch gap-4 sm:mt-8 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-3.5"
+            >
+                <article
+                    class="flex h-full min-h-[21.25rem] w-full flex-col justify-between gap-7 rounded-xl border-[0.5px] border-[#59c1ca] bg-black p-2.5"
+                >
+                    <div class="flex flex-col items-center gap-5 px-1.5 pt-1">
                         <div class="flex flex-col items-center gap-3.5 text-center">
                             <div class="flex size-[50px] items-center justify-center rounded-full border-[0.4px] border-[#0f0f0f]">
                                 <img :src="crownIcon" alt="" class="size-[30px]" />
@@ -240,13 +244,13 @@ function joinRoom(): void {
                             </li>
                         </ul>
 
-                        <p class="mt-auto flex w-full items-center gap-1.5 text-xs text-[#8f8f8f]">
+                        <p class="flex w-full items-center gap-1.5 text-xs text-[#8f8f8f]">
                             <span class="text-[#ffbe58]">!</span>Spinner cost for this game: X
                         </p>
                     </div>
                     <button
                         type="button"
-                        class="mt-5 flex h-[50px] items-center justify-center gap-1.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base transition-colors hover:bg-[#163f46] focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
+                        class="flex h-[50px] shrink-0 items-center justify-center gap-1.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base transition-colors hover:bg-[#163f46] focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
                         @click="createRoom"
                     >
                         <img :src="plusIcon" alt="" class="size-6" />
@@ -254,19 +258,21 @@ function joinRoom(): void {
                     </button>
                 </article>
 
-                <div class="hidden shrink-0 flex-col items-center gap-2.5 sm:flex">
-                    <span class="h-[7.5rem] w-px bg-white/20" />
-                    <span class="flex size-10 items-center justify-center rounded-full border-[0.4px] border-[#8f8f8f] text-sm text-[#8f8f8f]"
+                <div class="hidden h-full min-h-[21.25rem] flex-col items-center gap-2.5 sm:flex">
+                    <span class="w-px flex-1 bg-white/20" />
+                    <span class="flex size-10 shrink-0 items-center justify-center rounded-full border-[0.4px] border-[#8f8f8f] text-sm text-[#8f8f8f]"
                         >OR</span
                     >
-                    <span class="h-[7.5rem] w-px bg-white/20" />
+                    <span class="w-px flex-1 bg-white/20" />
                 </div>
                 <div class="flex items-center justify-center sm:hidden">
                     <span class="rounded-full border-[0.4px] border-[#8f8f8f] px-3 py-1 text-xs text-[#8f8f8f]">OR</span>
                 </div>
 
-                <article class="flex min-h-[21.25rem] flex-1 flex-col rounded-xl border-[0.5px] border-[#ffbe58] bg-black p-2.5">
-                    <div class="flex flex-1 flex-col items-center gap-5 px-1.5 pt-1">
+                <article
+                    class="flex h-full min-h-[21.25rem] w-full flex-col justify-between gap-7 rounded-xl border-[0.5px] border-[#ffbe58] bg-black p-2.5"
+                >
+                    <div class="flex flex-col items-center gap-5 px-1.5 pt-1">
                         <div class="flex flex-col items-center gap-3.5 text-center">
                             <div class="flex size-[50px] items-center justify-center rounded-full border-[0.4px] border-[#fdd24f]">
                                 <img :src="starFourIcon" alt="" class="size-[30px]" />
@@ -277,7 +283,7 @@ function joinRoom(): void {
                             </div>
                         </div>
 
-                        <div class="mt-5 flex w-full flex-col gap-1.5">
+                        <div class="flex w-full flex-col gap-1.5">
                             <label for="room-code" class="text-xs text-white">Enter room code</label>
                             <input
                                 id="room-code"
@@ -361,7 +367,7 @@ function joinRoom(): void {
                     </div>
                     <button
                         type="button"
-                        class="mt-5 flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#ffbe58] text-base transition-colors hover:bg-[#ffbe58]/10 focus-visible:ring-2 focus-visible:ring-[#ffbe58] disabled:cursor-wait disabled:opacity-60"
+                        class="flex h-[50px] shrink-0 items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#ffbe58] text-base transition-colors hover:bg-[#ffbe58]/10 focus-visible:ring-2 focus-visible:ring-[#ffbe58] disabled:cursor-wait disabled:opacity-60"
                         :disabled="joinLobbyForm.processing"
                         @click="joinRoom"
                     >
