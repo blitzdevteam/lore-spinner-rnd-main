@@ -113,6 +113,9 @@ const ownProposal = computed(() => {
 const availableProposals = computed(() =>
     props.arbiter.proposals.filter((proposal) => proposal.text !== null),
 );
+const selectedProposal = computed(() =>
+    props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null,
+);
 const canSubmitProposal = computed(() => {
     return !!(
         currentMember.value
@@ -140,7 +143,7 @@ const hasVisibleStreamedResponse = computed(() => {
 
     const streamingPrompt = prompts.value.find((prompt) => prompt.id === streamingPromptId.value);
 
-    return !!streamingPrompt?.response && stripHtml(streamingPrompt.response).length > 0;
+    return !!streamingPrompt?.response?.trim();
 });
 
 const messages = ref<ChatMessage[]>([
@@ -155,6 +158,7 @@ const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const isAdvancingSession = ref(false);
+const isLeavingLobby = ref(false);
 const actionError = ref<string | null>(null);
 
 function goBack(): void {
@@ -162,15 +166,10 @@ function goBack(): void {
     window.history.back();
 }
 
-function stripHtml(value: string): string {
-    if (typeof document === 'undefined') {
-        return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-
-    const element = document.createElement('div');
-    element.innerHTML = value;
-
-    return (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+function setSourcePromptValue(sourcePromptId: string, value: string | null): void {
+    localPrompts.value = localPrompts.value.map((prompt) =>
+        String(prompt.id) === String(sourcePromptId) ? { ...prompt, prompt: value } : prompt,
+    );
 }
 
 function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[] {
@@ -205,6 +204,18 @@ watch(
             : mergedPrompts;
     },
     { deep: true },
+);
+
+watch(
+    () => [props.arbiter.source_prompt_id, props.arbiter.turn_status, selectedProposal.value?.text] as const,
+    ([sourcePromptId, status, selectedProposalText]) => {
+        if (status !== 'narrating' || !sourcePromptId || !selectedProposalText) {
+            return;
+        }
+
+        setSourcePromptValue(sourcePromptId, selectedProposalText);
+    },
+    { immediate: true },
 );
 
 watch(turnStatus, (status) => {
@@ -282,15 +293,14 @@ function setPromptCardElement(promptId: string, element: unknown): void {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string): void {
+function scrollToPromptStart(promptId: string, topOffset = 112): void {
     const element = promptCardElements.value[promptId];
 
     if (!element) {
         return;
     }
 
-    const headerOffset = 112;
-    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - headerOffset);
+    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
 
     window.scrollTo({ top, behavior: 'smooth' });
 }
@@ -495,6 +505,14 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
     actionError.value = null;
     tts.primeAudio();
     isSelectingProposal.value = true;
+    const sourcePromptId = props.arbiter.source_prompt_id;
+    const previousPromptValue = localPrompts.value.find(
+        (prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId),
+    )?.prompt ?? null;
+
+    if (sourcePromptId) {
+        setSourcePromptValue(sourcePromptId, proposal.text);
+    }
 
     router.post(
         lobbyEndpoint(`/proposals/${proposal.id}/select`),
@@ -502,6 +520,9 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
         {
             preserveScroll: true,
             onError: (errors) => {
+                if (sourcePromptId) {
+                    setSourcePromptValue(sourcePromptId, previousPromptValue);
+                }
                 actionError.value = errors.lobby ?? 'We could not select that proposal.';
             },
             onFinish: () => {
@@ -534,6 +555,25 @@ function advanceSession(): void {
     );
 }
 
+function leaveRoom(): void {
+    if (isLeavingLobby.value) {
+        return;
+    }
+
+    actionError.value = null;
+    isLeavingLobby.value = true;
+    tts.dismiss();
+
+    router.delete(showMultiplayerLobby(props.lobby.room_code).url, {
+        onError: (errors) => {
+            actionError.value = errors.lobby ?? 'We could not leave the room.';
+        },
+        onFinish: () => {
+            isLeavingLobby.value = false;
+        },
+    });
+}
+
 useEchoPresence<ArbiterStateSignal>(
     `multiplayer.lobby.${props.lobby.id}`,
     '.multiplayer.arbiter.state.changed',
@@ -559,6 +599,9 @@ useEchoPresence<ArbiterNarrationSignal>(
 
         if (signal.phase === 'ready') {
             actionError.value = null;
+            if (signal.source_prompt_value) {
+                setSourcePromptValue(signal.source_prompt_id, signal.source_prompt_value);
+            }
             ensureStreamingPrompt(signal.source_prompt_id);
 
             return;
@@ -572,7 +615,7 @@ useEchoPresence<ArbiterNarrationSignal>(
 
             if (isFirstVisibleDelta) {
                 nextTick(() => {
-                    scrollToPromptStart(promptId);
+                    scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38));
                 });
             }
 
@@ -616,7 +659,7 @@ onUnmounted(() => {
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
                 <BaseButton severity="header-glass" :icon-only="true" class="arbiter-back" title="Go back" @click="goBack">
-                    <img :src="backIcon" alt="" class="h-6 w-4" aria-hidden="true" />
+                    <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
                 </BaseButton>
 
                 <div v-if="tts.isActive.value" class="arbiter-media-player" aria-label="Narration controls">
@@ -628,14 +671,14 @@ onUnmounted(() => {
                 <aside class="arbiter-rail arbiter-left-rail" aria-label="Players">
                     <div class="rail-tabs">
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Help">
-                            <img :src="questionIcon" alt="" class="size-6" aria-hidden="true" />
+                            <img :src="questionIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                         </BaseButton>
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
-                            <img :src="settingsIcon" alt="" class="size-5" aria-hidden="true" />
+                            <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                         </BaseButton>
                         <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Players">
                             <span class="rail-tab-content">
-                                <img :src="playersIcon" alt="" class="size-7" aria-hidden="true" />
+                                <img :src="playersIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Players</span>
                             </span>
                         </BaseButton>
@@ -665,16 +708,17 @@ onUnmounted(() => {
                                 <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
                                 <span>Invite Players</span>
                             </div>
-                            <p>Share room code</p>
                             <div class="room-code-card">
-                                <div><span>Room Code</span><strong>{{ roomCode }}</strong></div>
+                                <div><span>Room Link</span><strong>{{ roomCode }}</strong></div>
                                 <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
                                     <img :src="copyIcon" alt="" aria-hidden="true" />
                                 </button>
                             </div>
                             <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
                         </div>
-                        <button type="button" class="leave-room-button">Leave Room</button>
+                        <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
+                            {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
+                        </button>
                     </section>
                 </aside>
 
@@ -741,7 +785,7 @@ onUnmounted(() => {
                             </button>
                         </div>
 
-                        <div v-else class="contributions">
+                        <div v-else-if="isCollectingProposals || isAwaitingArbiter" class="contributions">
                             <article
                                 v-for="(member, index) in nonArbiterMembers"
                                 :key="member.id"
@@ -790,18 +834,18 @@ onUnmounted(() => {
                     <div class="rail-tabs rail-tabs--right">
                         <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Chat">
                             <span class="rail-tab-content">
-                                <img :src="chatIcon" alt="" class="size-7" aria-hidden="true" />
+                                <img :src="chatIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Chat</span>
                             </span>
                         </BaseButton>
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Power">
-                            <img :src="lightningIcon" alt="" class="size-6" aria-hidden="true" />
+                            <img :src="lightningIcon" alt="" class="size-[25px]" aria-hidden="true" />
                         </BaseButton>
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Game order">
-                            <LucideList class="size-5 text-gray-300" :stroke-width="1.75" />
+                            <LucideList class="size-[25.2px] text-gray-300" :stroke-width="1.75" />
                         </BaseButton>
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Notes">
-                            <img :src="notesIcon" alt="" class="size-5" aria-hidden="true" />
+                            <img :src="notesIcon" alt="" class="size-[22.68px]" aria-hidden="true" />
                         </BaseButton>
                     </div>
 
@@ -854,10 +898,10 @@ onUnmounted(() => {
 
 .arbiter-scene {
     position: absolute;
-    top: 3.75rem;
+    top: 4.75rem;
     left: 50%;
-    width: min(52rem, 66vw);
-    height: min(34rem, 48vw);
+    width: min(47.1875rem, 66vw);
+    height: min(36.5rem, 48vw);
     transform: translateX(-50%);
     background-position: center;
     background-size: cover;
@@ -878,7 +922,7 @@ onUnmounted(() => {
 .arbiter-shell {
     position: relative;
     z-index: 1;
-    width: min(100% - 3rem, 91.25rem);
+    width: min(100% - 11.25rem, 78.75rem);
     min-height: inherit;
     margin: 0 auto;
 }
@@ -886,7 +930,7 @@ onUnmounted(() => {
 .arbiter-topbar {
     position: absolute;
     z-index: 4;
-    top: 1.25rem;
+    top: 1.5625rem;
     right: 0;
     left: 0;
     display: flex;
@@ -897,13 +941,13 @@ onUnmounted(() => {
     position: absolute !important;
     top: 0;
     left: 0;
-    width: 3.25rem !important;
-    height: 3.25rem !important;
+    width: 2.8125rem !important;
+    height: 2.8125rem !important;
 }
 
 .arbiter-media-player {
-    width: min(39.75rem, calc(100vw - 15rem));
-    margin-top: 2.65rem;
+    width: min(37.125rem, calc(100vw - 15rem));
+    margin-top: 2.1875rem;
 }
 
 .arbiter-media-player :deep(.player-bar) {
@@ -912,9 +956,9 @@ onUnmounted(() => {
 
 .arbiter-grid {
     display: grid;
-    grid-template-columns: minmax(16.75rem, 20.75rem) minmax(34rem, 38.5rem) minmax(16.75rem, 20.75rem);
+    grid-template-columns: 17.9375rem 38.5rem 17.9375rem;
     align-items: start;
-    column-gap: clamp(2rem, 5.5vw, 6.75rem);
+    column-gap: 2.1875rem;
 }
 
 .arbiter-rail {
@@ -926,16 +970,16 @@ onUnmounted(() => {
     flex-direction: column;
     align-self: start;
     box-sizing: border-box;
-    padding-top: 5.5rem;
+    padding-top: 7.1875rem;
     padding-bottom: 0.75rem;
 }
 
 .rail-tabs {
     display: flex;
-    min-height: 3.25rem;
+    min-height: 2.8125rem;
     align-items: center;
     gap: 0.625rem;
-    margin-bottom: 1.55rem;
+    margin-bottom: 1.25rem;
 }
 
 .rail-tabs--right {
@@ -943,19 +987,19 @@ onUnmounted(() => {
 }
 
 .rail-icon-button {
-    width: 3.25rem !important;
-    height: 3.25rem !important;
+    width: 2.8125rem !important;
+    height: 2.8125rem !important;
     flex: 0 0 auto;
 }
 
 .rail-tab {
     width: auto !important;
-    height: 3.25rem !important;
+    height: 2.8125rem !important;
     flex: 0 0 auto;
     border-radius: 9999px !important;
     padding: 0 1rem 0 0.45rem !important;
     color: #ffbe58;
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 500;
 }
 
@@ -968,8 +1012,8 @@ onUnmounted(() => {
 
 .arbiter-panel {
     border: 1px solid rgba(255, 255, 255, 0.035);
-    border-radius: 1.125rem;
-    padding: 1.5rem;
+    border-radius: 0.875rem;
+    padding: 1.25rem;
     background: rgba(15, 15, 15, 0.96);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
 }
@@ -979,7 +1023,8 @@ onUnmounted(() => {
 }
 
 .arbiter-left-rail > .arbiter-panel {
-    max-height: calc(100svh - 10.5rem);
+    height: 35.875rem;
+    max-height: calc(100svh - 8.4375rem);
     overflow-y: auto;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
@@ -990,35 +1035,36 @@ onUnmounted(() => {
     align-items: baseline;
     justify-content: flex-start;
     gap: 0.6rem;
-    margin-bottom: 1.15rem;
+    min-height: 2rem;
+    margin-bottom: 0.625rem;
     color: #59c1ca;
-    font-size: 1.15rem;
+    font-size: 1rem;
 }
 
 .panel-title small {
     color: #7e7e7e;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
 }
 
 .player-list {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.875rem;
 }
 
 .player-card {
     display: grid;
-    min-height: 6.25rem;
-    grid-template-columns: 3.1rem minmax(0, 1fr);
-    gap: 0 0.75rem;
-    border-radius: 0.625rem;
-    padding: 0.75rem;
-    background: #1a1a1a;
+    height: 5.4375rem;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0 0.375rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    background: #191919;
 }
 
 .player-avatar,
 .contribution-avatar {
-    width: 3.1rem;
-    height: 3.1rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 9999px;
     object-fit: cover;
 }
@@ -1028,7 +1074,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    font-size: 1rem;
+    font-size: 0.8125rem;
 }
 
 .player-host,
@@ -1040,12 +1086,12 @@ onUnmounted(() => {
 
 .player-host {
     color: #ffbe58;
-    font-size: 0.75rem;
+    font-size: 0.625rem;
 }
 
 .player-state {
-    margin-top: 0.55rem;
-    font-size: 0.8125rem;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
 }
 
 .player-state i {
@@ -1065,19 +1111,23 @@ onUnmounted(() => {
 
 .player-score {
     grid-column: 1 / -1;
-    margin-top: 0.7rem;
+    margin-top: 0.5rem;
     border-top: 1px solid #2f2f2f;
-    padding-top: 0.55rem;
+    padding-top: 0.5rem;
     color: #8f8f8f;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
 }
 
 .invite-card {
     position: relative;
-    margin-top: 1.3rem;
+    display: flex;
+    height: 7.0625rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
     border: 1px dashed #5c5c5c;
     border-radius: 0.5rem;
-    padding: 1rem;
+    padding: 0.5rem 0.625rem 0.5rem 0.5rem;
 }
 
 .invite-label {
@@ -1085,13 +1135,9 @@ onUnmounted(() => {
     align-items: center;
     gap: 0.45rem;
     color: #e4e4e4;
+    min-height: 1.6875rem;
+    padding-left: 0.3125rem;
     font-size: 1rem;
-}
-
-.invite-card > p {
-    margin: 0.25rem 0 0.85rem;
-    color: #8f8f8f;
-    font-size: 0.8125rem;
 }
 
 .room-code-card {
@@ -1101,14 +1147,16 @@ onUnmounted(() => {
     overflow: hidden;
     border: 1px solid #555;
     border-radius: 0.5rem;
-    background: #202020;
+    min-height: 3.375rem;
+    background: #191919;
 }
 
 .room-code-card > div {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    padding: 0.75rem 0.875rem;
+    justify-content: center;
+    padding: 0.375rem 0.5rem;
 }
 
 .room-code-card span,
@@ -1130,7 +1178,7 @@ onUnmounted(() => {
 
 .room-code-card button {
     display: grid;
-    width: 3.65rem;
+    width: 3.375rem;
     place-items: center;
     border: 0;
     border-left: 1px solid #373737;
@@ -1142,8 +1190,8 @@ onUnmounted(() => {
 }
 
 .room-code-card img {
-    width: 2.65rem;
-    height: 2.65rem;
+    width: 2.61rem;
+    height: 2.61rem;
 }
 
 .copy-confirmation {
@@ -1156,13 +1204,13 @@ onUnmounted(() => {
 
 .leave-room-button {
     width: 100%;
-    height: 3.3rem;
-    margin-top: 1.75rem;
+    height: 2.5rem;
+    margin-top: 1.875rem;
     border: 1px solid #fd6d6d;
     border-radius: 0.45rem;
     color: #fd6d6d;
     background: transparent;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
 }
 
 .leave-room-button:hover {
@@ -1170,30 +1218,38 @@ onUnmounted(() => {
     background: rgba(253, 109, 109, 0.14);
 }
 
+.leave-room-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
 .arbiter-story-column {
     min-width: 0;
-    padding-top: clamp(15rem, 25vh, 21.5rem);
+    padding: 24.8125rem 1.25rem 0;
 }
 
 .story-heading {
     display: grid;
-    gap: 1.55rem;
+    gap: 1.25rem;
 }
 
 .story-heading h1 {
+    width: min(100%, 25rem);
     margin: 0;
+    margin-inline: auto;
     color: #fff;
     font-family: 'Inria Serif', serif;
-    font-size: clamp(2.75rem, 3.8vw, 4rem);
+    font-size: 2.5rem;
     font-weight: 700;
-    line-height: 0.96;
+    line-height: normal;
     text-align: center;
+    text-wrap: balance;
 }
 
 .story-history {
     display: grid;
-    gap: 1.75rem;
-    margin-top: 1.55rem;
+    gap: 0.875rem;
+    margin-top: 0;
 }
 
 .story-turn {
@@ -1202,8 +1258,8 @@ onUnmounted(() => {
 
 .story-history :deep(.narration-card) {
     color: #f0f0f0;
-    font-size: 1.05rem;
-    line-height: 1.45;
+    font-size: 1rem;
+    line-height: normal;
 }
 
 .story-history-empty {
@@ -1528,8 +1584,8 @@ onUnmounted(() => {
 
 .chat-panel {
     display: flex;
-    height: min(40rem, calc(100svh - 10.5rem));
-    min-height: 27rem;
+    height: min(32.6875rem, calc(100svh - 8.4375rem));
+    min-height: 32.6875rem;
     flex-direction: column;
     padding: 1.25rem;
     overflow: hidden;
@@ -1541,19 +1597,20 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     justify-content: flex-end;
-    gap: 0.75rem;
+    gap: 0.625rem;
     overflow-y: auto;
     border: 1px solid #262626;
-    border-radius: 0.65rem;
-    padding: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.875rem;
+    background: #131313;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
 }
 
 .chat-message {
-    border-radius: 0.6rem;
-    padding: 0.75rem;
-    background: #222;
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    background: #232323;
 }
 
 .chat-message:nth-child(n + 3) {
@@ -1568,20 +1625,20 @@ onUnmounted(() => {
 }
 
 .chat-message strong {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 400;
 }
 
 .chat-message time {
     flex: 0 0 auto;
     color: #666;
-    font-size: 0.6875rem;
+    font-size: 0.625rem;
 }
 
 .chat-message p {
-    margin: 0.55rem 0 0;
+    margin: 0.625rem 0 0;
     color: #d4d4d4;
-    font-size: 0.8125rem;
+    font-size: 0.6875rem;
     line-height: 1.35;
 }
 
@@ -1599,14 +1656,14 @@ onUnmounted(() => {
 
 .chat-compose {
     display: flex;
-    height: 4.4rem;
+    height: 3.5rem;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 0.9rem;
+    margin-top: 0.625rem;
     border: 1px solid #626262;
-    border-radius: 0.65rem;
-    padding: 0 0.65rem 0 1rem;
-    background: #151515;
+    border-radius: 0.5rem;
+    padding: 0 0.625rem;
+    background: #131313;
 }
 
 .chat-compose input {
@@ -1626,8 +1683,8 @@ onUnmounted(() => {
 
 .chat-compose button {
     display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2rem;
+    height: 2rem;
     place-items: center;
     border: 0;
     border-radius: 9999px;
@@ -1672,20 +1729,16 @@ onUnmounted(() => {
 
 @media (max-width: 1360px) {
     .arbiter-shell {
-        width: min(100% - 2.5rem, 78rem);
+        width: min(100% - 2.5rem, 78.75rem);
     }
 
     .arbiter-grid {
-        grid-template-columns: minmax(15.5rem, 18rem) minmax(31rem, 35rem) minmax(15.5rem, 18rem);
-        column-gap: clamp(1.25rem, 3.2vw, 3.5rem);
-    }
-
-    .arbiter-panel {
-        padding: 1.1rem;
+        grid-template-columns: 17.9375rem minmax(31rem, 1fr) 17.9375rem;
+        column-gap: 1.5rem;
     }
 }
 
-@media (max-width: 1060px) {
+@media (max-width: 1120px) {
     .arbiter-page {
         min-height: 100svh;
         padding-bottom: 8.5rem;

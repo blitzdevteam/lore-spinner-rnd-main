@@ -58,6 +58,8 @@ final class ProcessMultiplayerLobbyTurnAction
                     (string) $lobby->id,
                     (string) $sourcePrompt->id,
                     MultiplayerArbiterNarrationStreamed::PHASE_READY,
+                    null,
+                    $proposal->text,
                 );
 
                 $this->processGameTurn->handleStreaming(
