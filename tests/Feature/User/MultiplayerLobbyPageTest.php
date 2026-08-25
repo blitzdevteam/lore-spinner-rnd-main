@@ -13,6 +13,8 @@ use Inertia\Testing\AssertableInertia as Assert;
 uses(RefreshDatabase::class);
 
 it('renders the waiting lobby sidebar props for the host', function () {
+    $this->withoutVite();
+
     $host = User::factory()->withCompleteProfile()->markEmailAsVerified()->create([
         'first_name' => 'Alex',
         'last_name' => 'Stone',
@@ -37,6 +39,17 @@ it('renders the waiting lobby sidebar props for the host', function () {
     MultiplayerLobbyMember::factory()->host()->create([
         'lobby_id' => $lobby->id,
         'user_id' => $host->id,
+        'joined_at' => now()->subMinute(),
+    ]);
+
+    $guest = User::factory()->withCompleteProfile()->markEmailAsVerified()->create([
+        'is_active' => true,
+    ]);
+
+    MultiplayerLobbyMember::factory()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $guest->id,
+        'joined_at' => now(),
     ]);
 
     $this->actingAs($host)
@@ -45,6 +58,10 @@ it('renders the waiting lobby sidebar props for the host', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Multiplayer/Lobby')
             ->where('lobby.room_code', 'TRS-7X2Q')
+            ->where('lobby.invite_url', route('stories.multiplayer', [
+                'story' => $story,
+                'room' => 'TRS-7X2Q',
+            ]))
             ->where('lobby.mode', 'arbiter')
             ->where('lobby.max_players', 4)
             ->where('lobby.is_host', true)
@@ -52,5 +69,14 @@ it('renders the waiting lobby sidebar props for the host', function () {
             ->where('lobby.settings.custom_input_enabled', true)
             ->where('lobby.settings.decision_window_seconds', 20)
             ->where('lobby.settings.power_ups_per_user', 10)
-            ->has('lobby.members', 1));
+            ->has('lobby.members', 2)
+            ->where('lobby.members.0.role', 'host')
+            ->where('lobby.members.1.role', 'player'));
+});
+
+it('uses a thin gray border for non-host player cards in the lobby template', function () {
+    $template = file_get_contents(resource_path('js/pages/Multiplayer/Lobby.vue'));
+
+    expect($template)
+        ->toContain("member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#303030]'");
 });

@@ -92,6 +92,7 @@ export interface MultiplayerLobbyMemberInterface {
 export interface MultiplayerLobbyInterface {
     id: string;
     room_code: string;
+    invite_url?: string;
     mode: MultiplayerLobbyMode;
     status: MultiplayerLobbyStatus;
     max_players: number;

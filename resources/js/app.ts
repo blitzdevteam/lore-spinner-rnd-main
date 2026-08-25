@@ -35,6 +35,7 @@ import { configureEcho } from '@laravel/echo-vue';
 
 configureEcho({
     broadcaster: 'reverb',
+    forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';

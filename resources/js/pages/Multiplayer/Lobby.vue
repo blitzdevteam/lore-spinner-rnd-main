@@ -51,6 +51,17 @@ watch(
 const story = computed(() => liveLobby.value.story);
 const storyCover = computed(() => resolveStoryCover(story.value.slug, story.value.cover) || treasureIslandBackdrop);
 const roomCode = computed(() => liveLobby.value.room_code);
+const inviteLink = computed(() => {
+    if (liveLobby.value.invite_url) {
+        return liveLobby.value.invite_url;
+    }
+
+    const path = multiplayerStoryRoute.url(story.value.slug, {
+        query: { room: roomCode.value },
+    });
+
+    return typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
+});
 const page = usePage();
 const members = computed(() => liveLobby.value.members);
 const waitingSlots = computed(() => Math.max(liveLobby.value.max_players - members.value.length, 0));
@@ -167,12 +178,12 @@ function goBack(): void {
     window.history.back();
 }
 
-async function copyRoomCode(): Promise<void> {
+async function copyInviteLink(): Promise<void> {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
         return;
     }
 
-    await navigator.clipboard.writeText(roomCode.value);
+    await navigator.clipboard.writeText(inviteLink.value);
     copiedRoomCode.value = true;
 
     window.setTimeout(() => {
@@ -315,8 +326,8 @@ function startStory(): void {
                                 <button
                                     type="button"
                                     class="flex size-[29px] shrink-0 items-center justify-center overflow-clip"
-                                    :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'"
-                                    @click="copyRoomCode"
+                                    :aria-label="copiedRoomCode ? 'Invite link copied' : 'Copy invite link'"
+                                    @click="copyInviteLink"
                                 >
                                     <LucideCheck v-if="copiedRoomCode" class="size-4 text-[#58d9a1]" :stroke-width="1.75" />
                                     <img v-else :src="copyIcon" alt="" class="size-[29px]" />
@@ -337,9 +348,9 @@ function startStory(): void {
                                 <p class="truncate text-right text-sm leading-[33px] text-white">{{ hostLabel }}</p>
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Custom Input</p>
                                 <div
-                                    class="flex h-[33px] w-full shrink-0 items-center rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
-                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.customInput
                                     }}</span>
                                     <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
@@ -347,9 +358,9 @@ function startStory(): void {
                                 </div>
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Voting Time</p>
                                 <div
-                                    class="flex h-[33px] w-full shrink-0 items-center rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
-                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.votingTime
                                     }}</span>
                                     <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
@@ -357,9 +368,9 @@ function startStory(): void {
                                 </div>
                                 <p class="self-start text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Power-ups Per User</p>
                                 <div
-                                    class="flex h-[33px] w-full shrink-0 items-center self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
-                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.powerUpsPerUser
                                     }}</span>
                                     <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
@@ -391,7 +402,7 @@ function startStory(): void {
                         v-for="member in members"
                         :key="member.id"
                         class="relative flex h-[13.7rem] flex-col items-center justify-end overflow-hidden rounded-xl border-[0.5px] p-2.5"
-                        :class="member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#59c1ca]'"
+                        :class="member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#303030]'"
                     >
                         <img :src="member.user.avatar" :alt="member.user.full_name" class="absolute inset-0 size-full object-cover opacity-80" />
                         <div class="absolute inset-0 bg-linear-to-t from-black via-black/40 to-black/20" />

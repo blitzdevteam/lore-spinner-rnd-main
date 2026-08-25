@@ -34,5 +34,8 @@
         <env name="STRIPE_PRICE_ADVENTURER" value="price_adventurer"/>
         <env name="STRIPE_PRICE_CHRONICLE" value="price_chronicle"/>
         <env name="CASHIER_CURRENCY" value="usd"/>
+        <env name="REVERB_SCHEME" value="http"/>
+        <env name="REVERB_HOST" value="localhost"/>
+        <env name="REVERB_PORT" value="8080"/>
     </php>
 </phpunit>
