@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
+import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
+import copyIcon from '@/assets/multiplayer/copy.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
+import dividerLineIcon from '@/assets/multiplayer/divider-line.svg';
 import plusCircleIcon from '@/assets/multiplayer/plus-circle.svg';
+import scalesIcon from '@/assets/multiplayer/scales.svg';
 import sparkleIcon from '@/assets/multiplayer/sparkle.svg';
+import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { MultiplayerLobbyInterface } from '@/types';
@@ -16,7 +21,7 @@ import {
 import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
 import { useEcho, useEchoPresence } from '@laravel/echo-vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { LucideCheck, LucideLink, LucidePlus, LucideUsers } from 'lucide-vue-next';
+import { LucideCheck } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
@@ -47,13 +52,6 @@ const story = computed(() => liveLobby.value.story);
 const storyCover = computed(() => resolveStoryCover(story.value.slug, story.value.cover) || treasureIslandBackdrop);
 const roomCode = computed(() => liveLobby.value.room_code);
 const page = usePage();
-const inviteLink = computed(() => {
-    const path = multiplayerStoryRoute.url(story.value.slug, {
-        query: { room: roomCode.value },
-    });
-
-    return typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
-});
 const members = computed(() => liveLobby.value.members);
 const waitingSlots = computed(() => Math.max(liveLobby.value.max_players - members.value.length, 0));
 const currentUserId = computed(() => page.props.auth?.id ?? null);
@@ -76,14 +74,23 @@ const readinessMessage = computed(() => {
 
     return `${readyMemberCount.value}/${members.value.length} players ready`;
 });
-const showSettings = ref(true);
-const copiedInviteLink = ref(false);
+const copiedRoomCode = ref(false);
 const leavingLobby = ref(false);
 const redirectingAfterLobbyDeletion = ref(false);
 const updatingReadiness = ref(false);
 const startingStory = ref(false);
 const readinessError = ref<string | null>(null);
 const startError = ref<string | null>(null);
+const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : liveLobby.value.mode));
+const playersCountLabel = computed(() => `${members.value.length}/${liveLobby.value.max_players}`);
+const chaptersLabel = computed(() => `${story.value.chapters_count ?? 0} Chapters`);
+const hostLabel = computed(() => {
+    const fullName = liveLobby.value.host.full_name.trim();
+    const firstName = fullName.split(/\s+/)[0] ?? fullName;
+    const suffix = liveLobby.value.host.id === currentUserId.value ? '(you)' : '';
+
+    return `${firstName}${suffix}`;
+});
 const lobbySettings = computed(() => ({
     customInput: liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off',
     votingTime: `${liveLobby.value.settings.decision_window_seconds} Sec`,
@@ -161,19 +168,15 @@ function goBack(): void {
 }
 
 async function copyRoomCode(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+        return;
+    }
 
     await navigator.clipboard.writeText(roomCode.value);
-}
-
-async function copyInviteLink(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-
-    await navigator.clipboard.writeText(inviteLink.value);
-    copiedInviteLink.value = true;
+    copiedRoomCode.value = true;
 
     window.setTimeout(() => {
-        copiedInviteLink.value = false;
+        copiedRoomCode.value = false;
     }, 1800);
 }
 
@@ -271,79 +274,108 @@ function startStory(): void {
         </button>
 
         <section
-            class="relative z-[1] mx-auto grid min-h-svh w-full grid-cols-1 gap-8 px-5 pt-[8.8rem] pb-10 lg:px-16 xl:grid-cols-[minmax(0,1fr)_minmax(0,3fr)_minmax(0,1fr)] xl:items-start xl:gap-10 xl:px-[6.5rem]"
+            class="relative z-[1] mx-auto grid min-h-svh w-full grid-cols-1 gap-8 px-5 pt-[8.8rem] pb-10 lg:px-16 xl:grid-cols-[287px_minmax(0,1fr)_287px] xl:items-start xl:gap-10 xl:px-[6.5rem]"
         >
-            <aside class="order-2 rounded-[14px] bg-[#0f0f0f] p-4 xl:order-1">
-                <div class="flex flex-col gap-4">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-base text-[#59c1ca]">Current Mode</h2>
-                    </div>
-                    <div class="flex items-center gap-2 rounded-lg bg-[#191919] p-2">
-                        <div class="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#ffbe58] text-[#ffbe58]">⚖</div>
-                        <div class="min-w-0">
-                            <p class="text-xs text-[#ffbe58]">Arbiter</p>
-                            <p class="text-[10px] leading-tight text-[#8f8f8f]">Everyone contributes, one player decides.</p>
+            <aside class="order-2 w-full rounded-[14px] bg-[#0f0f0f] p-5 xl:order-1 xl:w-[287px]">
+                <div class="flex w-full flex-col items-start gap-[17px]">
+                    <div class="flex w-full flex-col items-start">
+                        <h2 class="flex h-8 items-center text-base leading-[33px] text-[#59c1ca]">Current Mode</h2>
+                        <div class="flex w-full flex-col items-center justify-center rounded-lg bg-[#191919] p-1.5">
+                            <div class="flex h-[59px] w-full items-center gap-2">
+                                <div
+                                    class="flex size-[50px] shrink-0 items-center justify-center overflow-clip rounded-full border-[0.4px] border-[#ffbe58]"
+                                >
+                                    <img :src="scalesIcon" alt="" class="size-[30px]" />
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm leading-[18px] text-[#ffbe58]">{{ currentModeName }}</p>
+                                    <p class="text-xs leading-4 font-light tracking-[0.5px] text-white">
+                                        Everyone contributes, one player decides.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="border-t border-white/10 pt-3">
-                        <p class="mb-2 flex items-center gap-2 text-sm text-white">
-                            <LucideUsers class="size-4" :stroke-width="1.5" /> Invite Players
-                        </p>
-                        <div class="flex items-center justify-between rounded-md border border-[#373737] bg-[#191919] p-2">
-                            <div>
-                                <p class="text-[11px] text-white">Room Code</p>
-                                <p class="text-xs text-[#59c1ca]">{{ roomCode }}</p>
+
+                    <img :src="dividerLineIcon" alt="" class="h-px w-full" />
+
+                    <div
+                        class="flex w-full flex-col items-start gap-3 rounded-[5px] border-[0.5px] border-dashed border-[#5c5c5c] py-2 pr-2.5 pl-2"
+                    >
+                        <div class="flex h-[27px] items-center gap-1 pl-[5px] pr-2.5">
+                            <img :src="starFourIcon" alt="" class="size-5" />
+                            <p class="text-base leading-[33px] text-white">Invite Players</p>
+                        </div>
+                        <div
+                            class="flex w-full flex-col items-start justify-center rounded-[5px] border-[0.5px] border-solid border-[#5c5c5c] bg-[#191919] py-2 pr-2.5 pl-2"
+                        >
+                            <p class="text-sm leading-[33px] text-white">Room Link</p>
+                            <div class="flex w-full items-center justify-between">
+                                <p class="text-[13px] text-[#59c1ca]">{{ roomCode }}</p>
+                                <button
+                                    type="button"
+                                    class="flex size-[29px] shrink-0 items-center justify-center overflow-clip"
+                                    :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'"
+                                    @click="copyRoomCode"
+                                >
+                                    <LucideCheck v-if="copiedRoomCode" class="size-4 text-[#58d9a1]" :stroke-width="1.75" />
+                                    <img v-else :src="copyIcon" alt="" class="size-[29px]" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <img :src="dividerLineIcon" alt="" class="h-px w-full" />
+
+                    <div class="flex w-full flex-col items-start gap-2.5">
+                        <h2 class="flex h-8 w-full items-center text-base leading-[33px] text-[#59c1ca]">Room Settings</h2>
+                        <div class="flex w-full flex-col items-start gap-3.5 px-3.5">
+                            <div class="grid w-full grid-cols-[minmax(0,1fr)_100px] items-center gap-x-2 gap-y-3">
+                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Players</p>
+                                <p class="text-right text-sm leading-[33px] text-white">{{ playersCountLabel }}</p>
+                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Host</p>
+                                <p class="truncate text-right text-sm leading-[33px] text-white">{{ hostLabel }}</p>
+                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Custom Input</p>
+                                <div
+                                    class="flex h-[33px] w-full shrink-0 items-center rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                >
+                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                        lobbySettings.customInput
+                                    }}</span>
+                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
+                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
+                                </div>
+                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Voting Time</p>
+                                <div
+                                    class="flex h-[33px] w-full shrink-0 items-center rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                >
+                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                        lobbySettings.votingTime
+                                    }}</span>
+                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
+                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
+                                </div>
+                                <p class="self-start text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Power-ups Per User</p>
+                                <div
+                                    class="flex h-[33px] w-full shrink-0 items-center self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                >
+                                    <span class="min-w-0 flex-1 text-center text-sm leading-[33px] text-white">{{
+                                        lobbySettings.powerUpsPerUser
+                                    }}</span>
+                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
+                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
+                                </div>
                             </div>
                             <button
                                 type="button"
-                                class="flex size-8 items-center justify-center rounded bg-[#303030]"
-                                aria-label="Copy room code"
-                                @click="copyRoomCode"
+                                class="flex h-8 w-full items-center justify-center rounded-[5px] border-[0.5px] border-[#fd6d6d] text-[13px] text-[#fd6d6d] disabled:cursor-wait disabled:opacity-60"
+                                :disabled="leavingLobby"
+                                @click="leaveLobby"
                             >
-                                <LucidePlus class="size-4 rotate-45" :stroke-width="1.5" />
+                                {{ leavingLobby ? (liveLobby.is_host ? 'Deleting Lobby...' : 'Leaving Lobby...') : 'Leave Lobby' }}
                             </button>
                         </div>
-                        <button
-                            v-if="liveLobby.is_host"
-                            type="button"
-                            class="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded border border-[#59c1ca]/60 bg-[#0e1f22] text-xs text-[#59c1ca] transition-colors hover:bg-[#163f46]"
-                            :aria-label="copiedInviteLink ? 'Invite link copied' : 'Copy invite link'"
-                            @click="copyInviteLink"
-                        >
-                            <LucideCheck v-if="copiedInviteLink" class="size-3.5 text-[#58d9a1]" :stroke-width="1.5" />
-                            <LucideLink v-else class="size-3.5" :stroke-width="1.5" />
-                            {{ copiedInviteLink ? 'Invite Link Copied' : 'Copy Invite Link' }}
-                        </button>
                     </div>
-                    <div class="border-t border-white/10 pt-3">
-                        <button type="button" class="mb-2 text-left text-base text-[#59c1ca]" @click="showSettings = !showSettings">
-                            Room Settings
-                        </button>
-                        <div v-if="showSettings" class="flex flex-col gap-2">
-                            <label
-                                v-for="setting in [
-                                    { key: 'customInput', label: 'Custom Input' },
-                                    { key: 'votingTime', label: 'Decision Time' },
-                                    { key: 'powerUpsPerUser', label: 'Power-ups Per User' },
-                                ]"
-                                :key="setting.key"
-                                class="flex items-center justify-between gap-2 text-[11px] text-[#838383]"
-                            >
-                                <span>{{ setting.label }}</span>
-                                <span class="rounded bg-[#1b1b1b] px-2 py-1 text-right text-xs text-white">
-                                    {{ lobbySettings[setting.key as keyof typeof lobbySettings] }}
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        class="h-8 rounded border border-[#fd6d6d] text-xs text-[#fd6d6d] disabled:cursor-wait disabled:opacity-60"
-                        :disabled="leavingLobby"
-                        @click="leaveLobby"
-                    >
-                        {{ leavingLobby ? (liveLobby.is_host ? 'Deleting Lobby...' : 'Leaving Lobby...') : 'Leave Lobby' }}
-                    </button>
                 </div>
             </aside>
 
@@ -358,7 +390,8 @@ function startStory(): void {
                     <article
                         v-for="member in members"
                         :key="member.id"
-                        class="relative flex h-[13.7rem] flex-col items-center justify-end overflow-hidden rounded-xl border-[0.5px] border-[#59c1ca] p-2.5"
+                        class="relative flex h-[13.7rem] flex-col items-center justify-end overflow-hidden rounded-xl border-[0.5px] p-2.5"
+                        :class="member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#59c1ca]'"
                     >
                         <img :src="member.user.avatar" :alt="member.user.full_name" class="absolute inset-0 size-full object-cover opacity-80" />
                         <div class="absolute inset-0 bg-linear-to-t from-black via-black/40 to-black/20" />
@@ -433,24 +466,39 @@ function startStory(): void {
                 </div>
             </section>
 
-            <aside class="order-3 rounded-[14px] bg-[#0f0f0f] p-4">
-                <h2 class="mb-3 text-base text-[#59c1ca]">Current Story</h2>
-                <div class="flex gap-2 rounded-lg bg-[#191919] p-1.5">
-                    <img :src="storyCover" alt="" class="size-14 rounded-md object-cover" />
-                    <div class="min-w-0 self-center text-left">
-                        <p class="truncate text-xs text-white">{{ story.title }}</p>
-                        <p class="text-[11px] text-[#59c1ca]">{{ story.chapters_count ?? 0 }} Chapters</p>
+            <aside class="order-3 w-full rounded-[14px] bg-[#0f0f0f] p-5 xl:w-[287px]">
+                <div class="flex w-full flex-col items-start gap-[17px]">
+                    <div class="flex w-full flex-col items-start">
+                        <h2 class="flex h-8 items-center text-base leading-[33px] text-[#59c1ca]">Current Story</h2>
+                        <div class="flex w-full flex-col items-center justify-center rounded-lg bg-[#191919] p-1.5">
+                            <div class="flex h-[59px] w-full items-center gap-2">
+                                <img :src="storyCover" alt="" class="size-[50px] shrink-0 rounded-[5px] object-cover" />
+                                <div class="min-w-0 flex-1 text-left">
+                                    <p class="truncate text-sm leading-[18px] text-white">{{ story.title }}</p>
+                                    <p class="text-xs leading-4 font-light tracking-[0.5px] text-[#59c1ca]">{{ chaptersLabel }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <img :src="dividerLineIcon" alt="" class="h-px w-full" />
+
+                    <div class="flex w-full flex-col items-start gap-2.5">
+                        <h2 class="flex h-8 w-full items-center text-base leading-[33px] text-[#59c1ca]">Rules</h2>
+                        <div class="flex w-full flex-col items-start gap-3.5 px-3.5 text-left">
+                            <div v-for="rule in rules" :key="rule.title" class="flex w-full flex-col gap-1">
+                                <p class="text-[13px] leading-4 text-white">{{ rule.title }}</p>
+                                <p class="text-xs leading-4 font-light tracking-[0.5px] text-[#838383]">{{ rule.description }}</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="flex h-8 w-full items-center justify-center rounded-[5px] border-[0.5px] border-[#5c5c5c] text-[13px] text-[#838383]"
+                            >
+                                View Rules
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="my-4 border-t border-white/10" />
-                <h2 class="mb-3 text-base text-[#59c1ca]">Rules</h2>
-                <div class="flex flex-col gap-3 text-left">
-                    <div v-for="rule in rules" :key="rule.title">
-                        <p class="text-xs text-white">{{ rule.title }}</p>
-                        <p class="mt-1 text-[11px] leading-tight text-[#838383]">{{ rule.description }}</p>
-                    </div>
-                </div>
-                <button type="button" class="mt-4 h-8 w-full rounded border border-[#5c5c5c] text-xs text-[#838383]">View Rules</button>
             </aside>
         </section>
     </main>
