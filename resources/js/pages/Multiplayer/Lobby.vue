@@ -348,7 +348,7 @@ function startStory(): void {
                                 <p class="truncate text-right text-sm leading-[33px] text-white">{{ hostLabel }}</p>
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Custom Input</p>
                                 <div
-                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
                                     <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.customInput
@@ -358,7 +358,7 @@ function startStory(): void {
                                 </div>
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Voting Time</p>
                                 <div
-                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
                                     <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.votingTime
@@ -368,7 +368,7 @@ function startStory(): void {
                                 </div>
                                 <p class="self-start text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Power-ups Per User</p>
                                 <div
-                                    class="flex h-[38px] w-[100px] shrink-0 items-center justify-between self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
                                 >
                                     <span class="w-[69px] text-center text-sm leading-none text-white">{{
                                         lobbySettings.powerUpsPerUser

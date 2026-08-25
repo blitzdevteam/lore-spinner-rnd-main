@@ -80,3 +80,12 @@ it('uses a thin gray border for non-host player cards in the lobby template', fu
     expect($template)
         ->toContain("member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#303030]'");
 });
+
+it('sizes room settings dropdowns to the compact lobby design', function () {
+    $template = file_get_contents(resource_path('js/pages/Multiplayer/Lobby.vue'));
+
+    expect($template)
+        ->not->toContain('flex h-[38px] w-[100px]')
+        ->and(substr_count($template, 'flex h-6 w-[100px] shrink-0 items-center justify-between'))
+        ->toBe(3);
+});
