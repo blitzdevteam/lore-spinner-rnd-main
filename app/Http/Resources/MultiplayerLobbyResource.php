@@ -24,6 +24,10 @@ final class MultiplayerLobbyResource extends BaseResource
         return [
             'id' => $this->id,
             'room_code' => $this->room_code,
+            'invite_url' => $this->whenLoaded('story', fn (): string => route('stories.multiplayer', [
+                'story' => $this->story,
+                'room' => $this->room_code,
+            ])),
             'mode' => $this->mode->value,
             'status' => $this->status->value,
             'max_players' => $this->max_players,

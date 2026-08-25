@@ -134,6 +134,7 @@ const decisionWindowSeconds = computed(() => props.lobby.settings.decision_windo
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
+const storyColumn = ref<HTMLElement | null>(null);
 const prompts = computed(() => localPrompts.value);
 const latestPromptId = computed(() => prompts.value.at(-1)?.id ?? null);
 const hasVisibleStreamedResponse = computed(() => {
@@ -154,6 +155,8 @@ const messages = ref<ChatMessage[]>([
 ]);
 
 const chatDraft = ref('');
+const isPlayersPanelOpen = ref(true);
+const isChatPanelOpen = ref(true);
 const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
@@ -164,6 +167,14 @@ const actionError = ref<string | null>(null);
 function goBack(): void {
     tts.dismiss();
     window.history.back();
+}
+
+function togglePlayersPanel(): void {
+    isPlayersPanelOpen.value = !isPlayersPanelOpen.value;
+}
+
+function toggleChatPanel(): void {
+    isChatPanelOpen.value = !isChatPanelOpen.value;
 }
 
 function setSourcePromptValue(sourcePromptId: string, value: string | null): void {
@@ -297,6 +308,18 @@ function scrollToPromptStart(promptId: string, topOffset = 112): void {
     const element = promptCardElements.value[promptId];
 
     if (!element) {
+        return;
+    }
+
+    const column = storyColumn.value;
+
+    if (column !== null && column.scrollHeight > column.clientHeight + 1) {
+        const columnRect = column.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        const top = Math.max(0, column.scrollTop + elementRect.top - columnRect.top - topOffset);
+
+        column.scrollTo({ top, behavior: 'smooth' });
+
         return;
     }
 
@@ -656,12 +679,12 @@ onUnmounted(() => {
             aria-hidden="true"
         />
 
+        <BaseButton severity="header-glass" :icon-only="true" class="arbiter-back" title="Go back" @click="goBack">
+            <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
+        </BaseButton>
+
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
-                <BaseButton severity="header-glass" :icon-only="true" class="arbiter-back" title="Go back" @click="goBack">
-                    <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
-                </BaseButton>
-
                 <div v-if="tts.isActive.value" class="arbiter-media-player" aria-label="Narration controls">
                     <GameplayMediaPlayer />
                 </div>
@@ -676,7 +699,15 @@ onUnmounted(() => {
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
                             <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                         </BaseButton>
-                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Players">
+                        <BaseButton
+                            severity="header-glass"
+                            class="rail-tab"
+                            :class="{ 'gameplay-header-glass--active': isPlayersPanelOpen }"
+                            :title="isPlayersPanelOpen ? 'Hide Players' : 'Show Players'"
+                            :aria-expanded="isPlayersPanelOpen"
+                            aria-controls="arbiter-players-panel"
+                            @click="togglePlayersPanel"
+                        >
                             <span class="rail-tab-content">
                                 <img :src="playersIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Players</span>
@@ -684,7 +715,7 @@ onUnmounted(() => {
                         </BaseButton>
                     </div>
 
-                    <section class="arbiter-panel">
+                    <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
                         <div class="panel-title"><span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small></div>
                         <div class="player-list">
                             <article v-for="player in players" :key="player.id" class="player-card">
@@ -722,7 +753,7 @@ onUnmounted(() => {
                     </section>
                 </aside>
 
-                <section class="arbiter-story-column" aria-labelledby="arbiter-story-title">
+                <section ref="storyColumn" class="arbiter-story-column" aria-labelledby="arbiter-story-title">
                     <div class="story-heading">
                         <h1 id="arbiter-story-title">{{ props.lobby.story.title }}</h1>
                         <GameplayOrnamentDivider :label="`EPISODE ${props.game?.current_session_number ?? 1}`" color="#59C1CA" />
@@ -832,7 +863,15 @@ onUnmounted(() => {
 
                 <aside class="arbiter-rail arbiter-right-rail" aria-label="Chat">
                     <div class="rail-tabs rail-tabs--right">
-                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Chat">
+                        <BaseButton
+                            severity="header-glass"
+                            class="rail-tab"
+                            :class="{ 'gameplay-header-glass--active': isChatPanelOpen }"
+                            :title="isChatPanelOpen ? 'Hide Chat' : 'Show Chat'"
+                            :aria-expanded="isChatPanelOpen"
+                            aria-controls="arbiter-chat-panel"
+                            @click="toggleChatPanel"
+                        >
                             <span class="rail-tab-content">
                                 <img :src="chatIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Chat</span>
@@ -849,7 +888,7 @@ onUnmounted(() => {
                         </BaseButton>
                     </div>
 
-                    <section class="arbiter-panel chat-panel">
+                    <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
                         <div class="chat-window">
                             <article v-for="message in messages" :key="message.name + '-' + message.text" class="chat-message">
                                 <div class="chat-message-meta">
@@ -862,7 +901,9 @@ onUnmounted(() => {
                         <form class="chat-compose" @submit.prevent="submitChat">
                             <label class="sr-only" for="arbiter-chat-message">Type a message</label>
                             <input id="arbiter-chat-message" v-model="chatDraft" type="text" placeholder="Type a message..." autocomplete="off" />
-                            <button type="submit" aria-label="Send message"><img :src="sendIcon" alt="" aria-hidden="true" /></button>
+                            <button type="submit" aria-label="Send message">
+                                <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
+                            </button>
                         </form>
                     </section>
                 </aside>
@@ -888,16 +929,15 @@ onUnmounted(() => {
 
 .arbiter-page {
     position: relative;
-    min-height: 100svh;
-    padding-bottom: 10rem;
-    overflow-x: clip;
+    height: 100svh;
+    overflow: hidden;
     background: #000;
     color: #fff;
     font-family: 'Inter', sans-serif;
 }
 
 .arbiter-scene {
-    position: absolute;
+    position: fixed;
     top: 4.75rem;
     left: 50%;
     width: min(47.1875rem, 66vw);
@@ -923,7 +963,8 @@ onUnmounted(() => {
     position: relative;
     z-index: 1;
     width: min(100% - 11.25rem, 78.75rem);
-    min-height: inherit;
+    height: 100%;
+    min-height: 0;
     margin: 0 auto;
 }
 
@@ -935,12 +976,18 @@ onUnmounted(() => {
     left: 0;
     display: flex;
     justify-content: center;
+    pointer-events: none;
+}
+
+.arbiter-topbar > * {
+    pointer-events: auto;
 }
 
 .arbiter-back {
-    position: absolute !important;
-    top: 0;
-    left: 0;
+    position: fixed !important;
+    z-index: 5;
+    top: 1.5625rem;
+    left: 1.25rem;
     width: 2.8125rem !important;
     height: 2.8125rem !important;
 }
@@ -956,6 +1003,8 @@ onUnmounted(() => {
 
 .arbiter-grid {
     display: grid;
+    height: 100%;
+    min-height: 0;
     grid-template-columns: 17.9375rem 38.5rem 17.9375rem;
     align-items: start;
     column-gap: 2.1875rem;
@@ -964,13 +1013,14 @@ onUnmounted(() => {
 .arbiter-rail {
     position: sticky;
     top: 0;
+    z-index: 3;
     display: flex;
     max-height: 100svh;
     min-width: 0;
     flex-direction: column;
     align-self: start;
     box-sizing: border-box;
-    padding-top: 7.1875rem;
+    padding-top: 1.5625rem;
     padding-bottom: 0.75rem;
 }
 
@@ -998,9 +1048,13 @@ onUnmounted(() => {
     flex: 0 0 auto;
     border-radius: 9999px !important;
     padding: 0 1rem 0 0.45rem !important;
-    color: #ffbe58;
+    color: #e4e4e4;
     font-size: 1rem;
     font-weight: 500;
+}
+
+.rail-tab.gameplay-header-glass--active {
+    color: #ffbe58;
 }
 
 .rail-tab-content {
@@ -1024,7 +1078,7 @@ onUnmounted(() => {
 
 .arbiter-left-rail > .arbiter-panel {
     height: 35.875rem;
-    max-height: calc(100svh - 8.4375rem);
+    max-height: calc(100svh - 6.375rem);
     overflow-y: auto;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
@@ -1224,8 +1278,16 @@ onUnmounted(() => {
 }
 
 .arbiter-story-column {
+    align-self: stretch;
     min-width: 0;
-    padding: 24.8125rem 1.25rem 0;
+    min-height: 0;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 24.8125rem 1.25rem 10rem;
+    scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-width: thin;
 }
 
 .story-heading {
@@ -1584,7 +1646,7 @@ onUnmounted(() => {
 
 .chat-panel {
     display: flex;
-    height: min(32.6875rem, calc(100svh - 8.4375rem));
+    height: min(32.6875rem, calc(100svh - 6.375rem));
     min-height: 32.6875rem;
     flex-direction: column;
     padding: 1.25rem;
@@ -1740,11 +1802,15 @@ onUnmounted(() => {
 
 @media (max-width: 1120px) {
     .arbiter-page {
+        height: auto;
         min-height: 100svh;
+        overflow: visible;
+        overflow-x: clip;
         padding-bottom: 8.5rem;
     }
 
     .arbiter-shell {
+        height: auto;
         min-height: 0;
     }
 
@@ -1757,10 +1823,12 @@ onUnmounted(() => {
 
     .arbiter-back {
         top: 1.25rem;
+        left: 1.25rem;
     }
 
     .arbiter-grid {
         display: flex;
+        height: auto;
         max-width: 40rem;
         flex-direction: column;
         gap: 2.5rem;
@@ -1769,7 +1837,10 @@ onUnmounted(() => {
 
     .arbiter-story-column {
         order: 1;
+        height: auto;
+        overflow: visible;
         padding-top: 4.5rem;
+        padding-bottom: 0;
     }
 
     .arbiter-left-rail {
@@ -1826,7 +1897,7 @@ onUnmounted(() => {
     }
 
     .arbiter-back {
-        left: 0;
+        left: 1.25rem;
     }
 
     .arbiter-media-player {
