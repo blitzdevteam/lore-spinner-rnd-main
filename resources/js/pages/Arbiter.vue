@@ -155,6 +155,8 @@ const messages = ref<ChatMessage[]>([
 ]);
 
 const chatDraft = ref('');
+const isPlayersPanelOpen = ref(true);
+const isChatPanelOpen = ref(true);
 const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
@@ -165,6 +167,14 @@ const actionError = ref<string | null>(null);
 function goBack(): void {
     tts.dismiss();
     window.history.back();
+}
+
+function togglePlayersPanel(): void {
+    isPlayersPanelOpen.value = !isPlayersPanelOpen.value;
+}
+
+function toggleChatPanel(): void {
+    isChatPanelOpen.value = !isChatPanelOpen.value;
 }
 
 function setSourcePromptValue(sourcePromptId: string, value: string | null): void {
@@ -689,7 +699,15 @@ onUnmounted(() => {
                         <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
                             <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                         </BaseButton>
-                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Players">
+                        <BaseButton
+                            severity="header-glass"
+                            class="rail-tab"
+                            :class="{ 'gameplay-header-glass--active': isPlayersPanelOpen }"
+                            :title="isPlayersPanelOpen ? 'Hide Players' : 'Show Players'"
+                            :aria-expanded="isPlayersPanelOpen"
+                            aria-controls="arbiter-players-panel"
+                            @click="togglePlayersPanel"
+                        >
                             <span class="rail-tab-content">
                                 <img :src="playersIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Players</span>
@@ -697,7 +715,7 @@ onUnmounted(() => {
                         </BaseButton>
                     </div>
 
-                    <section class="arbiter-panel">
+                    <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
                         <div class="panel-title"><span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small></div>
                         <div class="player-list">
                             <article v-for="player in players" :key="player.id" class="player-card">
@@ -845,7 +863,15 @@ onUnmounted(() => {
 
                 <aside class="arbiter-rail arbiter-right-rail" aria-label="Chat">
                     <div class="rail-tabs rail-tabs--right">
-                        <BaseButton severity="header-glass" class="rail-tab gameplay-header-glass--active" title="Chat">
+                        <BaseButton
+                            severity="header-glass"
+                            class="rail-tab"
+                            :class="{ 'gameplay-header-glass--active': isChatPanelOpen }"
+                            :title="isChatPanelOpen ? 'Hide Chat' : 'Show Chat'"
+                            :aria-expanded="isChatPanelOpen"
+                            aria-controls="arbiter-chat-panel"
+                            @click="toggleChatPanel"
+                        >
                             <span class="rail-tab-content">
                                 <img :src="chatIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
                                 <span>Chat</span>
@@ -862,7 +888,7 @@ onUnmounted(() => {
                         </BaseButton>
                     </div>
 
-                    <section class="arbiter-panel chat-panel">
+                    <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
                         <div class="chat-window">
                             <article v-for="message in messages" :key="message.name + '-' + message.text" class="chat-message">
                                 <div class="chat-message-meta">
@@ -1022,9 +1048,13 @@ onUnmounted(() => {
     flex: 0 0 auto;
     border-radius: 9999px !important;
     padding: 0 1rem 0 0.45rem !important;
-    color: #ffbe58;
+    color: #e4e4e4;
     font-size: 1rem;
     font-weight: 500;
+}
+
+.rail-tab.gameplay-header-glass--active {
+    color: #ffbe58;
 }
 
 .rail-tab-content {

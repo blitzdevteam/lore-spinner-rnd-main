@@ -26,3 +26,17 @@ it('pins the arbiter side rails while the story column scrolls', function () {
         ->toContain('overflow-y: auto;')
         ->toContain('ref="storyColumn"');
 });
+
+it('toggles the arbiter players and chat panels from their rail buttons', function () {
+    $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($template)
+        ->toContain('const isPlayersPanelOpen = ref(true)')
+        ->toContain('const isChatPanelOpen = ref(true)')
+        ->toContain('@click="togglePlayersPanel"')
+        ->toContain('@click="toggleChatPanel"')
+        ->toContain('v-show="isPlayersPanelOpen"')
+        ->toContain('v-show="isChatPanelOpen"')
+        ->toContain(':aria-expanded="isPlayersPanelOpen"')
+        ->toContain(':aria-expanded="isChatPanelOpen"');
+});
