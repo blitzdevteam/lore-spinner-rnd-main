@@ -11,7 +11,7 @@
  * runtime punching — the cream hole is drawn behind the hand.
  */
 import type { XenEmergeFrom, XenGesture } from '../data/gestures';
-import { xenClip, xenRetract } from '../data/gestures';
+import { xenRetract } from '../data/gestures';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -26,12 +26,14 @@ const ready = ref(false);
 const progress = ref(0);
 /** Portal opening (half-size along the long axis), in % of frame. */
 const opening = ref(0);
+const wavePhase = ref(0);
 const shivering = ref(false);
 const frameSize = ref({ width: 0, height: 0 });
 
 let token = 0;
 let ro: ResizeObserver | null = null;
 let rafId: number | null = null;
+let waveRafId: number | null = null;
 let shiverTimer: ReturnType<typeof setTimeout> | null = null;
 
 const OPEN_MS = 460;
@@ -42,6 +44,10 @@ const PRINTER_STEPS = 14;
 const THIN_RATIO = 0.42;
 /** Extra cream padding around the silhouette, in % of frame. */
 const PAD = 1.4;
+const WAVE_AMP = 0.016;
+const WAVE_FREQ = 3.2;
+const WAVE_STEPS = 28;
+const WAVE_SPEED = 0.0016;
 
 const activeGesture = computed(() => props.gesture);
 const portal = computed(() => activeGesture.value.portal);
@@ -55,8 +61,44 @@ const frameStyle = computed(() => {
     return { width: `${Math.round(width)}px`, height: `${Math.round(height)}px` };
 });
 
+const clipId = computed(() => `xen-clip-${activeGesture.value.id}`);
+
+const wavyPath = computed(() => {
+    const m = activeGesture.value.mouth / 100;
+    const ph = wavePhase.value;
+    const f = from.value;
+    const waveAt = (t: number) =>
+        m +
+        WAVE_AMP * Math.sin(WAVE_FREQ * 2 * Math.PI * t + ph) +
+        WAVE_AMP * 0.35 * Math.sin(WAVE_FREQ * 4 * Math.PI * t + ph * 1.7);
+
+    if (f === 'bottom') {
+        let p = `M 0 0 L 1 0 L 1 ${waveAt(1).toFixed(4)}`;
+        for (let i = WAVE_STEPS - 1; i >= 0; i--) {
+            const x = i / WAVE_STEPS;
+            p += ` L ${x.toFixed(4)} ${waveAt(x).toFixed(4)}`;
+        }
+        return p + ' Z';
+    }
+    if (f === 'left') {
+        let p = `M 1 0 L 1 1 L ${waveAt(1).toFixed(4)} 1`;
+        for (let i = WAVE_STEPS - 1; i >= 0; i--) {
+            const y = i / WAVE_STEPS;
+            p += ` L ${waveAt(y).toFixed(4)} ${y.toFixed(4)}`;
+        }
+        return p + ' Z';
+    }
+    let p = `M 0 0 L 0 1 L ${waveAt(1).toFixed(4)} 1`;
+    for (let i = WAVE_STEPS - 1; i >= 0; i--) {
+        const y = i / WAVE_STEPS;
+        p += ` L ${waveAt(y).toFixed(4)} ${y.toFixed(4)}`;
+    }
+    return p + ' Z';
+});
+
 const clipStyle = computed(() => ({
-    clipPath: xenClip(activeGesture.value.mouth, from.value),
+    clipPath: `url(#${clipId.value})`,
+    WebkitClipPath: `url(#${clipId.value})`,
 }));
 
 const handOrigin = computed(() => {
@@ -136,6 +178,27 @@ function cancelRaf(): void {
     if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
+    }
+}
+
+function startWaveLoop(): void {
+    if (waveRafId !== null) {
+        return;
+    }
+    let last = performance.now();
+    function loop(now: number): void {
+        const dt = now - last;
+        last = now;
+        wavePhase.value = (wavePhase.value + WAVE_SPEED * dt) % (2 * Math.PI);
+        waveRafId = requestAnimationFrame(loop);
+    }
+    waveRafId = requestAnimationFrame(loop);
+}
+
+function cancelWaveLoop(): void {
+    if (waveRafId !== null) {
+        cancelAnimationFrame(waveRafId);
+        waveRafId = null;
     }
 }
 
@@ -239,11 +302,13 @@ onMounted(() => {
     ro.observe(rootEl.value);
     const r = rootEl.value.getBoundingClientRect();
     fit(r.width, r.height);
+    startWaveLoop();
 });
 
 onBeforeUnmount(() => {
     token += 1;
     cancelRaf();
+    cancelWaveLoop();
     clearShiver();
     ro?.disconnect();
 });
@@ -258,6 +323,12 @@ defineExpose({ replay: play });
         :class="[`xen--${from}`, { 'xen--ready': ready }]"
     >
         <div class="xen__frame" :style="frameStyle">
+            <svg class="xen__svg-defs" aria-hidden="true">
+                <clipPath :id="clipId" clipPathUnits="objectBoundingBox">
+                    <path :d="wavyPath" />
+                </clipPath>
+            </svg>
+
             <div class="xen__portal" :style="portalStyle" aria-hidden="true">
                 <span class="xen__portal-core" />
                 <span class="xen__portal-contact" />
@@ -300,6 +371,13 @@ defineExpose({ replay: play });
     flex: 0 0 auto;
     overflow: hidden;
     background: var(--xen-void);
+}
+
+.xen__svg-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
 }
 
 .xen__portal {
