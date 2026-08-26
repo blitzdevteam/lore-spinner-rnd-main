@@ -41,9 +41,9 @@ const FEED_MS = 820;
 const SHIVER_MS = 380;
 const PRINTER_STEPS = 14;
 /** Thin axis is this fraction of the long axis (ellipse aspect). */
-const THIN_RATIO = 0.42;
+const THIN_RATIO = 0.6;
 /** Extra cream padding around the silhouette, in % of frame. */
-const PAD = 1.4;
+const PAD = 5;
 const WAVE_AMP = 0.016;
 const WAVE_FREQ = 3.2;
 const WAVE_STEPS = 28;
@@ -99,6 +99,10 @@ const wavyPath = computed(() => {
 const clipStyle = computed(() => ({
     clipPath: `url(#${clipId.value})`,
     WebkitClipPath: `url(#${clipId.value})`,
+}));
+
+const portalCoreStyle = computed(() => ({
+    filter: `url(#${clipId.value}-ripple)`,
 }));
 
 const handOrigin = computed(() => {
@@ -327,10 +331,17 @@ defineExpose({ replay: play });
                 <clipPath :id="clipId" clipPathUnits="objectBoundingBox">
                     <path :d="wavyPath" />
                 </clipPath>
+                <filter :id="`${clipId}-ripple`" x="-20%" y="-20%" width="140%" height="140%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="3" result="noise" />
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
             </svg>
 
             <div class="xen__portal" :style="portalStyle" aria-hidden="true">
-                <span class="xen__portal-core" />
+                <span class="xen__portal-core" :style="portalCoreStyle" />
+                <span class="xen__ripple xen__ripple--1" />
+                <span class="xen__ripple xen__ripple--2" />
+                <span class="xen__ripple xen__ripple--3" />
                 <span class="xen__portal-contact" />
             </div>
 
@@ -407,6 +418,35 @@ defineExpose({ replay: play });
         inset 0 0 0 1px rgba(255, 248, 235, 0.4),
         0 2px 8px rgba(0, 0, 0, 0.42),
         0 0 22px rgba(243, 235, 224, 0.18);
+}
+
+.xen__ripple {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 250, 243, 0.55);
+    pointer-events: none;
+    opacity: 0;
+    animation: xen-ripple 2.8s ease-out infinite;
+}
+
+.xen__ripple--1 { animation-delay: 0s; }
+.xen__ripple--2 { animation-delay: 0.93s; }
+.xen__ripple--3 { animation-delay: 1.87s; }
+
+@keyframes xen-ripple {
+    0% {
+        inset: 38% 38%;
+        opacity: 0;
+        border-width: 2.5px;
+    }
+    15% {
+        opacity: 0.7;
+    }
+    100% {
+        inset: -4% -4%;
+        opacity: 0;
+        border-width: 0.5px;
+    }
 }
 
 .xen__portal-contact {
@@ -493,6 +533,10 @@ defineExpose({ replay: play });
 @media (prefers-reduced-motion: reduce) {
     .xen__hand--shiver {
         animation: none;
+    }
+    .xen__ripple {
+        animation: none;
+        opacity: 0;
     }
 }
 </style>
