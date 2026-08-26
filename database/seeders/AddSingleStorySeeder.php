@@ -32,7 +32,10 @@ use Throwable;
  *
  * To wipe existing stories first, run: php artisan stories:wipe
  *
- * Usage: php artisan db:seed --class=AddSingleStorySeeder --force
+ * Usage:
+ *   SEED_STORY=blue-carbuncle php artisan db:seed --class=AddSingleStorySeeder --force
+ *   SEED_LAUNCH=all      php artisan db:seed --class=AddSingleStorySeeder --force
+ *   SEED_LAUNCH=pending  php artisan db:seed --class=AddSingleStorySeeder --force
  */
 class AddSingleStorySeeder extends Seeder
 {
@@ -46,11 +49,86 @@ class AddSingleStorySeeder extends Seeder
         config(['queue.default' => 'sync']);
 
         try {
+            $launch = env('SEED_LAUNCH');
+
+            if (filled($launch)) {
+                $this->runLaunchBatch((string) $launch);
+
+                return;
+            }
+
             $config = $this->getStoryConfig();
             $this->processStory($config);
         } finally {
             config(['queue.default' => $previousQueue]);
         }
+    }
+
+    /**
+     * Seed launch titles from manifest.php one after another.
+     *
+     * SEED_LAUNCH=all     — every manifest title (skips already in DB)
+     * SEED_LAUNCH=pending — only titles not yet in DB with a script on disk
+     * SEED_LAUNCH=blue-carbuncle,emma — comma-separated seed_keys
+     */
+    protected function runLaunchBatch(string $mode): void
+    {
+        $manifest = require database_path('stories/launch/manifest.php');
+        $titles = $manifest['titles'];
+
+        if (! in_array($mode, ['all', 'pending'], true)) {
+            $keys = array_map(static fn (string $k): string => strtolower(trim($k)), explode(',', $mode));
+            $titles = array_values(array_filter(
+                $titles,
+                static fn (array $entry): bool => (bool) array_intersect($keys, $entry['seed_keys'])
+            ));
+        }
+
+        if ($mode === 'pending') {
+            $titles = array_values(array_filter($titles, function (array $entry): bool {
+                if (Story::query()->where('slug', $entry['slug'])->exists()) {
+                    return false;
+                }
+
+                if ($entry['pipeline_complete'] ?? false) {
+                    return false;
+                }
+
+                $config = $this->buildLaunchConfig($entry);
+
+                return $this->resolveScriptPath($config) !== null;
+            }));
+        }
+
+        $total = count($titles);
+
+        if ($total === 0) {
+            $this->command->warn('Launch batch: nothing to seed.');
+
+            return;
+        }
+
+        $this->command->info("Launch batch ({$mode}): {$total} title(s) queued.");
+        $this->command->newLine();
+
+        foreach ($titles as $index => $entry) {
+            $number = $index + 1;
+            $this->command->info("=== [{$number}/{$total}] {$entry['title']} ({$entry['slug']}) ===");
+
+            $config = $this->buildLaunchConfig($entry);
+
+            if ($this->resolveScriptPath($config) === null) {
+                $this->command->error("Skipping — script not found: {$entry['script']}");
+                $this->command->newLine();
+
+                continue;
+            }
+
+            $this->processStory($config);
+            $this->command->newLine();
+        }
+
+        $this->command->info('Launch batch complete.');
     }
 
     protected function processStory(array $config): void

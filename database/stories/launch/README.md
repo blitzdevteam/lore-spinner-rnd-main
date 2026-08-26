@@ -14,6 +14,20 @@ launch/01-baker-street/the-adventure-of-the-speckled-band/
 
 Same filenames are mirrored at `database/stories/{script}` for the seeder.
 
+## Seed all pending titles (one command)
+
+Runs every launch title that is **not** already in the DB and **has a TXT on disk**. Skips the 6 already-seeded/boiled titles automatically.
+
+```bash
+SEED_LAUNCH=pending php artisan db:seed --class=AddSingleStorySeeder --force
+```
+
+To walk the full manifest (skips any slug already in DB):
+
+```bash
+SEED_LAUNCH=all php artisan db:seed --class=AddSingleStorySeeder --force
+```
+
 ## Seed one title
 
 ```bash
