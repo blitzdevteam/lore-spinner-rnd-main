@@ -7,7 +7,7 @@ All commands are in the exact order they must be run.
 
 ## Prerequisites
 
-- Place the source PDF under `database/stories/RnD/`
+- Place the source PDF under `database/stories/RnD/` **or** the launch library at `database/stories/launch/{world}/{slug}/{Title}.pdf` (see [launch/README.md](../database/stories/launch/README.md))
 - Have Laravel Cloud CLI access ready
 
 ---
@@ -232,7 +232,9 @@ There is no per-story wipe — this clears everything.
 
 | File | Purpose |
 |------|---------|
-| `database/seeders/AddSingleStorySeeder.php` | Story config + runs extraction pipeline |
+| `database/stories/launch/manifest.php` | Launch title registry (17 titles, 6 worlds + standalone) |
+| `database/stories/launch/README.md` | Launch folder layout and batch workflow |
+| `database/seeders/AddSingleStorySeeder.php` | Single-story config + runs extraction pipeline (`SEED_STORY` from manifest) |
 | `app/Console/Commands/RunAdaptationCommand.php` | `stories:run-adaptation` command |
 | `app/Console/Commands/GenerateMissingImagesCommand.php` | `images:generate-missing` command |
 | `app/Jobs/Adaptation/RunAdaptationPipelineJob.php` | Adaptation pipeline entry point |

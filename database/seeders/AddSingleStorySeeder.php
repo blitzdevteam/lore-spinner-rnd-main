@@ -53,21 +53,38 @@ class AddSingleStorySeeder extends Seeder
         }
     }
 
-    private function processStory(array $config): void
+    protected function processStory(array $config): void
     {
-        $scriptPath = database_path('stories/' . $config['script']);
+        $slug = $config['slug'] ?? Str::slug($config['title']);
 
-        if (! File::exists($scriptPath) && isset($config['source_pdf'])) {
-            $pdfPath = database_path('stories/' . $config['source_pdf']);
-
-            if (File::exists($pdfPath)) {
-                $this->command->info('Converting PDF → TXT...');
-                $this->convertPdf($pdfPath, $scriptPath);
-            }
+        if ($this->shouldSkipSeeding($slug, $config)) {
+            return;
         }
 
-        if (! File::exists($scriptPath)) {
+        $scriptPath = $this->resolveScriptPath($config);
+
+        if ($scriptPath === null) {
+            $pdfPath = $this->resolveSourcePdfPath($config);
+
+            if ($pdfPath !== null) {
+                $scriptPath = database_path('stories/' . $config['script']);
+                $this->command->info('Converting PDF → TXT...');
+                $this->convertPdf($pdfPath, $scriptPath);
+
+                if (isset($config['launch_path'], $config['script'])) {
+                    $worldScript = database_path('stories/' . $config['launch_path'] . '/' . $config['script']);
+                    if (File::exists($scriptPath)) {
+                        File::copy($scriptPath, $worldScript);
+                    }
+                }
+            }
+        } else {
+            $this->command->info('Using existing script: ' . basename($scriptPath));
+        }
+
+        if ($scriptPath === null || ! File::exists($scriptPath)) {
             $this->command->error("Script not found: {$config['script']}");
+            $this->command->warn('Add the title PDF under the launch world folder, or drop it in launch/Launch titles/.');
 
             return;
         }
@@ -131,7 +148,7 @@ class AddSingleStorySeeder extends Seeder
         $this->attachMissingImages($story, $config['slug'], $config['story_cover'] ?? null);
     }
 
-    private function ensureCreator(array $config): Creator
+    protected function ensureCreator(array $config): Creator
     {
         $data = $config['creator'];
         $creator = null;
@@ -171,7 +188,7 @@ class AddSingleStorySeeder extends Seeder
         return $creator;
     }
 
-    private function attachMissingImages(Story $story, string $slug, ?string $storyCoverPath = null): void
+    protected function attachMissingImages(Story $story, string $slug, ?string $storyCoverPath = null): void
     {
         if (! $story->getFirstMedia('cover')) {
             $coverFile = $storyCoverPath ?? database_path("stories/covers/{$slug}.png");
@@ -207,7 +224,7 @@ class AddSingleStorySeeder extends Seeder
         }
     }
 
-    private function convertPdf(string $pdfPath, string $txtPath): void
+    protected function convertPdf(string $pdfPath, string $txtPath): void
     {
         $parser = new Parser;
         $pdf = $parser->parseFile($pdfPath);
@@ -224,7 +241,7 @@ class AddSingleStorySeeder extends Seeder
         $this->command->info('Saved: ' . basename($txtPath) . ' (' . mb_strlen($text) . ' bytes)');
     }
 
-    private function withRetry(callable $callback): void
+    protected function withRetry(callable $callback): void
     {
         for ($attempt = 1; $attempt <= self::MAX_RETRIES; $attempt++) {
             try {
@@ -247,36 +264,183 @@ class AddSingleStorySeeder extends Seeder
     // ── Story configuration ─────────────────────────────────────────
 
     /**
-     * Select which story to seed via the SEED_STORY env var, e.g.:
-     *   SEED_STORY=masque-of-the-red-death php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=wizard-of-oz           php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=anima-machina          php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=job-switching          php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=the-matrix             php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=nocturne                php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=wasteland               php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=pjs                     php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=treasure-island         php artisan db:seed --class=AddSingleStorySeeder --force
-     *   SEED_STORY=momotaro                php artisan db:seed --class=AddSingleStorySeeder --force
+     * Select which story to seed via SEED_STORY. Skips titles already in the DB unless SEED_FORCE=1.
      *
-     * Defaults to Masque of the Red Death when SEED_STORY is not set.
+     * Launch titles (17) — primary keys:
+     *   speckled-band · blue-carbuncle · scandal-in-bohemia
+     *   wizard-of-oz · marvelous-land-of-oz
+     *   theseus-and-the-minotaur · orpheus-and-eurydice
+     *   havoc-in-heaven · white-bone-demon
+     *   pride-and-prejudice · emma
+     *   anima-machina · wasteland · driftheart · dream-police
+     *   momotaro · tell-tale-heart
+     *
+     * RnD / legacy (not in launch manifest):
+     *   masque · the-matrix · job-switching · nocturne · pjs · treasure-island
+     *
+     * Full registry: database/stories/launch/manifest.php
+     * Defaults to masque when SEED_STORY is not set.
      */
     protected function getStoryConfig(): array
     {
         $key = strtolower((string) env('SEED_STORY', 'masque'));
 
+        $launch = $this->launchConfigForKey($key);
+
+        if ($launch !== null) {
+            return $this->buildLaunchConfig($launch);
+        }
+
         return match ($key) {
-            'anima-machina', 'anima'                                           => $this->configAnimaMachina(),
             'the-matrix', 'matrix', 'the-matrix-1999'                          => $this->configTheMatrix(),
             'job-switching', 'i-love-lucy-job-switching', 'job-switching-final' => $this->configJobSwitching(),
             'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
-            'wasteland'                                                        => $this->configWasteland(),
             'pjs', 'pjs-final'                                                 => $this->configPjs(),
             'treasure-island', 'treasure'                                      => $this->configTreasureIsland(),
-            'momotaro', 'momotaro-the-peach-boy', 'peach-boy'                  => $this->configMomotaro(),
-            'wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'                 => $this->configWizardOfOz(),
             default                                                              => $this->configMasque(),
         };
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    protected function launchManifestByKey(): array
+    {
+        static $byKey = null;
+
+        if ($byKey !== null) {
+            return $byKey;
+        }
+
+        $byKey = [];
+        $manifest = require database_path('stories/launch/manifest.php');
+
+        foreach ($manifest['titles'] as $entry) {
+            foreach ($entry['seed_keys'] as $seedKey) {
+                $byKey[strtolower($seedKey)] = $entry;
+            }
+        }
+
+        return $byKey;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function launchConfigForKey(string $key): ?array
+    {
+        return $this->launchManifestByKey()[$key] ?? null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    protected function buildLaunchConfig(array $entry): array
+    {
+        $creator = match ($entry['creator']) {
+            'thomas' => $this->thomasWittmerCreator(),
+            'freep' => $this->freepCreator(),
+            default => $this->classicsCreator(),
+        };
+
+        $config = [
+            'title' => $entry['title'],
+            'slug' => $entry['slug'],
+            'category' => $entry['category'],
+            'script' => $entry['script'],
+            'source' => $entry['source'],
+            'launch_path' => $entry['launch_path'],
+            'source_inbox' => $entry['source_inbox'] ?? null,
+            'legacy_source_pdf' => $entry['legacy_source_pdf'] ?? null,
+            'teaser' => $entry['teaser'],
+            'rating' => $entry['rating'],
+            'opening' => $entry['opening'] ?? null,
+            'creator' => $creator,
+            'pipeline_complete' => (bool) ($entry['pipeline_complete'] ?? false),
+        ];
+
+        if (isset($entry['story_cover'])) {
+            $config['story_cover'] = $this->resolveLaunchCoverPath((string) $entry['story_cover']);
+        }
+
+        return $config;
+    }
+
+    protected function resolveLaunchCoverPath(string $path): string
+    {
+        if (str_starts_with($path, 'resource:')) {
+            return resource_path(substr($path, strlen('resource:')));
+        }
+
+        if (str_starts_with($path, 'database:')) {
+            return database_path('stories/' . substr($path, strlen('database:')));
+        }
+
+        return $path;
+    }
+
+    protected function shouldSkipSeeding(string $slug, array $config): bool
+    {
+        if (filter_var(env('SEED_FORCE', false), FILTER_VALIDATE_BOOL)) {
+            return false;
+        }
+
+        $existing = Story::query()->where('slug', $slug)->first();
+
+        if ($existing === null) {
+            return false;
+        }
+
+        $label = $config['title'] ?? $slug;
+        $note = ($config['pipeline_complete'] ?? false)
+            ? ' (marked complete in launch manifest — seeded/boiled)'
+            : ' (already in database)';
+
+        $this->command->warn("Skipping {$label}{$note}. Set SEED_FORCE=1 to re-run extraction.");
+
+        return true;
+    }
+
+    protected function resolveScriptPath(array $config): ?string
+    {
+        $candidates = [];
+
+        if (isset($config['launch_path'], $config['script'])) {
+            $candidates[] = database_path('stories/' . $config['launch_path'] . '/' . $config['script']);
+        }
+
+        $candidates[] = database_path('stories/' . $config['script']);
+
+        foreach ($candidates as $path) {
+            if (File::exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveSourcePdfPath(array $config): ?string
+    {
+        $relativePaths = array_values(array_filter([
+            isset($config['launch_path'], $config['source'])
+                ? $config['launch_path'] . '/' . $config['source']
+                : null,
+            $config['source_inbox'] ?? null,
+            $config['legacy_source_pdf'] ?? null,
+            $config['source_pdf'] ?? null,
+        ]));
+
+        foreach ($relativePaths as $relative) {
+            $path = database_path('stories/' . $relative);
+
+            if (File::exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     private function configMasque(): array
@@ -286,7 +450,8 @@ class AddSingleStorySeeder extends Seeder
             'slug'       => 'the-masque-of-the-red-death',
             'category'   => 'Horror',
             'script'     => 'The Masque of the Red Death_script.txt',
-            'source_pdf' => 'RnD/The Masque of the Red Death copy.pdf',
+            'source_pdf' => 'launch/Launch titles/The Masque of the Red Death.pdf',
+            'legacy_source_pdf' => 'RnD/rest of titles/The Masque of the Red Death copy.pdf',
             'teaser'     => 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
             'rating'     => StoryRatingEnum::MATURE->value,
             'opening'    => null,
@@ -432,7 +597,7 @@ class AddSingleStorySeeder extends Seeder
         ];
     }
 
-    private function thomasWittmerCreator(): array
+    protected function thomasWittmerCreator(): array
     {
         return [
             'first_name' => 'Thomas',
@@ -444,7 +609,7 @@ class AddSingleStorySeeder extends Seeder
         ];
     }
 
-    private function classicsCreator(): array
+    protected function classicsCreator(): array
     {
         return [
             'first_name' => 'The Classics, Unbound',
@@ -456,7 +621,7 @@ class AddSingleStorySeeder extends Seeder
         ];
     }
 
-    private function freepCreator(): array
+    protected function freepCreator(): array
     {
         return [
             'first_name' => 'FREEP1',
