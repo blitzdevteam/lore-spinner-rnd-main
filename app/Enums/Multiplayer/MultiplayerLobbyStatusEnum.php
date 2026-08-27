@@ -8,6 +8,7 @@ enum MultiplayerLobbyStatusEnum: string
 {
     case Waiting = 'waiting';
     case Started = 'started';
+    case Paused = 'paused';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
 }

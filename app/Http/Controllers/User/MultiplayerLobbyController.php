@@ -11,8 +11,10 @@ use App\Actions\Multiplayer\LeaveMultiplayerLobbyAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyNextSessionAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyTurnAction;
+use App\Actions\Multiplayer\ReconcileMultiplayerLobbyPauseAction;
 use App\Actions\Multiplayer\ResolveMultiplayerLobbyGuestAction;
 use App\Actions\Multiplayer\SelectMultiplayerLobbyProposalAction;
+use App\Actions\Multiplayer\SendMultiplayerLobbyChatMessageAction;
 use App\Actions\Multiplayer\StartMultiplayerLobbyAction;
 use App\Actions\Multiplayer\SubmitMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\UpdateMultiplayerLobbyReadinessAction;
@@ -24,10 +26,12 @@ use App\Exceptions\Multiplayer\MultiplayerLobbyJoinException;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Multiplayer\JoinMultiplayerLobbyRequest;
+use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyChatMessageRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyProposalRequest;
 use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbyReadinessRequest;
 use App\Http\Resources\MultiplayerArbiterStateResource;
+use App\Http\Resources\MultiplayerLobbyChatMessageResource;
 use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyProposal;
 use App\Models\Story;
@@ -93,8 +97,13 @@ final class MultiplayerLobbyController extends Controller
     public function show(
         #[CurrentUser] User $user,
         MultiplayerLobby $lobby,
+        ReconcileMultiplayerLobbyPauseAction $reconcileMultiplayerLobbyPause,
     ): Response {
         Gate::forUser($user)->authorize('view', $lobby);
+
+        if ($reconcileMultiplayerLobbyPause->handle($lobby)) {
+            $lobby->refresh();
+        }
 
         $lobby->load([
             'story' => function (BelongsTo $query): void {
@@ -116,6 +125,7 @@ final class MultiplayerLobbyController extends Controller
 
         if (in_array($lobby->status, [
             MultiplayerLobbyStatusEnum::Started,
+            MultiplayerLobbyStatusEnum::Paused,
             MultiplayerLobbyStatusEnum::Completed,
         ], true)) {
             $lobby->load('game');
@@ -138,6 +148,16 @@ final class MultiplayerLobbyController extends Controller
                 'lobby' => $lobby->toResource(),
                 'game' => $lobby->game?->toResource(),
                 'arbiter' => (new MultiplayerArbiterStateResource($lobby))->resolve(request()),
+                'chatMessages' => MultiplayerLobbyChatMessageResource::collection(
+                    $lobby->chatMessages()
+                        ->with('user')
+                        ->latest('created_at')
+                        ->latest('id')
+                        ->limit(100)
+                        ->get()
+                        ->reverse()
+                        ->values(),
+                )->resolve(request()),
             ]);
         }
 
@@ -196,10 +216,17 @@ final class MultiplayerLobbyController extends Controller
         $storySlug = $lobby->story->slug;
         $isHost = $lobby->host_user_id === $user->id;
 
-        $leaveMultiplayerLobby->handle($user, $lobby);
+        $isGameplayPaused = $leaveMultiplayerLobby->handle($user, $lobby);
 
-        return to_route('stories.multiplayer', ['story' => $storySlug])
-            ->with('success', $isHost ? 'The lobby has been deleted.' : 'You have left the lobby.');
+        return to_route('stories.multiplayer', [
+            'story' => $storySlug,
+            ...($isGameplayPaused ? ['room' => $lobby->room_code] : []),
+        ])->with(
+            'success',
+            $isGameplayPaused
+                ? 'You left the story. It is paused until you rejoin the room.'
+                : ($isHost ? 'The lobby has been deleted.' : 'You have left the lobby.'),
+        );
     }
 
     public function updateReadiness(
@@ -262,6 +289,29 @@ final class MultiplayerLobbyController extends Controller
         } catch (MultiplayerLobbyStateException $exception) {
             throw ValidationException::withMessages([
                 'lobby' => $exception->getMessage(),
+            ]);
+        }
+
+        return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
+    }
+
+    public function sendChatMessage(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        StoreMultiplayerLobbyChatMessageRequest $request,
+        SendMultiplayerLobbyChatMessageAction $sendMultiplayerLobbyChatMessage,
+    ): RedirectResponse {
+        Gate::forUser($user)->authorize('view', $lobby);
+
+        try {
+            $sendMultiplayerLobbyChatMessage->handle(
+                $user,
+                $lobby,
+                $request->string('message')->toString(),
+            );
+        } catch (MultiplayerLobbyStateException $exception) {
+            throw ValidationException::withMessages([
+                'message' => $exception->getMessage(),
             ]);
         }
 

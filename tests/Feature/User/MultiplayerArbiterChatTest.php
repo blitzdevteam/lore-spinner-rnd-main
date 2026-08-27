@@ -40,3 +40,20 @@ it('toggles the arbiter players and chat panels from their rail buttons', functi
         ->toContain(':aria-expanded="isPlayersPanelOpen"')
         ->toContain(':aria-expanded="isChatPanelOpen"');
 });
+
+it('shares proposal typing state through the multiplayer presence channel', function () {
+    $arbiterTemplate = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+    $inputTemplate = file_get_contents(resource_path('js/components/GameplayInput.vue'));
+
+    expect($arbiterTemplate)
+        ->toContain("const typingWhisperEvent = 'multiplayer.arbiter.typing'")
+        ->toContain('usePresenceChannel(lobbyChannelName)')
+        ->toContain('listenForWhisper(typingWhisperEvent, handleTypingWhisper)')
+        ->toContain('whisper(typingWhisperEvent, { is_typing: isTyping })')
+        ->toContain('@typing="handleProposalTyping"')
+        ->toContain('typing-label--active');
+
+    expect($inputTemplate)
+        ->toContain('typing: [isTyping: boolean];')
+        ->toContain("emit('typing', text.trim().length > 0)");
+});

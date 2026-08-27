@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Multiplayer;
 
+use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
+use App\Events\MultiplayerArbiterStateChanged;
 use App\Events\MultiplayerLobbyDeleted;
 use App\Events\MultiplayerLobbyMemberLeft;
 use App\Models\MultiplayerLobby;
@@ -12,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 final class LeaveMultiplayerLobbyAction
 {
-    public function handle(User $user, MultiplayerLobby $lobby): void
+    public function handle(User $user, MultiplayerLobby $lobby): bool
     {
         /** @var array<int, int> $deletedLobbyMemberUserIds */
         $deletedLobbyMemberUserIds = [];
@@ -21,6 +23,23 @@ final class LeaveMultiplayerLobbyAction
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
+
+            if (in_array($lockedLobby->status, [
+                MultiplayerLobbyStatusEnum::Started,
+                MultiplayerLobbyStatusEnum::Paused,
+            ], true)) {
+                $lockedLobby->members()
+                    ->whereBelongsTo($user)
+                    ->lockForUpdate()
+                    ->firstOrFail()
+                    ->update(['left_at' => now()]);
+
+                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
+                    $lockedLobby->update(['status' => MultiplayerLobbyStatusEnum::Paused]);
+                }
+
+                return $lockedLobby->load(['host', 'members.user']);
+            }
 
             if ($lockedLobby->host_user_id === $user->id) {
                 $deletedLobbyMemberUserIds = array_values(array_unique([
@@ -48,9 +67,17 @@ final class LeaveMultiplayerLobbyAction
         if ($remainingLobby === null) {
             MultiplayerLobbyDeleted::dispatch((string) $lobby->getKey(), $deletedLobbyMemberUserIds);
 
-            return;
+            return false;
         }
 
         MultiplayerLobbyMemberLeft::dispatch($remainingLobby);
+
+        if ($remainingLobby->status === MultiplayerLobbyStatusEnum::Paused) {
+            MultiplayerArbiterStateChanged::dispatch($remainingLobby);
+
+            return true;
+        }
+
+        return false;
     }
 }

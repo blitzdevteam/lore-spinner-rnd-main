@@ -31,6 +31,10 @@ final class AdvanceMultiplayerLobbySessionAction
                 throw MultiplayerLobbyStateException::storyIsComplete();
             }
 
+            if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Paused) {
+                throw MultiplayerLobbyStateException::isPaused();
+            }
+
             if ($lockedLobby->status !== MultiplayerLobbyStatusEnum::Started) {
                 throw MultiplayerLobbyStateException::isNotStarted();
             }

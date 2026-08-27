@@ -39,6 +39,7 @@ use Override;
  * @property-read Prompt|null $currentSourcePrompt
  * @property-read Collection<int, MultiplayerLobbyMember> $members
  * @property-read Collection<int, MultiplayerLobbyProposal> $proposals
+ * @property-read Collection<int, MultiplayerLobbyChatMessage> $chatMessages
  */
 final class MultiplayerLobby extends Model
 {
@@ -105,6 +106,14 @@ final class MultiplayerLobby extends Model
     public function proposals(): HasMany
     {
         return $this->hasMany(MultiplayerLobbyProposal::class, 'lobby_id');
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobbyChatMessage, $this>
+     */
+    public function chatMessages(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobbyChatMessage::class, 'lobby_id');
     }
 
     public function isMember(User $user): bool

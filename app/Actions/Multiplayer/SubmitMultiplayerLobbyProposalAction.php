@@ -24,6 +24,10 @@ final class SubmitMultiplayerLobbyProposalAction
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
 
+            if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Paused) {
+                throw MultiplayerLobbyStateException::isPaused();
+            }
+
             if ($lockedLobby->status !== MultiplayerLobbyStatusEnum::Started) {
                 throw MultiplayerLobbyStateException::isNotStarted();
             }

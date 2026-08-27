@@ -63,7 +63,7 @@ export interface StoryInterface {
 
 export type MultiplayerLobbyMode = 'arbiter';
 
-export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'completed' | 'cancelled';
+export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'completed' | 'cancelled';
 
 export type MultiplayerLobbyMemberRole = 'host' | 'player';
 
@@ -86,6 +86,14 @@ export interface MultiplayerLobbyMemberInterface {
     role: MultiplayerLobbyMemberRole;
     is_ready: boolean;
     joined_at: string | null;
+    left_at: string | null;
+    user: MultiplayerLobbyPlayerInterface;
+}
+
+export interface MultiplayerLobbyChatMessageInterface {
+    id: string;
+    body: string;
+    created_at: string | null;
     user: MultiplayerLobbyPlayerInterface;
 }
 

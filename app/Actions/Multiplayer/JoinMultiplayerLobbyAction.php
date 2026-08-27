@@ -6,6 +6,7 @@ namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerLobbyMemberRoleEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
+use App\Events\MultiplayerArbiterStateChanged;
 use App\Events\MultiplayerLobbyMemberJoined;
 use App\Exceptions\Multiplayer\MultiplayerLobbyJoinException;
 use App\Models\MultiplayerLobby;
@@ -17,14 +18,38 @@ final class JoinMultiplayerLobbyAction
     public function handle(User $user, MultiplayerLobby $lobby): MultiplayerLobby
     {
         $joined = false;
+        $memberRejoined = false;
+        $gameResumed = false;
 
-        $lobby = DB::transaction(function () use ($user, $lobby, &$joined): MultiplayerLobby {
+        $lobby = DB::transaction(function () use ($user, $lobby, &$joined, &$memberRejoined, &$gameResumed): MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
 
-            if ($lockedLobby->members()->whereBelongsTo($user)->exists()) {
-                return $lockedLobby->load(['host', 'members.user']);
+            $member = $lockedLobby->members()
+                ->whereBelongsTo($user)
+                ->lockForUpdate()
+                ->first();
+
+            if ($member !== null) {
+                $wasAway = $member->left_at !== null;
+
+                if ($wasAway) {
+                    $member->update(['left_at' => null]);
+                    $memberRejoined = true;
+                }
+
+                if (
+                    $lockedLobby->status === MultiplayerLobbyStatusEnum::Paused
+                    && ! $lockedLobby->members()->whereNotNull('left_at')->exists()
+                ) {
+                    $lockedLobby->update(['status' => MultiplayerLobbyStatusEnum::Started]);
+                    $gameResumed = true;
+                }
+
+                return $lockedLobby
+                    ->refresh()
+                    ->load(['host', 'members.user']);
             }
 
             if ($lockedLobby->status !== MultiplayerLobbyStatusEnum::Waiting) {
@@ -46,8 +71,20 @@ final class JoinMultiplayerLobbyAction
             return $lockedLobby->load(['host', 'members.user']);
         });
 
-        if ($joined) {
+        if ($joined || $memberRejoined) {
             MultiplayerLobbyMemberJoined::dispatch($lobby);
+        }
+
+        if ($memberRejoined || $gameResumed) {
+            MultiplayerArbiterStateChanged::dispatch($lobby);
+        }
+
+        if ($gameResumed) {
+            $lobbyId = $lobby->id;
+
+            dispatch(static function () use ($lobbyId): void {
+                app(ResumeMultiplayerLobbyAction::class)->handle($lobbyId);
+            })->afterResponse();
         }
 
         return $lobby;

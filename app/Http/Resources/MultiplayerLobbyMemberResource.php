@@ -26,6 +26,7 @@ final class MultiplayerLobbyMemberResource extends BaseResource
             'role' => $this->role->value,
             'is_ready' => $this->is_ready,
             'joined_at' => $this->joined_at,
+            'left_at' => $this->left_at,
 
             'user' => $this->whenLoaded('user', function (): array {
                 return [

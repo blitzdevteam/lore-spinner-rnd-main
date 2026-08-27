@@ -33,6 +33,11 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('The Arbiter story has not started yet.');
     }
 
+    public static function isPaused(): self
+    {
+        return new self('The Arbiter story is paused until every player returns.');
+    }
+
     public static function isNotCollectingProposals(): self
     {
         return new self('This turn is no longer accepting proposals.');
@@ -81,5 +86,10 @@ final class MultiplayerLobbyStateException extends RuntimeException
     public static function nextSessionIsNotAvailable(): self
     {
         return new self('The next chapter is not available for this story.');
+    }
+
+    public static function mustRejoinBeforeChatting(): self
+    {
+        return new self('Rejoin the room before sending a chat message.');
     }
 }

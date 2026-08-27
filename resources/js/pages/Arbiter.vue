@@ -21,20 +21,21 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
     GameInterface,
     MultiplayerArbiterStateInterface,
+    MultiplayerLobbyChatMessageInterface,
     MultiplayerLobbyInterface,
     MultiplayerLobbyMemberInterface,
     MultiplayerLobbyProposalInterface,
     PromptInterface,
 } from '@/types';
 import { show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
-import { useEchoPresence } from '@laravel/echo-vue';
+import { useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { LucideCrown, LucideList } from 'lucide-vue-next';
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
-type PlayerTone = 'cyan' | 'gold';
+type PlayerTone = 'cyan' | 'gold' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
 
 type Player = {
@@ -42,16 +43,22 @@ type Player = {
     name: string;
     role: string;
     state: string;
+    isTyping: boolean;
+    hasLeft: boolean;
     avatar: string;
     tone: PlayerTone;
+    isCurrentUser: boolean;
+    isArbiter: boolean;
     host?: boolean;
 };
 
 type ChatMessage = {
+    id: string;
     name: string;
     text: string;
     time: string;
     tone: ChatTone;
+    createdAt: string | null;
 };
 
 type ArbiterStateSignal = {
@@ -68,12 +75,37 @@ type ArbiterNarrationSignal = {
     message?: string;
 };
 
+type MultiplayerLobbyMembershipSignal = {
+    lobby: {
+        id: string;
+    };
+};
+
+type MultiplayerLobbyChatMessageSignal = {
+    lobby_id: string;
+    message: MultiplayerLobbyChatMessageInterface;
+};
+
+type ArbiterTypingWhisper = {
+    is_typing: boolean;
+};
+
+type PresenceWhisperMetadata = {
+    user_id?: string;
+};
+
 const props = defineProps<{
     lobby: MultiplayerLobbyInterface;
     game: GameInterface | null;
     arbiter: MultiplayerArbiterStateInterface;
+    chatMessages: MultiplayerLobbyChatMessageInterface[];
 }>();
 
+const lobbyChannelName = `multiplayer.lobby.${props.lobby.id}`;
+const typingWhisperEvent = 'multiplayer.arbiter.typing';
+const typingIndicatorTimeout = 2_500;
+const typingWhisperInterval = 750;
+const multiplayerLobbyPresenceChannel = usePresenceChannel(lobbyChannelName);
 const page = usePage();
 const tts = useTextToSpeech();
 const gameplayBackgroundImage = computed(
@@ -83,9 +115,7 @@ const roomCode = computed(() => props.lobby.room_code);
 const members = computed(() => props.lobby.members);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
 const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value) ?? null);
-const currentArbiter = computed(
-    () => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null,
-);
+const currentArbiter = computed(() => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null);
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
 const isCollectingProposals = computed(() => turnStatus.value === 'collecting_proposals');
@@ -93,43 +123,43 @@ const isAwaitingArbiter = computed(() => turnStatus.value === 'awaiting_arbiter'
 const isNarrating = computed(() => turnStatus.value === 'narrating');
 const isSessionComplete = computed(() => turnStatus.value === 'session_complete');
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
+const isGameplayPaused = computed(() => props.lobby.status === 'paused');
+const pausedMembers = computed(() => members.value.filter((member) => member.left_at !== null));
+const pausedMemberLabel = computed(() => {
+    const names = pausedMembers.value.map((member) => member.user.full_name);
+
+    if (names.length <= 1) {
+        return names[0] ?? 'a player';
+    }
+
+    if (names.length === 2) {
+        return `${names[0]} and ${names[1]}`;
+    }
+
+    return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+});
 const isLastSession = computed(() => {
     const totalSessions = props.game?.total_sessions ?? 0;
     const currentSession = props.game?.current_session_number ?? 1;
 
     return totalSessions > 0 && currentSession >= totalSessions;
 });
-const nonArbiterMembers = computed(() =>
-    members.value.filter((member) => member.id !== props.arbiter.current_arbiter_member_id),
-);
-const proposalByMemberId = computed(() =>
-    new Map(props.arbiter.proposals.map((proposal) => [proposal.member_id, proposal])),
-);
+const nonArbiterMembers = computed(() => members.value.filter((member) => member.id !== props.arbiter.current_arbiter_member_id));
+const proposalByMemberId = computed(() => new Map(props.arbiter.proposals.map((proposal) => [proposal.member_id, proposal])));
 const ownProposal = computed(() => {
     const member = currentMember.value;
 
-    return member ? proposalByMemberId.value.get(member.id) ?? null : null;
+    return member ? (proposalByMemberId.value.get(member.id) ?? null) : null;
 });
-const availableProposals = computed(() =>
-    props.arbiter.proposals.filter((proposal) => proposal.text !== null),
-);
-const selectedProposal = computed(() =>
-    props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null,
-);
+const availableProposals = computed(() => props.arbiter.proposals.filter((proposal) => proposal.text !== null));
+const selectedProposal = computed(() => props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null);
 const canSubmitProposal = computed(() => {
-    return !!(
-        currentMember.value
-        && !isCurrentUserArbiter.value
-        && isCollectingProposals.value
-        && !ownProposal.value
-    );
+    return !!(currentMember.value && !isCurrentUserArbiter.value && !isGameplayPaused.value && isCollectingProposals.value && !ownProposal.value);
 });
 const canChooseProposal = computed(
-    () => isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
+    () => !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
 );
-const canAdvanceSession = computed(() =>
-    isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host,
-);
+const canAdvanceSession = computed(() => !isGameplayPaused.value && isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host);
 const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
@@ -147,13 +177,8 @@ const hasVisibleStreamedResponse = computed(() => {
     return !!streamingPrompt?.response?.trim();
 });
 
-const messages = ref<ChatMessage[]>([
-    { name: 'Billy (Host)', text: 'This place gives me chills', time: '10:20 PM', tone: 'cyan' },
-    { name: 'Billy (Host)', text: 'Let’s explore!', time: '10:20 PM', tone: 'cyan' },
-    { name: 'Mira', text: 'Remember, choose wisely. Your choices shape the story.', time: '10:22 PM', tone: 'fantasy' },
-    { name: 'Kevin', text: 'Maybe there’s another way...', time: '10:22 PM', tone: 'green' },
-]);
-
+const chatMessages = ref<MultiplayerLobbyChatMessageInterface[]>([...props.chatMessages]);
+const chatWindow = ref<HTMLElement | null>(null);
 const chatDraft = ref('');
 const isPlayersPanelOpen = ref(true);
 const isChatPanelOpen = ref(true);
@@ -162,7 +187,14 @@ const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
+const isSendingChatMessage = ref(false);
 const actionError = ref<string | null>(null);
+const chatError = ref<string | null>(null);
+const typingMemberIds = ref(new Set<string>());
+const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+let lastTypingWhisperAt = 0;
+let isReloadingArbiterState = false;
+let isArbiterStateReloadPending = false;
 
 function goBack(): void {
     tts.dismiss();
@@ -177,10 +209,100 @@ function toggleChatPanel(): void {
     isChatPanelOpen.value = !isChatPanelOpen.value;
 }
 
-function setSourcePromptValue(sourcePromptId: string, value: string | null): void {
-    localPrompts.value = localPrompts.value.map((prompt) =>
-        String(prompt.id) === String(sourcePromptId) ? { ...prompt, prompt: value } : prompt,
+function setMemberTyping(memberId: string, isTyping: boolean): void {
+    const existingTimeout = typingTimeouts.get(memberId);
+
+    if (existingTimeout !== undefined) {
+        clearTimeout(existingTimeout);
+        typingTimeouts.delete(memberId);
+    }
+
+    const nextTypingMemberIds = new Set(typingMemberIds.value);
+
+    if (!isTyping) {
+        nextTypingMemberIds.delete(memberId);
+        typingMemberIds.value = nextTypingMemberIds;
+
+        return;
+    }
+
+    nextTypingMemberIds.add(memberId);
+    typingMemberIds.value = nextTypingMemberIds;
+    typingTimeouts.set(
+        memberId,
+        setTimeout(() => {
+            setMemberTyping(memberId, false);
+        }, typingIndicatorTimeout),
     );
+}
+
+function clearTypingIndicators(): void {
+    for (const timeout of typingTimeouts.values()) {
+        clearTimeout(timeout);
+    }
+
+    typingTimeouts.clear();
+    typingMemberIds.value = new Set();
+}
+
+function isMemberTyping(member: MultiplayerLobbyMemberInterface): boolean {
+    return (
+        !isGameplayPaused.value &&
+        member.left_at === null &&
+        isCollectingProposals.value &&
+        !proposalByMemberId.value.has(member.id) &&
+        typingMemberIds.value.has(member.id)
+    );
+}
+
+function handleTypingWhisper(signal: ArbiterTypingWhisper, metadata?: PresenceWhisperMetadata): void {
+    if (isGameplayPaused.value || !isCollectingProposals.value || !signal || typeof signal.is_typing !== 'boolean' || !metadata?.user_id) {
+        return;
+    }
+
+    const member = members.value.find((candidate) => String(candidate.user.id) === metadata.user_id);
+
+    if (!member || String(member.user.id) === String(currentUserId.value)) {
+        return;
+    }
+
+    setMemberTyping(member.id, signal.is_typing);
+}
+
+function whisperTyping(isTyping: boolean): void {
+    multiplayerLobbyPresenceChannel.channel().whisper(typingWhisperEvent, { is_typing: isTyping });
+}
+
+function handleProposalTyping(isTyping: boolean): void {
+    const member = currentMember.value;
+
+    if (!member) {
+        return;
+    }
+
+    const shouldShowTyping = isTyping && canSubmitProposal.value;
+
+    setMemberTyping(member.id, shouldShowTyping);
+
+    if (!shouldShowTyping) {
+        lastTypingWhisperAt = 0;
+        whisperTyping(false);
+
+        return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastTypingWhisperAt < typingWhisperInterval) {
+        return;
+    }
+
+    lastTypingWhisperAt = now;
+    whisperTyping(true);
+}
+
+function setSourcePromptValue(sourcePromptId: string, value: string | null): void {
+    localPrompts.value = localPrompts.value.map((prompt) => (String(prompt.id) === String(sourcePromptId) ? { ...prompt, prompt: value } : prompt));
 }
 
 function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[] {
@@ -193,10 +315,7 @@ function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[]
     });
     const newestServerId = serverPrompts.length > 0 ? String(serverPrompts.at(-1)?.id ?? '') : '';
     const newerLocalPrompts = localPrompts.value.filter(
-        (prompt) =>
-            prompt.id !== streamingPromptId.value
-            && !serverIds.has(String(prompt.id))
-            && String(prompt.id) > newestServerId,
+        (prompt) => prompt.id !== streamingPromptId.value && !serverIds.has(String(prompt.id)) && String(prompt.id) > newestServerId,
     );
 
     return [...reconciled, ...newerLocalPrompts];
@@ -205,9 +324,7 @@ function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[]
 watch(
     () => props.game?.prompts,
     (serverPrompts) => {
-        const streamingPrompt = streamingPromptId.value
-            ? localPrompts.value.find((prompt) => prompt.id === streamingPromptId.value) ?? null
-            : null;
+        const streamingPrompt = streamingPromptId.value ? (localPrompts.value.find((prompt) => prompt.id === streamingPromptId.value) ?? null) : null;
         const mergedPrompts = mergeServerPrompts([...(serverPrompts ?? [])]);
 
         localPrompts.value = streamingPrompt
@@ -215,6 +332,13 @@ watch(
             : mergedPrompts;
     },
     { deep: true },
+);
+
+watch(
+    () => props.chatMessages,
+    (serverChatMessages) => {
+        chatMessages.value = [...serverChatMessages];
+    },
 );
 
 watch(
@@ -288,11 +412,7 @@ function commitStreamedNarration(signal: ArbiterNarrationSignal): void {
     const transientPromptId = `stream-${signal.source_prompt_id}`;
 
     localPrompts.value = localPrompts.value
-        .map((prompt) =>
-            prompt.id === signal.source_prompt_id
-                ? { ...prompt, prompt: signal.source_prompt_value ?? prompt.prompt }
-                : prompt,
-        )
+        .map((prompt) => (prompt.id === signal.source_prompt_id ? { ...prompt, prompt: signal.source_prompt_value ?? prompt.prompt } : prompt))
         .filter((prompt) => prompt.id !== transientPromptId && prompt.id !== responsePrompt.id);
     localPrompts.value = [...localPrompts.value, responsePrompt];
     if (streamingPromptId.value === transientPromptId) {
@@ -333,7 +453,7 @@ function memberAvatar(member: MultiplayerLobbyMemberInterface, index: number): s
 }
 
 function memberDisplayName(member: MultiplayerLobbyMemberInterface): string {
-    return member.user.id === currentUserId.value ? `${member.user.full_name} (you)` : member.user.full_name;
+    return member.user.full_name;
 }
 
 function memberRole(member: MultiplayerLobbyMemberInterface): string {
@@ -345,6 +465,10 @@ function memberRole(member: MultiplayerLobbyMemberInterface): string {
 }
 
 function memberState(member: MultiplayerLobbyMemberInterface): string {
+    if (member.left_at !== null) {
+        return 'Left game';
+    }
+
     if (turnStatus.value === 'opening') {
         return 'Preparing story…';
     }
@@ -365,6 +489,10 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
         return 'Arbiter';
     }
 
+    if (isMemberTyping(member)) {
+        return 'Typing…';
+    }
+
     if (proposalByMemberId.value.has(member.id)) {
         return 'Choice submitted';
     }
@@ -378,13 +506,32 @@ const players = computed<Player[]>(() =>
         name: memberDisplayName(member),
         role: memberRole(member),
         state: memberState(member),
+        isTyping: isMemberTyping(member),
+        hasLeft: member.left_at !== null,
         avatar: memberAvatar(member, index),
-        tone: member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
+        tone: member.left_at !== null ? 'left' : member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
+        isCurrentUser: member.user.id === currentUserId.value,
+        isArbiter: member.id === props.arbiter.current_arbiter_member_id,
         host: member.role === 'host',
     })),
 );
 
+const messages = computed<ChatMessage[]>(() =>
+    chatMessages.value.map((message) => ({
+        id: message.id,
+        name: message.user.full_name,
+        text: message.body,
+        time: formatChatMessageTime(message.created_at),
+        tone: chatMessageTone(message),
+        createdAt: message.created_at,
+    })),
+);
+
 const decisionTitle = computed(() => {
+    if (isGameplayPaused.value) {
+        return 'Story Paused';
+    }
+
     if (isStoryComplete.value) {
         return 'Story Complete';
     }
@@ -405,6 +552,10 @@ const decisionTitle = computed(() => {
 });
 
 const decisionDescription = computed(() => {
+    if (isGameplayPaused.value) {
+        return `Waiting for ${pausedMemberLabel.value} to rejoin before play can continue.`;
+    }
+
     if (isStoryComplete.value) {
         return 'Every chapter of this shared story has reached its ending.';
     }
@@ -429,6 +580,10 @@ const decisionDescription = computed(() => {
 });
 
 const waitingStatus = computed(() => {
+    if (isGameplayPaused.value) {
+        return `Story paused while ${pausedMemberLabel.value} ${pausedMembers.value.length === 1 ? 'rejoins' : 'rejoin'}.`;
+    }
+
     if (actionError.value) {
         return actionError.value;
     }
@@ -451,7 +606,9 @@ const waitingStatus = computed(() => {
 
     if (isSessionComplete.value) {
         return canAdvanceSession.value
-            ? (isLastSession.value ? 'End the story for everyone when you are ready.' : 'Continue to the next chapter when you are ready.')
+            ? isLastSession.value
+                ? 'End the story for everyone when you are ready.'
+                : 'Continue to the next chapter when you are ready.'
             : 'Waiting for the host to continue the story…';
     }
 
@@ -481,15 +638,101 @@ async function copyRoomCode(): Promise<void> {
     }
 }
 
-function submitChat(): void {
-    const message = chatDraft.value.trim();
+watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
+    if (!isCollecting || isPaused) {
+        clearTypingIndicators();
+    }
+});
 
-    if (!message) {
+watch(isGameplayPaused, (isPaused) => {
+    if (isPaused) {
+        tts.dismiss();
+    }
+});
+
+watch(pausedMembers, (departedMembers) => {
+    if (departedMembers.length > 0) {
+        isPlayersPanelOpen.value = true;
+    }
+});
+
+function chatMessageTone(message: MultiplayerLobbyChatMessageInterface): ChatTone {
+    if (message.user.id === currentUserId.value) {
+        return 'fantasy';
+    }
+
+    return message.user.id === props.lobby.host.id ? 'cyan' : 'green';
+}
+
+function formatChatMessageTime(value: string | null): string {
+    if (!value) {
+        return '';
+    }
+
+    const timestamp = new Date(value);
+
+    if (Number.isNaN(timestamp.getTime())) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(timestamp);
+}
+
+function scrollChatToBottom(): void {
+    nextTick(() => {
+        const element = chatWindow.value;
+
+        if (!element) {
+            return;
+        }
+
+        element.scrollTo({
+            top: element.scrollHeight,
+            behavior: 'smooth',
+        });
+    });
+}
+
+function appendChatMessage(message: MultiplayerLobbyChatMessageInterface): void {
+    if (chatMessages.value.some((existingMessage) => existingMessage.id === message.id)) {
         return;
     }
 
-    messages.value.push({ name: `${currentMember.value?.user.full_name ?? 'You'} (you)`, text: message, time: 'Now', tone: 'fantasy' });
-    chatDraft.value = '';
+    chatMessages.value = [...chatMessages.value, message];
+    scrollChatToBottom();
+}
+
+function submitChat(): void {
+    const message = chatDraft.value.trim();
+
+    if (!message || isSendingChatMessage.value) {
+        return;
+    }
+
+    chatError.value = null;
+    isSendingChatMessage.value = true;
+
+    router.post(
+        lobbyEndpoint('/chat/messages'),
+        { message },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                chatDraft.value = '';
+                scrollChatToBottom();
+            },
+            onError: (errors) => {
+                chatError.value = errors.message ?? 'We could not send your message.';
+            },
+            onFinish: () => {
+                isSendingChatMessage.value = false;
+            },
+        },
+    );
 }
 
 function lobbyEndpoint(suffix: string): string {
@@ -529,9 +772,7 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
     tts.primeAudio();
     isSelectingProposal.value = true;
     const sourcePromptId = props.arbiter.source_prompt_id;
-    const previousPromptValue = localPrompts.value.find(
-        (prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId),
-    )?.prompt ?? null;
+    const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
 
     if (sourcePromptId) {
         setSourcePromptValue(sourcePromptId, proposal.text);
@@ -585,6 +826,7 @@ function leaveRoom(): void {
 
     actionError.value = null;
     isLeavingLobby.value = true;
+    handleProposalTyping(false);
     tts.dismiss();
 
     router.delete(showMultiplayerLobby(props.lobby.room_code).url, {
@@ -597,73 +839,123 @@ function leaveRoom(): void {
     });
 }
 
-useEchoPresence<ArbiterStateSignal>(
-    `multiplayer.lobby.${props.lobby.id}`,
-    '.multiplayer.arbiter.state.changed',
-    (signal) => {
-        if (signal.lobby_id !== props.lobby.id) {
-            return;
-        }
+function reloadArbiterState(): void {
+    if (isReloadingArbiterState) {
+        isArbiterStateReloadPending = true;
 
-        router.reload({
-            only: ['lobby', 'game', 'arbiter'],
-            preserveScroll: true,
-        });
-    },
-);
+        return;
+    }
 
-useEchoPresence<ArbiterNarrationSignal>(
-    `multiplayer.lobby.${props.lobby.id}`,
-    '.multiplayer.arbiter.narration.streamed',
-    (signal) => {
-        if (signal.lobby_id !== props.lobby.id) {
-            return;
-        }
+    isReloadingArbiterState = true;
+    router.reload({
+        only: ['lobby', 'game', 'arbiter'],
+        preserveScroll: true,
+        onFinish: () => {
+            isReloadingArbiterState = false;
 
-        if (signal.phase === 'ready') {
-            actionError.value = null;
-            if (signal.source_prompt_value) {
-                setSourcePromptValue(signal.source_prompt_id, signal.source_prompt_value);
+            if (isArbiterStateReloadPending) {
+                isArbiterStateReloadPending = false;
+                reloadArbiterState();
             }
-            ensureStreamingPrompt(signal.source_prompt_id);
+        },
+    });
+}
 
-            return;
+useEchoPresence<ArbiterStateSignal>(lobbyChannelName, '.multiplayer.arbiter.state.changed', (signal) => {
+    if (signal.lobby_id !== props.lobby.id) {
+        return;
+    }
+
+    reloadArbiterState();
+});
+
+useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplayer.lobby.member.left', (signal) => {
+    if (signal.lobby.id !== props.lobby.id) {
+        return;
+    }
+
+    reloadArbiterState();
+});
+
+useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplayer.lobby.member.joined', (signal) => {
+    if (signal.lobby.id !== props.lobby.id) {
+        return;
+    }
+
+    reloadArbiterState();
+});
+
+useEchoPresence<MultiplayerLobbyChatMessageSignal>(lobbyChannelName, '.multiplayer.lobby.chat.message.sent', (signal) => {
+    if (signal.lobby_id !== props.lobby.id) {
+        return;
+    }
+
+    appendChatMessage(signal.message);
+});
+
+useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.narration.streamed', (signal) => {
+    if (signal.lobby_id !== props.lobby.id) {
+        return;
+    }
+
+    if (isGameplayPaused.value) {
+        return;
+    }
+
+    if (signal.phase === 'ready') {
+        actionError.value = null;
+        if (signal.source_prompt_value) {
+            setSourcePromptValue(signal.source_prompt_id, signal.source_prompt_value);
+        }
+        ensureStreamingPrompt(signal.source_prompt_id);
+
+        return;
+    }
+
+    if (signal.phase === 'delta' && signal.text) {
+        const isFirstVisibleDelta = !hasVisibleStreamedResponse.value;
+        const promptId = `stream-${signal.source_prompt_id}`;
+
+        appendNarrationDelta(signal.source_prompt_id, signal.text);
+
+        if (isFirstVisibleDelta) {
+            nextTick(() => {
+                scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38));
+            });
         }
 
-        if (signal.phase === 'delta' && signal.text) {
-            const isFirstVisibleDelta = !hasVisibleStreamedResponse.value;
-            const promptId = `stream-${signal.source_prompt_id}`;
+        return;
+    }
 
-            appendNarrationDelta(signal.source_prompt_id, signal.text);
+    if (signal.phase === 'done') {
+        commitStreamedNarration(signal);
 
-            if (isFirstVisibleDelta) {
-                nextTick(() => {
-                    scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38));
-                });
-            }
+        return;
+    }
 
-            return;
+    if (signal.phase === 'error') {
+        const transientPromptId = `stream-${signal.source_prompt_id}`;
+
+        localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
+        if (streamingPromptId.value === transientPromptId) {
+            streamingPromptId.value = null;
         }
+        actionError.value = signal.message ?? 'Narration hiccuped — please retry this turn.';
+    }
+});
 
-        if (signal.phase === 'done') {
-            commitStreamedNarration(signal);
+onMounted(() => {
+    multiplayerLobbyPresenceChannel.channel().listenForWhisper(typingWhisperEvent, handleTypingWhisper);
+    scrollChatToBottom();
 
-            return;
-        }
-
-        if (signal.phase === 'error') {
-            const transientPromptId = `stream-${signal.source_prompt_id}`;
-
-            localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
-            if (streamingPromptId.value === transientPromptId) {
-                streamingPromptId.value = null;
-            }
-            actionError.value = signal.message ?? 'Narration hiccuped — please retry this turn.';
-        }
-    },
-);
+    if (isGameplayPaused.value && pausedMembers.value.length === 0) {
+        reloadArbiterState();
+    }
+});
 
 onUnmounted(() => {
+    multiplayerLobbyPresenceChannel.channel().stopListeningForWhisper(typingWhisperEvent, handleTypingWhisper);
+    clearTypingIndicators();
     tts.dismiss();
 });
 </script>
@@ -716,19 +1008,39 @@ onUnmounted(() => {
                     </div>
 
                     <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
-                        <div class="panel-title"><span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small></div>
+                        <div class="panel-title">
+                            <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
+                            <span v-if="pausedMembers.length" class="players-left-count">
+                                {{ pausedMembers.length }} {{ pausedMembers.length === 1 ? 'player left' : 'players left' }}
+                            </span>
+                        </div>
                         <div class="player-list">
-                            <article v-for="player in players" :key="player.id" class="player-card">
+                            <article v-for="player in players" :key="player.id" :class="['player-card', { 'player-card--left': player.hasLeft }]">
                                 <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
                                 <div class="player-details">
                                     <div class="player-name-row">
-                                        <span>{{ player.name }}</span>
-                                        <span v-if="player.host" class="player-host">
-                                            <LucideCrown class="size-3" :stroke-width="1.75" />
-                                            Host
+                                        <span class="player-name">{{ player.name }}</span>
+                                        <span class="player-badges">
+                                            <span v-if="player.hasLeft" class="player-left-badge">Left game</span>
+                                            <span v-if="player.isCurrentUser" class="player-badge-icon player-badge-icon--you" role="img" aria-label="You" title="You">
+                                                <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span v-if="player.isArbiter" class="player-badge-icon player-badge-icon--arbiter" role="img" aria-label="Arbiter" title="Arbiter">
+                                                <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span v-if="player.host" class="player-host">
+                                                <LucideCrown class="size-3" :stroke-width="1.75" />
+                                                Host
+                                            </span>
                                         </span>
                                     </div>
-                                    <span :class="['player-state', 'player-state--' + player.tone]"><i />{{ player.state }}</span>
+                                    <span :class="['player-state', 'player-state--' + player.tone, { 'player-state--typing': player.isTyping }]">
+                                        <i />
+                                        <span v-if="player.isTyping" class="player-typing-label">
+                                            Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
+                                        </span>
+                                        <template v-else>{{ player.state }}</template>
+                                    </span>
                                 </div>
                                 <span class="player-score">{{ player.role }}</span>
                             </article>
@@ -740,7 +1052,9 @@ onUnmounted(() => {
                                 <span>Invite Players</span>
                             </div>
                             <div class="room-code-card">
-                                <div><span>Room Link</span><strong>{{ roomCode }}</strong></div>
+                                <div>
+                                    <span>Room Link</span><strong>{{ roomCode }}</strong>
+                                </div>
                                 <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
                                     <img :src="copyIcon" alt="" aria-hidden="true" />
                                 </button>
@@ -778,7 +1092,7 @@ onUnmounted(() => {
                         </div>
 
                         <div
-                            v-if="(turnStatus === 'opening' || isNarrating) && !hasVisibleStreamedResponse"
+                            v-if="!isGameplayPaused && (turnStatus === 'opening' || isNarrating) && !hasVisibleStreamedResponse"
                             class="story-stream-placeholder"
                             aria-label="Xen is preparing the next passage"
                         >
@@ -788,7 +1102,9 @@ onUnmounted(() => {
                             <span />
                         </div>
 
-                        <p v-else-if="prompts.length === 0" class="story-history-empty">Xen is preparing the opening narration…</p>
+                        <p v-else-if="prompts.length === 0" class="story-history-empty">
+                            {{ isGameplayPaused ? 'The story is paused until every player returns.' : 'Xen is preparing the opening narration…' }}
+                        </p>
                     </div>
 
                     <section class="decision-section" aria-labelledby="decision-title">
@@ -798,7 +1114,9 @@ onUnmounted(() => {
                                 <h2 id="decision-title">{{ decisionTitle }}</h2>
                                 <p>{{ decisionDescription }}</p>
                             </div>
-                            <span class="decision-timer" :aria-label="`${decisionWindowSeconds} seconds decision window`">{{ decisionWindowSeconds }}<small>s</small></span>
+                            <span class="decision-timer" :aria-label="`${decisionWindowSeconds} seconds decision window`"
+                                >{{ decisionWindowSeconds }}<small>s</small></span
+                            >
                         </div>
 
                         <div v-if="canChooseProposal" class="proposal-choice-list">
@@ -825,24 +1143,33 @@ onUnmounted(() => {
                                     'contribution-card--active': member.user.id === currentUserId,
                                     'contribution-card--waiting': !proposalByMemberId.has(member.id),
                                     'contribution-card--selected': proposalByMemberId.get(member.id)?.is_selected,
+                                    'contribution-card--away': member.left_at !== null,
                                 }"
                             >
                                 <img class="contribution-avatar" :src="memberAvatar(member, index + 1)" :alt="`${member.user.full_name} avatar`" />
                                 <div class="contribution-content">
                                     <strong>{{ memberDisplayName(member) }}</strong>
-                                    <span v-if="proposalByMemberId.get(member.id)?.text" class="submitted-proposal">
+                                    <span v-if="member.left_at !== null" class="typing-label">Rejoining…</span>
+                                    <span v-else-if="proposalByMemberId.get(member.id)?.text" class="submitted-proposal">
                                         {{ proposalByMemberId.get(member.id)?.text }}
                                     </span>
                                     <span v-else-if="proposalByMemberId.has(member.id)" class="typing-label">Choice submitted</span>
+                                    <span v-else-if="isMemberTyping(member)" class="typing-label typing-label--active">
+                                        Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
+                                    </span>
                                     <span v-else-if="member.user.id === currentUserId" class="proposal-prompt">What do you propose?</span>
                                     <span v-else class="typing-label">Thinking <span aria-hidden="true">•••</span></span>
                                 </div>
                                 <p v-if="member.user.id === currentUserId" class="contribution-tip">
-                                    {{ ownProposal ? 'Your proposal is waiting for the Arbiter.' : 'Share the choice point you want the Arbiter to consider.' }}
+                                    {{
+                                        ownProposal
+                                            ? 'Your proposal is waiting for the Arbiter.'
+                                            : 'Share the choice point you want the Arbiter to consider.'
+                                    }}
                                 </p>
                             </article>
                         </div>
-                        <div v-if="isSessionComplete && !isStoryComplete" class="session-transition">
+                        <div v-if="isSessionComplete && !isStoryComplete && !isGameplayPaused" class="session-transition">
                             <button
                                 v-if="canAdvanceSession"
                                 type="button"
@@ -889,33 +1216,49 @@ onUnmounted(() => {
                     </div>
 
                     <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
-                        <div class="chat-window">
-                            <article v-for="message in messages" :key="message.name + '-' + message.text" class="chat-message">
+                        <div ref="chatWindow" class="chat-window" aria-live="polite">
+                            <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                            <article v-for="message in messages" :key="message.id" class="chat-message">
                                 <div class="chat-message-meta">
                                     <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                                    <time>{{ message.time }}</time>
+                                    <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
                                 </div>
                                 <p>{{ message.text }}</p>
                             </article>
                         </div>
                         <form class="chat-compose" @submit.prevent="submitChat">
                             <label class="sr-only" for="arbiter-chat-message">Type a message</label>
-                            <input id="arbiter-chat-message" v-model="chatDraft" type="text" placeholder="Type a message..." autocomplete="off" />
-                            <button type="submit" aria-label="Send message">
+                            <input
+                                id="arbiter-chat-message"
+                                v-model="chatDraft"
+                                type="text"
+                                placeholder="Type a message..."
+                                autocomplete="off"
+                                maxlength="1000"
+                                :disabled="isSendingChatMessage"
+                                :aria-describedby="chatError ? 'arbiter-chat-error' : undefined"
+                            />
+                            <button type="submit" :disabled="!chatDraft.trim() || isSendingChatMessage" :aria-label="isSendingChatMessage ? 'Sending message' : 'Send message'">
                                 <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
                             </button>
                         </form>
+                        <p v-if="chatError" id="arbiter-chat-error" class="chat-error" role="alert">{{ chatError }}</p>
                     </section>
                 </aside>
             </div>
         </div>
 
-        <footer class="arbiter-proposal-dock">
+        <footer class="arbiter-proposal-dock flex-col">
+            <section v-if="isGameplayPaused" class="gameplay-paused-notice backdrop-blur-[2px] flex items-center" role="status" aria-live="polite">
+                <span class="gameplay-paused-eyebrow">Paused</span>
+                <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
+            </section>
             <GameplayInput
                 class="arbiter-proposal-input"
                 :disabled="!canSubmitProposal || isSubmittingProposal"
-                :placeholder="canSubmitProposal ? 'What Do You Do?' : ownProposal ? 'Choice submitted' : ''"
+                :placeholder="isGameplayPaused ? 'Story paused' : canSubmitProposal ? 'What Do You Do?' : ownProposal ? 'Choice submitted' : ''"
                 @submit="submitProposal"
+                @typing="handleProposalTyping"
             />
         </footer>
     </main>
@@ -990,6 +1333,48 @@ onUnmounted(() => {
     left: 1.25rem;
     width: 2.8125rem !important;
     height: 2.8125rem !important;
+}
+
+.gameplay-paused-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 1.5rem 0 1rem;
+    border: 1px solid rgba(255, 190, 88, 0.38);
+    border-radius: 1000rem;
+    padding: 0.5rem;
+    background: rgba(61, 36, 16, 0.62);
+}
+
+.gameplay-paused-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid rgba(255, 190, 88, 0.38);
+    border-radius: 9999px;
+    padding: 0.34rem 0.7rem;
+    color: #ffbe58;
+    background: rgba(255, 190, 88, 0.1);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.gameplay-paused-eyebrow::before {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 1000rem;
+    background: currentColor;
+    content: '';
+}
+
+.gameplay-paused-notice p {
+    margin: 0;
+    color: #d2c5af;
+    font-size: 0.78rem;
+    line-height: 1.35;
 }
 
 .arbiter-media-player {
@@ -1100,6 +1485,19 @@ onUnmounted(() => {
     font-size: 0.75rem;
 }
 
+.players-left-count {
+    margin-left: auto;
+    border: 1px solid rgba(255, 139, 122, 0.5);
+    border-radius: 9999px;
+    padding: 0.16rem 0.42rem;
+    color: #ff9c8e;
+    background: rgba(138, 44, 34, 0.24);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
 .player-list {
     display: grid;
     gap: 0.875rem;
@@ -1113,6 +1511,29 @@ onUnmounted(() => {
     border-radius: 0.5rem;
     padding: 0.5rem;
     background: #191919;
+}
+
+.player-card--left {
+    position: relative;
+    border: 1px dashed rgba(255, 139, 122, 0.72);
+    background: linear-gradient(135deg, rgba(91, 32, 27, 0.72), #191919 72%);
+}
+
+.player-card--left::before {
+    position: absolute;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    left: -1px;
+    width: 0.2rem;
+    border-radius: 9999px;
+    background: #ff8b7a;
+    box-shadow: 0 0 0.75rem rgba(255, 139, 122, 0.58);
+    content: '';
+}
+
+.player-card--left .player-avatar {
+    filter: grayscale(0.85);
+    opacity: 0.7;
 }
 
 .player-avatar,
@@ -1131,6 +1552,20 @@ onUnmounted(() => {
     font-size: 0.8125rem;
 }
 
+.player-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-badges {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.3rem;
+}
+
 .player-host,
 .player-state {
     display: inline-flex;
@@ -1138,9 +1573,55 @@ onUnmounted(() => {
     gap: 0.35rem;
 }
 
+.player-badge-icon {
+    display: inline-grid;
+    width: 1rem;
+    height: 1rem;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 9999px;
+}
+
+.player-badge-icon--you {
+    color: #8eeaf0;
+    background: rgba(89, 193, 202, 0.12);
+}
+
+.player-badge-icon--arbiter {
+    color: #ffbe58;
+    background: rgba(255, 190, 88, 0.12);
+}
+
+.player-badge-icon--arbiter :deep(svg) {
+    fill: currentColor;
+}
+
 .player-host {
     color: #ffbe58;
     font-size: 0.625rem;
+}
+
+.player-left-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    border: 1px solid rgba(255, 139, 122, 0.55);
+    border-radius: 9999px;
+    padding: 0.1rem 0.34rem;
+    color: #ff9c8e;
+    background: rgba(138, 44, 34, 0.25);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.player-left-badge::before {
+    width: 0.28rem;
+    height: 0.28rem;
+    border-radius: 9999px;
+    background: currentColor;
+    content: '';
 }
 
 .player-state {
@@ -1161,6 +1642,62 @@ onUnmounted(() => {
 
 .player-state--gold {
     color: #ffbe58;
+}
+
+.player-state--left {
+    color: #ff9c8e;
+}
+
+.player-state--typing {
+    color: #8eeaf0;
+}
+
+.player-state--typing > i {
+    display: inline-block;
+    animation: typing-pulse 1.1s ease-in-out infinite;
+}
+
+.player-typing-label,
+.typing-label--active {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+}
+
+.typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.typing-dots > span {
+    width: 0.22rem;
+    height: 0.22rem;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: typing-dot-bounce 0.9s ease-in-out infinite;
+}
+
+.typing-dots > span:nth-child(2) {
+    animation-delay: 0.12s;
+}
+
+.typing-dots > span:nth-child(3) {
+    animation-delay: 0.24s;
+}
+
+@keyframes typing-pulse {
+    50% {
+        opacity: 0.4;
+        transform: scale(0.75);
+    }
+}
+
+@keyframes typing-dot-bounce {
+    50% {
+        opacity: 0.38;
+        transform: translateY(-0.13rem);
+    }
 }
 
 .player-score {
@@ -1466,14 +2003,18 @@ onUnmounted(() => {
 .contribution-card--selected {
     border-color: #59c1ca !important;
     background: rgba(18, 63, 68, 0.58) !important;
-    box-shadow: 0 0 0 1px rgba(89, 193, 202, 0.15), 0 0 24px rgba(89, 193, 202, 0.1);
+    box-shadow:
+        0 0 0 1px rgba(89, 193, 202, 0.15),
+        0 0 24px rgba(89, 193, 202, 0.1);
 }
 
 .proposal-choice-card--selected {
     border-color: #4bcbd3 !important;
     color: #fff;
     background: #61d9d5 !important;
-    box-shadow: 0 0 0 1px rgba(89, 193, 202, 0.38), 0 0 28px rgba(89, 193, 202, 0.16);
+    box-shadow:
+        0 0 0 1px rgba(89, 193, 202, 0.38),
+        0 0 28px rgba(89, 193, 202, 0.16);
 }
 
 .proposal-choice-card--selected:disabled {
@@ -1495,7 +2036,9 @@ onUnmounted(() => {
 .proposal-choice-card:hover:not(:disabled) .proposal-choice-radio,
 .proposal-choice-card--selected .proposal-choice-radio {
     border-color: #59c1ca;
-    box-shadow: inset 0 0 0 4px #0f282b, inset 0 0 0 6px #59c1ca;
+    box-shadow:
+        inset 0 0 0 4px #0f282b,
+        inset 0 0 0 6px #59c1ca;
 }
 
 .proposal-choice-card--selected .proposal-choice-radio {
@@ -1535,7 +2078,10 @@ onUnmounted(() => {
     background: rgba(18, 63, 68, 0.45);
     font: inherit;
     font-size: 0.875rem;
-    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+    transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
 }
 
 .session-transition-button:hover:not(:disabled) {
@@ -1620,9 +2166,26 @@ onUnmounted(() => {
     opacity: 0.47;
 }
 
+.contribution-card--away {
+    border-style: dashed;
+    border-color: rgba(255, 190, 88, 0.55);
+    opacity: 0.72;
+}
+
 .typing-label {
     color: #d8d8d8;
     font-size: 0.9375rem;
+}
+
+.typing-label--active {
+    color: #8eeaf0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .player-state--typing > i,
+    .typing-dots > span {
+        animation: none;
+    }
 }
 
 .waiting-status {
@@ -1675,8 +2238,15 @@ onUnmounted(() => {
     background: #232323;
 }
 
-.chat-message:nth-child(n + 3) {
+.chat-message:nth-child(even) {
     background: #1a1a1a;
+}
+
+.chat-empty {
+    margin: auto 0;
+    color: #7e7e7e;
+    font-size: 0.75rem;
+    text-align: center;
 }
 
 .chat-message-meta {
@@ -1757,17 +2327,30 @@ onUnmounted(() => {
     background: #8f8f8f;
 }
 
+.chat-compose button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
 .chat-compose img {
     width: 2rem;
     height: 2rem;
 }
 
+.chat-error {
+    margin: 0.5rem 0 0;
+    color: #fd8b8b;
+    font-size: 0.6875rem;
+}
+
 .arbiter-proposal-dock {
+    width: 100%;
+    max-width: 38.5rem;
     position: fixed;
     z-index: 10;
-    right: 1.5rem;
+    left: 50%;
     bottom: 1.75rem;
-    left: 1.5rem;
+    transform: translateX(-50%);
     display: flex;
     justify-content: center;
     pointer-events: none;
@@ -1887,6 +2470,11 @@ onUnmounted(() => {
 }
 
 @media (max-width: 700px) {
+    .gameplay-paused-notice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
     .arbiter-shell {
         width: min(100% - 2rem, 40rem);
     }
