@@ -132,7 +132,10 @@ final class ProcessMultiplayerLobbyNextSessionAction
 
             if (
                 $lockedLobby === null
-                || $lockedLobby->status !== MultiplayerLobbyStatusEnum::Started
+                || ! in_array($lockedLobby->status, [
+                    MultiplayerLobbyStatusEnum::Started,
+                    MultiplayerLobbyStatusEnum::Paused,
+                ], true)
                 || $lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::Opening
                 || $lockedLobby->current_source_prompt_id !== null
             ) {
@@ -150,6 +153,8 @@ final class ProcessMultiplayerLobbyNextSessionAction
                 'turn_status' => $updatedGame?->current_session_complete
                     ? MultiplayerArbiterTurnStatusEnum::SessionComplete
                     : MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+                'decision_deadline_at' => null,
+                'decision_remaining_seconds' => null,
             ]);
 
             return $lockedLobby;

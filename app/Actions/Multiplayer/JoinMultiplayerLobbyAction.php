@@ -34,8 +34,12 @@ final class JoinMultiplayerLobbyAction
             if ($member !== null) {
                 $wasAway = $member->left_at !== null;
 
+                $member->update([
+                    'left_at' => $wasAway ? null : $member->left_at,
+                    'last_seen_at' => now(),
+                ]);
+
                 if ($wasAway) {
-                    $member->update(['left_at' => null]);
                     $memberRejoined = true;
                 }
 
@@ -64,6 +68,7 @@ final class JoinMultiplayerLobbyAction
                 'user_id' => $user->id,
                 'role' => MultiplayerLobbyMemberRoleEnum::Player,
                 'joined_at' => now(),
+                'last_seen_at' => now(),
             ]);
 
             $joined = true;

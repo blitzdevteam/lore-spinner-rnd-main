@@ -23,6 +23,7 @@ use Override;
  * @property bool $is_ready
  * @property Carbon $joined_at
  * @property Carbon|null $left_at
+ * @property Carbon|null $last_seen_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read MultiplayerLobby $lobby
@@ -72,6 +73,7 @@ final class MultiplayerLobbyMember extends Model
             'is_ready' => 'boolean',
             'joined_at' => 'datetime',
             'left_at' => 'datetime',
+            'last_seen_at' => 'datetime',
         ];
     }
 }

@@ -47,6 +47,7 @@ final class CreateMultiplayerLobbyAction
                         'user_id' => $host->id,
                         'role' => MultiplayerLobbyMemberRoleEnum::Host,
                         'joined_at' => now(),
+                        'last_seen_at' => now(),
                     ]);
 
                     return $lobby->load(['host', 'members.user']);

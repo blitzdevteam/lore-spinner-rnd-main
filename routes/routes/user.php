@@ -36,6 +36,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
     Route::middleware('auth:user')->get('checkout/{plan}', User\CheckoutController::class)
         ->name('checkout');
 
+    Route::middleware('auth:user')->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
+        ->name('games.tts');
+
     // Dashboard
     Route::middleware([
         'auth:user',
@@ -62,9 +65,6 @@ Route::prefix('user')->name('user.')->group(function (): void {
             Route::singleton('games.prompt', User\Game\PromptController::class)
                 ->creatable()
                 ->only(['store']);
-
-            Route::get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
-                ->name('games.tts');
 
             Route::post('games/transcribe', User\Game\TranscribeController::class)
                 ->name('games.transcribe');

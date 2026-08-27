@@ -6,8 +6,11 @@ namespace App\Http\Controllers\User\Game;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Models\MultiplayerLobby;
 use App\Models\Prompt;
+use App\Models\User;
 use App\Services\NarrationAudioService;
+use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,10 +28,11 @@ final class TextToSpeechController extends Controller
 {
     public function __construct(private readonly NarrationAudioService $audio) {}
 
-    public function __invoke(Game $game, Prompt $prompt): Response
+    public function __invoke(#[CurrentUser] User $user, Game $game, Prompt $prompt): Response
     {
         abort_unless($prompt->game_id === $game->id, 404);
         abort_unless(filled($prompt->response), 404);
+        abort_unless($this->canAccessGameAudio($user, $game), 403);
 
         if ($this->audio->isReady($prompt)) {
             return $this->serve($prompt);
@@ -62,6 +66,18 @@ final class TextToSpeechController extends Controller
 
             app(NarrationAudioService::class)->generate($game, $prompt);
         })->afterResponse();
+    }
+
+    private function canAccessGameAudio(User $user, Game $game): bool
+    {
+        if ($game->user_id === $user->id) {
+            return true;
+        }
+
+        return MultiplayerLobby::query()
+            ->where('game_id', $game->id)
+            ->whereHas('members', fn ($query) => $query->where('user_id', $user->id))
+            ->exists();
     }
 
     private function serve(Prompt $prompt): BinaryFileResponse

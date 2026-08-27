@@ -87,6 +87,7 @@ export interface MultiplayerLobbyMemberInterface {
     is_ready: boolean;
     joined_at: string | null;
     left_at: string | null;
+    last_seen_at: string | null;
     user: MultiplayerLobbyPlayerInterface;
 }
 
@@ -142,6 +143,8 @@ export interface MultiplayerArbiterStateInterface {
     turn_status: MultiplayerArbiterTurnStatus;
     source_prompt_id: string | null;
     current_arbiter_member_id: string | null;
+    decision_deadline_at: string | null;
+    decision_remaining_seconds: number | null;
     is_current_user_arbiter: boolean;
     awaiting_member_ids: string[];
     proposals: MultiplayerLobbyProposalInterface[];

@@ -57,11 +57,15 @@ final class StartMultiplayerLobbyAction
                 $lockedLobby->story()->firstOrFail(),
             );
 
+            $lockedLobby->members()->update(['last_seen_at' => now()]);
+
             $lockedLobby->update([
                 'status' => MultiplayerLobbyStatusEnum::Started,
                 'game_id' => $game->id,
                 'current_arbiter_member_id' => $initialArbiter?->id,
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Opening,
+                'decision_deadline_at' => null,
+                'decision_remaining_seconds' => null,
             ]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);

@@ -28,6 +28,8 @@ use Override;
  * @property string|null $current_arbiter_member_id
  * @property string|null $current_source_prompt_id
  * @property MultiplayerArbiterTurnStatusEnum|null $turn_status
+ * @property Carbon|null $decision_deadline_at
+ * @property int|null $decision_remaining_seconds
  * @property int $max_players
  * @property array{custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int} $settings
  * @property Carbon|null $created_at
@@ -137,6 +139,8 @@ final class MultiplayerLobby extends Model
             'mode' => MultiplayerLobbyModeEnum::class,
             'status' => MultiplayerLobbyStatusEnum::class,
             'settings' => 'array',
+            'decision_deadline_at' => 'datetime',
+            'decision_remaining_seconds' => 'integer',
         ];
     }
 }

@@ -33,6 +33,7 @@ final class MultiplayerLobbyBroadcastPayload
                         'is_ready' => $member->is_ready,
                         'joined_at' => $member->joined_at?->toISOString(),
                         'left_at' => $member->left_at?->toISOString(),
+                        'last_seen_at' => $member->last_seen_at?->toISOString(),
                         'user' => [
                             'id' => $member->user->id,
                             'full_name' => $member->user->full_name,

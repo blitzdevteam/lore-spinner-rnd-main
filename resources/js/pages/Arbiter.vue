@@ -81,17 +81,16 @@ type MultiplayerLobbyMembershipSignal = {
     };
 };
 
-type MultiplayerLobbyChatMessageSignal = {
-    lobby_id: string;
-    message: MultiplayerLobbyChatMessageInterface;
-};
-
 type ArbiterTypingWhisper = {
     is_typing: boolean;
+    user_id: number;
 };
 
-type PresenceWhisperMetadata = {
-    user_id?: string;
+type MultiplayerLobbyChatMessageWhisper = {
+    id: string;
+    body: string;
+    created_at: string;
+    user_id: number;
 };
 
 const props = defineProps<{
@@ -103,8 +102,10 @@ const props = defineProps<{
 
 const lobbyChannelName = `multiplayer.lobby.${props.lobby.id}`;
 const typingWhisperEvent = 'multiplayer.arbiter.typing';
+const chatWhisperEvent = 'multiplayer.lobby.chat.message';
 const typingIndicatorTimeout = 2_500;
 const typingWhisperInterval = 750;
+const lobbyHeartbeatInterval = 3_000;
 const multiplayerLobbyPresenceChannel = usePresenceChannel(lobbyChannelName);
 const page = usePage();
 const tts = useTextToSpeech();
@@ -161,6 +162,25 @@ const canChooseProposal = computed(
 );
 const canAdvanceSession = computed(() => !isGameplayPaused.value && isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host);
 const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
+const decisionTimerNow = ref(Date.now());
+const decisionSecondsRemaining = computed(() => {
+    const deadline = props.arbiter.decision_deadline_at;
+
+    if (isAwaitingArbiter.value && deadline) {
+        const deadlineTimestamp = Date.parse(deadline);
+
+        if (!Number.isNaN(deadlineTimestamp)) {
+            return Math.max(0, Math.ceil((deadlineTimestamp - decisionTimerNow.value) / 1_000));
+        }
+    }
+
+    if (isAwaitingArbiter.value && props.arbiter.decision_remaining_seconds !== null) {
+        return Math.max(0, props.arbiter.decision_remaining_seconds);
+    }
+
+    return decisionWindowSeconds.value;
+});
+const isDecisionTimerUrgent = computed(() => isAwaitingArbiter.value && decisionSecondsRemaining.value <= 5);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
@@ -187,14 +207,15 @@ const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
-const isSendingChatMessage = ref(false);
 const actionError = ref<string | null>(null);
-const chatError = ref<string | null>(null);
 const typingMemberIds = ref(new Set<string>());
 const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 let lastTypingWhisperAt = 0;
 let isReloadingArbiterState = false;
 let isArbiterStateReloadPending = false;
+let lobbyHeartbeatTimer: ReturnType<typeof window.setInterval> | null = null;
+let isSendingLobbyHeartbeat = false;
+let decisionTimerInterval: ReturnType<typeof window.setInterval> | null = null;
 
 function goBack(): void {
     tts.dismiss();
@@ -255,12 +276,12 @@ function isMemberTyping(member: MultiplayerLobbyMemberInterface): boolean {
     );
 }
 
-function handleTypingWhisper(signal: ArbiterTypingWhisper, metadata?: PresenceWhisperMetadata): void {
-    if (isGameplayPaused.value || !isCollectingProposals.value || !signal || typeof signal.is_typing !== 'boolean' || !metadata?.user_id) {
+function handleTypingWhisper(signal: ArbiterTypingWhisper): void {
+    if (isGameplayPaused.value || !isCollectingProposals.value || !signal || typeof signal.is_typing !== 'boolean' || typeof signal.user_id !== 'number') {
         return;
     }
 
-    const member = members.value.find((candidate) => String(candidate.user.id) === metadata.user_id);
+    const member = members.value.find((candidate) => candidate.user.id === signal.user_id);
 
     if (!member || String(member.user.id) === String(currentUserId.value)) {
         return;
@@ -270,7 +291,16 @@ function handleTypingWhisper(signal: ArbiterTypingWhisper, metadata?: PresenceWh
 }
 
 function whisperTyping(isTyping: boolean): void {
-    multiplayerLobbyPresenceChannel.channel().whisper(typingWhisperEvent, { is_typing: isTyping });
+    const member = currentMember.value;
+
+    if (!member) {
+        return;
+    }
+
+    multiplayerLobbyPresenceChannel.channel().whisper(typingWhisperEvent, {
+        is_typing: isTyping,
+        user_id: member.user.id,
+    });
 }
 
 function handleProposalTyping(isTyping: boolean): void {
@@ -337,7 +367,9 @@ watch(
 watch(
     () => props.chatMessages,
     (serverChatMessages) => {
-        chatMessages.value = [...serverChatMessages];
+        for (const message of serverChatMessages) {
+            appendChatMessage(message);
+        }
     },
 );
 
@@ -644,12 +676,6 @@ watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
     }
 });
 
-watch(isGameplayPaused, (isPaused) => {
-    if (isPaused) {
-        tts.dismiss();
-    }
-});
-
 watch(pausedMembers, (departedMembers) => {
     if (departedMembers.length > 0) {
         isPlayersPanelOpen.value = true;
@@ -705,34 +731,63 @@ function appendChatMessage(message: MultiplayerLobbyChatMessageInterface): void 
     scrollChatToBottom();
 }
 
-function submitChat(): void {
-    const message = chatDraft.value.trim();
+function createChatMessageId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
 
-    if (!message || isSendingChatMessage.value) {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function handleChatWhisper(signal: MultiplayerLobbyChatMessageWhisper): void {
+    if (
+        !signal
+        || typeof signal.id !== 'string'
+        || typeof signal.body !== 'string'
+        || typeof signal.created_at !== 'string'
+        || typeof signal.user_id !== 'number'
+    ) {
         return;
     }
 
-    chatError.value = null;
-    isSendingChatMessage.value = true;
+    const sender = members.value.find((member) => member.user.id === signal.user_id);
+    const body = signal.body.trim();
 
-    router.post(
-        lobbyEndpoint('/chat/messages'),
-        { message },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                chatDraft.value = '';
-                scrollChatToBottom();
-            },
-            onError: (errors) => {
-                chatError.value = errors.message ?? 'We could not send your message.';
-            },
-            onFinish: () => {
-                isSendingChatMessage.value = false;
-            },
-        },
-    );
+    if (!sender || sender.left_at !== null || !body) {
+        return;
+    }
+
+    appendChatMessage({
+        id: signal.id,
+        body: body.slice(0, 1_000),
+        created_at: signal.created_at,
+        user: sender.user,
+    });
+}
+
+function submitChat(): void {
+    const body = chatDraft.value.trim();
+    const sender = currentMember.value;
+
+    if (!body || !sender || sender.left_at !== null) {
+        return;
+    }
+
+    const message = {
+        id: createChatMessageId(),
+        body: body.slice(0, 1_000),
+        created_at: new Date().toISOString(),
+        user: sender.user,
+    };
+
+    appendChatMessage(message);
+    chatDraft.value = '';
+    multiplayerLobbyPresenceChannel.channel().whisper(chatWhisperEvent, {
+        id: message.id,
+        body: message.body,
+        created_at: message.created_at ?? new Date().toISOString(),
+        user_id: sender.user.id,
+    });
 }
 
 function lobbyEndpoint(suffix: string): string {
@@ -861,6 +916,75 @@ function reloadArbiterState(): void {
     });
 }
 
+function csrfToken(): string {
+    const token = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+    return token ? decodeURIComponent(token) : '';
+}
+
+function sendLobbyHeartbeat(): void {
+    const member = currentMember.value;
+
+    if (isSendingLobbyHeartbeat || !member || member.left_at !== null) {
+        return;
+    }
+
+    isSendingLobbyHeartbeat = true;
+
+    void fetch(lobbyEndpoint('/heartbeat'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-XSRF-TOKEN': csrfToken(),
+        },
+    })
+        .catch(() => {})
+        .finally(() => {
+            isSendingLobbyHeartbeat = false;
+        });
+}
+
+function startLobbyHeartbeat(): void {
+    sendLobbyHeartbeat();
+    lobbyHeartbeatTimer = window.setInterval(sendLobbyHeartbeat, lobbyHeartbeatInterval);
+}
+
+function stopLobbyHeartbeat(): void {
+    if (lobbyHeartbeatTimer === null) {
+        return;
+    }
+
+    window.clearInterval(lobbyHeartbeatTimer);
+    lobbyHeartbeatTimer = null;
+}
+
+function handleDocumentVisibilityChange(): void {
+    if (document.visibilityState === 'visible') {
+        sendLobbyHeartbeat();
+    }
+}
+
+function startDecisionTimer(): void {
+    decisionTimerNow.value = Date.now();
+    decisionTimerInterval = window.setInterval(() => {
+        decisionTimerNow.value = Date.now();
+    }, 1_000);
+}
+
+function stopDecisionTimer(): void {
+    if (decisionTimerInterval === null) {
+        return;
+    }
+
+    window.clearInterval(decisionTimerInterval);
+    decisionTimerInterval = null;
+}
+
 useEchoPresence<ArbiterStateSignal>(lobbyChannelName, '.multiplayer.arbiter.state.changed', (signal) => {
     if (signal.lobby_id !== props.lobby.id) {
         return;
@@ -885,20 +1009,8 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
     reloadArbiterState();
 });
 
-useEchoPresence<MultiplayerLobbyChatMessageSignal>(lobbyChannelName, '.multiplayer.lobby.chat.message.sent', (signal) => {
-    if (signal.lobby_id !== props.lobby.id) {
-        return;
-    }
-
-    appendChatMessage(signal.message);
-});
-
 useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.narration.streamed', (signal) => {
     if (signal.lobby_id !== props.lobby.id) {
-        return;
-    }
-
-    if (isGameplayPaused.value) {
         return;
     }
 
@@ -946,7 +1058,11 @@ useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.
 
 onMounted(() => {
     multiplayerLobbyPresenceChannel.channel().listenForWhisper(typingWhisperEvent, handleTypingWhisper);
+    multiplayerLobbyPresenceChannel.channel().listenForWhisper(chatWhisperEvent, handleChatWhisper);
     scrollChatToBottom();
+    startLobbyHeartbeat();
+    startDecisionTimer();
+    document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
 
     if (isGameplayPaused.value && pausedMembers.value.length === 0) {
         reloadArbiterState();
@@ -955,7 +1071,11 @@ onMounted(() => {
 
 onUnmounted(() => {
     multiplayerLobbyPresenceChannel.channel().stopListeningForWhisper(typingWhisperEvent, handleTypingWhisper);
+    multiplayerLobbyPresenceChannel.channel().stopListeningForWhisper(chatWhisperEvent, handleChatWhisper);
     clearTypingIndicators();
+    stopLobbyHeartbeat();
+    stopDecisionTimer();
+    document.removeEventListener('visibilitychange', handleDocumentVisibilityChange);
     tts.dismiss();
 });
 </script>
@@ -1092,7 +1212,7 @@ onUnmounted(() => {
                         </div>
 
                         <div
-                            v-if="!isGameplayPaused && (turnStatus === 'opening' || isNarrating) && !hasVisibleStreamedResponse"
+                            v-if="(turnStatus === 'opening' || isNarrating) && !hasVisibleStreamedResponse"
                             class="story-stream-placeholder"
                             aria-label="Xen is preparing the next passage"
                         >
@@ -1114,9 +1234,12 @@ onUnmounted(() => {
                                 <h2 id="decision-title">{{ decisionTitle }}</h2>
                                 <p>{{ decisionDescription }}</p>
                             </div>
-                            <span class="decision-timer" :aria-label="`${decisionWindowSeconds} seconds decision window`"
-                                >{{ decisionWindowSeconds }}<small>s</small></span
+                            <span
+                                :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
+                                :aria-label="`${decisionSecondsRemaining} seconds decision window`"
                             >
+                                {{ decisionSecondsRemaining }}<small>s</small>
+                            </span>
                         </div>
 
                         <div v-if="canChooseProposal" class="proposal-choice-list">
@@ -1235,14 +1358,12 @@ onUnmounted(() => {
                                 placeholder="Type a message..."
                                 autocomplete="off"
                                 maxlength="1000"
-                                :disabled="isSendingChatMessage"
-                                :aria-describedby="chatError ? 'arbiter-chat-error' : undefined"
+                                :disabled="!currentMember || currentMember.left_at !== null"
                             />
-                            <button type="submit" :disabled="!chatDraft.trim() || isSendingChatMessage" :aria-label="isSendingChatMessage ? 'Sending message' : 'Send message'">
+                            <button type="submit" :disabled="!chatDraft.trim() || !currentMember || currentMember.left_at !== null" aria-label="Send message">
                                 <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
                             </button>
                         </form>
-                        <p v-if="chatError" id="arbiter-chat-error" class="chat-error" role="alert">{{ chatError }}</p>
                     </section>
                 </aside>
             </div>
@@ -1959,6 +2080,23 @@ onUnmounted(() => {
     margin-left: -0.12rem;
     color: #8f8f8f;
     font-size: 0.625rem;
+}
+
+.decision-timer--urgent {
+    border-color: #ffbe58;
+    color: #ffbe58;
+    animation: decision-timer-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes decision-timer-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 rgba(255, 190, 88, 0);
+    }
+
+    50% {
+        box-shadow: 0 0 1rem rgba(255, 190, 88, 0.42);
+    }
 }
 
 .proposal-choice-list {

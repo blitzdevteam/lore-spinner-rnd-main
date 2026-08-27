@@ -88,6 +88,8 @@ final class AdvanceMultiplayerLobbySessionAction
                 $lockedLobby->update([
                     'status' => MultiplayerLobbyStatusEnum::Completed,
                     'turn_status' => MultiplayerArbiterTurnStatusEnum::SessionComplete,
+                    'decision_deadline_at' => null,
+                    'decision_remaining_seconds' => null,
                 ]);
                 $shouldRecordActivity = true;
 
@@ -104,6 +106,8 @@ final class AdvanceMultiplayerLobbySessionAction
             $lockedLobby->update([
                 'current_source_prompt_id' => null,
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Opening,
+                'decision_deadline_at' => null,
+                'decision_remaining_seconds' => null,
             ]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);

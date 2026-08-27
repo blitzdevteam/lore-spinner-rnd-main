@@ -11,6 +11,7 @@ use App\Actions\Multiplayer\LeaveMultiplayerLobbyAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyNextSessionAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyTurnAction;
+use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
 use App\Actions\Multiplayer\ReconcileMultiplayerLobbyPauseAction;
 use App\Actions\Multiplayer\ResolveMultiplayerLobbyGuestAction;
 use App\Actions\Multiplayer\SelectMultiplayerLobbyProposalAction;
@@ -41,7 +42,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Response;
@@ -227,6 +228,18 @@ final class MultiplayerLobbyController extends Controller
                 ? 'You left the story. It is paused until you rejoin the room.'
                 : ($isHost ? 'The lobby has been deleted.' : 'You have left the lobby.'),
         );
+    }
+
+    public function heartbeat(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        RecordMultiplayerLobbyHeartbeatAction $recordMultiplayerLobbyHeartbeat,
+    ): HttpResponse {
+        Gate::forUser($user)->authorize('view', $lobby);
+
+        $recordMultiplayerLobbyHeartbeat->handle($user, $lobby);
+
+        return response()->noContent();
     }
 
     public function updateReadiness(

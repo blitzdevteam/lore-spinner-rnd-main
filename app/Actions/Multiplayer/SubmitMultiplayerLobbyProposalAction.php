@@ -8,6 +8,7 @@ use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
+use App\Jobs\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineJob;
 use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyMember;
 use App\Models\MultiplayerLobbyProposal;
@@ -19,7 +20,10 @@ final class SubmitMultiplayerLobbyProposalAction
 {
     public function handle(User $user, MultiplayerLobby $lobby, string $text): MultiplayerLobby
     {
-        $lobby = DB::transaction(function () use ($user, $lobby, $text): MultiplayerLobby {
+        $decisionDeadlineAt = null;
+        $decisionSourcePromptId = null;
+
+        $lobby = DB::transaction(function () use ($user, $lobby, $text, &$decisionDeadlineAt, &$decisionSourcePromptId): MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
@@ -89,8 +93,13 @@ final class SubmitMultiplayerLobbyProposalAction
                 ->all();
 
             if (array_diff($requiredMemberIds, $submittedMemberIds) === []) {
+                $decisionDeadlineAt = now()->addSeconds((int) $lockedLobby->settings['decision_window_seconds']);
+                $decisionSourcePromptId = (string) $sourcePrompt->id;
+
                 $lockedLobby->update([
                     'turn_status' => MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
+                    'decision_deadline_at' => $decisionDeadlineAt,
+                    'decision_remaining_seconds' => null,
                 ]);
             }
 
@@ -98,6 +107,14 @@ final class SubmitMultiplayerLobbyProposalAction
         });
 
         MultiplayerArbiterStateChanged::dispatch($lobby);
+
+        if ($decisionDeadlineAt !== null && $decisionSourcePromptId !== null) {
+            ResolveMultiplayerLobbyDecisionDeadlineJob::dispatch(
+                $lobby->id,
+                $decisionSourcePromptId,
+                $decisionDeadlineAt->getTimestamp(),
+            )->delay($decisionDeadlineAt->copy()->addSeconds(3));
+        }
 
         return $lobby;
     }

@@ -10,6 +10,7 @@ use App\Events\MultiplayerLobbyDeleted;
 use App\Events\MultiplayerLobbyMemberLeft;
 use App\Models\MultiplayerLobby;
 use App\Models\User;
+use App\Support\Multiplayer\MultiplayerLobbyPauseState;
 use Illuminate\Support\Facades\DB;
 
 final class LeaveMultiplayerLobbyAction
@@ -28,15 +29,18 @@ final class LeaveMultiplayerLobbyAction
                 MultiplayerLobbyStatusEnum::Started,
                 MultiplayerLobbyStatusEnum::Paused,
             ], true)) {
+                $leftAt = now();
+
                 $lockedLobby->members()
                     ->whereBelongsTo($user)
                     ->lockForUpdate()
                     ->firstOrFail()
-                    ->update(['left_at' => now()]);
+                    ->update([
+                        'left_at' => $leftAt,
+                        'last_seen_at' => $leftAt,
+                    ]);
 
-                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
-                    $lockedLobby->update(['status' => MultiplayerLobbyStatusEnum::Paused]);
-                }
+                MultiplayerLobbyPauseState::apply($lockedLobby, $leftAt);
 
                 return $lockedLobby->load(['host', 'members.user']);
             }
