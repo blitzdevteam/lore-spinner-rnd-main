@@ -77,7 +77,20 @@ final class BoilerFinalizeJob implements ShouldQueue
                 return 'already_finalized';
             }
             if ($fresh->boiler_status === BoilerStatus::FINALIZING) {
-                return 'held_by_another_worker';
+                // A killed or timed-out worker leaves FINALIZING forever. After the
+                // job timeout there is no live owner, so this retry may reclaim.
+                $staleBefore = now()->subSeconds($this->timeout);
+                $hasCut = ! empty($fresh->boiler_final_cut);
+
+                if ($hasCut || $fresh->updated_at === null || $fresh->updated_at->gt($staleBefore)) {
+                    return 'held_by_another_worker';
+                }
+
+                Log::warning('boiler.finalize_reclaimed_stale_lock', [
+                    'story_id' => $this->story->id,
+                    'session_number' => $this->sessionNumber,
+                    'held_since' => $fresh->updated_at?->toIso8601String(),
+                ]);
             }
             if ($fresh->boiler_status !== BoilerStatus::DRAFTED) {
                 return 'not_finalizable';
