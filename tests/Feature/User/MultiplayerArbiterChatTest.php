@@ -27,6 +27,24 @@ it('pins the arbiter side rails while the story column scrolls', function () {
         ->toContain('ref="storyColumn"');
 });
 
+it('keeps the arbiter proposal input dock within the mobile viewport', function () {
+    $styles = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($styles)->toContain(<<<'CSS'
+    .arbiter-proposal-dock {
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        max-width: none;
+        box-sizing: border-box;
+        padding: 1rem;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        transform: none;
+    }
+    CSS);
+});
+
 it('uses header controls and bottom sheets for arbiter panels on mobile', function () {
     $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
 

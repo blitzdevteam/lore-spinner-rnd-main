@@ -2880,9 +2880,15 @@ onUnmounted(() => {
     }
 
     .arbiter-proposal-dock {
-        right: 1rem;
-        bottom: 1rem;
-        left: 1rem;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        max-width: none;
+        box-sizing: border-box;
+        padding: 1rem;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        transform: none;
     }
 }
 
