@@ -33,6 +33,7 @@ final class UpdateStoryTeasersSeeder extends Seeder
             'the-strange-case-of-dr-jekyll-and-mr-hyde' => "Beneath the fog-covered streets of Victorian London, a terrifying secret grows inside Dr. Jekyll's laboratory, threatening to consume everyone around him.",
             'jane-eyre' => 'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love, and the search for belonging may change the course of her life forever.',
             'anima-machina' => 'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
+            'the-unwritten-ones' => "A carnival that opens one night only promises any story you want. Three siblings follow a vanishing trail of names — and learn that names are knots, and pulling too hard can make you disappear.",
             'pjs' => "A team of elite Air Force PJs discover that the hardest battlefield may be the one where there's no enemy to shoot, only lives to save and ghosts to outrun.",
             'dracula' => 'Step into a world where love, faith, and reason are tested by a hunger older than death.',
             'frankenstein' => 'Step inside a world where creation, rejection, and consequence follow you like a shadow.',

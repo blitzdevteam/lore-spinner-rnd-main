@@ -23,5 +23,8 @@ return [
         'treasure-island',
         'dr-jekyll-and-mr-hyde',
         'the-tell-tale-heart',
+
+        // LoreSpinner Originals
+        'the-unwritten-ones',
     ],
 ];

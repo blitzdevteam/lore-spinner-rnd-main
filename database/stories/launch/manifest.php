@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Launch title registry — 17 titles across 6 worlds + 2 standalones.
+ * Launch title registry — 18 titles across 6 worlds + 2 standalones.
  *
  * Each title folder holds two files named after the story (not source.pdf / script.txt):
  *   database/stories/launch/{world}/{slug}/{source}
@@ -9,7 +9,19 @@
  *
  * Canonical copies for the seeder also live at database/stories/{script} (and {source} when present).
  *
- * @return array{titles: list<array{
+ * `worlds` is the Filament/public Worlds catalog. Title `world_slug` is the
+ * launch folder (01-baker-street). `worlds[].folder` maps that folder to a
+ * public world slug (baker-street). Standalone titles have no world.
+ *
+ * @return array{worlds: list<array{
+ *   slug: string,
+ *   folder: string,
+ *   title: string,
+ *   tagline: string,
+ *   description: string,
+ *   tags: list<string>,
+ *   position: int,
+ * }>, titles: list<array{
  *   seed_keys: list<string>,
  *   title: string,
  *   slug: string,
@@ -30,6 +42,62 @@
  * }>}
  */
 return [
+    'worlds' => [
+        [
+            'slug' => 'baker-street',
+            'folder' => '01-baker-street',
+            'title' => 'Baker Street',
+            'tagline' => 'Deduce, accuse, and stay three moves ahead.',
+            'description' => 'Fog, hansom cabs, and cases that only Holmes can crack — if you choose the right thread to pull.',
+            'tags' => ['Mystery', 'Deduction', 'Fog'],
+            'position' => 1,
+        ],
+        [
+            'slug' => 'world-of-oz',
+            'folder' => '02-world-of-oz',
+            'title' => 'The World of Oz',
+            'tagline' => 'Wonder, revolt, and the road that remakes you.',
+            'description' => 'Leave Kansas behind. Witches, scarecrows, and impossible companions wait past the storm.',
+            'tags' => ['Wonder', 'Courage', 'Friendship'],
+            'position' => 2,
+        ],
+        [
+            'slug' => 'legends-of-mt-olympus',
+            'folder' => '03-legends-of-mt-olympus',
+            'title' => 'Legends of Mt. Olympus',
+            'tagline' => 'Gods watch. Heroes choose. Fate keeps the score.',
+            'description' => 'Labyrinths, underworlds, and the one rule you cannot break without paying everything.',
+            'tags' => ['Myth', 'Fate', 'Sacrifice'],
+            'position' => 3,
+        ],
+        [
+            'slug' => 'journey-to-the-west',
+            'folder' => '04-journey-to-the-west',
+            'title' => 'Journey to the West',
+            'tagline' => 'Rebellion, demons, and a pilgrimage that will not stay polite.',
+            'description' => 'Before the pilgrims, there was havoc. After the pilgrims, there are faces that are not what they seem.',
+            'tags' => ['Epic', 'Trickery', 'Loyalty'],
+            'position' => 4,
+        ],
+        [
+            'slug' => 'jane-austen',
+            'folder' => '05-jane-austen',
+            'title' => 'Jane Austen',
+            'tagline' => 'Find love without losing yourself.',
+            'description' => 'Reputation, wit, and the dangerous possibility of being understood.',
+            'tags' => ['Romance', 'Wit', 'Society'],
+            'position' => 5,
+        ],
+        [
+            'slug' => 'lorespinner-originals',
+            'folder' => '06-lorespinner-originals',
+            'title' => 'LoreSpinner Originals',
+            'tagline' => 'New worlds, written to be played.',
+            'description' => 'Cinematic originals from the LoreSpinner bench — memory, carnival, wasteland, and the stories that refuse to stay on the page.',
+            'tags' => ['Original', 'Spectacle', 'Choice'],
+            'position' => 6,
+        ],
+    ],
     'titles' => [
         // ── 01 Baker Street / Sherlock Holmes ───────────────────────────
         [
@@ -287,6 +355,22 @@ return [
             'teaser' => 'A black-ops agent who polices the dream world hunts a rogue force bending the rules — and the line between Crossovers and reality begins to fracture.',
             'rating' => 'mature',
             'creator' => 'freep',
+        ],
+        [
+            'seed_keys' => ['the-unwritten-ones', 'unwritten-ones', 'unwritten'],
+            'title' => 'The Unwritten Ones',
+            'slug' => 'the-unwritten-ones',
+            'world' => 'LoreSpinner Originals',
+            'world_slug' => '06-lorespinner-originals',
+            'launch_path' => 'launch/06-lorespinner-originals/the-unwritten-ones',
+            'source' => 'THE UNWRITTEN ONES - Season One.pdf',
+            'source_inbox' => null,
+            'legacy_source_pdf' => null,
+            'script' => 'THE UNWRITTEN ONES - Season One_script.txt',
+            'category' => 'Dark Fantasy',
+            'teaser' => "A carnival that opens one night only promises any story you want. Three siblings follow a vanishing trail of names — and learn that names are knots, and pulling too hard can make you disappear.",
+            'rating' => 'teen',
+            'creator' => 'thomas',
         ],
 
         // ── Standalone ────────────────────────────────────────────────────

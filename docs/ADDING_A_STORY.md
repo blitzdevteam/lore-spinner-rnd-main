@@ -232,7 +232,7 @@ There is no per-story wipe — this clears everything.
 
 | File | Purpose |
 |------|---------|
-| `database/stories/launch/manifest.php` | Launch title registry (17 titles, 6 worlds + standalone) |
+| `database/stories/launch/manifest.php` | Launch title registry (18 titles, 6 worlds + standalone) |
 | `database/stories/launch/README.md` | Launch folder layout and batch workflow |
 | `database/seeders/AddSingleStorySeeder.php` | Single-story config + runs extraction pipeline (`SEED_STORY` from manifest) |
 | `app/Console/Commands/RunAdaptationCommand.php` | `stories:run-adaptation` command |

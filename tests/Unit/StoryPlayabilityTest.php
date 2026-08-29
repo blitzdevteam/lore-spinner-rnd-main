@@ -8,6 +8,10 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Support\StoryPlayability;
 
+it('approves the unwritten ones for review play once boiled', function () {
+    expect(StoryPlayability::isReviewSlug('the-unwritten-ones'))->toBeTrue();
+});
+
 it('allows play only for approved review slugs with completed adaptation', function () {
     $story = Story::factory()->create([
         'slug' => 'the-adventure-of-the-speckled-band',

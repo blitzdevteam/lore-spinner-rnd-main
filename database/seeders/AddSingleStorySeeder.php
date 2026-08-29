@@ -223,6 +223,12 @@ class AddSingleStorySeeder extends Seeder
         $story->update(['status' => StoryStatusEnum::PUBLISHED->value]);
         $this->command->info('Published!');
 
+        $world = WorldSeeder::attachStory($story, $config['world_slug'] ?? null);
+
+        if ($world !== null) {
+            $this->command->info("Attached to world: {$world->title}");
+        }
+
         $this->attachMissingImages($story, $config['slug'], $config['story_cover'] ?? null);
     }
 
@@ -344,13 +350,13 @@ class AddSingleStorySeeder extends Seeder
     /**
      * Select which story to seed via SEED_STORY. Skips titles already in the DB unless SEED_FORCE=1.
      *
-     * Launch titles (17) — primary keys:
+     * Launch titles (18) — primary keys:
      *   speckled-band · blue-carbuncle · scandal-in-bohemia
      *   wizard-of-oz · marvelous-land-of-oz
      *   theseus-and-the-minotaur · orpheus-and-eurydice
      *   havoc-in-heaven · white-bone-demon
      *   pride-and-prejudice · emma
-     *   anima-machina · wasteland · driftheart · dream-police
+     *   anima-machina · wasteland · driftheart · dream-police · unwritten-ones
      *   momotaro · tell-tale-heart
      *
      * RnD / legacy (not in launch manifest):
@@ -434,6 +440,7 @@ class AddSingleStorySeeder extends Seeder
             'teaser' => $entry['teaser'],
             'rating' => $entry['rating'],
             'opening' => $entry['opening'] ?? null,
+            'world_slug' => $entry['world_slug'] ?? null,
             'creator' => $creator,
             'pipeline_complete' => (bool) ($entry['pipeline_complete'] ?? false),
         ];

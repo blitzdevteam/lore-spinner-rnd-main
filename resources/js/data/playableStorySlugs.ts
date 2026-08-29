@@ -12,6 +12,7 @@ export const REVIEW_PLAYABLE_SLUGS = [
     'treasure-island',
     'dr-jekyll-and-mr-hyde',
     'the-tell-tale-heart',
+    'the-unwritten-ones',
 ] as const;
 
 export type ReviewPlayableSlug = (typeof REVIEW_PLAYABLE_SLUGS)[number];
