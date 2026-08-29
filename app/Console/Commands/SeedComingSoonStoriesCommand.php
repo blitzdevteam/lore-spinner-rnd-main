@@ -248,32 +248,7 @@ final class SeedComingSoonStoriesCommand extends Command
                 'position' => 7,
                 'cover_path' => 'resources/js/assets/featured/treasure.png',
             ],
-            [
-                'section' => ComingSoonStorySectionEnum::NEW_STORIES->value,
-                'title' => 'The Tell-Tale Heart',
-                'slug' => 'the-tell-tale-heart',
-                'teaser' => "As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape: the beating of a dead man's heart.",
-                'category' => 'Gothic Horror',
-                'rating' => 'Everyone',
-                'author' => null,
-                'series_label' => null,
-                'image_position' => null,
-                'position' => 1,
-                'cover_path' => 'resources/js/assets/newStories/Tell Tale 5_3 landscape.png',
-            ],
-            [
-                'section' => ComingSoonStorySectionEnum::NEW_STORIES->value,
-                'title' => 'Anima Machina',
-                'slug' => 'anima-machina',
-                'teaser' => 'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
-                'category' => 'Science Fiction',
-                'rating' => 'Everyone',
-                'author' => null,
-                'series_label' => null,
-                'image_position' => null,
-                'position' => 2,
-                'cover_path' => 'resources/js/assets/top-moods/Anima machina 16_9 untitled.png',
-            ],
+            ...$this->launchNewStoryPresets(),
             [
                 'section' => ComingSoonStorySectionEnum::COMING_SOON->value,
                 'title' => 'Jane Eyre',
@@ -327,6 +302,94 @@ final class SeedComingSoonStoriesCommand extends Command
                 'cover_path' => 'resources/js/assets/commingSoon/romeo-comming.png',
             ],
         ];
+    }
+
+    /**
+     * @return list<array{
+     *   section: string,
+     *   title: string,
+     *   slug: string,
+     *   teaser: string,
+     *   category: string|null,
+     *   rating: string|null,
+     *   author: string|null,
+     *   series_label: string|null,
+     *   image_position: string|null,
+     *   position: int,
+     *   cover_path: string
+     * }>
+     */
+    private function launchNewStoryPresets(): array
+    {
+        /** @var array{titles: list<array{title: string, slug: string, teaser: string, category: string, rating: string}>} $manifest */
+        $manifest = require database_path('stories/launch/manifest.php');
+        $covers = $this->newStoriesCoverPaths();
+        $presets = [];
+
+        foreach ($manifest['titles'] as $index => $title) {
+            $slug = $title['slug'];
+            $coverPath = $covers[$slug] ?? null;
+
+            if ($coverPath === null) {
+                $this->warn("Skipping new-stories preset for [{$slug}] — no cover mapped.");
+
+                continue;
+            }
+
+            $presets[] = [
+                'section' => ComingSoonStorySectionEnum::NEW_STORIES->value,
+                'title' => $title['title'],
+                'slug' => $slug,
+                'teaser' => $title['teaser'],
+                'category' => $title['category'],
+                'rating' => $this->formatLaunchRatingLabel($title['rating']),
+                'author' => null,
+                'series_label' => null,
+                'image_position' => null,
+                'position' => $index + 1,
+                'cover_path' => $coverPath,
+            ];
+        }
+
+        return $presets;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function newStoriesCoverPaths(): array
+    {
+        return [
+            'the-adventure-of-the-speckled-band' => 'resources/js/assets/newStories/sherlock-new.png',
+            'the-adventure-of-the-blue-carbuncle' => 'resources/js/assets/top-moods/Sherlock in the speckled band 16_9 untitled.png',
+            'a-scandal-in-bohemia' => 'resources/js/assets/top-moods/Sherlock in the speckled band 16_9 untitled.png',
+            'the-wonderful-wizard-of-oz' => 'resources/js/assets/newStories/Oz landscape titled.png',
+            'the-marvelous-land-of-oz' => 'resources/js/assets/top-moods/Oz 16_9 untitled.png',
+            'theseus-and-the-minotaur' => 'resources/js/assets/featured/dracula.png',
+            'orpheus-and-eurydice' => 'resources/js/assets/featured/dracula.png',
+            'havoc-in-heaven' => 'resources/js/assets/featured/dracula.png',
+            'the-white-bone-demon' => 'resources/js/assets/featured/dracula.png',
+            'pride-and-prejudice' => 'resources/js/assets/newStories/Pride Landscape art only.png',
+            'emma' => 'resources/js/assets/top-moods/Pride prejudice 16_9 untitled.png',
+            'anima-machina' => 'resources/js/assets/top-moods/Anima machina 16_9 untitled.png',
+            'wasteland' => 'resources/js/assets/top-moods/Wasteland wide 16_9 untitled.JPG',
+            'driftheart' => 'resources/js/assets/featured/anima.png',
+            'dream-police' => 'resources/js/assets/featured/nocturne.png',
+            'the-unwritten-ones' => 'resources/js/assets/newStories/New stories 1- 2x.jpg',
+            'momotaro-the-peach-boy' => 'resources/js/assets/featured/momotaro.png',
+            'the-tell-tale-heart' => 'resources/js/assets/newStories/Tell Tale 5_3 landscape.png',
+        ];
+    }
+
+    private function formatLaunchRatingLabel(string $rating): string
+    {
+        return match ($rating) {
+            'everyone' => 'Everyone',
+            'teen' => 'Teen',
+            'young-adult' => 'Young Adult',
+            'mature' => 'Mature',
+            default => ucfirst(str_replace('-', ' ', $rating)),
+        };
     }
 
     private function buildCoverFileName(ComingSoonStory $record, string $sourcePath): string

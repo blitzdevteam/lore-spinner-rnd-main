@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
-import ozNewCover from '@/assets/newStories/Oz landscape titled.png';
-import sherlockNewCover from '@/assets/newStories/sherlock-new.png';
-import { index as storiesIndex } from '@/wayfinder/routes/stories';
+import { isStoryPlayable } from '@/data/playableStorySlugs';
+import { resolveNewStoryCover } from '@/data/newStoriesCoverBySlug';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
-import { show as storyShow } from '@/wayfinder/routes/stories';
-import { ComingSoonStoryInterface } from '@/types';
+import { index as storiesIndex, show as storyShow } from '@/wayfinder/routes/stories';
+import type { ComingSoonStoryInterface, StoryInterface } from '@/types';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -15,7 +14,6 @@ interface NewStory {
     id: string | number;
     title: string;
     cover: string;
-    coverHover?: string;
     category: string;
     rating: string;
     playable: boolean;
@@ -26,50 +24,35 @@ interface NewStory {
 const props = withDefaults(
     defineProps<{
         comingSoonStories?: ComingSoonStoryInterface[];
+        stories?: StoryInterface[];
     }>(),
     {
         comingSoonStories: () => [],
+        stories: () => [],
     },
 );
 
-const playableStories: NewStory[] = [
-    {
-        id: 'the-adventure-of-the-speckled-band',
-        title: 'Sherlock Holmes in The Speckled Band',
-        cover: sherlockNewCover,
-        category: 'Mystery',
-        rating: 'Everyone',
-        playable: true,
-        slug: 'the-adventure-of-the-speckled-band',
-        teaser:
-            'A young woman fears she will suffer the same fate as her sister, forcing Sherlock Holmes to confront a mystery hidden behind locked doors and deadly secrets.',
-    },
-    {
-        id: 'the-wonderful-wizard-of-oz',
-        title: 'The Wizard of Oz',
-        cover: ozNewCover,
-        category: 'Fantasy Adventure',
-        rating: 'Everyone',
-        playable: true,
-        slug: 'the-wonderful-wizard-of-oz',
-        teaser:
-            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
-    },
-];
+const publishedBySlug = computed(() => Object.fromEntries(props.stories.map((story) => [story.slug, story])));
 
-const stories = computed<NewStory[]>(() => [
-    ...playableStories,
-    ...props.comingSoonStories.map((story) => ({
-        id: story.id,
-        title: story.title,
-        cover: story.cover,
-        category: story.category ?? 'Story',
-        rating: story.rating ?? 'Everyone',
-        playable: false,
-        slug: story.slug ?? undefined,
-        teaser: story.teaser ?? '',
-    })),
-]);
+const stories = computed<NewStory[]>(() =>
+    [...props.comingSoonStories]
+        .sort((a, b) => a.position - b.position)
+        .map((story) => {
+            const slug = story.slug ?? undefined;
+            const published = slug ? publishedBySlug.value[slug] : undefined;
+
+            return {
+                id: story.id,
+                title: story.title,
+                cover: resolveNewStoryCover(slug ?? String(story.id), story.cover),
+                category: story.category ?? published?.category?.title ?? 'Story',
+                rating: story.rating ?? published?.rating?.label ?? 'Everyone',
+                playable: published ? isStoryPlayable(published) : false,
+                slug,
+                teaser: story.teaser ?? published?.teaser ?? '',
+            };
+        }),
+);
 
 const sliderEl = ref<HTMLElement | null>(null);
 
@@ -94,7 +77,7 @@ function toSheetData(story: NewStory): StorySheetData {
     return {
         id: story.id,
         title: story.title,
-        cover: story.coverHover ?? story.cover,
+        cover: story.cover,
         themes: getStoryDescriptorThemes(story.slug ?? String(story.id)),
         category: story.category,
         rating: story.rating,

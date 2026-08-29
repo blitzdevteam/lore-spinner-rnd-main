@@ -64,7 +64,7 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <ExploreByMood />
 
         <!-- Featured Worlds -->
-        <NewStoriesBanners :coming-soon-stories="newStoriesComingSoonStories" />
+        <NewStoriesBanners :coming-soon-stories="newStoriesComingSoonStories" :stories="visibleStories" />
 
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 

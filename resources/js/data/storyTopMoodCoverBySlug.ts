@@ -14,6 +14,7 @@ import pjsTopMood from '@/assets/top-moods/PJS 16_9 untitled.JPG';
 import prideTopMood from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
 import romeoTopMood from '@/assets/top-moods/Romeo juliet 16_9 untitled.png';
 import treasureTopMood from '@/assets/top-moods/Treasure island 16_9 untitled.png';
+import momotaroFeatured from '@/assets/featured/momotaro.png';
 import wastelandTopMood from '@/assets/top-moods/Wasteland wide 16_9 untitled.JPG';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 
@@ -34,6 +35,13 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'pride-and-prejudice': prideTopMood,
     'romeo-and-juliet': romeoTopMood,
     'the-adventure-of-the-speckled-band': sherlockHomeLandscape,
+    'the-adventure-of-the-blue-carbuncle': sherlockHomeLandscape,
+    'a-scandal-in-bohemia': sherlockHomeLandscape,
+    'the-marvelous-land-of-oz': ozHomeLandscape,
+    'pride-and-prejudice': prideTopMood,
+    emma: prideTopMood,
+    'momotaro-the-peach-boy': momotaroFeatured,
+    'the-unwritten-ones': tellTaleHomeLandscape,
     'the-masque-of-the-red-death': redDeathTopMood,
     'the-tell-tale-heart': tellTaleHomeLandscape,
     'the-wonderful-wizard-of-oz': ozHomeLandscape,
