@@ -6,52 +6,42 @@ import { resolveNewStoryCover } from '@/data/newStoriesCoverBySlug';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { index as storiesIndex, show as storyShow } from '@/wayfinder/routes/stories';
-import type { ComingSoonStoryInterface, StoryInterface } from '@/types';
+import type { StoryInterface } from '@/types';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
-interface NewStory {
-    id: string | number;
+interface NewStoryCard {
+    id: number;
     title: string;
     cover: string;
     category: string;
     rating: string;
     playable: boolean;
-    slug?: string;
+    slug: string;
     teaser: string;
 }
 
 const props = withDefaults(
     defineProps<{
-        comingSoonStories?: ComingSoonStoryInterface[];
+        /** Published stories, newest first (homepage passes a recent slice). */
         stories?: StoryInterface[];
     }>(),
     {
-        comingSoonStories: () => [],
         stories: () => [],
     },
 );
 
-const publishedBySlug = computed(() => Object.fromEntries(props.stories.map((story) => [story.slug, story])));
-
-const stories = computed<NewStory[]>(() =>
-    [...props.comingSoonStories]
-        .sort((a, b) => a.position - b.position)
-        .map((story) => {
-            const slug = story.slug ?? undefined;
-            const published = slug ? publishedBySlug.value[slug] : undefined;
-
-            return {
-                id: story.id,
-                title: story.title,
-                cover: resolveNewStoryCover(slug ?? String(story.id), story.cover),
-                category: story.category ?? published?.category?.title ?? 'Story',
-                rating: story.rating ?? published?.rating?.label ?? 'Everyone',
-                playable: published ? isStoryPlayable(published) : false,
-                slug,
-                teaser: story.teaser ?? published?.teaser ?? '',
-            };
-        }),
+const stories = computed<NewStoryCard[]>(() =>
+    props.stories.map((story) => ({
+        id: story.id,
+        title: story.title,
+        cover: resolveNewStoryCover(story.slug, story.cover),
+        category: story.category?.title ?? 'Story',
+        rating: story.rating?.label ?? 'Everyone',
+        playable: isStoryPlayable(story),
+        slug: story.slug,
+        teaser: story.teaser ?? '',
+    })),
 );
 
 const sliderEl = ref<HTMLElement | null>(null);
@@ -73,12 +63,12 @@ const { leftShadowVisible, rightShadowVisible, updateShadows } = useSliderEdgeSh
 
 const sheetStory = ref<StorySheetData | null>(null);
 
-function toSheetData(story: NewStory): StorySheetData {
+function toSheetData(story: NewStoryCard): StorySheetData {
     return {
         id: story.id,
         title: story.title,
         cover: story.cover,
-        themes: getStoryDescriptorThemes(story.slug ?? String(story.id)),
+        themes: getStoryDescriptorThemes(story.slug),
         category: story.category,
         rating: story.rating,
         isComingSoon: !story.playable,
@@ -88,14 +78,14 @@ function toSheetData(story: NewStory): StorySheetData {
     };
 }
 
-function openSheet(story: NewStory) {
+function openSheet(story: NewStoryCard) {
     if (story.playable) return;
     sheetStory.value = toSheetData(story);
 }
 </script>
 
 <template>
-    <section class="home-section-y overflow-visible">
+    <section v-if="stories.length > 0" class="home-section-y overflow-visible">
         <div class="container">
             <div class="container-content home-section-gap">
 
@@ -123,9 +113,9 @@ function openSheet(story: NewStory) {
                                 <div class="story-slider-track">
                                     <component
                                         v-for="story in stories"
-                                        :key="String(story.id)"
-                                        :is="story.playable && story.slug ? Link : 'button'"
-                                        :href="story.playable && story.slug ? storyShow(story.slug).url : undefined"
+                                        :key="story.id"
+                                        :is="story.playable ? Link : 'button'"
+                                        :href="story.playable ? storyShow(story.slug).url : undefined"
                                         type="button"
                                         class="new-story-card flex h-[13.625rem] w-[min(18.75rem,78vw)] shrink-0 flex-col items-center justify-center gap-[0.375rem] rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 text-left outline-none transition-colors hover:border-primary/50 md:w-[18.75rem]"
                                         @click="!story.playable && openSheet(story)"
@@ -141,7 +131,7 @@ function openSheet(story: NewStory) {
                                             <span class="flex min-w-0 flex-1 flex-col gap-[0.1875rem]">
                                                 <span class="truncate text-[0.8125rem] font-semibold text-white">{{ story.title }}</span>
                                                 <span class="flex items-center gap-3 text-[0.75rem] text-[#7e7e7e]">
-                                                    <span v-for="theme in getStoryDescriptorThemes(story.slug ?? String(story.id))" :key="theme">
+                                                    <span v-for="theme in getStoryDescriptorThemes(story.slug)" :key="theme">
                                                         {{ theme }}
                                                     </span>
                                                 </span>

@@ -34,9 +34,9 @@ const props = withDefaults(
 );
 
 const visibleStories = computed(() => filterVisibleLibraryStories(props.stories));
+const newestStories = computed(() => visibleStories.value.slice(0, 12));
 const heroComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'hero'));
 const featuredWorldComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'featured-worlds'));
-const newStoriesComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'new-stories'));
 const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'coming-soon'));
 </script>
 
@@ -64,7 +64,7 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <ExploreByMood />
 
         <!-- Featured Worlds -->
-        <NewStoriesBanners :coming-soon-stories="newStoriesComingSoonStories" :stories="visibleStories" />
+        <NewStoriesBanners :stories="newestStories" />
 
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 

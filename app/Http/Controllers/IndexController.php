@@ -66,7 +66,7 @@ final class IndexController extends Controller
                     'adaptation:id,story_id,adaptation_status',
                 ])
                 ->select([
-                    'id', 'category_id', 'creator_id', 'title', 'slug', 'teaser', 'status', 'rating', 'updated_at',
+                    'id', 'category_id', 'creator_id', 'title', 'slug', 'teaser', 'status', 'rating', 'published_at', 'updated_at',
                 ])
                 ->withCount([
                     'chapters',
