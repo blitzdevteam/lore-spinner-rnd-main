@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { WorldInterface } from '@/types';
+import type { StoryInterface, WorldInterface } from '@/types';
+import { show as storyShow } from '@/wayfinder/routes/stories';
 import { show as worldShow } from '@/wayfinder/routes/worlds';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -25,6 +26,10 @@ function markCoverBroken(storyId: number): void {
 function hasCover(story: { id: number; cover?: string | null }): boolean {
     return Boolean(story.cover) && !brokenCovers.value.has(story.id);
 }
+
+function storyHref(story: StoryInterface): string {
+    return storyShow(story.slug).url;
+}
 </script>
 
 <template>
@@ -32,6 +37,8 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
         class="world-card relative flex h-[18.125rem] w-full shrink-0 flex-col overflow-hidden rounded-xl border-[0.5px] px-[17px] py-3"
         :class="expanded ? 'world-card--expanded border-primary' : 'border-[#191919]'"
     >
+        <Link :href="href" class="absolute inset-0 z-[1]" :aria-label="`Enter ${world.title}`" />
+
         <div class="pointer-events-none absolute inset-0" aria-hidden="true">
             <img
                 v-if="world.background"
@@ -43,7 +50,7 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
             <div class="world-card__shade world-card__shade--hover absolute inset-0" />
         </div>
 
-        <div class="relative z-[1] flex h-[16.625rem] w-full flex-col" :class="expanded ? 'justify-start' : 'justify-end'">
+        <div class="relative z-[2] flex h-[16.625rem] w-full flex-col pointer-events-none" :class="expanded ? 'justify-start' : 'justify-end'">
             <div v-if="expanded" class="flex w-full flex-col gap-5">
                 <div class="flex w-full flex-col gap-2.5">
                     <div class="flex w-full flex-col gap-2.5">
@@ -67,10 +74,12 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 
                     <div v-if="previewStories.length" class="flex h-[7.625rem] w-full items-center overflow-hidden">
                         <div class="flex items-center gap-2.5">
-                            <div
+                            <Link
                                 v-for="story in previewStories"
                                 :key="story.id"
-                                class="flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px]"
+                                :href="storyHref(story)"
+                                class="pointer-events-auto flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px] no-underline"
+                                :aria-label="`Open ${story.title}`"
                             >
                                 <img
                                     v-if="hasCover(story)"
@@ -85,14 +94,14 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                                 >
                                     {{ story.title }}
                                 </span>
-                            </div>
+                            </Link>
                         </div>
                     </div>
                 </div>
 
                 <Link
                     :href="href"
-                    class="flex h-[1.875rem] w-full items-center justify-center rounded-[5px] border-[0.5px] border-primary bg-primary text-[0.8125rem] font-medium text-black"
+                    class="pointer-events-auto flex h-[1.875rem] w-full items-center justify-center rounded-[5px] border-[0.5px] border-primary bg-primary text-[0.8125rem] font-medium text-black"
                 >
                     Enter world
                 </Link>
@@ -121,12 +130,14 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                 <div class="flex h-10 items-center justify-between gap-3">
                     <div class="flex items-center gap-1">
                         <div v-if="avatarStories.length" class="flex items-center pr-2">
-                            <span
+                            <Link
                                 v-for="(story, index) in avatarStories"
                                 :key="story.id"
-                                class="relative size-[2.34375rem] overflow-hidden rounded-full border border-black/40"
+                                :href="storyHref(story)"
+                                class="pointer-events-auto relative size-[2.34375rem] overflow-hidden rounded-full border border-black/40 no-underline"
                                 :class="index > 0 ? '-ml-4' : ''"
                                 :style="{ zIndex: avatarStories.length - index }"
+                                :aria-label="`Open ${story.title}`"
                             >
                                 <img
                                     v-if="hasCover(story)"
@@ -136,7 +147,7 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                                     @error="markCoverBroken(story.id)"
                                 />
                                 <span v-else class="block size-full bg-[#2a2a2a]" />
-                            </span>
+                            </Link>
                         </div>
                         <p class="text-[0.75rem] leading-[1.125rem] font-light text-[#8f8f8f]">
                             {{ storyCountLabel }}
@@ -145,7 +156,7 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 
                     <Link
                         :href="href"
-                        class="flex h-[1.875rem] w-[6.875rem] shrink-0 items-center justify-center rounded-[5px] border-[0.5px] border-primary bg-[#0e1f22] text-[0.8125rem] font-normal text-white"
+                        class="pointer-events-auto flex h-[1.875rem] w-[6.875rem] shrink-0 items-center justify-center rounded-[5px] border-[0.5px] border-primary bg-[#0e1f22] text-[0.8125rem] font-normal text-white"
                     >
                         Enter World
                     </Link>

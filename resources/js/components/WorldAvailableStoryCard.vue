@@ -22,9 +22,9 @@ const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
     <component
         :is="href ? Link : 'article'"
         :href="href"
-        class="world-available-story flex w-[18.75rem] shrink-0 flex-col items-center gap-1.5 rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 no-underline"
+        class="world-available-story flex h-[20.5rem] w-[18.75rem] shrink-0 flex-col items-center gap-1.5 rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 no-underline"
     >
-        <div class="h-[10.375rem] w-[18.25rem] overflow-hidden rounded-[5px]">
+        <div class="h-[10.375rem] w-[18.25rem] shrink-0 overflow-hidden rounded-[5px]">
             <img
                 v-if="cover"
                 :src="cover"
@@ -36,17 +36,17 @@ const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
             </div>
         </div>
 
-        <div class="flex w-[17.75rem] flex-col gap-2">
-            <div class="flex min-w-0 flex-col gap-[3px]">
-                <p class="truncate text-[0.8125rem] font-semibold text-white">{{ story.title }}</p>
-                <p v-if="themes.length" class="flex gap-x-3 text-xs text-[#7e7e7e]">
+        <div class="flex w-[17.75rem] flex-1 flex-col">
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-[3px]">
+                <p class="h-4 truncate text-[0.8125rem] leading-4 font-semibold text-white">{{ story.title }}</p>
+                <p class="flex h-4 gap-x-3 text-xs leading-4 text-[#7e7e7e]">
                     <span v-for="theme in themes" :key="theme">{{ theme }}</span>
                 </p>
-                <p v-if="teaser" class="world-available-story__teaser">{{ teaser }}</p>
+                <p class="world-available-story__teaser">{{ teaser }}</p>
             </div>
 
             <span
-                class="world-available-story__cta"
+                class="world-available-story__cta mt-auto"
                 :class="playable ? 'world-available-story__cta--play' : 'world-available-story__cta--soon'"
             >
                 {{ ctaLabel }}
@@ -58,6 +58,7 @@ const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
 <style scoped>
 .world-available-story__teaser {
     margin: 0;
+    min-height: 3.65625rem;
     font-size: 0.8125rem;
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.52);
