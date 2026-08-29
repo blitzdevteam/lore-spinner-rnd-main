@@ -145,6 +145,14 @@ final class ChaosStoryConfig
                 'tagline'       => 'Japanese folktale — sail to Oni Island and face the demons.',
                 'tts_voice_id'  => self::VOICE_YUSUKE,
             ],
+            [
+                'slug'                   => 'the-unwritten-ones',
+                'title'                  => 'The Unwritten Ones',
+                'protagonist'            => 'Leo',
+                'tagline'                => 'Wittmer — a carnival of endings, and names that can vanish.',
+                'tts_voice_id'           => self::VOICE_DECLAN_SAGE,
+                'prefer_literal_opening' => true,
+            ],
         ];
     }
 
