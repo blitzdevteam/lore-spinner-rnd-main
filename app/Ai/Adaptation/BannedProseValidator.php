@@ -157,6 +157,24 @@ final class BannedProseValidator
     }
 
     /**
+     * Rewrite hard-ban punctuation into legal separators so a connective field
+     * (next_bridge, why, a close hook) cannot brick Finalize over a semicolon.
+     *
+     * Vocabulary bans are not rewritten here — those still fail the scan.
+     */
+    public static function neutralizeBannedPunctuation(string $text): string
+    {
+        $text = preg_replace('/\x{2014}|\x{2013}|\x{2015}/u', ',', $text) ?? $text;
+        $text = str_replace('--', ',', $text);
+        $text = str_replace(';', '.', $text);
+        $text = preg_replace('/\.{3,}/u', '.', $text) ?? $text;
+        $text = preg_replace('/[ \t]+([.,])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
+
+        return mb_trim($text);
+    }
+
+    /**
      * Extract banned terms from the voice profile's IP-specific bans, split by how
      * safely each one can be enforced.
      *

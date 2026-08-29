@@ -170,6 +170,7 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
         ->toContain("\$card['next_moment_key']")
         ->toContain('finalBridgeFallback')
         ->toContain("'hook_transition', 'next_bridge_guidance'")
+        ->toContain('neutralizeBannedPunctuation')
         ->toContain("\$finalCut['event_role_map']")
         ->and($validator)
         ->toContain('must contain exactly the choices authored for that moment')

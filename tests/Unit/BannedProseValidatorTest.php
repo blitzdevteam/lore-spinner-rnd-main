@@ -220,6 +220,24 @@ final class BannedProseValidatorTest extends TestCase
         $this->assertSame([], $result['errors']);
     }
 
+    public function testNeutralizeBannedPunctuationClearsHardBanMarks(): void
+    {
+        $cleaned = BannedProseValidator::neutralizeBannedPunctuation(
+            'The gate holds; she waits — then the book opens...'
+        );
+
+        $result = $this->validator->scan(
+            ['next_bridge' => $cleaned],
+            [],
+            ['next_bridge'],
+        );
+
+        $this->assertSame([], $result['errors']);
+        $this->assertStringNotContainsString(';', $cleaned);
+        $this->assertStringNotContainsString('—', $cleaned);
+        $this->assertStringNotContainsString('...', $cleaned);
+    }
+
     public function testIgnoresEmptyAndMissingFields(): void
     {
         $artifact = [

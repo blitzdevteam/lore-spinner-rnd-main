@@ -37,7 +37,9 @@ final class BoilerFinalCutCanonicalizer
         $finalCut['boiler_version'] = $draft['boiler_version'] ?? '1.0';
         $finalCut['session_number'] = $session->session_number;
         $finalCut['cut_key'] = 'standard';
-        $finalCut['playable_promise'] = $draft['playable_promise'] ?? '';
+        $finalCut['playable_promise'] = BannedProseValidator::neutralizeBannedPunctuation(
+            (string) ($draft['playable_promise'] ?? ''),
+        );
 
         $cards = (array) ($finalCut['moments'] ?? []);
         $lastCardIndex = count($cards) - 1;
@@ -76,6 +78,21 @@ final class BoilerFinalCutCanonicalizer
                 }
             }
 
+            foreach (['title', 'opening_image', 'runtime_goal', 'live_pressure', 'next_bridge'] as $field) {
+                if (is_string($card[$field] ?? null)) {
+                    $card[$field] = BannedProseValidator::neutralizeBannedPunctuation($card[$field]);
+                }
+            }
+
+            if (isset($card['source_extracts']) && is_array($card['source_extracts'])) {
+                $card['source_extracts'] = array_map(
+                    fn ($extract): mixed => is_string($extract)
+                        ? BannedProseValidator::neutralizeBannedPunctuation($extract)
+                        : $extract,
+                    $card['source_extracts'],
+                );
+            }
+
             $cards[$index] = $card;
         }
         $finalCut['moments'] = $cards;
@@ -108,8 +125,12 @@ final class BoilerFinalCutCanonicalizer
                     'event_id' => $role['event_id'] ?? null,
                     'primary_role' => $effectiveRole,
                     'included_moment_key' => $momentKey,
-                    'why' => $role['why'] ?? null,
-                    'reintroduction_note' => $role['reintroduction_note'] ?? '',
+                    'why' => is_string($role['why'] ?? null)
+                        ? BannedProseValidator::neutralizeBannedPunctuation($role['why'])
+                        : $role['why'] ?? null,
+                    'reintroduction_note' => BannedProseValidator::neutralizeBannedPunctuation(
+                        (string) ($role['reintroduction_note'] ?? ''),
+                    ),
                 ];
             })
             ->values()
