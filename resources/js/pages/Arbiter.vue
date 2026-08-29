@@ -1147,7 +1147,7 @@ onUnmounted(() => {
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
-                <div v-if="tts.isActive.value" class="arbiter-media-player" aria-label="Narration controls">
+                <div v-if="tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
                     <GameplayMediaPlayer />
                 </div>
 
@@ -1467,6 +1467,9 @@ onUnmounted(() => {
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
             </section>
+            <div v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
+                <GameplayMediaPlayer />
+            </div>
             <GameplayInput
                 class="arbiter-proposal-input"
                 :disabled="!canSubmitProposal || isSubmittingProposal"
@@ -2713,6 +2716,7 @@ onUnmounted(() => {
     bottom: 1.75rem;
     transform: translateX(-50%);
     display: flex;
+    gap: 0.75rem;
     justify-content: center;
     pointer-events: none;
 }
@@ -2730,7 +2734,19 @@ onUnmounted(() => {
 
 .arbiter-proposal-input {
     width: min(100%, 38.5rem) !important;
+    align-self: center;
     pointer-events: auto;
+}
+
+.arbiter-proposal-media-player {
+    width: min(100%, 38.5rem);
+    min-width: 0;
+    align-self: center;
+    pointer-events: auto;
+}
+
+.arbiter-proposal-media-player :deep(.player-bar) {
+    width: 100%;
 }
 
 @media (max-width: 1360px) {

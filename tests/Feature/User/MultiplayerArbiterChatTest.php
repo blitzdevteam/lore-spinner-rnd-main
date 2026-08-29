@@ -14,7 +14,7 @@ it('keeps arbiter rail tabs close to the top of the display', function () {
     $styles = file_get_contents(resource_path('js/pages/Arbiter.vue'));
 
     expect($styles)
-        ->toContain("padding-top: 1.5625rem;")
+        ->toContain('padding-top: 1.5625rem;')
         ->not->toContain('padding-top: 7.1875rem;');
 });
 
@@ -30,19 +30,32 @@ it('pins the arbiter side rails while the story column scrolls', function () {
 it('keeps the arbiter proposal input dock within the mobile viewport', function () {
     $styles = file_get_contents(resource_path('js/pages/Arbiter.vue'));
 
-    expect($styles)->toContain(<<<'CSS'
-    .arbiter-proposal-dock {
-        right: 0;
-        bottom: 0;
-        left: 0;
-        width: auto;
-        max-width: none;
-        box-sizing: border-box;
-        padding: 1rem;
-        padding-bottom: max(1rem, env(safe-area-inset-bottom));
-        transform: none;
-    }
-    CSS);
+    expect($styles)
+        ->toContain('    .arbiter-proposal-dock {')
+        ->toContain('        right: 0;')
+        ->toContain('        bottom: 0;')
+        ->toContain('        left: 0;')
+        ->toContain('        width: auto;')
+        ->toContain('        max-width: none;')
+        ->toContain('        box-sizing: border-box;')
+        ->toContain('        padding: 1rem;')
+        ->toContain('        padding-bottom: max(1rem, env(safe-area-inset-bottom));')
+        ->toContain('        transform: none;');
+});
+
+it('places responsive narration controls in the arbiter proposal dock', function () {
+    $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+    $styles = $template;
+
+    expect($template)
+        ->toContain('v-if="tts.isActive.value && !isMobile" class="arbiter-media-player"')
+        ->toContain('v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
+
+    expect($styles)
+        ->toContain('gap: 0.75rem;')
+        ->toContain('.arbiter-proposal-media-player {')
+        ->toContain('width: min(100%, 38.5rem);')
+        ->toContain('.arbiter-proposal-media-player :deep(.player-bar) {');
 });
 
 it('uses header controls and bottom sheets for arbiter panels on mobile', function () {
@@ -52,7 +65,7 @@ it('uses header controls and bottom sheets for arbiter panels on mobile', functi
         ->toContain("import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';")
         ->toContain('const isPlayersPanelOpen = ref(true)')
         ->toContain('const isChatPanelOpen = ref(true)')
-        ->toContain("const activeMobilePanel = ref<MobilePanel>(null)")
+        ->toContain('const activeMobilePanel = ref<MobilePanel>(null)')
         ->toContain("const MOBILE_MQ = '(max-width: 1120px)'")
         ->toContain('@click="togglePlayersPanel"')
         ->toContain('@click="toggleChatPanel"')
