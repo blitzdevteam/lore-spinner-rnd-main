@@ -6,9 +6,12 @@ use App\Models\Game;
 use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
+use App\Models\PlayerVoiceUsage;
+use App\Services\Runtime\PlayerGameplayUsageSummary;
 use App\Services\Runtime\PlayerTokenUsageInsights;
 use App\Services\Runtime\PlayerTokenUsageRecorder;
 use App\Services\Runtime\PlayerTokenUsageSummary;
+use App\Services\Runtime\PlayerVoiceUsageSummary;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +118,16 @@ beforeEach(function () {
         'migrations/2026_08_11_000002_remove_legacy_session_event_attribution.php',
     );
     $legacyAttributionCleanup->up();
+
+    $voiceUsage = require database_path(
+        'migrations/2026_08_11_000003_create_player_voice_usages_table.php',
+    );
+    $voiceUsage->up();
+
+    $voiceDuration = require database_path(
+        'migrations/2026_08_17_000001_add_audio_duration_to_player_voice_usages_table.php',
+    );
+    $voiceDuration->up();
 });
 
 afterEach(function () {
@@ -219,6 +232,7 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     $summary = app(PlayerTokenUsageSummary::class);
     foreach ([
         $summary->forGame($game->id),
+        $summary->forStoryCycle($game->id, 2),
         $summary->forSession($game->id, 2, 1),
         $summary->forMoment($moment->id),
         $summary->forEvent($secondEventId),
@@ -226,6 +240,7 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     ] as $totals) {
         expect($totals['requests'])->toBe(1)
             ->and($totals['input_tokens'])->toBe(100)
+            ->and($totals['total_input_tokens'])->toBe(150)
             ->and($totals['output_tokens'])->toBe(50)
             ->and($totals['cached_input_tokens'])->toBe(50)
             ->and($totals['total_tokens'])->toBe(200)
@@ -239,6 +254,186 @@ it('persists one priced runtime record and exposes every hierarchy aggregate', f
     expect($usage->prompt_id)->toBeNull()
         ->and($usage->prompt_reference_id)->toBe($promptReference)
         ->and(PlayerTokenUsage::query()->count())->toBe(1);
+});
+
+it('summarizes voice usage for the active story cycle only', function () {
+    $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $game = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 2,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $currentPrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Current narration.',
+        'choices' => [],
+    ]);
+    $previousPrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Previous narration.',
+        'choices' => [],
+    ]);
+
+    foreach ([
+        ['prompt' => $currentPrompt, 'cycle' => 2, 'characters' => 240, 'duration_ms' => 18_000],
+        ['prompt' => $previousPrompt, 'cycle' => 1, 'characters' => 960, 'duration_ms' => 72_000],
+    ] as $usage) {
+        PlayerVoiceUsage::query()->create([
+            'game_id' => $game->id,
+            'prompt_id' => $usage['prompt']->id,
+            'prompt_reference_id' => $usage['prompt']->id,
+            'story_id' => $storyId,
+            'user_id' => $userId,
+            'story_cycle_number' => $usage['cycle'],
+            'session_number' => 1,
+            'provider' => 'elevenlabs',
+            'model' => 'eleven_v3',
+            'voice_id' => 'voice-1',
+            'output_format' => 'mp3',
+            'billing_unit' => 'characters',
+            'input_characters' => $usage['characters'],
+            'billable_units' => $usage['characters'],
+            'audio_bytes' => 1_024,
+            'audio_duration_ms' => $usage['duration_ms'],
+            'latency_ms' => 250,
+            'currency' => 'USD',
+            'pricing_available' => true,
+            'pricing_version' => 'test',
+            'pricing_effective_from' => now(),
+            'pricing_source' => 'test',
+            'rate_per_thousand_usd' => '0.100000',
+            'estimated_cost_usd' => '0.024000000000',
+            'text_snapshot' => $usage['prompt']->response,
+            'provider_metadata' => [],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    $summary = app(PlayerVoiceUsageSummary::class);
+
+    expect($summary->forGame($game->id))
+        ->toMatchArray([
+            'requests' => 2,
+            'input_characters' => 1_200,
+            'billable_units' => 1_200,
+            'audio_duration_ms' => 90_000,
+        ])
+        ->and($summary->forStoryCycle($game->id, 2))
+        ->toMatchArray([
+            'requests' => 1,
+            'input_characters' => 240,
+            'billable_units' => 240,
+            'audio_duration_ms' => 18_000,
+        ]);
+});
+
+it('summarizes player-facing turns and generated voice duration across the account', function () {
+    $userId = DB::table('users')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $storyId = DB::table('stories')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+    $firstGame = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $secondGame = Game::query()->create([
+        'story_id' => $storyId,
+        'user_id' => $userId,
+        'current_story_cycle_number' => 1,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+
+    $openingPrompt = $firstGame->prompts()->create([
+        'session_number' => 1,
+        'response' => 'Opening narration.',
+        'choices' => [],
+    ]);
+    $firstTurnPrompt = $firstGame->prompts()->create([
+        'session_number' => 1,
+        'prompt' => 'Open the door.',
+        'response' => 'First player turn.',
+        'choices' => [],
+    ]);
+    $secondTurnPrompt = $secondGame->prompts()->create([
+        'session_number' => 1,
+        'prompt' => 'Follow the light.',
+        'response' => 'Second player turn.',
+        'choices' => [],
+    ]);
+
+    $tokenUsage = app(PlayerTokenUsageRecorder::class);
+    $tokenUsage->record(
+        game: $firstGame,
+        prompt: $openingPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_BEGIN,
+    );
+    $tokenUsage->record(
+        game: $firstGame,
+        prompt: $firstTurnPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_TURN,
+    );
+    $tokenUsage->record(
+        game: $secondGame,
+        prompt: $secondTurnPrompt,
+        rawUsage: ['prompt_tokens' => 100, 'completion_tokens' => 25],
+        kind: PlayerTokenUsage::KIND_TURN,
+    );
+
+    foreach ([
+        ['game' => $firstGame, 'prompt' => $openingPrompt, 'duration_ms' => 30_000],
+        ['game' => $firstGame, 'prompt' => $firstTurnPrompt, 'duration_ms' => 45_000],
+        ['game' => $secondGame, 'prompt' => $secondTurnPrompt, 'duration_ms' => 90_000],
+    ] as $voice) {
+        PlayerVoiceUsage::query()->create([
+            'game_id' => $voice['game']->id,
+            'prompt_id' => $voice['prompt']->id,
+            'prompt_reference_id' => $voice['prompt']->id,
+            'story_id' => $storyId,
+            'user_id' => $userId,
+            'story_cycle_number' => 1,
+            'session_number' => 1,
+            'provider' => 'elevenlabs',
+            'model' => 'eleven_v3',
+            'voice_id' => 'voice-1',
+            'output_format' => 'mp3',
+            'billing_unit' => 'characters',
+            'input_characters' => 100,
+            'billable_units' => 100,
+            'audio_bytes' => 1_024,
+            'audio_duration_ms' => $voice['duration_ms'],
+            'latency_ms' => 250,
+            'currency' => 'USD',
+            'pricing_available' => true,
+            'pricing_version' => 'test',
+            'pricing_effective_from' => now(),
+            'pricing_source' => 'test',
+            'rate_per_thousand_usd' => '0.100000',
+            'estimated_cost_usd' => '0.010000000000',
+            'text_snapshot' => $voice['prompt']->response,
+            'provider_metadata' => [],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    $summary = app(PlayerGameplayUsageSummary::class);
+
+    expect($summary->forGame($firstGame->id, $userId))
+        ->toBe([
+            'turns' => 1,
+            'voice_duration_ms' => 75_000,
+        ])
+        ->and($summary->forUser($userId))
+        ->toBe([
+            'turns' => 2,
+            'voice_duration_ms' => 165_000,
+        ]);
 });
 
 it('keeps legacy usage at session scope and removes historical inferred event links', function () {

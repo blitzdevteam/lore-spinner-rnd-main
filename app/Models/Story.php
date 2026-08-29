@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -46,6 +47,9 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $events_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read Collection<int, MultiplayerLobby> $multiplayerLobbies
+ * @property-read Collection<int, World> $worlds
+ * @property-read int|null $worlds_count
  * @property-read StoryAdaptation|null $adaptation
  */
 final class Story extends Model implements HasMedia
@@ -136,6 +140,25 @@ final class Story extends Model implements HasMedia
     public function games(): HasMany
     {
         return $this->hasMany(Game::class);
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobby, $this>
+     */
+    public function multiplayerLobbies(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobby::class);
+    }
+
+    /**
+     * @return BelongsToMany<World, $this>
+     */
+    public function worlds(): BelongsToMany
+    {
+        return $this->belongsToMany(World::class)
+            ->withPivot('position')
+            ->withTimestamps()
+            ->orderByPivot('position');
     }
 
     /**

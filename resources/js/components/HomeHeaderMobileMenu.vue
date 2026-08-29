@@ -10,8 +10,19 @@ const visible = defineModel<boolean>('visible', { default: false });
 const page = usePage();
 const auth = computed(() => page.props.auth);
 
-const { activeMood, isHomeActive, isLibraryActive, isAboutUsActive, isMoodsActive, moodLinks, homeHref, libraryHref, aboutUsHref } =
-    useHomeHeaderNav();
+const {
+    activeMood,
+    isHomeActive,
+    isLibraryActive,
+    isWorldsActive,
+    isAboutUsActive,
+    isMoodsActive,
+    moodLinks,
+    homeHref,
+    libraryHref,
+    worldsHref,
+    aboutUsHref,
+} = useHomeHeaderNav();
 
 const moodsExpanded = ref(false);
 
@@ -104,6 +115,10 @@ const moodLinkClass = (slug: string): string =>
 
                         <li>
                             <Link :href="libraryHref" :class="navLinkClass(isLibraryActive)" @click="closeMenu"> Library </Link>
+                        </li>
+
+                        <li>
+                            <Link :href="worldsHref" :class="navLinkClass(isWorldsActive)" @click="closeMenu"> Worlds </Link>
                         </li>
 
                         <li>

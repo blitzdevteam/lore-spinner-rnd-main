@@ -14,9 +14,10 @@ use App\Models\GameSessionCompletion;
 use App\Models\Story;
 use App\Models\User;
 use App\Models\UserActivityDay;
-use App\Services\ChaosEngineService;
 use App\ChaosMode\ChaosStoryConfig;
 use App\Services\Adaptation\StoryGameResetService;
+use App\Services\ChaosEngineService;
+use App\Services\Runtime\PlayerGameplayUsageSummary;
 use App\Tts\TtsVoiceCatalog;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
@@ -51,6 +52,7 @@ final class GameController extends Controller
         private readonly ChaosEngineService $engine,
         private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
+        private readonly PlayerGameplayUsageSummary $gameplayUsageSummary,
     ) {}
 
     public function index(): RedirectResponse
@@ -81,6 +83,7 @@ final class GameController extends Controller
             'game' => $game->toResource(),
             'ttsVoices' => TtsVoiceCatalog::options(),
             'recommendedVoiceId' => ChaosStoryConfig::ttsVoiceId($game->story->slug ?? ''),
+            'usage' => fn (): array => $this->gameplayUsage($game),
         ]);
     }
 
@@ -265,6 +268,23 @@ final class GameController extends Controller
         UserActivityDay::record($game->user_id);
 
         return to_route('user.games.show', $game);
+    }
+
+    /**
+     * @return array{
+     *     game:array{turns:int, voice_duration_ms:int},
+     *     total:array{turns:int, voice_duration_ms:int},
+     * }
+     */
+    private function gameplayUsage(Game $game): array
+    {
+        $gameUsage = $this->gameplayUsageSummary->forGame($game->id, $game->user_id);
+        $totalUsage = $this->gameplayUsageSummary->forUser($game->user_id);
+
+        return [
+            'game' => $gameUsage,
+            'total' => $totalUsage,
+        ];
     }
 
     /**

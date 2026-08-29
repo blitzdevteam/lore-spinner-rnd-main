@@ -3,6 +3,7 @@ import logoTag from '@/assets/logo/logo-tag.png';
 import { index } from '@/wayfinder/routes';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { index as dashboardIndex } from '@/wayfinder/routes/user/dashboard';
+import { index as worldsIndex } from '@/wayfinder/routes/worlds';
 import { Link, usePage } from '@inertiajs/vue3';
 import { Mail } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -23,6 +24,7 @@ const navigate: FooterColumn = {
     links: [
         { label: 'Home', href: index().url },
         { label: 'Library', href: storiesIndex().url },
+        { label: 'Worlds', href: worldsIndex().url },
         { label: 'Profile', href: dashboardIndex().url },
         { label: 'About Us', href: '/about-us' },
     ],

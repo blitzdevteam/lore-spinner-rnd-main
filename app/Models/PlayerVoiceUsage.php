@@ -29,6 +29,7 @@ use Override;
  * @property int $input_characters
  * @property int $billable_units
  * @property int $audio_bytes
+ * @property int $audio_duration_ms
  * @property int $latency_ms
  * @property string $currency
  * @property bool $pricing_available
@@ -86,6 +87,7 @@ final class PlayerVoiceUsage extends Model
             'input_characters' => 'integer',
             'billable_units' => 'integer',
             'audio_bytes' => 'integer',
+            'audio_duration_ms' => 'integer',
             'latency_ms' => 'integer',
             'pricing_available' => 'boolean',
             'pricing_effective_from' => 'immutable_datetime',

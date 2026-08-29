@@ -3,6 +3,7 @@ import BaseButton from '@/components/BaseButton.vue';
 import GameplayVoicePicker from '@/components/GameplayVoicePicker.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
+import { GameplayUsageSummary } from '@/types';
 import { glassTintVars } from '@/utils/color';
 import { router } from '@inertiajs/vue3';
 import { LucideExternalLink, LucideMinus, LucidePlus, LucideRefreshCw, LucideRotateCcw, LucideZap } from 'lucide-vue-next';
@@ -11,6 +12,7 @@ import { computed, ref } from 'vue';
 const props = withDefaults(
     defineProps<{
         gameId?: string;
+        usage?: GameplayUsageSummary;
         variant?: 'sidebar' | 'sheet';
     }>(),
     { variant: 'sidebar' },
@@ -18,6 +20,20 @@ const props = withDefaults(
 
 const { settings, fontColorPresets, backgroundPresets, reset } = useGameplaySettings();
 const tts = useTextToSpeech();
+
+const usage = computed<GameplayUsageSummary>(
+    () =>
+        props.usage ?? {
+            game: {
+                turns: 0,
+                voice_duration_ms: 0,
+            },
+            total: {
+                turns: 0,
+                voice_duration_ms: 0,
+            },
+        },
+);
 
 const glassPreviewStyle = computed(() => glassTintVars(settings.backgroundColor));
 
@@ -27,6 +43,16 @@ const toggleAutoplay = () => {
 };
 
 const clampFontSize = (val: number) => Math.min(28, Math.max(12, val));
+
+const formatUsageCount = (value: number) => Math.max(0, value).toLocaleString();
+
+const formatVoiceDuration = (milliseconds: number) => {
+    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+};
 
 const isResetting = ref(false);
 
@@ -185,6 +211,48 @@ const onVolumeInput = (event: Event) => {
             </div>
         </div>
 
+        <div v-if="gameId" class="flex flex-col gap-3 border-t border-gray-700/40 pt-6">
+            <div>
+                <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Usage</label>
+                <p class="mt-1 text-xs text-gray-500">This game</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Turns played</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.game.turns) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
+                </div>
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Voice generated</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatVoiceDuration(usage.game.voice_duration_ms) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">Narration time</span>
+                </div>
+            </div>
+            <div class="border-t border-gray-700/40 pt-4">
+                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">Total (all games)</p>
+                <div class="mt-2 grid grid-cols-2 gap-2.5">
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Turns played</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatUsageCount(usage.total.turns) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
+                    </div>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Voice generated</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatVoiceDuration(usage.total.voice_duration_ms) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
             <GameplayVoicePicker />
         </div>
@@ -310,6 +378,48 @@ const onVolumeInput = (event: Event) => {
                     >
                         The ancient door creaked open, revealing a corridor bathed in moonlight...
                     </p>
+                </div>
+            </div>
+        </section>
+
+        <section v-if="gameId" class="gp-settings-section">
+            <div>
+                <h3 class="gp-section-title">Usage</h3>
+                <p class="mt-1 text-xs text-gray-500">This game</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Turns played</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatUsageCount(usage.game.turns) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">Completed moves</span>
+                </div>
+                <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <span class="block text-xs text-gray-400">Voice generated</span>
+                    <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                        {{ formatVoiceDuration(usage.game.voice_duration_ms) }}
+                    </strong>
+                    <span class="mt-1 block text-xs text-gray-500">Narration time</span>
+                </div>
+            </div>
+            <div class="border-t border-gray-700/40 pt-4">
+                <p class="gp-field-label">Total (all games)</p>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Turns played</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatUsageCount(usage.total.turns) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
+                    </div>
+                    <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                        <span class="block text-xs text-gray-400">Voice generated</span>
+                        <strong class="mt-1 block text-lg font-semibold tabular-nums text-gray-100">
+                            {{ formatVoiceDuration(usage.total.voice_duration_ms) }}
+                        </strong>
+                        <span class="mt-1 block text-xs text-gray-500">Across your games</span>
+                    </div>
                 </div>
             </div>
         </section>

@@ -17,6 +17,22 @@ final class PlayerTokenUsageSummary
         );
     }
 
+    /**
+     * Return the usage for one playthrough of a game. A reset starts a new
+     * story cycle, so historical usage remains available for accounting while
+     * the player sees only the progress they are currently playing.
+     *
+     * @return array<string, int|string>
+     */
+    public function forStoryCycle(string $gameId, int $storyCycleNumber): array
+    {
+        return $this->summarize(
+            PlayerTokenUsage::query()
+                ->where('game_id', $gameId)
+                ->where('story_cycle_number', $storyCycleNumber),
+        );
+    }
+
     /** @return array<string, int|string> */
     public function forSession(
         string $gameId,

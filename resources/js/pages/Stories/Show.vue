@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import backChevronIcon from '@/assets/story-play/back-chevron.svg';
 import StoryChapterCard from '@/components/StoryChapterCard.vue';
 import StoryCommentCard from '@/components/StoryCommentCard.vue';
 import StoryPlayAmbientGlows from '@/components/story-play/StoryPlayAmbientGlows.vue';
@@ -10,16 +11,15 @@ import StoryPlayStartCta from '@/components/story-play/StoryPlayStartCta.vue';
 import StoryPlayStatStrip from '@/components/story-play/StoryPlayStatStrip.vue';
 import StoryPlayTitleProgress from '@/components/story-play/StoryPlayTitleProgress.vue';
 import StoryPlayTopBar from '@/components/story-play/StoryPlayTopBar.vue';
-import backChevronIcon from '@/assets/story-play/back-chevron.svg';
 import { useBookmark } from '@/composables/useBookmark';
+import { useShare } from '@/composables/useShare';
 import { formatCreatorDisplayName, resolveClassicsCreatorAvatar } from '@/data/loreSpinnerSeriesLabels';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { resolveStoryDisplayTitle } from '@/data/storyDisplayTitleBySlug';
-import { useShare } from '@/composables/useShare';
 import { StoryInterface } from '@/types';
-import { store, show as showGame } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
-import { show as storyShowRoute } from '@/wayfinder/routes/stories';
+import { show as showGame, store } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
+import { multiplayer as multiplayerStoryRoute, show as storyShowRoute } from '@/wayfinder/routes/stories';
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
@@ -73,6 +73,12 @@ const handleStartStory = (): void => {
     }
 };
 
+const handleMultiplayer = (): void => {
+    if (!props.isPlayable) return;
+
+    router.visit(multiplayerStoryRoute.url(props.story.slug));
+};
+
 const handleBack = (): void => {
     window.history.back();
 };
@@ -120,44 +126,27 @@ function formatUpdatedParts(dateIso: string | null | undefined): StatValuePart[]
 
     const totalMins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
     if (totalMins < 60) {
-        return [
-            { text: `${totalMins}` },
-            { text: 'Min', muted: true },
-        ];
+        return [{ text: `${totalMins}` }, { text: 'Min', muted: true }];
     }
 
     const totalHours = Math.floor(totalMins / 60);
     if (totalHours < 24) {
         const mins = totalMins % 60;
-        return [
-            { text: `${totalHours}` },
-            { text: 'Hr ', muted: true },
-            { text: `${mins}` },
-            { text: 'Min', muted: true },
-        ];
+        return [{ text: `${totalHours}` }, { text: 'Hr ', muted: true }, { text: `${mins}` }, { text: 'Min', muted: true }];
     }
 
     const days = Math.floor(totalHours / 24);
     if (days < 30) {
-        return [
-            { text: `${days}` },
-            { text: days === 1 ? 'Day' : 'Days', muted: true },
-        ];
+        return [{ text: `${days}` }, { text: days === 1 ? 'Day' : 'Days', muted: true }];
     }
 
     const months = Math.floor(days / 30);
     if (months < 12) {
-        return [
-            { text: `${months}` },
-            { text: months === 1 ? 'Mo' : 'Mos', muted: true },
-        ];
+        return [{ text: `${months}` }, { text: months === 1 ? 'Mo' : 'Mos', muted: true }];
     }
 
     const years = Math.floor(months / 12);
-    return [
-        { text: `${years}` },
-        { text: years === 1 ? 'Yr' : 'Yrs', muted: true },
-    ];
+    return [{ text: `${years}` }, { text: years === 1 ? 'Yr' : 'Yrs', muted: true }];
 }
 
 const statItems = computed(() => [
@@ -181,9 +170,7 @@ const statItems = computed(() => [
 
 const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Enter The Story'));
 
-const creatorAvatar = computed(() =>
-    resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar),
-);
+const creatorAvatar = computed(() => resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar));
 
 const leftColumnChapters = computed(() => props.story.chapters?.filter((_, index) => index % 2 === 0) ?? []);
 
@@ -191,34 +178,26 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
 </script>
 
 <template>
-    <div class="relative min-h-svh overflow-x-hidden bg-black text-white selection:bg-primary-500/30 lg:h-svh lg:overflow-hidden lg:selection:bg-primary-500/35">
+    <div
+        class="relative min-h-svh overflow-x-hidden bg-black text-white selection:bg-primary-500/30 lg:h-svh lg:overflow-hidden lg:selection:bg-primary-500/35"
+    >
         <StoryPlayAmbientGlows />
 
-        <div class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 pb-28 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10">
-
+        <div
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 pb-28 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+        >
             <!-- Left: Poster column -->
             <div class="relative mb-8 w-[20.875rem] max-w-full shrink-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:shrink-0 xl:mr-2">
                 <StoryPlayCoverColumn :src="coverImageUrl" :title="displayTitle" :headline="coverHeadline" :footer-credit="coverFooterCredit">
                     <template #overlay>
                         <!-- Back button — Figma 45×45 glass circle -->
-                        <div class="pointer-events-auto absolute left-4 top-4">
+                        <div class="pointer-events-auto absolute top-4 left-4">
                             <StoryPlayGlassRoundButton aria-label="Go back" @click="handleBack">
-                                <img
-                                    :src="backChevronIcon"
-                                    alt=""
-                                    class="h-8 w-5 shrink-0"
-                                    width="20"
-                                    height="32"
-                                    aria-hidden="true"
-                                />
+                                <img :src="backChevronIcon" alt="" class="h-8 w-5 shrink-0" width="20" height="32" aria-hidden="true" />
                             </StoryPlayGlassRoundButton>
                         </div>
-                        <div
-                            v-if="!coverImageUrl"
-                            class="pointer-events-none absolute inset-0 z-[2] grid place-items-center"
-                            aria-hidden="true"
-                        >
-                            <span class="font-['Marcellus_SC','Marcellus SC',serif] text-4xl uppercase tracking-wider text-white/55">
+                        <div v-if="!coverImageUrl" class="pointer-events-none absolute inset-0 z-[2] grid place-items-center" aria-hidden="true">
+                            <span class="font-['Marcellus_SC','Marcellus SC',serif] text-4xl tracking-wider text-white/55 uppercase">
                                 {{ displayTitle.charAt(0)?.toUpperCase() }}
                             </span>
                         </div>
@@ -227,7 +206,7 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
             </div>
 
             <!-- Right: Content column — full height, scrollable -->
-            <div class="relative min-w-0 flex-1 story-show-panel lg:min-h-0 lg:self-stretch lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            <div class="story-show-panel relative min-w-0 flex-1 lg:min-h-0 lg:self-stretch lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
                 <div class="flex flex-col lg:min-h-full">
                     <!-- Top bar: tabs + action buttons -->
                     <div class="shrink-0 overflow-visible pt-4 lg:pt-0">
@@ -243,10 +222,7 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                     <!-- Panel content -->
                     <div class="flex-1">
                         <!-- Details panel -->
-                        <div
-                            v-if="panel === 'details'"
-                            class="flex flex-col gap-[33px] pt-[41px] pb-4"
-                        >
+                        <div v-if="panel === 'details'" class="flex flex-col gap-[33px] pt-[41px] pb-4">
                             <div class="flex flex-col gap-[21px]">
                                 <div class="flex flex-col gap-2.5">
                                     <StoryPlayTitleProgress :title="displayTitle" />
@@ -306,12 +282,13 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                     </div>
 
                     <!-- Desktop CTA — sticky at bottom of scrollable right column -->
-                    <div class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block">
-                        <StoryPlayStartCta
-                            :label="primaryCtaLabel"
-                            :coming-soon="!isPlayable"
-                            @click="handleStartStory"
-                        />
+                    <div
+                        class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
+                    >
+                        <div class="flex gap-2.5">
+                            <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                            <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,11 +298,10 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
         <div class="fixed inset-x-0 bottom-0 z-30 lg:hidden">
             <div class="pointer-events-none absolute inset-x-0 bottom-[4.5rem] h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent" />
             <div class="relative bg-black/90 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] backdrop-blur-md">
-                <StoryPlayStartCta
-                    :label="primaryCtaLabel"
-                    :coming-soon="!isPlayable"
-                    @click="handleStartStory"
-                />
+                <div class="flex gap-2.5">
+                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                    <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                </div>
             </div>
         </div>
     </div>

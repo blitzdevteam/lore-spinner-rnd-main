@@ -56,11 +56,12 @@ final class ChaosEngineService
         'claude-haiku-4-5' => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
     ];
 
-    // public const DEFAULT_MODEL = 'claude-haiku-4-5';
+    public const DEFAULT_MODEL = 'claude-haiku-4-5';
+    // public const DEFAULT_MODEL = 'claude-sonnet-4-6';
     // /** Production /user/games narration — tighter than chaos-mode lab defaults. */
     // public const GAME_TEMPERATURE = 0.4;
 
-    public const DEFAULT_MODEL = 'claude-sonnet-4-6';
+    private const OPENAI_FALLBACK_MODEL = 'gpt-5.2';
 
     /** Production /user/games narration — matches chaos-mode temperature for maximum player agency. */
     public const GAME_TEMPERATURE = 0.9;
@@ -144,6 +145,34 @@ TEXT;
     public function allowedModels(): array
     {
         return array_keys(self::MODEL_CONFIG);
+    }
+
+    /**
+     * Resolve a stored narration model to one whose provider is configured.
+     *
+     * The production default remains Claude when its key is available. Local
+     * and preview environments that only provide OpenAI continue with the
+     * established Chaos Mode model instead of issuing an unauthenticated
+     * Anthropic request.
+     */
+    public function modelForConfiguredProvider(string $model): string
+    {
+        if ($this->modelHasConfiguredProvider($model)) {
+            return $model;
+        }
+
+        foreach ([self::DEFAULT_MODEL, self::OPENAI_FALLBACK_MODEL] as $candidate) {
+            if ($this->modelHasConfiguredProvider($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $model;
+    }
+
+    public function defaultGameModel(): string
+    {
+        return $this->modelForConfiguredProvider(self::DEFAULT_MODEL);
     }
 
     public function defaultTemperatureFor(string $model): float
@@ -1014,8 +1043,6 @@ TEXT;
             ->withSchema(new NativeObjectSchema([
                 'choices' => $schema->array()
                     ->required()
-                    ->min(3)
-                    ->max(3)
                     ->items($schema->string()->required()),
             ], 'narration_choices_repair'))
             ->withSystemPrompt(implode("\n", [
@@ -2221,6 +2248,21 @@ TEXT;
             'claude-opus-4-8',
             'claude-opus-4-7',
         ], true);
+    }
+
+    private function modelHasConfiguredProvider(string $model): bool
+    {
+        $modelConfig = self::MODEL_CONFIG[$model] ?? null;
+        if (! is_array($modelConfig)) {
+            return false;
+        }
+
+        $provider = $modelConfig['provider'] ?? null;
+        if (! is_string($provider) || $provider === '') {
+            return false;
+        }
+
+        return filled(config("prism.providers.{$provider}.api_key"));
     }
 
     /**

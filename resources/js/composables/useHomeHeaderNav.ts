@@ -1,6 +1,7 @@
 import { getMoodNavLinks, normalizeMood } from '@/data/moodBanners';
 import { index } from '@/wayfinder/routes';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
+import { index as worldsIndex } from '@/wayfinder/routes/worlds';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -26,6 +27,11 @@ export function useHomeHeaderNav() {
         return p === storiesIndex().url && !activeMood.value;
     });
 
+    const isWorldsActive = computed(() => {
+        const p = pageUrl.value.split('?')[0];
+        return p === worldsIndex().url || p.startsWith(`${worldsIndex().url}/`);
+    });
+
     const isAboutUsActive = computed(() => pageUrl.value.split('?')[0] === '/about-us');
 
     const isMoodsActive = computed(() => activeMood.value !== null);
@@ -37,11 +43,13 @@ export function useHomeHeaderNav() {
         normalizedActiveMood,
         isHomeActive,
         isLibraryActive,
+        isWorldsActive,
         isAboutUsActive,
         isMoodsActive,
         moodLinks,
         homeHref: index().url,
         libraryHref: storiesIndex().url,
+        worldsHref: worldsIndex().url,
         aboutUsHref: '/about-us',
     };
 }

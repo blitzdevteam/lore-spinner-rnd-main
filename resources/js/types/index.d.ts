@@ -61,6 +61,96 @@ export interface StoryInterface {
     is_bookmarked?: boolean;
 }
 
+export type MultiplayerLobbyMode = 'arbiter';
+
+export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'completed' | 'cancelled';
+
+export type MultiplayerLobbyMemberRole = 'host' | 'player';
+
+export interface MultiplayerLobbySettingsInterface {
+    custom_input_enabled: boolean;
+    voice_over_enabled: boolean;
+    power_ups_per_user: number;
+    decision_window_seconds: number;
+}
+
+export interface MultiplayerLobbyPlayerInterface {
+    id: number;
+    full_name: string;
+    username: string | null;
+    avatar: string;
+}
+
+export interface MultiplayerLobbyMemberInterface {
+    id: string;
+    role: MultiplayerLobbyMemberRole;
+    is_ready: boolean;
+    joined_at: string | null;
+    left_at: string | null;
+    last_seen_at: string | null;
+    user: MultiplayerLobbyPlayerInterface;
+}
+
+export interface MultiplayerLobbyChatMessageInterface {
+    id: string;
+    body: string;
+    created_at: string | null;
+    user: MultiplayerLobbyPlayerInterface;
+}
+
+export interface MultiplayerLobbyInterface {
+    id: string;
+    room_code: string;
+    invite_url?: string;
+    mode: MultiplayerLobbyMode;
+    status: MultiplayerLobbyStatus;
+    max_players: number;
+    settings: MultiplayerLobbySettingsInterface;
+    created_at: string | null;
+    story: StoryInterface;
+    host: MultiplayerLobbyPlayerInterface;
+    members: MultiplayerLobbyMemberInterface[];
+    is_host: boolean;
+}
+
+export interface MultiplayerLobbyCardInterface {
+    id: string;
+    room_code: string;
+    mode: MultiplayerLobbyMode;
+    max_players: number;
+    players_count: number;
+    story: Pick<StoryInterface, 'title' | 'slug' | 'cover'>;
+    is_host: boolean;
+}
+
+export type MultiplayerArbiterTurnStatus =
+    | 'opening'
+    | 'collecting_proposals'
+    | 'awaiting_arbiter'
+    | 'narrating'
+    | 'session_complete'
+    | null;
+
+export interface MultiplayerLobbyProposalInterface {
+    id: string;
+    member_id: string;
+    text: string | null;
+    is_selected: boolean;
+    selected_at: string | null;
+}
+
+export interface MultiplayerArbiterStateInterface {
+    turn_status: MultiplayerArbiterTurnStatus;
+    source_prompt_id: string | null;
+    current_arbiter_member_id: string | null;
+    decision_deadline_at: string | null;
+    decision_remaining_seconds: number | null;
+    is_current_user_arbiter: boolean;
+    awaiting_member_ids: string[];
+    proposals: MultiplayerLobbyProposalInterface[];
+    last_selected_proposal: MultiplayerLobbyProposalInterface | null;
+}
+
 export type ComingSoonStorySection = 'hero' | 'featured-worlds' | 'new-stories' | 'coming-soon';
 
 export interface ComingSoonStoryInterface {
@@ -87,6 +177,21 @@ export interface CategoryInterface {
 
     // Relations
     stories?: StoryInterface[];
+}
+
+export interface WorldInterface {
+    id: number;
+    title: string;
+    slug: string;
+    tagline: string | null;
+    description: string | null;
+    tags: string[];
+    position: number;
+    is_active: boolean;
+    background: string;
+    stories?: StoryInterface[];
+    stories_count?: number;
+    updated_at: string | null;
 }
 
 export interface ChapterInterface {
@@ -153,6 +258,16 @@ export interface VisibleSuggestionInterface {
 }
 
 export type PromptChoice = string | VisibleSuggestionInterface;
+
+export interface GameplayUsageTotals {
+    turns: number;
+    voice_duration_ms: number;
+}
+
+export interface GameplayUsageSummary {
+    game: GameplayUsageTotals;
+    total: GameplayUsageTotals;
+}
 
 export interface GameInterface {
     id: string;

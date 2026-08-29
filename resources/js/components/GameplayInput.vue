@@ -23,6 +23,8 @@ const emit = defineEmits<{
     submit: [prompt: string];
     /** User focused the bar or started typing — parent may show the sweep glow. */
     readyToType: [];
+    /** The draft changed, so multiplayer surfaces can share an ephemeral typing state. */
+    typing: [isTyping: boolean];
     focus: [];
     blur: [];
 }>();
@@ -34,6 +36,10 @@ const readySignaled = ref(false);
 const stt = useSpeechToText();
 
 const hasText = computed(() => inputText.value.trim().length > 0);
+
+watch(inputText, (text) => {
+    emit('typing', text.trim().length > 0);
+});
 
 const handleSubmit = () => {
     if (props.disabled) return;
@@ -62,10 +68,18 @@ function signalReadyToType() {
     emit('readyToType');
 }
 
+function handleBlur(): void {
+    emit('blur');
+    emit('typing', false);
+}
+
 watch(
     () => props.disabled,
     (disabled) => {
-        if (disabled) readySignaled.value = false;
+        if (disabled) {
+            readySignaled.value = false;
+            emit('typing', false);
+        }
     },
 );
 
@@ -151,7 +165,7 @@ onUnmounted(() => {
                     name="story_input"
                     @keydown="handleKeydown"
                     @focus="signalReadyToType(); emit('focus')"
-                    @blur="emit('blur')"
+                    @blur="handleBlur"
                     @input="signalReadyToType"
                 />
 

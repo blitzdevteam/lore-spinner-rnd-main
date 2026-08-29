@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Laravel\Cashier\Billable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -29,6 +30,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $avatar
  * @property string|null $bio
  * @property bool $is_active
+ * @property string|null $stripe_id
+ * @property string|null $pm_type
+ * @property string|null $pm_last_four
+ * @property Carbon|null $trial_ends_at
  * @property Carbon|null $email_verified_at
  * @property string|null $remember_token
  * @property Carbon|null $created_at
@@ -39,11 +44,15 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $comments_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read Collection<int, MultiplayerLobby> $hostedMultiplayerLobbies
+ * @property-read Collection<int, MultiplayerLobbyMember> $multiplayerLobbyMemberships
  * @property-read Collection<int, Story> $bookmarkedStories
  * @property-read int|null $bookmarked_stories_count
  */
 final class User extends Authenticatable implements CanResetPassword, HasMedia
 {
+    use Billable;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
@@ -56,6 +65,7 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
 
     protected $hidden = [
         'password', 'remember_token', 'email_verified_at', 'is_active', 'created_at', 'updated_at',
+        'stripe_id', 'pm_type', 'pm_last_four', 'trial_ends_at',
     ];
 
     protected $appends = [
@@ -95,26 +105,6 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         return $this->defaultAvatarPath();
     }
 
-    private function defaultAvatarPath(): string
-    {
-        if ($this->id) {
-            return '/storage/avatar/'.(($this->id % 9) + 1).'.png';
-        }
-
-        return '/storage/profile.svg';
-    }
-
-    private static function toRelativeStoragePath(string $url): ?string
-    {
-        $path = parse_url($url, PHP_URL_PATH);
-
-        if (! is_string($path) || ! str_starts_with($path, '/storage/')) {
-            return null;
-        }
-
-        return $path;
-    }
-
     /**
      * @return MorphMany<Comment, $this>
      */
@@ -129,6 +119,22 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     public function games(): HasMany
     {
         return $this->hasMany(Game::class);
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobby, $this>
+     */
+    public function hostedMultiplayerLobbies(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobby::class, 'host_user_id');
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobbyMember, $this>
+     */
+    public function multiplayerLobbyMemberships(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobbyMember::class);
     }
 
     /**
@@ -177,5 +183,25 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         return Attribute::make(
             set: fn (string $value): ?string => blank($value) ? null : mb_strtolower($value)
         );
+    }
+
+    private static function toRelativeStoragePath(string $url): ?string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || ! str_starts_with($path, '/storage/')) {
+            return null;
+        }
+
+        return $path;
+    }
+
+    private function defaultAvatarPath(): string
+    {
+        if ($this->id) {
+            return '/storage/avatar/'.(($this->id % 9) + 1).'.png';
+        }
+
+        return '/storage/profile.svg';
     }
 }

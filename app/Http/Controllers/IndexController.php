@@ -8,6 +8,7 @@ use App\Models\ComingSoonStory;
 use App\Models\Creator;
 use App\Models\Game;
 use App\Models\Story;
+use App\Models\World;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 
@@ -82,6 +83,25 @@ final class IndexController extends Controller
                 ->orderBy('id')
                 ->get()
                 ->toResourceCollection(),
+            'worlds' => fn () => World::query()
+                ->active()
+                ->with([
+                    'media',
+                    'stories' => fn ($query) => $query
+                        ->published()
+                        ->with(['media'])
+                        ->orderByPivot('position')
+                        ->limit(4),
+                ])
+                ->withCount([
+                    'stories' => fn ($query) => $query->published(),
+                ])
+                ->orderBy('position')
+                ->orderBy('id')
+                ->limit(3)
+                ->get()
+                ->toResourceCollection(),
+            'worldsCount' => fn () => World::query()->active()->count(),
         ];
     }
 }

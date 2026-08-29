@@ -8,6 +8,7 @@ use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\Story;
+use App\Services\Runtime\Mp3DurationCalculator;
 use App\Services\Runtime\PlayerVoiceUsageRecorder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -38,6 +39,7 @@ final class NarrationAudioService
     public function __construct(
         private readonly PlayerVoiceUsageRecorder $voiceUsage,
         private readonly ChaosEngineService $engine,
+        private readonly Mp3DurationCalculator $duration,
     ) {}
 
     /**
@@ -180,6 +182,7 @@ final class NarrationAudioService
                 default => throw new RuntimeException("Unsupported TTS provider [{$provider}]."),
             };
             $latencyMs = (int) round((microtime(true) - $providerStartedAt) * 1_000);
+            $audioDurationMs = $this->duration->milliseconds($rendered['audio']);
 
             try {
                 $this->voiceUsage->record(
@@ -192,6 +195,7 @@ final class NarrationAudioService
                     billableUnits: $rendered['billable_units'],
                     billingUnit: $rendered['billing_unit'],
                     audio: $rendered['audio'],
+                    audioDurationMs: $audioDurationMs,
                     latencyMs: $latencyMs,
                     outputFormat: $rendered['output_format'],
                     providerRequestId: $rendered['request_id'],
