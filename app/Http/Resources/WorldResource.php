@@ -24,6 +24,7 @@ final class WorldResource extends BaseResource
             'title' => $this->title,
             'slug' => $this->slug,
             'tagline' => $this->tagline,
+            'description' => $this->description,
             'tags' => $this->tags ?? [],
             'position' => $this->position,
             'is_active' => $this->is_active,

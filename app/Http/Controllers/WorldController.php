@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\ComingSoonStory\ComingSoonStorySectionEnum;
+use App\Models\ComingSoonStory;
 use App\Models\World;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Inertia\Response;
@@ -38,6 +40,27 @@ final class WorldController extends Controller
 
         return inertia('Worlds/Show', [
             'world' => $world->toResource(),
+            'otherWorlds' => World::query()
+                ->active()
+                ->whereKeyNot($world->id)
+                ->with($this->worldRelations())
+                ->withCount([
+                    'stories' => fn ($query) => $query->published(),
+                ])
+                ->orderBy('position')
+                ->orderBy('id')
+                ->limit(3)
+                ->get()
+                ->toResourceCollection(),
+            'worldsCount' => World::query()->active()->count(),
+            'comingSoonStories' => ComingSoonStory::query()
+                ->with(['media'])
+                ->active()
+                ->where('section', ComingSoonStorySectionEnum::COMING_SOON)
+                ->orderBy('position')
+                ->orderBy('id')
+                ->get()
+                ->toResourceCollection(),
         ]);
     }
 

@@ -23,6 +23,7 @@ final class WorldFactory extends Factory
             'title' => Str::title($title),
             'slug' => Str::slug($title).'-'.Str::lower(Str::random(4)),
             'tagline' => fake()->sentence(8),
+            'description' => fake()->optional()->sentence(14),
             'tags' => fake()->randomElements(['Destiny', 'Courage', 'Control', 'Love', 'Power'], 3),
             'position' => fake()->numberBetween(0, 20),
             'is_active' => true,

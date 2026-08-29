@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\ComingSoonStory\ComingSoonStorySectionEnum;
 use App\Enums\Story\StoryStatusEnum;
+use App\Models\ComingSoonStory;
 use App\Models\Story;
 use App\Models\World;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,29 +83,64 @@ it('exposes world search fields on the worlds index', function () {
         );
 });
 
-it('shows an active world and its published stories', function () {
+it('shows an active world with stories, other worlds, and coming soon', function () {
     $world = World::factory()->create([
+        'title' => 'Gothic Horrors',
+        'slug' => 'gothic-horrors',
+        'tagline' => 'Face the monster. Find out what it sees in you.',
+        'description' => 'Step into timeless tales of terror where shadows linger, and the unknown is never far behind.',
+        'tags' => ['Horror', 'Psychological', 'Supernatural'],
+        'position' => 1,
+    ]);
+
+    World::factory()->create([
         'title' => 'Jane Austen',
         'slug' => 'jane-austen',
-        'tagline' => 'Find love without losing yourself.',
+        'position' => 2,
+    ]);
+
+    World::factory()->inactive()->create([
+        'title' => 'Hidden World',
+        'slug' => 'hidden-world',
+        'position' => 0,
     ]);
 
     $story = Story::factory()->create([
-        'title' => 'Pride and Prejudice',
+        'title' => 'Frankenstein',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
     ]);
 
     $world->stories()->attach($story->id, ['position' => 0]);
 
+    ComingSoonStory::factory()->create([
+        'title' => 'Dracula',
+        'section' => ComingSoonStorySectionEnum::COMING_SOON,
+        'is_active' => true,
+        'position' => 1,
+    ]);
+
+    ComingSoonStory::factory()->create([
+        'title' => 'Hero Banner Story',
+        'section' => ComingSoonStorySectionEnum::HERO,
+        'is_active' => true,
+        'position' => 1,
+    ]);
+
     $this->get(route('worlds.show', $world))
         ->assertOk()
         ->assertInertia(
             fn (Assert $page) => $page
                 ->component('Worlds/Show')
-                ->where('world.title', 'Jane Austen')
-                ->where('world.tagline', 'Find love without losing yourself.')
-                ->where('world.stories.0.title', 'Pride and Prejudice')
+                ->where('world.title', 'Gothic Horrors')
+                ->where('world.tagline', 'Face the monster. Find out what it sees in you.')
+                ->where('world.description', 'Step into timeless tales of terror where shadows linger, and the unknown is never far behind.')
+                ->where('world.stories.0.title', 'Frankenstein')
+                ->has('otherWorlds', 1)
+                ->where('otherWorlds.0.title', 'Jane Austen')
+                ->where('worldsCount', 2)
+                ->has('comingSoonStories', 1)
+                ->where('comingSoonStories.0.title', 'Dracula')
                 ->etc()
         );
 });

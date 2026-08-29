@@ -7,6 +7,7 @@ namespace App\Filament\Manager\Resources\Worlds\Schemas;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\TagsInput;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Fieldset;
@@ -63,6 +64,11 @@ final class WorldForm
                             ->required()
                             ->maxLength(255)
                             ->helperText('Short line shown under the world title.')
+                            ->columnSpan(2),
+                        Textarea::make('description')
+                            ->rows(3)
+                            ->maxLength(1000)
+                            ->helperText('Shown on the world page hero under the tagline.')
                             ->columnSpan(2),
                         TagsInput::make('tags')
                             ->placeholder('Destiny')

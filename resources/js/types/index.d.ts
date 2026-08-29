@@ -184,6 +184,7 @@ export interface WorldInterface {
     title: string;
     slug: string;
     tagline: string | null;
+    description: string | null;
     tags: string[];
     position: number;
     is_active: boolean;

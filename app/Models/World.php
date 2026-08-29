@@ -21,6 +21,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $title
  * @property string $slug
  * @property string|null $tagline
+ * @property string|null $description
  * @property list<string>|null $tags
  * @property int $position
  * @property bool $is_active

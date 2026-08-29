@@ -24,9 +24,13 @@ interface ComingSoonCard {
 const props = withDefaults(
     defineProps<{
         stories?: ComingSoonStoryInterface[];
+        subtitle?: string;
+        showViewAll?: boolean;
     }>(),
     {
         stories: () => [],
+        subtitle: 'New worlds are coming soon.',
+        showViewAll: true,
     },
 );
 
@@ -88,8 +92,8 @@ function openSheet(card: ComingSoonCard) {
             <div class="container-content home-section-gap">
                 <SectionHeader
                     title="Coming Soon"
-                    subtitle="New worlds are coming soon."
-                    :href="storiesIndex().url"
+                    :subtitle="subtitle || undefined"
+                    :href="showViewAll ? storiesIndex().url : undefined"
                 />
 
                 <div class="story-slider-viewport story-slider-viewport--portrait coming-soon-slider-viewport relative overflow-visible">
