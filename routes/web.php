@@ -27,6 +27,10 @@ Route::middleware(RecordPageView::class)->group(function (): void {
     Route::resource('stories', Controllers\StoryController::class)
         ->scoped(['story' => 'slug'])
         ->only(['index', 'show']);
+
+    Route::resource('worlds', Controllers\WorldController::class)
+        ->scoped(['world' => 'slug'])
+        ->only(['index', 'show']);
 });
 
 Route::get('stories/{story:slug}/multiplayer', [Controllers\StoryController::class, 'multiplayer'])

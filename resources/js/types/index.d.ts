@@ -179,6 +179,20 @@ export interface CategoryInterface {
     stories?: StoryInterface[];
 }
 
+export interface WorldInterface {
+    id: number;
+    title: string;
+    slug: string;
+    tagline: string | null;
+    tags: string[];
+    position: number;
+    is_active: boolean;
+    background: string;
+    stories?: StoryInterface[];
+    stories_count?: number;
+    updated_at: string | null;
+}
+
 export interface ChapterInterface {
     id: number;
     position: number;
