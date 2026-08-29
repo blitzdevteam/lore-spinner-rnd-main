@@ -12,8 +12,19 @@ onClickOutside(moodsWrap, () => {
     moodsOpen.value = false;
 });
 
-const { activeMood, isHomeActive, isLibraryActive, isAboutUsActive, isMoodsActive, moodLinks, homeHref, libraryHref, aboutUsHref } =
-    useHomeHeaderNav();
+const {
+    activeMood,
+    isHomeActive,
+    isLibraryActive,
+    isWorldsActive,
+    isAboutUsActive,
+    isMoodsActive,
+    moodLinks,
+    homeHref,
+    libraryHref,
+    worldsHref,
+    aboutUsHref,
+} = useHomeHeaderNav();
 
 /* Reserve the same box for every item so labels never shift; underline bar is hidden even when active */
 const underlineSlotClass = (): string => 'pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0 rounded-bl-[0.4375rem] rounded-br-[0.4375rem]';
@@ -116,6 +127,26 @@ const moodItemClass = (slug: string): string =>
                 <Link :href="libraryHref" :class="navItemShell">
                     <span :class="navStack">
                         <span :class="navClass(isLibraryActive)">Library</span>
+                        <span :class="underlineSlotClass()" aria-hidden="true" />
+                    </span>
+                </Link>
+            </li>
+
+            <li aria-hidden="true" class="hidden md:flex">
+                <span class="relative -mx-5 flex flex-col items-center">
+                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
+                        <span class="flex h-[2.0625rem] items-center justify-center">
+                            <span class="nav-divider" />
+                        </span>
+                    </span>
+                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+                </span>
+            </li>
+
+            <li>
+                <Link :href="worldsHref" :class="navItemShell">
+                    <span :class="navStack">
+                        <span :class="navClass(isWorldsActive)">Worlds</span>
                         <span :class="underlineSlotClass()" aria-hidden="true" />
                     </span>
                 </Link>
