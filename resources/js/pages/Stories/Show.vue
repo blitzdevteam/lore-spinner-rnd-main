@@ -34,6 +34,7 @@ type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
 const hasExistingGame = computed(() => !!props.existingGameId);
+const isResetting = ref(false);
 const { isBookmarked, toggleBookmark } = useBookmark(props.story.id, props.story.is_bookmarked ?? false);
 const { share } = useShare();
 
@@ -71,6 +72,28 @@ const handleStartStory = (): void => {
             story_id: props.story.id,
         });
     }
+};
+
+const handleFreshExperience = (): void => {
+    if (!props.isPlayable || !props.existingGameId || isResetting.value) return;
+
+    const confirmed = window.confirm(
+        'Start a fresh experience? This will erase all your current progress, including every prompt and choice you have made.',
+    );
+    if (!confirmed) return;
+
+    isResetting.value = true;
+    router.post(
+        `/user/games/${props.existingGameId}/reset`,
+        {},
+        {
+            preserveScroll: false,
+            preserveState: false,
+            onFinish: () => {
+                isResetting.value = false;
+            },
+        },
+    );
 };
 
 const handleMultiplayer = (): void => {
@@ -285,9 +308,17 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                     <div
                         class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
                     >
-                        <div class="flex gap-2.5">
-                            <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                            <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                        <div class="flex flex-col gap-2.5">
+                            <div class="flex gap-2.5">
+                                <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                                <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                            </div>
+                            <StoryPlayStartCta
+                                v-if="hasExistingGame && isPlayable"
+                                :label="isResetting ? 'Starting fresh…' : 'Start a fresh experience'"
+                                variant="secondary"
+                                @click="handleFreshExperience"
+                            />
                         </div>
                     </div>
                 </div>
@@ -298,9 +329,17 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
         <div class="fixed inset-x-0 bottom-0 z-30 lg:hidden">
             <div class="pointer-events-none absolute inset-x-0 bottom-[4.5rem] h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent" />
             <div class="relative bg-black/90 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] backdrop-blur-md">
-                <div class="flex gap-2.5">
-                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                    <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                <div class="flex flex-col gap-2.5">
+                    <div class="flex gap-2.5">
+                        <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                        <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                    </div>
+                    <StoryPlayStartCta
+                        v-if="hasExistingGame && isPlayable"
+                        :label="isResetting ? 'Starting fresh…' : 'Start a fresh experience'"
+                        variant="secondary"
+                        @click="handleFreshExperience"
+                    />
                 </div>
             </div>
         </div>

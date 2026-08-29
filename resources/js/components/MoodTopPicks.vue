@@ -55,7 +55,7 @@ function ratingForStory(story: StoryInterface): string {
 }
 
 function isPlayable(story: StoryInterface): boolean {
-    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story.slug);
+    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story);
 }
 
 function coverForStory(story: StoryInterface): string {

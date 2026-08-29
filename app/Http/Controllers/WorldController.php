@@ -74,7 +74,7 @@ final class WorldController extends Controller
             'stories' => function (BelongsToMany $query): void {
                 $query
                     ->published()
-                    ->with(['media', 'category:id,title'])
+                    ->with(['media', 'category:id,title', 'adaptation:id,story_id,adaptation_status'])
                     ->orderByPivot('position');
             },
         ];

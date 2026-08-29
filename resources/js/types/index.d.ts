@@ -59,6 +59,7 @@ export interface StoryInterface {
     comments_count?: number;
 
     is_bookmarked?: boolean;
+    is_playable?: boolean;
 }
 
 export type MultiplayerLobbyMode = 'arbiter';

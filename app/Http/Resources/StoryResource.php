@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\Story;
+use App\Support\StoryPlayability;
 use Illuminate\Http\Request;
 use Override;
 
@@ -46,6 +47,7 @@ final class StoryResource extends BaseResource
             'comments_count' => $this->whenCounted('comments'),
 
             'is_bookmarked' => false,
+            'is_playable' => StoryPlayability::isPlayable($this->resource),
         ];
     }
 }

@@ -6,11 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\Comment\CommentStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
-use App\Enums\Story\StoryStatusEnum;
-use App\Http\Controllers\User\GameController;
 use App\Http\Resources\MultiplayerLobbyCardResource;
 use App\Models\MultiplayerLobby;
 use App\Models\Story;
+use App\Support\StoryPlayability;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -41,6 +40,7 @@ final class StoryController extends Controller
                     'category:id,title',
                     'creator:id,first_name,last_name,username,avatar',
                     'media',
+                    'adaptation:id,story_id,adaptation_status',
                 ])
                 ->select([
                     'id', 'category_id', 'creator_id', 'title', 'slug', 'teaser', 'status', 'rating', 'updated_at',
@@ -64,6 +64,7 @@ final class StoryController extends Controller
                 'category:id,title',
                 'creator:id,first_name,last_name,username,avatar',
                 'media',
+                'adaptation:id,story_id,adaptation_status',
                 'chapters' => function (HasMany $query): void {
                     $query
                         ->with(['media'])
@@ -89,9 +90,8 @@ final class StoryController extends Controller
             $existingGameId = Auth::user()->games()->where('story_id', $story->id)->value('id');
         }
 
-        // Playable when published and on the launch whitelist (matches GameController::store).
-        $isPlayable = $story->status === StoryStatusEnum::PUBLISHED
-            && in_array($story->slug, GameController::LAUNCH_SLUGS, true);
+        // Playable when published, on the review list, and boiler-complete.
+        $isPlayable = StoryPlayability::isPlayable($story);
 
         return inertia('Stories/Show', [
             'story'          => $story->toResource(),

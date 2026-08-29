@@ -52,8 +52,9 @@ function worldCardId(id: number): string {
 
 function isPlayable(slug: string): boolean {
     const story = stories.value.find((item) => item.slug === slug);
+    if (!story || story.status?.value !== StoryStatusEnum.PUBLISHED) return false;
 
-    return Boolean(story?.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(slug));
+    return isStoryPlayable(story);
 }
 </script>
 

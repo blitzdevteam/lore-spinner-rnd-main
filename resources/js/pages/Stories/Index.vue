@@ -133,7 +133,7 @@ const sortedStories = computed(() => {
 });
 
 function isPlayableStory(story: StoryInterface): boolean {
-    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story.slug);
+    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story);
 }
 
 const games = computed<StoryGridGame[]>(() =>

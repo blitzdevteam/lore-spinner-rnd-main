@@ -63,6 +63,7 @@ final class IndexController extends Controller
                     'category:id,title',
                     'creator:id,first_name,last_name',
                     'media',
+                    'adaptation:id,story_id,adaptation_status',
                 ])
                 ->select([
                     'id', 'category_id', 'creator_id', 'title', 'slug', 'teaser', 'status', 'rating', 'updated_at',
@@ -89,7 +90,7 @@ final class IndexController extends Controller
                     'media',
                     'stories' => fn ($query) => $query
                         ->published()
-                        ->with(['media'])
+                        ->with(['media', 'adaptation:id,story_id,adaptation_status'])
                         ->orderByPivot('position')
                         ->limit(4),
                 ])

@@ -22,7 +22,6 @@ use App\Actions\Multiplayer\UpdateMultiplayerLobbyReadinessAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
-use App\Enums\Story\StoryStatusEnum;
 use App\Exceptions\Multiplayer\MultiplayerLobbyJoinException;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
 use App\Http\Controllers\Controller;
@@ -37,6 +36,7 @@ use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyProposal;
 use App\Models\Story;
 use App\Models\User;
+use App\Support\StoryPlayability;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -388,7 +388,6 @@ final class MultiplayerLobbyController extends Controller
 
     private function isStoryAvailable(Story $story): bool
     {
-        return $story->status === StoryStatusEnum::PUBLISHED
-            && in_array($story->slug, GameController::LAUNCH_SLUGS, true);
+        return StoryPlayability::isPlayable($story);
     }
 }

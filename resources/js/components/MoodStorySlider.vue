@@ -30,7 +30,7 @@ function ctaForStory(story: StoryInterface): StoryCardCta | undefined {
 
 function isComingSoon(story: StoryInterface): boolean {
     if (story.status?.value !== StoryStatusEnum.PUBLISHED) return true;
-    return !isStoryPlayable(story.slug);
+    return !isStoryPlayable(story);
 }
 
 const sliderEl = ref<HTMLElement | null>(null);

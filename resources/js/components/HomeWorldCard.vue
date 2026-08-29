@@ -19,7 +19,7 @@ const props = withDefaults(
 );
 
 const isComingSoon =
-    props.story.status?.value !== StoryStatusEnum.PUBLISHED || !isStoryPlayable(props.story.slug);
+    props.story.status?.value !== StoryStatusEnum.PUBLISHED || !isStoryPlayable(props.story);
 </script>
 
 <template>

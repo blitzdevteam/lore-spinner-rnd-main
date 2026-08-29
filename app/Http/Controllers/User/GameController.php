@@ -18,6 +18,7 @@ use App\ChaosMode\ChaosStoryConfig;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
+use App\Support\StoryPlayability;
 use App\Tts\TtsVoiceCatalog;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
@@ -26,28 +27,6 @@ use Inertia\Response;
 
 final class GameController extends Controller
 {
-    /**
-     * Stories available at launch. All other published stories show "Coming Soon".
-     * Update this list when a new story is ready for production.
-     *
-     * @var array<int, string>
-     */
-    public const LAUNCH_SLUGS = [
-        'the-wonderful-wizard-of-oz',
-        'the-adventure-of-the-speckled-band',
-        'the-tell-tale-heart',
-        'the-masque-of-the-red-death',
-        'treasure-island',
-        'dr-jekyll-and-mr-hyde',
-        'wasteland',
-        'pjs',
-        'anima-machina',
-        'nocturne',
-        'i-love-lucy-job-switching',
-        'the-matrix',
-        'momotaro-the-peach-boy',
-    ];
-
     public function __construct(
         private readonly ChaosEngineService $engine,
         private readonly ProcessGameOpeningAction $openingAction,
@@ -92,9 +71,11 @@ final class GameController extends Controller
         StoreGameRequest $request,
         CreateGameAction $createGameAction
     ): RedirectResponse {
-        $story = Story::find($request->string('story_id')->toString());
+        $story = Story::query()
+            ->with('adaptation:id,story_id,adaptation_status')
+            ->find($request->string('story_id')->toString());
 
-        if ($story === null || ! in_array($story->slug, self::LAUNCH_SLUGS, true)) {
+        if ($story === null || ! StoryPlayability::isPlayable($story)) {
             return back()->with('error', 'This story is not available yet. Stay tuned!');
         }
 
