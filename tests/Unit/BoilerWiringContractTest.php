@@ -91,7 +91,7 @@ it('runs every validated phase through one shared generate-validate-repair loop'
     // The loop owns the attempt budget, the log-event names, and the terminal
     // failure mode so no phase can drift from the others.
     expect($loop)
-        ->toContain('MAX_VALIDATION_ATTEMPTS = 2')
+        ->toContain('MAX_VALIDATION_ATTEMPTS = 3')
         ->toContain('boiler.{$artifact}_validation_failed')
         ->toContain('boiler.{$artifact}_corrected')
         ->toContain('ArtifactValidationException');
@@ -178,7 +178,7 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
         ->toContain('Return only the complete corrected structured output');
 });
 
-it('persists and exposes a failed Boiler editorial audit before stopping the chain', function () {
+it('records a Boiler editorial audit as advisory without stopping the chain', function () {
     $job = file_get_contents(app_path('Jobs/Adaptation/EditorialVerificationJob.php'));
     $command = file_get_contents(app_path('Console/Commands/InspectBoilerCommand.php'));
 
@@ -186,13 +186,31 @@ it('persists and exposes a failed Boiler editorial audit before stopping the cha
         ->toContain('public int $tries = 1')
         ->toContain('public int $timeout = 600')
         ->toContain("\$session->update(['editorial_verification' => \$verification])")
-        ->toContain('boiler.editorial_verification_failed')
+        ->toContain('boiler.editorial_verification_advisory')
         ->toContain("'revision_instructions' => \$revisions")
-        ->toContain("\$session->update(['boiler_error' => mb_substr(\$message, 0, 2_000)])")
+        ->toContain('REVIEW_PREFIX')
+        // The audit grades what BoilerFinalCutValidator already proved, so a REVISE
+        // verdict must never throw. Only genuinely broken inputs stop the chain.
+        ->not->toContain('throw new RuntimeException($message)')
+        ->not->toContain('boilerFailureMessage')
         ->and($command)
         ->toContain('Editorial Boiler audit:')
         ->toContain('Revision: ')
         ->toContain("\$result['verdict'] ?? null) === 'REVISE'");
+});
+
+it('still hard-fails Boiler editorial when its inputs are genuinely missing', function () {
+    $job = file_get_contents(app_path('Jobs/Adaptation/EditorialVerificationJob.php'));
+
+    // Advisory grading must not soften the pre-flight contract: without a voice profile
+    // or a finalized cut the audit has nothing to grade and reports the absence as an
+    // editorial defect, which would bury the real cause.
+    expect($job)
+        ->toContain('voice_profile missing')
+        ->toContain('expected finalized')
+        ->toContain('boiler_final_cut is empty')
+        ->toContain('normalized playable cut is missing')
+        ->toContain('Boiler Finalize must complete first.');
 });
 
 it('repairs Architecture pacing and canonicalizes Phase 6 choice authority before Editorial', function () {

@@ -14,14 +14,19 @@ use Throwable;
  * The generate -> canonicalize -> validate -> repair loop shared by every
  * artifact-producing adaptation phase.
  *
- * A failed validation is fed back to the agent once as a repair prompt. When the
- * attempts run out the loop raises ArtifactValidationException so the calling job
- * can fail terminally: a queue-level retry would replay the same two generations
- * against the same inputs and learn nothing.
+ * A failed validation is fed back to the agent as a repair prompt naming the exact
+ * offending paths. When the attempts run out the loop raises ArtifactValidationException
+ * so the calling job can fail terminally: a queue-level retry would replay the same
+ * generations against the same inputs and learn nothing.
+ *
+ * Two attempts proved too tight in practice. A draft can trip several independent
+ * voice bans at once, and a single repair pass often clears some while the model
+ * reaches for another banned near-synonym. The third attempt is cheap relative to
+ * losing the session and re-running the phase by hand.
  */
 trait GeneratesValidatedArtifact
 {
-    private const int MAX_VALIDATION_ATTEMPTS = 2;
+    private const int MAX_VALIDATION_ATTEMPTS = 3;
 
     /**
      * @param  string  $artifact  Log-event stem, e.g. "draft" for boiler.draft_validation_failed.

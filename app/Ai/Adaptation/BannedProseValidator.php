@@ -115,8 +115,8 @@ final class BannedProseValidator
         $errors   = [];
         $warnings = [];
 
-        $ipBannedWords = $this->extractIpBannedWords($voiceProfile);
-        $bannedWords    = array_unique(array_merge(self::UNIVERSAL_BANNED_WORDS, $ipBannedWords));
+        $ipBans      = $this->extractIpBannedWords($voiceProfile);
+        $bannedWords = array_unique(array_merge(self::UNIVERSAL_BANNED_WORDS, $ipBans['hard']));
 
         $proseValues = $this->extractProseValues($artifact, $prosePaths);
 
@@ -130,6 +130,12 @@ final class BannedProseValidator
             foreach ($bannedWords as $word) {
                 if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $text)) {
                     $errors[] = "{$path}: banned vocabulary '{$word}'. Use the author's diction from the voice profile instead.";
+                }
+            }
+
+            foreach ($ipBans['soft'] as $word) {
+                if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $text)) {
+                    $warnings[] = "{$path}: IP-specific ban '{$word}' appears — verify it is the author's diction, not a shorthand.";
                 }
             }
 
@@ -151,14 +157,29 @@ final class BannedProseValidator
     }
 
     /**
-     * Extract banned words from the voice profile's IP-specific bans.
+     * Extract banned terms from the voice profile's IP-specific bans, split by how
+     * safely each one can be enforced.
+     *
+     * The extraction reads a natural-language sentence written freely by Voice Lock,
+     * so what comes out is unpredictable, and a multi-word phrase is a very different
+     * risk from a bare word.
+     *
+     * A multi-word phrase targets a construction, so it is safe to reject on.
+     *
+     * A bare token is not. A ban phrased "Holmes in narration" yields "Holmes", and
+     * "fog as atmosphere" yields "fog". Enforced as a hard error, either one fails
+     * every draft in the title, on every attempt, with no possible repair, because the
+     * narrator cannot write Baker Street without naming Holmes. Those still carry real
+     * signal when the author genuinely overuses a word, so they are reported as
+     * warnings and left for a human rather than allowed to brick a session.
      *
      * @param  array<string, mixed>  $voiceProfile
-     * @return array<int, string>
+     * @return array{hard: array<int, string>, soft: array<int, string>}
      */
     private function extractIpBannedWords(array $voiceProfile): array
     {
-        $words = [];
+        $hard = [];
+        $soft = [];
         $ipBans = (array) data_get($voiceProfile, 'master_rule_1_hard_bans.ip_specific_bans', []);
 
         foreach ($ipBans as $ban) {
@@ -171,18 +192,43 @@ final class BannedProseValidator
                 continue;
             }
 
-            // Extract the key noun/phrase from the ban text — the word itself,
-            // not the full explanation. Heuristic: text before "in", "as",
-            // "for", or "when" (e.g., "jaw in action lines" → "jaw").
-            if (preg_match('/^([^.!?]{2,40})\s+(?:in|as|for|when)\b/i', $banText, $m)) {
-                $candidate = mb_trim($m[1]);
-                if (mb_strlen($candidate) >= 2 && mb_strlen($candidate) <= 40) {
-                    $words[] = $candidate;
-                }
+            // Extract the key noun/phrase from the ban text — the word itself, not the
+            // full explanation. Heuristic: text before "in", "as", "for", or "when"
+            // (e.g., "jaw in action lines" → "jaw").
+            if (! preg_match('/^([^.!?]{2,40})\s+(?:in|as|for|when)\b/i', $banText, $m)) {
+                continue;
+            }
+
+            $candidate = mb_trim($m[1]);
+
+            if (mb_strlen($candidate) < 2 || mb_strlen($candidate) > 40 || $this->isInstructionFragment($candidate)) {
+                continue;
+            }
+
+            if (preg_match('/\s/', $candidate) === 1) {
+                $hard[] = $candidate;
+            } else {
+                $soft[] = $candidate;
             }
         }
 
-        return $words;
+        return ['hard' => array_unique($hard), 'soft' => array_unique($soft)];
+    }
+
+    /**
+     * Whether an extracted candidate is an instruction fragment rather than a term.
+     *
+     * Voice Lock usually phrases bans as full sentences, so "Do not write grief as
+     * overt sobbing monologue" yields "Do not write grief". As a literal term that is
+     * inert, it will never appear in prose, but it is noise in every error message and
+     * it hides the fact that the IP ban matched nothing.
+     */
+    private function isInstructionFragment(string $candidate): bool
+    {
+        return preg_match(
+            '/^(?:do not|don\'t|do|avoid|never|no|refrain|stop|limit|reduce|minimi[sz]e)\b/i',
+            $candidate,
+        ) === 1;
     }
 
     /**

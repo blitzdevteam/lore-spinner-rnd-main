@@ -132,7 +132,7 @@ final class BannedProseValidatorTest extends TestCase
         $this->assertStringContainsString('source_extracts.1', $result['errors'][0]);
     }
 
-    public function testUsesIpSpecificBans(): void
+    public function testWarnsOnSingleWordIpSpecificBanWithoutRejecting(): void
     {
         $voiceProfile = [
             'master_rule_1_hard_bans' => [
@@ -148,8 +148,76 @@ final class BannedProseValidatorTest extends TestCase
 
         $result = $this->validator->scan($artifact, $voiceProfile, ['opening_image']);
 
+        $this->assertSame([], $result['errors']);
+        $this->assertNotEmpty($result['warnings']);
+        $this->assertStringContainsString('jaw', $result['warnings'][0]);
+    }
+
+    public function testRejectsMultiWordIpSpecificBan(): void
+    {
+        $voiceProfile = [
+            'master_rule_1_hard_bans' => [
+                'ip_specific_bans' => [
+                    ['ban' => 'jaw clenched in action lines'],
+                ],
+            ],
+        ];
+
+        $artifact = [
+            'opening_image' => 'His jaw clenched at the door.',
+        ];
+
+        $result = $this->validator->scan($artifact, $voiceProfile, ['opening_image']);
+
         $this->assertNotEmpty($result['errors']);
-        $this->assertStringContainsString('jaw', $result['errors'][0]);
+        $this->assertStringContainsString('jaw clenched', $result['errors'][0]);
+    }
+
+    /**
+     * A ban phrased "Holmes in narration" must never become a hard gate — the name is
+     * unavoidable in the prose, so rejecting on it would fail every draft in the title.
+     */
+    public function testProperNounIpSpecificBanNeverBlocks(): void
+    {
+        $voiceProfile = [
+            'master_rule_1_hard_bans' => [
+                'ip_specific_bans' => [
+                    ['ban' => 'Holmes in narration'],
+                    ['ban' => 'fog as atmosphere'],
+                ],
+            ],
+        ];
+
+        $artifact = [
+            'opening_image' => 'Holmes steps into the fog.',
+        ];
+
+        $result = $this->validator->scan($artifact, $voiceProfile, ['opening_image']);
+
+        $this->assertSame([], $result['errors']);
+    }
+
+    /**
+     * Voice Lock writes bans as full sentences, so extraction yields fragments such as
+     * "Do not write grief". Those must not be enforced as literal terms.
+     */
+    public function testIgnoresInstructionFragmentBans(): void
+    {
+        $voiceProfile = [
+            'master_rule_1_hard_bans' => [
+                'ip_specific_bans' => [
+                    ['ban' => 'Do not write grief as overt sobbing monologue or sentimental confession.'],
+                ],
+            ],
+        ];
+
+        $artifact = [
+            'opening_image' => 'Do not write grief here.',
+        ];
+
+        $result = $this->validator->scan($artifact, $voiceProfile, ['opening_image']);
+
+        $this->assertSame([], $result['errors']);
     }
 
     public function testIgnoresEmptyAndMissingFields(): void
