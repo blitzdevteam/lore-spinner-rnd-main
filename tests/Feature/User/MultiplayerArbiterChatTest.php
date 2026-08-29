@@ -27,18 +27,29 @@ it('pins the arbiter side rails while the story column scrolls', function () {
         ->toContain('ref="storyColumn"');
 });
 
-it('toggles the arbiter players and chat panels from their rail buttons', function () {
+it('uses header controls and bottom sheets for arbiter panels on mobile', function () {
     $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
 
     expect($template)
+        ->toContain("import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';")
         ->toContain('const isPlayersPanelOpen = ref(true)')
         ->toContain('const isChatPanelOpen = ref(true)')
+        ->toContain("const activeMobilePanel = ref<MobilePanel>(null)")
+        ->toContain("const MOBILE_MQ = '(max-width: 1120px)'")
         ->toContain('@click="togglePlayersPanel"')
         ->toContain('@click="toggleChatPanel"')
         ->toContain('v-show="isPlayersPanelOpen"')
         ->toContain('v-show="isChatPanelOpen"')
         ->toContain(':aria-expanded="isPlayersPanelOpen"')
-        ->toContain(':aria-expanded="isChatPanelOpen"');
+        ->toContain(':aria-expanded="isChatPanelOpen"')
+        ->toContain('class="arbiter-mobile-panel-controls"')
+        ->toContain('aria-controls="arbiter-players-drawer"')
+        ->toContain('aria-controls="arbiter-chat-drawer"')
+        ->toContain(':open="isMobile && activeMobilePanel === \'players\'"')
+        ->toContain(':open="isMobile && activeMobilePanel === \'chat\'"')
+        ->toContain('class="arbiter-mobile-panel arbiter-mobile-players-panel"')
+        ->toContain('class="arbiter-mobile-panel arbiter-mobile-chat-panel"')
+        ->toContain('@media (max-width: 1120px)');
 });
 
 it('shares proposal typing state through the multiplayer presence channel', function () {
@@ -49,7 +60,9 @@ it('shares proposal typing state through the multiplayer presence channel', func
         ->toContain("const typingWhisperEvent = 'multiplayer.arbiter.typing'")
         ->toContain('usePresenceChannel(lobbyChannelName)')
         ->toContain('listenForWhisper(typingWhisperEvent, handleTypingWhisper)')
-        ->toContain('whisper(typingWhisperEvent, { is_typing: isTyping })')
+        ->toContain('whisper(typingWhisperEvent, {')
+        ->toContain('is_typing: isTyping,')
+        ->toContain('user_id: member.user.id,')
         ->toContain('@typing="handleProposalTyping"')
         ->toContain('typing-label--active');
 
