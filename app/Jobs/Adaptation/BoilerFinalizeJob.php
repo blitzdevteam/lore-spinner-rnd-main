@@ -91,6 +91,15 @@ final class BoilerFinalizeJob implements ShouldQueue
                     'session_number' => $this->sessionNumber,
                     'held_since' => $fresh->updated_at?->toIso8601String(),
                 ]);
+
+                if (empty($fresh->boiler_draft)) {
+                    return 'not_finalizable';
+                }
+
+                $fresh->update([
+                    'boiler_status' => BoilerStatus::DRAFTED,
+                    'boiler_error' => null,
+                ]);
             }
             if ($fresh->boiler_status !== BoilerStatus::DRAFTED) {
                 return 'not_finalizable';

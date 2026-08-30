@@ -150,6 +150,8 @@ it('keeps long adaptation jobs inside the database queue lease', function () {
         ->toContain('is already failed.')
         ->and($finalizeJob)
         ->toContain('boiler.finalize_not_claimed')
+        ->toContain('boiler.finalize_reclaimed_stale_lock')
+        ->toContain("'boiler_status' => BoilerStatus::DRAFTED")
         ->and($architectureJob)
         ->toContain('$session->boiler_status !== BoilerStatus::DRAFTED')
         ->toContain('requires a validated Boiler Draft');
