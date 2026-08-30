@@ -186,6 +186,28 @@ it('rejects empty source_event_ids when role map cannot recover them', function 
     );
 })->throws(RuntimeException::class, 'Boiler moment S1_M01 requires source_event_ids.');
 
+it('neutralizes banned punctuation in draft prose fields before validation', function () {
+    $draft = boilerTestDraft();
+    $draft['playable_promise'] = 'She waits; the room holds — then silence...';
+    $draft['moment_drafts'][0]['source_extracts'] = [
+        'The hall was cold; no one spoke.',
+    ];
+    $draft['event_role_map'][0]['why'] = 'It lands late; the reader feels it.';
+
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+
+    expect($canonicalized['playable_promise'])->not->toContain(';')
+        ->and($canonicalized['moment_drafts'][0]['source_extracts'][0])->not->toContain(';')
+        ->and($canonicalized['event_role_map'][0]['why'])->not->toContain(';');
+
+    (new BoilerDraftValidator())->validate(
+        $canonicalized,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+});
+
 it('fills empty source_event_ids from the moment anchor when roles do not bind', function () {
     $draft = boilerTestDraft();
     $draft['moment_drafts'][0]['source_event_ids'] = [];
