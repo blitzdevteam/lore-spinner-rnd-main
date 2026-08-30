@@ -8,11 +8,14 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Support\StoryPlayability;
 
-it('approves the unwritten ones for review play once boiled', function () {
-    expect(StoryPlayability::isReviewSlug('the-unwritten-ones'))->toBeTrue();
+it('keeps launch-list slugs distinct from the unwritten ones title', function () {
+    expect(StoryPlayability::isLaunchSlug('the-adventure-of-the-speckled-band'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeFalse()
+        ->and(StoryPlayability::isLaunchSlug('emma'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('peter-pan'))->toBeTrue();
 });
 
-it('allows play only for approved review slugs with completed adaptation', function () {
+it('allows play only for launch-list slugs with completed adaptation', function () {
     $story = Story::factory()->create([
         'slug' => 'the-adventure-of-the-speckled-band',
         'status' => StoryStatusEnum::PUBLISHED,
@@ -29,7 +32,7 @@ it('allows play only for approved review slugs with completed adaptation', funct
     expect(StoryPlayability::isPlayable($story))->toBeTrue();
 });
 
-it('blocks play for approved slugs still boiling', function () {
+it('blocks play for launch-list slugs still boiling', function () {
     $story = Story::factory()->create([
         'slug' => 'the-adventure-of-the-blue-carbuncle',
         'status' => StoryStatusEnum::PUBLISHED,
@@ -46,9 +49,9 @@ it('blocks play for approved slugs still boiling', function () {
     expect(StoryPlayability::isPlayable($story))->toBeFalse();
 });
 
-it('blocks play for completed adaptations outside the review list', function () {
+it('blocks play for completed adaptations outside the launch list', function () {
     $story = Story::factory()->create([
-        'slug' => 'wasteland',
+        'slug' => 'the-unwritten-ones',
         'status' => StoryStatusEnum::PUBLISHED,
     ]);
 

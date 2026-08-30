@@ -1,21 +1,31 @@
 import type { StoryInterface } from '@/types';
 
 /**
- * Mirrors `config/stories.php` review_playable_slugs — approved for boil/review.
+ * Mirrors `config/stories.php` launch_playable_slugs.
  * Actual playability also requires `adaptation_status === completed` (see `is_playable` on API stories).
  */
-export const REVIEW_PLAYABLE_SLUGS = [
+export const LAUNCH_PLAYABLE_SLUGS = [
+    'the-wonderful-wizard-of-oz',
+    'peter-pan',
     'the-adventure-of-the-speckled-band',
-    'the-adventure-of-the-blue-carbuncle',
     'a-scandal-in-bohemia',
-    'pride-and-prejudice',
-    'treasure-island',
+    'the-adventure-of-the-blue-carbuncle',
+    'dracula',
+    'frankenstein',
     'dr-jekyll-and-mr-hyde',
     'the-tell-tale-heart',
-    'the-unwritten-ones',
+    'pride-and-prejudice',
+    'emma',
+    'treasure-island',
+    'around-the-world-in-eighty-days',
+    'journey-to-the-center-of-the-earth',
+    'the-three-musketeers',
+    'robin-hood',
+    'the-invisible-man',
+    'sir-gawain-and-the-green-knight',
 ] as const;
 
-export type ReviewPlayableSlug = (typeof REVIEW_PLAYABLE_SLUGS)[number];
+export type LaunchPlayableSlug = (typeof LAUNCH_PLAYABLE_SLUGS)[number];
 
 type PlayableStoryInput = string | Pick<StoryInterface, 'slug' | 'is_playable'>;
 
@@ -28,7 +38,11 @@ export function isStoryPlayable(input: PlayableStoryInput): boolean {
     return false;
 }
 
-/** @deprecated Use REVIEW_PLAYABLE_SLUGS — kept for imports that referenced the old constant name. */
-export const PLAYABLE_STORY_SLUGS = REVIEW_PLAYABLE_SLUGS;
+/** @deprecated Use LAUNCH_PLAYABLE_SLUGS */
+export const REVIEW_PLAYABLE_SLUGS = LAUNCH_PLAYABLE_SLUGS;
 
-export type PlayableStorySlug = ReviewPlayableSlug;
+/** @deprecated Use LAUNCH_PLAYABLE_SLUGS */
+export const PLAYABLE_STORY_SLUGS = LAUNCH_PLAYABLE_SLUGS;
+
+export type PlayableStorySlug = LaunchPlayableSlug;
+export type ReviewPlayableSlug = LaunchPlayableSlug;

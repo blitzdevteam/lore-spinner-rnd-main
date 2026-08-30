@@ -13,17 +13,23 @@ final class StoryPlayability
     /**
      * @return list<string>
      */
-    public static function reviewSlugs(): array
+    public static function launchSlugs(): array
     {
         /** @var list<string> $slugs */
-        $slugs = config('stories.review_playable_slugs', []);
+        $slugs = config('stories.launch_playable_slugs', []);
 
         return $slugs;
     }
 
+    public static function isLaunchSlug(string $slug): bool
+    {
+        return in_array($slug, self::launchSlugs(), true);
+    }
+
+    /** @deprecated Use isLaunchSlug() */
     public static function isReviewSlug(string $slug): bool
     {
-        return in_array($slug, self::reviewSlugs(), true);
+        return self::isLaunchSlug($slug);
     }
 
     public static function isPlayable(Story $story): bool
@@ -32,7 +38,7 @@ final class StoryPlayability
             return false;
         }
 
-        if (! self::isReviewSlug($story->slug)) {
+        if (! self::isLaunchSlug($story->slug)) {
             return false;
         }
 

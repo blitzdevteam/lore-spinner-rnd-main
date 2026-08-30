@@ -3,28 +3,57 @@
 declare(strict_types=1);
 
 /**
- * Review / launch playability — "The Unwritten Ones".
+ * Launch list — stories that may become playable once published + boiler-complete.
  *
- * A story is playable only when its slug is listed here AND adaptation_status is
- * completed. Boiling an approved title unlocks it automatically; all other
- * published stories show as Coming Soon in the UI.
+ * Keys are story slugs. Marketing titles are comments only.
+ * The Unwritten Ones is a separate title, not this list.
  */
 return [
-    'review_playable_slugs' => [
-        // Baker Street / Sherlock Holmes
-        'the-adventure-of-the-speckled-band',
-        'the-adventure-of-the-blue-carbuncle',
-        'a-scandal-in-bohemia',
+    'launch_playable_slugs' => [
+        // Land of Oz
+        'the-wonderful-wizard-of-oz', // The Wonderful Wizard of Oz: The Road Home
 
-        // Jane Austen
-        'pride-and-prejudice',
+        // Neverland
+        'peter-pan', // Peter Pan: Wendy's Neverland
 
-        // Classics
-        'treasure-island',
-        'dr-jekyll-and-mr-hyde',
-        'the-tell-tale-heart',
+        // Baker Street
+        'the-adventure-of-the-speckled-band', // Sherlock Holmes: The Speckled Band
+        'a-scandal-in-bohemia', // Sherlock Holmes: A Scandal in Bohemia
+        'the-adventure-of-the-blue-carbuncle', // Sherlock Holmes: The Blue Carbuncle
 
-        // LoreSpinner Originals
-        'the-unwritten-ones',
+        // Dracula's England
+        'dracula', // Dracula: The First Invitation
+
+        // Frankenstein's World
+        'frankenstein', // Frankenstein: The Creature Awakens
+
+        // Hyde's London
+        'dr-jekyll-and-mr-hyde', // Dr. Jekyll and Mr. Hyde: The Other Self
+
+        // Poe's Gothic
+        'the-tell-tale-heart', // The Tell-Tale Heart: Beneath the Floor
+
+        // Regency England
+        'pride-and-prejudice', // Pride and Prejudice: First Impressions
+        'emma', // Emma: Hearts Misread
+
+        // Treasure Island
+        'treasure-island', // Treasure Island: The Map and the Mutiny
+
+        // Extraordinary Voyages
+        'around-the-world-in-eighty-days', // Around the World in Eighty Days: Race the Clock
+        'journey-to-the-center-of-the-earth', // Journey to the Center of the Earth: Descent
+
+        // Musketeer France
+        'the-three-musketeers', // The Three Musketeers: One for All
+
+        // Sherwood Forest
+        'robin-hood', // Robin Hood: Outlaw of Sherwood
+
+        // The Unseen World
+        'the-invisible-man', // The Invisible Man: Unseen
+
+        // Arthurian Britain
+        'sir-gawain-and-the-green-knight', // Sir Gawain and the Green Knight: The Year of Honor
     ],
 ];
