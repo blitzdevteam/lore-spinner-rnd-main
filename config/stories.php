@@ -33,9 +33,6 @@ return [
 
     /** Already boiled on Cloud — stay playable even though not on the 18-title launch roster. */
     'boiled_playable_slugs' => [
-        'anima-machina',
-        'wasteland',
-        'driftheart',
         'momotaro-the-peach-boy',
         'the-unwritten-ones',
     ],

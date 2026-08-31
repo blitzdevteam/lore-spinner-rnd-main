@@ -29,9 +29,10 @@ it('lists every launch catalog slug in the playable allowlist', function (): voi
 });
 
 it('keeps already-boiled rnd titles playable', function (): void {
-    expect(StoryPlayability::isLaunchSlug('wasteland'))->toBeTrue()
-        ->and(StoryPlayability::isLaunchSlug('anima-machina'))->toBeTrue()
-        ->and(StoryPlayability::isLaunchSlug('momotaro-the-peach-boy'))->toBeTrue();
+    expect(StoryPlayability::isLaunchSlug('momotaro-the-peach-boy'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('wasteland'))->toBeFalse()
+        ->and(StoryPlayability::isLaunchSlug('anima-machina'))->toBeFalse();
 });
 
 it('lists every launch world from the catalog', function (): void {

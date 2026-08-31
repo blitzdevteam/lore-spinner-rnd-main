@@ -27,9 +27,6 @@ export const LAUNCH_PLAYABLE_SLUGS = [
 
 /** Already-boiled RnD titles — playable when `is_playable` is true from the API. */
 export const BOILED_PLAYABLE_SLUGS = [
-    'anima-machina',
-    'wasteland',
-    'driftheart',
     'momotaro-the-peach-boy',
     'the-unwritten-ones',
 ] as const;
