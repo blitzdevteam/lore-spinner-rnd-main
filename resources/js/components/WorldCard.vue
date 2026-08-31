@@ -66,9 +66,17 @@ function storyHref(story: StoryInterface): string {
                     <div class="flex h-[4.625rem] w-full flex-col justify-center">
                         <div class="flex flex-col gap-1.5">
                             <div class="flex flex-col gap-1">
-                                <h3 class="font-inria-serif text-[1.125rem] leading-normal font-bold text-white">
-                                    {{ world.title }}
-                                </h3>
+                                <button
+                                    type="button"
+                                    class="world-card__title-btn"
+                                    :aria-expanded="modalOpen"
+                                    aria-haspopup="dialog"
+                                    @click.stop="openWorldModal"
+                                >
+                                    <h3 class="font-inria-serif text-[1.125rem] leading-normal font-bold text-white">
+                                        {{ world.title }}
+                                    </h3>
+                                </button>
                                 <p class="text-[0.8125rem] leading-normal font-light text-white">
                                     {{ world.tagline }}
                                 </p>
@@ -85,10 +93,13 @@ function storyHref(story: StoryInterface): string {
                     <div class="world-card__stories-inner">
                         <div class="flex h-[7.625rem] w-full items-center overflow-hidden">
                             <div class="flex items-center gap-2.5">
-                                <div
+                                <Link
                                     v-for="story in previewStories"
                                     :key="story.id"
-                                    class="flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px]"
+                                    :href="storyHref(story)"
+                                    class="world-card__story-link pointer-events-auto flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px] no-underline"
+                                    :aria-label="`Open ${story.title}`"
+                                    @click.stop
                                 >
                                     <img
                                         v-if="hasCover(story)"
@@ -103,7 +114,7 @@ function storyHref(story: StoryInterface): string {
                                     >
                                         {{ story.title }}
                                     </span>
-                                </div>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -120,6 +131,7 @@ function storyHref(story: StoryInterface): string {
                                 :class="index > 0 ? '-ml-4' : ''"
                                 :style="{ zIndex: avatarStories.length - index }"
                                 :aria-label="`Open ${story.title}`"
+                                @click.stop
                             >
                                 <img
                                     v-if="hasCover(story)"
@@ -368,6 +380,73 @@ function storyHref(story: StoryInterface): string {
 .world-card--expanded .world-card__cta-fill {
     opacity: 1;
     clip-path: inset(0 0 0 0 round 5px);
+}
+
+.world-card__title-btn {
+    pointer-events: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    appearance: none;
+    transition:
+        opacity 180ms ease,
+        transform 120ms ease;
+}
+
+.world-card__title-btn:hover h3 {
+    color: var(--color-primary);
+}
+
+.world-card__title-btn:active {
+    transform: scale(0.98);
+    opacity: 0.88;
+}
+
+.world-card__title-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.world-card__story-link {
+    transition:
+        transform 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.world-card__story-link:hover {
+    transform: scale(1.03);
+    border-color: color-mix(in srgb, var(--color-primary) 45%, #373737);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.world-card__story-link:active {
+    transform: scale(0.97);
+}
+
+.world-card__cta:active {
+    transform: translateY(-50%) scale(0.97);
+}
+
+.world-card__cta:active::before {
+    background: color-mix(in srgb, var(--color-primary) 18%, #0e1f22);
+}
+
+.world-card__meta :deep(a) {
+    transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.world-card__meta :deep(a:hover) {
+    transform: scale(1.06);
+    z-index: 10;
+}
+
+.world-card__meta :deep(a:active) {
+    transform: scale(0.94);
 }
 
 .world-card__cta {
