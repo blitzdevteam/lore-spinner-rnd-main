@@ -36,7 +36,7 @@ function onKeydown(event: KeyboardEvent): void {
 function isPlayable(slug: string): boolean {
     const story = stories.value.find((item) => item.slug === slug);
 
-    return Boolean(story?.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(slug));
+    return Boolean(story?.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story));
 }
 
 watch(
