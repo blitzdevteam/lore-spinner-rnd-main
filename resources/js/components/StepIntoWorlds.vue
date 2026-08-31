@@ -21,7 +21,7 @@ const props = withDefaults(
 );
 
 const isDesktopHover = useDesktopStoryPreview();
-const { onCardEnter, onCardLeave, isExpanded } = useStoryCardExpand(isDesktopHover);
+const { onCardEnter, onCardLeave, isExpanded, isDimmed } = useStoryCardExpand(isDesktopHover);
 const previewWorlds = computed(() => props.worlds.slice(0, HOMEPAGE_WORLD_LIMIT));
 const viewAllCount = computed(() => props.worldsCount || props.worlds.length);
 
@@ -49,7 +49,11 @@ function worldCardId(id: number): string {
                         @mouseenter="onCardEnter(worldCardId(world.id))"
                         @mouseleave="onCardLeave()"
                     >
-                        <WorldCard :world="world" :expanded="isExpanded(worldCardId(world.id))" />
+                        <WorldCard
+                            :world="world"
+                            :expanded="isExpanded(worldCardId(world.id))"
+                            :dimmed="isDimmed(worldCardId(world.id))"
+                        />
                     </div>
                 </div>
             </div>
@@ -62,12 +66,22 @@ function worldCardId(id: number): string {
     display: flex;
     flex-wrap: wrap;
     gap: 0.625rem;
+    overflow: visible;
 }
 
 .world-card-slot {
+    position: relative;
+    z-index: 1;
     display: flex;
     height: 18.125rem;
     width: min(20.75rem, 86vw);
+    overflow: visible;
+    transition: z-index 0s linear 480ms;
+}
+
+.world-card-slot:has(.world-card--expanded) {
+    z-index: 5;
+    transition: z-index 0s;
 }
 
 @media (min-width: 768px) {

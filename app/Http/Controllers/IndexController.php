@@ -90,9 +90,8 @@ final class IndexController extends Controller
                     'media',
                     'stories' => fn ($query) => $query
                         ->published()
-                        ->with(['media', 'adaptation:id,story_id,adaptation_status'])
-                        ->orderByPivot('position')
-                        ->limit(4),
+                        ->with(['media', 'category:id,title', 'adaptation:id,story_id,adaptation_status'])
+                        ->orderByPivot('position'),
                 ])
                 ->withCount([
                     'stories' => fn ($query) => $query->published(),

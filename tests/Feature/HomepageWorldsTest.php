@@ -55,6 +55,7 @@ it('loads only active worlds ordered by position with published stories', functi
                 ->component('Index')
                 ->has('worlds', 2)
                 ->where('worlds.0.title', 'Jane Austen')
+                ->where('worlds.0.slug', 'jane-austen')
                 ->where('worlds.0.tagline', 'Find love without losing yourself.')
                 ->where('worlds.0.stories_count', 1)
                 ->where('worlds.0.stories.0.title', 'Emma')
@@ -84,6 +85,44 @@ it('shows at most three worlds on the homepage and the full count on view all', 
                 ->where('worlds.1.title', 'Second')
                 ->where('worlds.2.title', 'Third')
                 ->where('worldsCount', 4)
+                ->etc()
+        );
+});
+
+it('includes every published story on homepage worlds so the enter-world modal can list them', function () {
+    $world = World::factory()->create([
+        'title' => 'Jane Austen',
+        'slug' => 'jane-austen',
+        'position' => 1,
+        'is_active' => true,
+    ]);
+
+    $stories = Story::factory()->count(5)->sequence(
+        ['title' => 'Emma', 'slug' => 'emma'],
+        ['title' => 'Persuasion', 'slug' => 'persuasion'],
+        ['title' => 'Mansfield Park', 'slug' => 'mansfield-park'],
+        ['title' => 'Northanger Abbey', 'slug' => 'northanger-abbey'],
+        ['title' => 'Sense and Sensibility', 'slug' => 'sense-and-sensibility'],
+    )->create([
+        'status' => StoryStatusEnum::PUBLISHED,
+        'published_at' => now(),
+    ]);
+
+    foreach ($stories as $index => $story) {
+        $world->stories()->attach($story->id, ['position' => $index]);
+    }
+
+    $this->get(route('index'))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Index')
+                ->has('worlds', 1)
+                ->where('worlds.0.title', 'Jane Austen')
+                ->has('worlds.0.stories', 5)
+                ->where('worlds.0.stories.0.title', 'Emma')
+                ->where('worlds.0.stories.4.title', 'Sense and Sensibility')
+                ->where('worlds.0.stories_count', 5)
                 ->etc()
         );
 });

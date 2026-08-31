@@ -233,7 +233,7 @@ function goNext() {
         </section>
 
         <section class="hero-branch" aria-hidden="true">
-            <img src="/static-branch.jpg" alt="" class="hero-branch__image" width="1254" height="321" decoding="async" />
+            <img src="/static-branch.jpg" alt="" class="hero-branch__image" width="919px" height="86px" decoding="async" />
         </section>
 
         <section class="hero-copy-block">
@@ -316,7 +316,7 @@ function goNext() {
     display: block;
     width: 100%;
     height: auto;
-    max-width: 1100px;
+    max-width: 970px;
     margin-inline: auto;
 }
 

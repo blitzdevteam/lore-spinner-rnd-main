@@ -21,7 +21,7 @@ const props = withDefaults(
 const searchQuery = ref('');
 const sortMode = ref<LibrarySortMode>('recent');
 const isDesktopHover = useDesktopStoryPreview();
-const { onCardEnter, onCardLeave, isExpanded } = useStoryCardExpand(isDesktopHover);
+const { onCardEnter, onCardLeave, isExpanded, isDimmed } = useStoryCardExpand(isDesktopHover);
 
 const filteredWorlds = computed(() => {
     const needle = searchQuery.value.trim().toLowerCase();
@@ -88,15 +88,19 @@ function worldCardId(id: number): string {
                             </p>
                         </header>
 
-                        <div v-if="visibleWorlds.length" class="grid grid-cols-1 items-start gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                        <div v-if="visibleWorlds.length" class="grid grid-cols-1 items-start gap-2.5 overflow-visible sm:grid-cols-2 lg:grid-cols-3">
                             <div
                                 v-for="world in visibleWorlds"
                                 :key="world.id"
-                                class="min-w-0"
+                                class="relative z-[1] min-w-0 overflow-visible has-[.world-card--expanded]:z-[5]"
                                 @mouseenter="onCardEnter(worldCardId(world.id))"
                                 @mouseleave="onCardLeave()"
                             >
-                                <WorldCard :world="world" :expanded="isExpanded(worldCardId(world.id))" />
+                                <WorldCard
+                                    :world="world"
+                                    :expanded="isExpanded(worldCardId(world.id))"
+                                    :dimmed="isDimmed(worldCardId(world.id))"
+                                />
                             </div>
                         </div>
                         <p v-else-if="searchQuery.trim()" class="text-[#8f8f8f]">No worlds match your search.</p>

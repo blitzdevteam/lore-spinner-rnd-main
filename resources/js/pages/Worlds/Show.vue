@@ -44,7 +44,7 @@ const availableTitle = computed(() => `Available stories ( ${visibleStories.valu
 const otherWorldsCount = computed(() => props.worldsCount || props.otherWorlds.length);
 
 const isDesktopHover = useDesktopStoryPreview();
-const { onCardEnter, onCardLeave, isExpanded } = useStoryCardExpand(isDesktopHover);
+const { onCardEnter, onCardLeave, isExpanded, isDimmed } = useStoryCardExpand(isDesktopHover);
 
 function worldCardId(id: number): string {
     return String(id);
@@ -93,15 +93,19 @@ function isPlayable(slug: string): boolean {
                     <div class="container-content flex min-w-0 flex-col gap-5 md:gap-[1.125rem]">
                         <SectionHeader title="Explore other worlds" :href="worldsIndex().url" :count="otherWorldsCount" />
 
-                        <div class="grid grid-cols-1 items-start gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="grid grid-cols-1 items-start gap-2.5 overflow-visible sm:grid-cols-2 lg:grid-cols-3">
                             <div
                                 v-for="otherWorld in otherWorlds"
                                 :key="otherWorld.id"
-                                class="min-w-0"
+                                class="relative z-[1] min-w-0 overflow-visible has-[.world-card--expanded]:z-[5]"
                                 @mouseenter="onCardEnter(worldCardId(otherWorld.id))"
                                 @mouseleave="onCardLeave()"
                             >
-                                <WorldCard :world="otherWorld" :expanded="isExpanded(worldCardId(otherWorld.id))" />
+                                <WorldCard
+                                    :world="otherWorld"
+                                    :expanded="isExpanded(worldCardId(otherWorld.id))"
+                                    :dimmed="isDimmed(worldCardId(otherWorld.id))"
+                                />
                             </div>
                         </div>
                     </div>
