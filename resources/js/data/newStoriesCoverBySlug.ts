@@ -1,6 +1,8 @@
-/** Only use a story's assigned cover in the home “New Stories” slider — no slug fallbacks. */
-export function resolveNewStoryCover(_slug: string, cover?: string | null): string | null {
-    const trimmed = cover?.trim();
+import { resolveStoryCover } from '@/data/storyCoverBySlug';
 
-    return trimmed || null;
+/** Match library cover resolution; null means show the title + logo placeholder. */
+export function resolveNewStoryCover(slug: string, cover?: string | null): string | null {
+    const resolved = resolveStoryCover(slug, cover);
+
+    return resolved || null;
 }
