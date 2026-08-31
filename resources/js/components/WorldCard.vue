@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import WorldStoriesModal from '@/components/WorldStoriesModal.vue';
 import type { WorldInterface } from '@/types';
-import { show as worldShow } from '@/wayfinder/routes/worlds';
-import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -16,8 +15,12 @@ const storyCountLabel = computed(() => (storyCount.value === 1 ? '1 Story' : `${
 const tags = computed(() => (props.world.tags ?? []).slice(0, 3));
 const previewStories = computed(() => stories.value.slice(0, 2));
 const avatarStories = computed(() => stories.value.slice(0, 3));
-const href = computed(() => worldShow(props.world.slug).url);
 const brokenCovers = ref(new Set<number>());
+const modalOpen = ref(false);
+
+function openWorldModal(): void {
+    modalOpen.value = true;
+}
 
 function markCoverBroken(storyId: number): void {
     brokenCovers.value = new Set(brokenCovers.value).add(storyId);
@@ -127,12 +130,20 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 
                     <span class="world-card__cta-fill" aria-hidden="true" />
 
-                    <Link :href="href" class="world-card__cta">
+                    <button
+                        type="button"
+                        class="world-card__cta"
+                        :aria-expanded="modalOpen"
+                        aria-haspopup="dialog"
+                        @click.stop="openWorldModal"
+                    >
                         <span class="world-card__cta-label">Enter World</span>
-                    </Link>
+                    </button>
                 </div>
             </div>
         </div>
+
+        <WorldStoriesModal :world="modalOpen ? world : null" @close="modalOpen = false" />
     </article>
 </template>
 
@@ -362,6 +373,10 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
     overflow: hidden;
     border: 0;
     background: transparent;
+    padding: 0;
+    cursor: pointer;
+    appearance: none;
+    font: inherit;
     font-size: 0.8125rem;
     font-weight: 400;
     color: #fff;
