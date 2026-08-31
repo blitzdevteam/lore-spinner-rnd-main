@@ -151,6 +151,7 @@ final class ChaosStoryConfig
                 'protagonist' => 'Momotaro',
                 'tagline' => 'Japanese folktale — sail to Oni Island and face the demons.',
                 'tts_voice_id' => self::VOICE_YUSUKE,
+                'prefer_literal_opening' => true,
             ],
             [
                 'slug' => 'the-unwritten-ones',
