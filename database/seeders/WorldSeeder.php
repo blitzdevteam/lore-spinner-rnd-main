@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\Story;
 use App\Models\World;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 /**
  * Upsert launch worlds and attach published launch titles.
@@ -19,48 +20,50 @@ use Illuminate\Database\Seeder;
  */
 final class WorldSeeder extends Seeder
 {
-    public function run(): void
+    /**
+     * @param  array<string, mixed>  $entry
+     */
+    public static function resolveStoryForEntry(array $entry): ?Story
     {
-        $manifest = require database_path('stories/launch/manifest.php');
-        $worlds = $manifest['worlds'] ?? [];
-        $titles = $manifest['titles'] ?? [];
+        $candidates = array_values(array_unique(array_filter([
+            $entry['slug'] ?? null,
+            ...($entry['seed_keys'] ?? []),
+        ])));
 
-        foreach ($worlds as $definition) {
-            $world = self::upsertWorld($definition);
-            $slugs = [];
+        foreach ($candidates as $candidate) {
+            $slug = Str::slug((string) $candidate);
+            $story = Story::query()->where('slug', $slug)->first();
 
-            foreach ($titles as $entry) {
-                $catalogSlug = $entry['world_catalog_slug'] ?? null;
-                $folder = $definition['folder'] ?? null;
-                $matchesCatalog = $catalogSlug !== null && $catalogSlug === ($definition['slug'] ?? null);
-                $matchesFolder = ($entry['world_slug'] ?? null) === $folder;
+            if ($story !== null) {
+                return $story;
+            }
+        }
 
-                if ($matchesCatalog || ($catalogSlug === null && $matchesFolder)) {
-                    $slugs[] = $entry['slug'];
-                }
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $definition
+     */
+    public static function retireLegacyWorlds(World $canonical, array $definition): void
+    {
+        foreach ($definition['legacy_slugs'] ?? [] as $legacySlug) {
+            $legacy = World::query()->where('slug', $legacySlug)->first();
+
+            if ($legacy === null) {
+                continue;
             }
 
-            $stories = Story::query()->whereIn('slug', $slugs)->get()->keyBy('slug');
-            $sync = [];
-
-            foreach ($slugs as $position => $slug) {
-                $story = $stories->get($slug);
-
-                if ($story === null) {
-                    continue;
+            $legacy->stories()->pluck('stories.id')->each(function (int $storyId) use ($canonical): void {
+                if (! $canonical->stories()->whereKey($storyId)->exists()) {
+                    $canonical->stories()->attach($storyId, [
+                        'position' => $canonical->stories()->count(),
+                    ]);
                 }
+            });
 
-                $sync[$story->id] = ['position' => $position];
-            }
-
-            $world->stories()->syncWithoutDetaching($sync);
-
-            $this->command?->info(sprintf(
-                'World %s: %d/%d titles attached.',
-                $world->title,
-                count($sync),
-                count($slugs),
-            ));
+            $legacy->stories()->detach();
+            $legacy->update(['is_active' => false]);
         }
     }
 
@@ -128,5 +131,51 @@ final class WorldSeeder extends Seeder
         }
 
         return null;
+    }
+
+    public function run(): void
+    {
+        $manifest = require database_path('stories/launch/manifest.php');
+        $worlds = $manifest['worlds'] ?? [];
+        $titles = $manifest['titles'] ?? [];
+
+        foreach ($worlds as $definition) {
+            $world = self::upsertWorld($definition);
+            $entries = [];
+
+            foreach ($titles as $entry) {
+                $catalogSlug = $entry['world_catalog_slug'] ?? null;
+                $folder = $definition['folder'] ?? null;
+                $matchesCatalog = $catalogSlug !== null && $catalogSlug === ($definition['slug'] ?? null);
+                $matchesFolder = ($entry['world_slug'] ?? null) === $folder;
+
+                if ($matchesCatalog || ($catalogSlug === null && $matchesFolder)) {
+                    $entries[] = $entry;
+                }
+            }
+
+            $sync = [];
+
+            foreach ($entries as $position => $entry) {
+                $story = self::resolveStoryForEntry($entry);
+
+                if ($story === null) {
+                    continue;
+                }
+
+                $sync[$story->id] = ['position' => $position];
+            }
+
+            $world->stories()->syncWithoutDetaching($sync);
+
+            self::retireLegacyWorlds($world, $definition);
+
+            $this->command?->info(sprintf(
+                'World %s: %d/%d titles attached.',
+                $world->title,
+                count($sync),
+                count($entries),
+            ));
+        }
     }
 }

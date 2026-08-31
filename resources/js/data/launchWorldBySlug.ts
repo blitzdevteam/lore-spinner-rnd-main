@@ -8,6 +8,7 @@ const LAUNCH_WORLD_BY_SLUG: Record<string, string> = {
     dracula: 'Dracula',
     frankenstein: 'Frankenstein',
     'dr-jekyll-and-mr-hyde': 'Jekyll and Hyde',
+    'the-strange-case-of-dr-jekyll-and-mr-hyde': 'Jekyll and Hyde',
     'the-tell-tale-heart': 'Edgar Allan Poe',
     'pride-and-prejudice': 'Jane Austen',
     emma: 'Jane Austen',

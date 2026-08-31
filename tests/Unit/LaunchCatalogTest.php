@@ -13,7 +13,7 @@ it('resolves launch marketing titles and worlds', function (): void {
         ->toBe('Jane Austen');
 
     expect(LaunchCatalog::worldSlugForStory('emma'))
-        ->toBe('regency-england');
+        ->toBe('jane-austen');
 
     expect(LaunchCatalog::worldTitle('baker-street'))
         ->toBe('Baker Street');

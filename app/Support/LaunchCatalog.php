@@ -30,17 +30,30 @@ final class LaunchCatalog
 
     public static function displayTitle(string $slug, ?string $fallback = null): string
     {
-        return self::titles()[$slug]['title'] ?? $fallback ?? $slug;
+        $canonical = StoryPlayability::canonicalSlug($slug);
+
+        return self::titles()[$canonical]['title']
+            ?? self::titles()[$slug]['title']
+            ?? $fallback
+            ?? $slug;
     }
 
     public static function worldName(string $slug): ?string
     {
-        return self::titles()[$slug]['world'] ?? null;
+        $canonical = StoryPlayability::canonicalSlug($slug);
+
+        return self::titles()[$canonical]['world']
+            ?? self::titles()[$slug]['world']
+            ?? null;
     }
 
     public static function worldSlugForStory(string $storySlug): ?string
     {
-        return self::titles()[$storySlug]['world_slug'] ?? null;
+        $canonical = StoryPlayability::canonicalSlug($storySlug);
+
+        return self::titles()[$canonical]['world_slug']
+            ?? self::titles()[$storySlug]['world_slug']
+            ?? null;
     }
 
     public static function worldTitle(string $worldSlug): ?string
@@ -56,6 +69,9 @@ final class LaunchCatalog
 
     public static function isLaunchTitle(string $slug): bool
     {
-        return array_key_exists($slug, self::titles());
+        $canonical = StoryPlayability::canonicalSlug($slug);
+
+        return array_key_exists($canonical, self::titles())
+            || array_key_exists($slug, self::titles());
     }
 }

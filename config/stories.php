@@ -46,14 +46,14 @@ return [
 
     'launch_catalog' => [
         'worlds' => [
-            ['slug' => 'land-of-oz', 'folder' => '02-world-of-oz', 'title' => 'Oz'],
+            ['slug' => 'world-of-oz', 'folder' => '02-world-of-oz', 'title' => 'Oz', 'legacy_slugs' => ['land-of-oz']],
             ['slug' => 'neverland', 'folder' => 'neverland', 'title' => 'Neverland'],
             ['slug' => 'baker-street', 'folder' => '01-baker-street', 'title' => 'Baker Street'],
             ['slug' => 'draculas-england', 'folder' => 'draculas-england', 'title' => 'Dracula'],
             ['slug' => 'frankensteins-world', 'folder' => 'frankensteins-world', 'title' => 'Frankenstein'],
             ['slug' => 'hydes-london', 'folder' => 'hydes-london', 'title' => 'Jekyll and Hyde'],
             ['slug' => 'poes-gothic', 'folder' => 'poes-gothic', 'title' => 'Edgar Allan Poe'],
-            ['slug' => 'regency-england', 'folder' => '05-jane-austen', 'title' => 'Jane Austen'],
+            ['slug' => 'jane-austen', 'folder' => '05-jane-austen', 'title' => 'Jane Austen', 'legacy_slugs' => ['regency-england']],
             ['slug' => 'treasure-island', 'folder' => 'treasure-island', 'title' => 'Treasure Island'],
             ['slug' => 'extraordinary-voyages', 'folder' => 'extraordinary-voyages', 'title' => 'Jules Verne'],
             ['slug' => 'musketeer-france', 'folder' => 'musketeer-france', 'title' => 'The Three Musketeers'],
@@ -65,7 +65,7 @@ return [
         'titles' => [
             'the-wonderful-wizard-of-oz' => [
                 'title' => 'The Wonderful Wizard of Oz: The Road Home',
-                'world_slug' => 'land-of-oz',
+                'world_slug' => 'world-of-oz',
                 'world' => 'Oz',
             ],
             'peter-pan' => [
@@ -110,12 +110,12 @@ return [
             ],
             'pride-and-prejudice' => [
                 'title' => 'Pride and Prejudice: First Impressions',
-                'world_slug' => 'regency-england',
+                'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'emma' => [
                 'title' => 'Emma: Hearts Misread',
-                'world_slug' => 'regency-england',
+                'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'treasure-island' => [
