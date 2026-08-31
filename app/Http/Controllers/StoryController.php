@@ -53,6 +53,7 @@ final class StoryController extends Controller
                 ->latest()
                 ->get()
                 ->toResourceCollection(),
+
             'multiplayerRooms' => MultiplayerLobbyCardResource::collection($multiplayerRooms),
         ]);
     }
