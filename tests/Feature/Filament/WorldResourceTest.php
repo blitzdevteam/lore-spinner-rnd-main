@@ -13,9 +13,17 @@ use App\Models\World;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\FileUploadConfiguration;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('does not send filament uploads to s3 from the browser', function () {
+    config(['filesystems.default' => 's3']);
+
+    expect(config('livewire.temporary_file_upload.disk'))->toBe('private')
+        ->and(FileUploadConfiguration::isUsingS3())->toBeFalse();
+});
 
 it('registers worlds as a manager content resource', function () {
     expect(WorldResource::getModel())->toBe(World::class)
