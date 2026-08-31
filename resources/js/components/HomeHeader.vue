@@ -26,11 +26,11 @@ onUnmounted(() => {
     <header class="home-header-bar relative z-20 flex min-h-[4.5rem] items-center overflow-visible md:min-h-[5.6875rem]">
         <div class="relative container w-full overflow-visible py-0">
             <div
-                class="container-content grid h-[4rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 overflow-visible md:h-[4.6875rem] md:grid-cols-[auto_1fr_auto] md:gap-x-[3.125rem]"
+                class="header-rail container-content grid h-[4rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 overflow-visible md:h-[4.6875rem] md:grid-cols-[auto_1fr_auto] md:gap-x-[3.125rem]"
             >
                 <Link
                     :href="index().url"
-                    class="logo-link min-w-0 shrink justify-self-start pr-1 ring-offset-2 ring-offset-black outline-none focus-visible:ring-2 focus-visible:ring-primary md:shrink-0 md:pr-0"
+                    class="logo-link flex h-full min-w-0 shrink items-center justify-self-start pr-1 ring-offset-2 ring-offset-black outline-none focus-visible:ring-2 focus-visible:ring-primary md:shrink-0 md:pr-0"
                 >
                     <img
                         :src="mainLogo"
@@ -42,11 +42,11 @@ onUnmounted(() => {
                     />
                 </Link>
 
-                <div class="hidden min-h-[4.6875rem] min-w-0 items-center justify-center justify-self-center md:flex">
+                <div class="hidden h-full min-w-0 items-center justify-center justify-self-center md:flex">
                     <HomeHeaderMenu />
                 </div>
 
-                <div class="flex h-full shrink-0 items-center justify-end gap-2 self-center justify-self-end md:gap-3">
+                <div class="flex h-full shrink-0 items-center justify-end gap-2 justify-self-end md:gap-3">
                     <HomeHeaderProfile class="hidden md:flex" />
 
                     <button
@@ -94,8 +94,6 @@ onUnmounted(() => {
 }
 
 .logo-link {
-    display: inline-flex;
-    align-items: center;
-    align-self: center;
+    align-self: stretch;
 }
 </style>

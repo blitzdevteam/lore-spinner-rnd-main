@@ -26,12 +26,15 @@ const {
     aboutUsHref,
 } = useHomeHeaderNav();
 
-/* Reserve the same box for every item so labels never shift; underline bar is hidden even when active */
-const underlineSlotClass = (): string => 'pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0 rounded-bl-[0.4375rem] rounded-br-[0.4375rem]';
+/* Reserve underline space without shifting label vertical centering. */
+const underlineSlotClass = (): string =>
+    'pointer-events-none invisible absolute top-full left-1/2 mt-2 h-[3px] w-16 -translate-x-1/2 shrink-0 rounded-bl-[0.4375rem] rounded-br-[0.4375rem]';
 const navItemShell =
     'relative flex h-[4.6875rem] w-fit items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black';
-const navStack = 'relative flex flex-col items-center';
-const navLabelRow = 'relative z-[1] flex items-center justify-center p-[0.625rem] font-[Inter] text-[1rem] leading-[2.0625rem] transition-colors';
+const navStack = 'relative inline-flex items-center justify-center';
+const navLabelRow =
+    'relative z-[1] flex h-[2.0625rem] items-center justify-center px-[0.625rem] font-[Inter] text-[1rem] leading-none transition-colors';
+const navDividerItem = 'header-nav-divider hidden h-[4.6875rem] items-center md:flex';
 
 const inactiveText = 'text-[#D8D8D8] hover:text-primary';
 const activeText = 'text-primary';
@@ -58,15 +61,8 @@ const moodItemClass = (slug: string): string =>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-1 flex items-center justify-center py-2.5">
-                        <span class="flex h-8 items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
-                </span>
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="nav-divider" />
             </li>
 
             <li ref="moodsWrap" class="relative">
@@ -79,7 +75,7 @@ const moodItemClass = (slug: string): string =>
                 >
                     <span :class="navStack">
                         <span
-                            class="inline-flex items-center justify-center gap-0 p-[0.625rem] font-[Inter] text-[1rem] leading-[2.0625rem] font-light"
+                            class="inline-flex h-[2.0625rem] items-center justify-center gap-0 px-[0.625rem] font-[Inter] text-[1rem] leading-none font-light"
                         >
                             Moods
                             <ChevronDown
@@ -112,15 +108,8 @@ const moodItemClass = (slug: string): string =>
                 </div>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
-                </span>
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="nav-divider" />
             </li>
 
             <li>
@@ -132,15 +121,8 @@ const moodItemClass = (slug: string): string =>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
-                </span>
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="nav-divider" />
             </li>
 
             <li>
@@ -152,15 +134,8 @@ const moodItemClass = (slug: string): string =>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
-                </span>
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="nav-divider" />
             </li>
 
             <li>
@@ -176,6 +151,10 @@ const moodItemClass = (slug: string): string =>
 </template>
 
 <style scoped>
+.header-nav-divider {
+    margin-inline: -1.25rem;
+}
+
 .nav-divider {
     position: relative;
     width: 1px;
