@@ -64,7 +64,7 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <XenBanner />
 
         <!-- Explore by Mood -->
-        <ExploreByMood />
+        <ExploreByMood :stories="visibleStories" />
 
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 

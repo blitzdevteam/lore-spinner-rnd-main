@@ -11,13 +11,11 @@ import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { useHomeHeaderNav } from '@/composables/useHomeHeaderNav';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
-import { filterVisibleLibraryStories } from '@/data/hiddenLibraryStorySlugs';
-import { MOCK_LIBRARY_STORIES } from '@/data/mockLibraryStories';
 import { getMoodBannerConfig, normalizeMood, storyMatchesMood } from '@/data/moodBanners';
-import { dedupeStoriesByCanonicalSlug, getMoodSecondaryPickSlugs, selectStoriesByMoodSlugs } from '@/data/moodStories';
+import { getMoodSecondaryPickSlugs, selectStoriesByMoodSlugs } from '@/data/moodStories';
 import { compareStoriesByPlayableOrder, isStoryPlayable } from '@/data/playableStorySlugs';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
-import { resolveStoryCover } from '@/data/storyCoverBySlug';
+import { mergeLibraryStoriesWithMocks } from '@/utils/mergeLibraryStories';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import type { MultiplayerLobbyCardInterface, StoryInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
@@ -60,19 +58,8 @@ const moodHero = computed(() => getMoodBannerConfig(activeMood.value));
 
 const pageTitle = computed(() => (normalizedMood.value ? moodHero.value.title : 'Library'));
 
-/** API stories plus featured mock worlds; mocks skipped when the same slug already exists from the server. */
-const allLibraryStories = computed((): StoryInterface[] => {
-    const real = filterVisibleLibraryStories(props.stories ?? []).map((story) => ({
-        ...story,
-        cover: resolveStoryCover(story.slug, story.cover),
-    }));
-    const realSlugs = new Set(real.map((s) => s.slug));
-    const extra = MOCK_LIBRARY_STORIES.filter((m) => !realSlugs.has(m.slug)).map((story) => ({
-        ...story,
-        cover: resolveStoryCover(story.slug, story.cover),
-    }));
-    return dedupeStoriesByCanonicalSlug([...real, ...extra]);
-});
+/** API stories plus featured mock worlds; mocks skipped when the same canonical slug exists from the server. */
+const allLibraryStories = computed((): StoryInterface[] => mergeLibraryStoriesWithMocks(props.stories ?? []));
 
 /** All stories assigned to the active mood (home portrait / landscape card art). */
 const moodPageStories = computed((): StoryInterface[] => {

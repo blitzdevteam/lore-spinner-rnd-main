@@ -3,11 +3,12 @@ import SectionHeader from '@/components/SectionHeader.vue';
 import MoodPhotoCardFace from '@/components/MoodPhotoCardFace.vue';
 import { MOOD_PHOTO_CARD_CONFIGS } from '@/data/moodPhotoCards';
 import { MOOD_BANNER_CONFIGS, MOOD_IDS, type MoodId } from '@/data/moodBanners';
-import { MOCK_LIBRARY_STORIES } from '@/data/mockLibraryStories';
 import { isStoryPlayable } from '@/data/playableStorySlugs';
-import { getMoodStorySlugs } from '@/data/moodStories';
-import { resolveStoryCover } from '@/data/storyCoverBySlug';
+import { canonicalMoodStorySlug, getMoodStorySlugs } from '@/data/moodStories';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
+import { mergeLibraryStoriesWithMocks } from '@/utils/mergeLibraryStories';
+import type { StoryInterface } from '@/types';
+import { StoryStatusEnum } from '@/types/enum';
 import { index as storiesIndex, show as storyShow } from '@/wayfinder/routes/stories';
 import { Link } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
@@ -24,20 +25,28 @@ interface MoodGame {
     teaser: string;
 }
 
-const mockBySlug = Object.fromEntries(MOCK_LIBRARY_STORIES.map((s) => [s.slug, s]));
+const props = defineProps<{
+    stories?: StoryInterface[];
+}>();
+
+const mergedStories = computed(() => mergeLibraryStoriesWithMocks(props.stories ?? []));
 
 function gameFromSlug(slug: string): MoodGame | null {
-    const mock = mockBySlug[slug];
-    if (!mock) return null;
+    const canonical = canonicalMoodStorySlug(slug);
+    const story = mergedStories.value.find((entry) => canonicalMoodStorySlug(entry.slug) === canonical);
+
+    if (!story) {
+        return null;
+    }
 
     return {
-        id: slug,
-        slug,
-        title: mock.title,
-        cover: resolveStoryCover(slug, mock.cover),
-        playable: isStoryPlayable(slug),
-        themes: getStoryDescriptorThemes(slug),
-        teaser: mock.teaser,
+        id: String(story.id),
+        slug: story.slug,
+        title: story.title,
+        cover: story.cover ?? '',
+        playable: story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story),
+        themes: getStoryDescriptorThemes(story.slug),
+        teaser: story.teaser ?? '',
     };
 }
 

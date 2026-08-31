@@ -151,17 +151,30 @@ export function storyMatchesMood(storySlug: string, mood: MoodId): boolean {
     return moods?.includes(mood) ?? false;
 }
 
-/** Prefer canonical slug, then mock rows (negative id) over API alias duplicates. */
+/** Prefer real API rows over placeholder mocks, then canonical slug aliases. */
 function preferCanonicalStory<T extends { id: number; slug: string }>(current: T, candidate: T): T {
+    const currentIsMock = current.id < 0;
+    const candidateIsMock = candidate.id < 0;
+
+    if (!currentIsMock && candidateIsMock) {
+        return current;
+    }
+
+    if (currentIsMock && !candidateIsMock) {
+        return candidate;
+    }
+
     const key = canonicalMoodStorySlug(current.slug);
     const currentIsCanonical = current.slug === key;
     const candidateIsCanonical = candidate.slug === key;
 
-    if (candidateIsCanonical && !currentIsCanonical) return candidate;
-    if (currentIsCanonical && !candidateIsCanonical) return current;
+    if (candidateIsCanonical && !currentIsCanonical) {
+        return candidate;
+    }
 
-    if (candidate.id < 0 && current.id >= 0) return candidate;
-    if (current.id < 0 && candidate.id >= 0) return current;
+    if (currentIsCanonical && !candidateIsCanonical) {
+        return current;
+    }
 
     return current;
 }
