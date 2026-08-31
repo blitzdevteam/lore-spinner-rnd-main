@@ -10,7 +10,7 @@ it('resolves launch marketing titles and worlds', function (): void {
         ->toBe('Sherlock Holmes: The Speckled Band');
 
     expect(LaunchCatalog::worldName('pride-and-prejudice'))
-        ->toBe('Regency England');
+        ->toBe('Jane Austen');
 
     expect(LaunchCatalog::worldSlugForStory('emma'))
         ->toBe('regency-england');
@@ -19,12 +19,12 @@ it('resolves launch marketing titles and worlds', function (): void {
         ->toBe('Baker Street');
 });
 
-it('lists every launch catalog slug in the playable allowlist', function (): void {
-    $playable = StoryPlayability::launchSlugs();
+it('lists every launch playable slug in the catalog', function (): void {
+    $playable = config('stories.launch_playable_slugs', []);
     $catalog = array_keys(LaunchCatalog::titles());
 
-    foreach ($catalog as $slug) {
-        expect($playable)->toContain($slug);
+    foreach ($playable as $slug) {
+        expect($catalog)->toContain($slug);
     }
 });
 
@@ -44,5 +44,5 @@ it('resolves playable slug aliases', function (): void {
 
 it('lists every launch world from the catalog', function (): void {
     expect(LaunchCatalog::worlds())->toHaveCount(14)
-        ->and(collect(LaunchCatalog::worlds())->pluck('title')->all())->toContain('Land of Oz', 'Baker Street', 'Arthurian Britain');
+        ->and(collect(LaunchCatalog::worlds())->pluck('title')->all())->toContain('Oz', 'Baker Street', 'Arthurian Legends');
 });

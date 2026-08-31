@@ -46,27 +46,27 @@ return [
 
     'launch_catalog' => [
         'worlds' => [
-            ['slug' => 'land-of-oz', 'folder' => '02-world-of-oz', 'title' => 'Land of Oz'],
+            ['slug' => 'land-of-oz', 'folder' => '02-world-of-oz', 'title' => 'Oz'],
             ['slug' => 'neverland', 'folder' => 'neverland', 'title' => 'Neverland'],
             ['slug' => 'baker-street', 'folder' => '01-baker-street', 'title' => 'Baker Street'],
-            ['slug' => 'draculas-england', 'folder' => 'draculas-england', 'title' => "Dracula's England"],
-            ['slug' => 'frankensteins-world', 'folder' => 'frankensteins-world', 'title' => "Frankenstein's World"],
-            ['slug' => 'hydes-london', 'folder' => 'hydes-london', 'title' => "Hyde's London"],
-            ['slug' => 'poes-gothic', 'folder' => 'poes-gothic', 'title' => "Poe's Gothic"],
-            ['slug' => 'regency-england', 'folder' => '05-jane-austen', 'title' => 'Regency England'],
+            ['slug' => 'draculas-england', 'folder' => 'draculas-england', 'title' => 'Dracula'],
+            ['slug' => 'frankensteins-world', 'folder' => 'frankensteins-world', 'title' => 'Frankenstein'],
+            ['slug' => 'hydes-london', 'folder' => 'hydes-london', 'title' => 'Jekyll and Hyde'],
+            ['slug' => 'poes-gothic', 'folder' => 'poes-gothic', 'title' => 'Edgar Allan Poe'],
+            ['slug' => 'regency-england', 'folder' => '05-jane-austen', 'title' => 'Jane Austen'],
             ['slug' => 'treasure-island', 'folder' => 'treasure-island', 'title' => 'Treasure Island'],
-            ['slug' => 'extraordinary-voyages', 'folder' => 'extraordinary-voyages', 'title' => 'Extraordinary Voyages'],
-            ['slug' => 'musketeer-france', 'folder' => 'musketeer-france', 'title' => 'Musketeer France'],
+            ['slug' => 'extraordinary-voyages', 'folder' => 'extraordinary-voyages', 'title' => 'Jules Verne'],
+            ['slug' => 'musketeer-france', 'folder' => 'musketeer-france', 'title' => 'The Three Musketeers'],
             ['slug' => 'sherwood-forest', 'folder' => 'sherwood-forest', 'title' => 'Sherwood Forest'],
-            ['slug' => 'the-unseen-world', 'folder' => 'the-unseen-world', 'title' => 'The Unseen World'],
-            ['slug' => 'arthurian-britain', 'folder' => 'arthurian-britain', 'title' => 'Arthurian Britain'],
+            ['slug' => 'the-unseen-world', 'folder' => 'the-unseen-world', 'title' => 'The Invisible Man'],
+            ['slug' => 'arthurian-britain', 'folder' => 'arthurian-britain', 'title' => 'Arthurian Legends'],
         ],
 
         'titles' => [
             'the-wonderful-wizard-of-oz' => [
                 'title' => 'The Wonderful Wizard of Oz: The Road Home',
                 'world_slug' => 'land-of-oz',
-                'world' => 'Land of Oz',
+                'world' => 'Oz',
             ],
             'peter-pan' => [
                 'title' => "Peter Pan: Wendy's Neverland",
@@ -91,32 +91,32 @@ return [
             'dracula' => [
                 'title' => 'Dracula: The First Invitation',
                 'world_slug' => 'draculas-england',
-                'world' => "Dracula's England",
+                'world' => 'Dracula',
             ],
             'frankenstein' => [
                 'title' => 'Frankenstein: The Creature Awakens',
                 'world_slug' => 'frankensteins-world',
-                'world' => "Frankenstein's World",
+                'world' => 'Frankenstein',
             ],
             'dr-jekyll-and-mr-hyde' => [
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
                 'world_slug' => 'hydes-london',
-                'world' => "Hyde's London",
+                'world' => 'Jekyll and Hyde',
             ],
             'the-tell-tale-heart' => [
                 'title' => 'The Tell-Tale Heart: Beneath the Floor',
                 'world_slug' => 'poes-gothic',
-                'world' => "Poe's Gothic",
+                'world' => 'Edgar Allan Poe',
             ],
             'pride-and-prejudice' => [
                 'title' => 'Pride and Prejudice: First Impressions',
                 'world_slug' => 'regency-england',
-                'world' => 'Regency England',
+                'world' => 'Jane Austen',
             ],
             'emma' => [
                 'title' => 'Emma: Hearts Misread',
                 'world_slug' => 'regency-england',
-                'world' => 'Regency England',
+                'world' => 'Jane Austen',
             ],
             'treasure-island' => [
                 'title' => 'Treasure Island: The Map and the Mutiny',
@@ -126,17 +126,17 @@ return [
             'around-the-world-in-eighty-days' => [
                 'title' => 'Around the World in Eighty Days: Race the Clock',
                 'world_slug' => 'extraordinary-voyages',
-                'world' => 'Extraordinary Voyages',
+                'world' => 'Jules Verne',
             ],
             'journey-to-the-center-of-the-earth' => [
                 'title' => 'Journey to the Center of the Earth: Descent',
                 'world_slug' => 'extraordinary-voyages',
-                'world' => 'Extraordinary Voyages',
+                'world' => 'Jules Verne',
             ],
             'the-three-musketeers' => [
                 'title' => 'The Three Musketeers: One for All',
                 'world_slug' => 'musketeer-france',
-                'world' => 'Musketeer France',
+                'world' => 'The Three Musketeers',
             ],
             'robin-hood' => [
                 'title' => 'Robin Hood: Outlaw of Sherwood',
@@ -146,12 +146,12 @@ return [
             'the-invisible-man' => [
                 'title' => 'The Invisible Man: Unseen',
                 'world_slug' => 'the-unseen-world',
-                'world' => 'The Unseen World',
+                'world' => 'The Invisible Man',
             ],
             'sir-gawain-and-the-green-knight' => [
                 'title' => 'Sir Gawain and the Green Knight: The Year of Honor',
                 'world_slug' => 'arthurian-britain',
-                'world' => 'Arthurian Britain',
+                'world' => 'Arthurian Legends',
             ],
         ],
     ],
