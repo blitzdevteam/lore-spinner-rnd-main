@@ -75,7 +75,7 @@ function worldCardId(id: number): string {
     display: flex;
     height: 18.125rem;
     width: min(20.75rem, 86vw);
-    overflow: visible;
+    overflow: hidden;
     transition: z-index 0s linear 480ms;
 }
 

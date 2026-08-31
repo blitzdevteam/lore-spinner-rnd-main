@@ -173,10 +173,9 @@ function storyHref(story: StoryInterface): string {
     --world-duration: 480ms;
     z-index: 1;
     box-sizing: border-box;
-    overflow: visible;
+    overflow: hidden;
     transform-origin: 50% 50%;
     transition:
-        transform var(--world-duration) var(--world-ease),
         opacity var(--world-duration) ease,
         filter 320ms ease;
 }
@@ -192,23 +191,26 @@ function storyHref(story: StoryInterface): string {
     border: 0.5px solid #191919;
     padding: 0.75rem 17px;
     box-sizing: border-box;
-    transition: border-color 280ms ease;
+    transition:
+        border-color 280ms ease,
+        box-shadow 280ms ease;
 }
 
 .world-card--expanded {
     z-index: 4;
-    transform: translateY(-6px) scale(1.02);
 }
 
 .world-card--expanded .world-card__shell {
-    border-color: color-mix(in srgb, var(--color-primary) 55%, #191919);
+    border-color: color-mix(in srgb, var(--color-primary) 38%, #191919);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .world-card--dimmed {
     z-index: 0;
-    transform: scale(0.98);
-    opacity: 0.72;
-    filter: brightness(0.86);
+    opacity: 0.78;
+    filter: brightness(0.88);
 }
 
 .world-card__image {
@@ -217,7 +219,7 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card--expanded .world-card__image {
-    transform: scale(1.06);
+    transform: scale(1);
 }
 
 .world-card__shade {
@@ -263,7 +265,7 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card--expanded .world-card__border {
-    opacity: 1;
+    opacity: 0;
 }
 
 .world-card__border-spin {
@@ -299,7 +301,7 @@ function storyHref(story: StoryInterface): string {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
     pointer-events: none;
     transition:
         grid-template-rows var(--world-duration) var(--world-ease),
@@ -401,7 +403,6 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card__title-btn:active {
-    transform: scale(0.98);
     opacity: 0.88;
 }
 
@@ -413,23 +414,22 @@ function storyHref(story: StoryInterface): string {
 
 .world-card__story-link {
     transition:
-        transform 180ms ease,
         border-color 180ms ease,
-        box-shadow 180ms ease;
+        box-shadow 180ms ease,
+        opacity 150ms ease;
 }
 
 .world-card__story-link:hover {
-    transform: scale(1.03);
-    border-color: color-mix(in srgb, var(--color-primary) 45%, #373737);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-color: color-mix(in srgb, var(--color-primary) 35%, #373737);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .world-card__story-link:active {
-    transform: scale(0.97);
+    opacity: 0.9;
 }
 
 .world-card__cta:active {
-    transform: translateY(-50%) scale(0.97);
+    opacity: 0.92;
 }
 
 .world-card__cta:active::before {
@@ -437,16 +437,16 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card__meta :deep(a) {
-    transition: transform 150ms ease, opacity 150ms ease;
+    transition: opacity 150ms ease;
 }
 
 .world-card__meta :deep(a:hover) {
-    transform: scale(1.06);
+    opacity: 0.95;
     z-index: 10;
 }
 
 .world-card__meta :deep(a:active) {
-    transform: scale(0.94);
+    opacity: 0.82;
 }
 
 .world-card__cta {
