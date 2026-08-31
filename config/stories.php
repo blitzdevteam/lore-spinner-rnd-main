@@ -28,6 +28,7 @@ return [
         'robin-hood',
         'the-invisible-man',
         'sir-gawain-and-the-green-knight',
+        'treasure-island',
     ],
 
     /** Already boiled on Cloud — stay playable even though not on the 18-title launch roster. */

@@ -23,7 +23,7 @@ it('keeps non-playable rnd slugs off the allowlist', function () {
         ->and(StoryPlayability::isLaunchSlug('emma'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('peter-pan'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('wasteland'))->toBeFalse()
-        ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeFalse();
+        ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeTrue();
 });
 
 it('allows play only for launch-list slugs with completed adaptation', function () {

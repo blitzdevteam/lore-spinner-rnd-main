@@ -7,6 +7,7 @@ namespace App\Support;
 use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Enums\Story\StoryStatusEnum;
 use App\Models\Story;
+use App\Models\World;
 use Database\Seeders\WorldSeeder;
 
 /**
@@ -16,13 +17,32 @@ final class LaunchStoryActivator
 {
     public static function activate(Story $story): bool
     {
-        if (! StoryPlayability::isLaunchSlug($story->slug)) {
+        if (self::activationBlockReason($story) !== null) {
             return false;
+        }
+
+        return self::sync($story);
+    }
+
+    public static function activationBlockReason(Story $story): ?string
+    {
+        if (! StoryPlayability::isLaunchSlug($story->slug)) {
+            return 'slug is not on the launch/boiled playable allowlist';
         }
 
         $story->loadMissing('adaptation');
 
         if ($story->adaptation?->adaptation_status !== AdaptationStatusEnum::COMPLETED) {
+            return 'adaptation status is not completed (current: '
+                .($story->adaptation?->adaptation_status->value ?? 'none').')';
+        }
+
+        return null;
+    }
+
+    public static function sync(Story $story): bool
+    {
+        if (self::activationBlockReason($story) !== null) {
             return false;
         }
 
@@ -50,7 +70,11 @@ final class LaunchStoryActivator
             $changed = true;
         }
 
-        return $changed;
+        if ($changed) {
+            return true;
+        }
+
+        return self::isAlreadySynced($story, $entry);
     }
 
     /**
@@ -69,5 +93,25 @@ final class LaunchStoryActivator
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $entry
+     */
+    private static function isAlreadySynced(Story $story, ?array $entry): bool
+    {
+        if ($story->status !== StoryStatusEnum::PUBLISHED) {
+            return false;
+        }
+
+        $catalogSlug = $entry['world_catalog_slug'] ?? null;
+
+        if ($catalogSlug === null) {
+            return true;
+        }
+
+        $world = World::query()->where('slug', $catalogSlug)->first();
+
+        return $world?->stories()->whereKey($story->id)->exists() ?? false;
     }
 }

@@ -110,6 +110,6 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
             $lockedAdaptation->update(['adaptation_status' => AdaptationStatusEnum::COMPLETED]);
         });
 
-        LaunchStoryActivator::activate($this->story->fresh());
+        LaunchStoryActivator::sync($this->story->fresh());
     }
 }

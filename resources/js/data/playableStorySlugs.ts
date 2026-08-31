@@ -22,6 +22,7 @@ export const LAUNCH_PLAYABLE_SLUGS = [
     'robin-hood',
     'the-invisible-man',
     'sir-gawain-and-the-green-knight',
+    'treasure-island',
 ] as const;
 
 /** Already-boiled RnD titles — playable when `is_playable` is true from the API. */

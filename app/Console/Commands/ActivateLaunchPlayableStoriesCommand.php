@@ -30,8 +30,16 @@ final class ActivateLaunchPlayableStoriesCommand extends Command
         $activated = 0;
 
         foreach ($stories as $story) {
-            if (! LaunchStoryActivator::activate($story)) {
-                $this->line("Skipped {$story->slug}: not playable-ready.");
+            $blockReason = LaunchStoryActivator::activationBlockReason($story);
+
+            if ($blockReason !== null) {
+                $this->line("Skipped {$story->slug}: {$blockReason}.");
+
+                continue;
+            }
+
+            if (! LaunchStoryActivator::sync($story)) {
+                $this->line("Skipped {$story->slug}: already published and attached.");
 
                 continue;
             }

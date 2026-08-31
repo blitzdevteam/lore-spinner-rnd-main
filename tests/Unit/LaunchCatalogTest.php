@@ -33,7 +33,7 @@ it('keeps already-boiled rnd titles playable', function (): void {
         ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('dr-jekyll-and-mr-hyde'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('the-strange-case-of-dr-jekyll-and-mr-hyde'))->toBeTrue()
-        ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeFalse()
+        ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeTrue();
         ->and(StoryPlayability::isLaunchSlug('wasteland'))->toBeFalse();
 });
 
