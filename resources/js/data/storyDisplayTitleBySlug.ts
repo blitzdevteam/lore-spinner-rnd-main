@@ -1,4 +1,4 @@
-/** Marketing / detail-page titles that differ from the canonical DB title. */
+/** Marketing / detail-page titles. Mirrors `config/stories.php` launch_catalog.titles. */
 const DISPLAY_TITLES_BY_SLUG: Record<string, string> = {
     'the-wonderful-wizard-of-oz': 'The Wonderful Wizard of Oz: The Road Home',
     'peter-pan': "Peter Pan: Wendy's Neverland",

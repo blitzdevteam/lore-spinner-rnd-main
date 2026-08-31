@@ -61,14 +61,14 @@ final class ChaosStoryConfig
             ],
             [
                 'slug' => 'the-adventure-of-the-speckled-band',
-                'title' => 'Sherlock Holmes in The Speckled Band',
+                'title' => 'Sherlock Holmes: The Speckled Band',
                 'protagonist' => 'Watson',
                 'tagline' => 'Doyle — investigate beside Holmes.',
                 'tts_voice_id' => null,
             ],
             [
                 'slug' => 'the-tell-tale-heart',
-                'title' => 'The Tell-Tale Heart',
+                'title' => 'The Tell-Tale Heart: Beneath the Floor',
                 'protagonist' => 'the Narrator',
                 'tagline' => 'Poe — descend into the cracked mind.',
                 'tts_voice_id' => null,
@@ -126,7 +126,7 @@ final class ChaosStoryConfig
             ],
             [
                 'slug' => 'the-wonderful-wizard-of-oz',
-                'title' => 'The Wonderful Wizard of Oz',
+                'title' => 'The Wonderful Wizard of Oz: The Road Home',
                 'protagonist' => 'Dorothy',
                 'tagline' => 'Baum — follow the yellow brick road to the Emerald City.',
                 'tts_voice_id' => null,

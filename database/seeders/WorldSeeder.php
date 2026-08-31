@@ -30,7 +30,12 @@ final class WorldSeeder extends Seeder
             $slugs = [];
 
             foreach ($titles as $entry) {
-                if (($entry['world_slug'] ?? null) === ($definition['folder'] ?? null)) {
+                $catalogSlug = $entry['world_catalog_slug'] ?? null;
+                $folder = $definition['folder'] ?? null;
+                $matchesCatalog = $catalogSlug !== null && $catalogSlug === ($definition['slug'] ?? null);
+                $matchesFolder = ($entry['world_slug'] ?? null) === $folder;
+
+                if ($matchesCatalog || ($catalogSlug === null && $matchesFolder)) {
                     $slugs[] = $entry['slug'];
                 }
             }
@@ -80,13 +85,31 @@ final class WorldSeeder extends Seeder
     /**
      * Attach one launch title to its world. No-op for standalones or unknown folders.
      */
-    public static function attachStory(Story $story, ?string $folder): ?World
+    public static function attachStory(Story $story, ?string $folder, ?string $worldCatalogSlug = null): ?World
     {
+        $manifest = require database_path('stories/launch/manifest.php');
+
+        if ($worldCatalogSlug !== null) {
+            foreach (($manifest['worlds'] ?? []) as $definition) {
+                if (($definition['slug'] ?? null) !== $worldCatalogSlug) {
+                    continue;
+                }
+
+                $world = self::upsertWorld($definition);
+
+                if (! $world->stories()->whereKey($story->id)->exists()) {
+                    $world->stories()->attach($story->id, [
+                        'position' => $world->stories()->count(),
+                    ]);
+                }
+
+                return $world;
+            }
+        }
+
         if ($folder === null || $folder === '' || $folder === 'standalone') {
             return null;
         }
-
-        $manifest = require database_path('stories/launch/manifest.php');
 
         foreach (($manifest['worlds'] ?? []) as $definition) {
             if (($definition['folder'] ?? null) !== $folder) {

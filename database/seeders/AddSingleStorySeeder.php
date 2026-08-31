@@ -222,7 +222,11 @@ final class AddSingleStorySeeder extends Seeder
         $story->update(['status' => StoryStatusEnum::PUBLISHED->value]);
         $this->command->info('Published!');
 
-        $world = WorldSeeder::attachStory($story, $config['world_slug'] ?? null);
+        $world = WorldSeeder::attachStory(
+            $story,
+            $config['world_slug'] ?? null,
+            $config['world_catalog_slug'] ?? null,
+        );
 
         if ($world !== null) {
             $this->command->info("Attached to world: {$world->title}");
@@ -441,6 +445,7 @@ final class AddSingleStorySeeder extends Seeder
             'rating' => $entry['rating'],
             'opening' => $entry['opening'] ?? null,
             'world_slug' => $entry['world_slug'] ?? null,
+            'world_catalog_slug' => $entry['world_catalog_slug'] ?? null,
             'creator' => $creator,
             'pipeline_complete' => (bool) ($entry['pipeline_complete'] ?? false),
         ];
@@ -705,7 +710,7 @@ final class AddSingleStorySeeder extends Seeder
     private function configTreasureIsland(): array
     {
         return [
-            'title' => 'Treasure Island',
+            'title' => 'Treasure Island: The Map and the Mutiny',
             'slug' => 'treasure-island',
             'category' => 'Adventure',
             'script' => 'Treasure_Island_script.txt',

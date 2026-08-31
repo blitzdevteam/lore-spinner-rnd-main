@@ -60,6 +60,7 @@ export interface StoryInterface {
 
     is_bookmarked?: boolean;
     is_playable?: boolean;
+    launch_world?: string | null;
 }
 
 export type MultiplayerLobbyMode = 'arbiter';

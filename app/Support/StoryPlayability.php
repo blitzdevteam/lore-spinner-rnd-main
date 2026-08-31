@@ -15,10 +15,12 @@ final class StoryPlayability
      */
     public static function launchSlugs(): array
     {
-        /** @var list<string> $slugs */
-        $slugs = config('stories.launch_playable_slugs', []);
+        /** @var list<string> $launch */
+        $launch = config('stories.launch_playable_slugs', []);
+        /** @var list<string> $boiled */
+        $boiled = config('stories.boiled_playable_slugs', []);
 
-        return $slugs;
+        return array_values(array_unique([...$launch, ...$boiled]));
     }
 
     public static function isLaunchSlug(string $slug): bool

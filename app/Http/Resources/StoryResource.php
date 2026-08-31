@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\Story;
+use App\Support\LaunchCatalog;
 use App\Support\StoryPlayability;
 use Illuminate\Http\Request;
 use Override;
@@ -24,7 +25,9 @@ final class StoryResource extends BaseResource
     {
         return [
             'id' => $this->id,
-            'title' => $this->title,
+            'title' => LaunchCatalog::isLaunchTitle($this->slug)
+                ? LaunchCatalog::displayTitle($this->slug, $this->title)
+                : $this->title,
             'slug' => $this->slug,
             'teaser' => $this->teaser,
             'opening' => $this->opening,
@@ -48,6 +51,7 @@ final class StoryResource extends BaseResource
 
             'is_bookmarked' => false,
             'is_playable' => StoryPlayability::isPlayable($this->resource),
+            'launch_world' => LaunchCatalog::worldName($this->slug),
         ];
     }
 }

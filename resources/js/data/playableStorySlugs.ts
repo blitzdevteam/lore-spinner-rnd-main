@@ -1,7 +1,7 @@
 import type { StoryInterface } from '@/types';
 
 /**
- * Mirrors `config/stories.php` launch_playable_slugs.
+ * Mirrors `config/stories.php` launch + boiled playable slugs.
  * Actual playability also requires `adaptation_status === completed` (see `is_playable` on API stories).
  */
 export const LAUNCH_PLAYABLE_SLUGS = [
@@ -23,6 +23,20 @@ export const LAUNCH_PLAYABLE_SLUGS = [
     'robin-hood',
     'the-invisible-man',
     'sir-gawain-and-the-green-knight',
+] as const;
+
+/** Already-boiled RnD titles — playable when `is_playable` is true from the API. */
+export const BOILED_PLAYABLE_SLUGS = [
+    'anima-machina',
+    'wasteland',
+    'driftheart',
+    'momotaro-the-peach-boy',
+    'the-unwritten-ones',
+] as const;
+
+export const PLAYABLE_ALLOWLIST_SLUGS = [
+    ...LAUNCH_PLAYABLE_SLUGS,
+    ...BOILED_PLAYABLE_SLUGS,
 ] as const;
 
 export type LaunchPlayableSlug = (typeof LAUNCH_PLAYABLE_SLUGS)[number];
