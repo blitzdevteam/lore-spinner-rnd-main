@@ -46,7 +46,7 @@ onUnmounted(() => {
                     <HomeHeaderMenu />
                 </div>
 
-                <div class="flex shrink-0 items-center justify-end gap-2 justify-self-end md:gap-3">
+                <div class="flex h-full shrink-0 items-center justify-end gap-2 self-center justify-self-end md:gap-3">
                     <HomeHeaderProfile class="hidden md:flex" />
 
                     <button

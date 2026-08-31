@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useHomeHeaderNav } from '@/composables/useHomeHeaderNav';
 import login from '@/wayfinder/routes/user/authentication/login';
+import register from '@/wayfinder/routes/user/authentication/register';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ChevronDown, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -127,13 +128,20 @@ const moodLinkClass = (slug: string): string =>
                     </ul>
                 </nav>
 
-                <div v-if="auth === null" class="border-t border-white/10 p-4">
+                <div v-if="auth === null" class="flex flex-col gap-2 border-t border-white/10 p-4">
                     <Link
                         :href="login.create().url"
-                        class="flex h-12 w-full items-center justify-center rounded-full border border-primary bg-cta-fill text-sm font-medium text-[#f3f4ee] transition-colors hover:border-primary-300 hover:bg-cta-hover"
+                        class="flex h-12 w-full items-center justify-center rounded-full border border-white/15 font-[Inter] text-sm font-medium leading-none text-[#c8ced1] transition-colors hover:border-primary/60 hover:bg-white/5 hover:text-white"
                         @click="closeMenu"
                     >
-                        Log in / Sign Up
+                        Log in
+                    </Link>
+                    <Link
+                        :href="register.create().url"
+                        class="flex h-12 w-full items-center justify-center rounded-full border border-primary bg-cta-fill font-[Inter] text-sm font-medium leading-none text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active"
+                        @click="closeMenu"
+                    >
+                        Sign up
                     </Link>
                 </div>
             </aside>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { logout } from '@/wayfinder/routes/user/authentication';
 import login from '@/wayfinder/routes/user/authentication/login';
+import register from '@/wayfinder/routes/user/authentication/register';
 import { DEFAULT_PROFILE_AVATAR, resolvePublicStorageUrl } from '@/utils/publicStorageUrl';
 import { Link, usePage } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
@@ -41,13 +42,20 @@ onClickOutside(profileWrap, () => {
 
 <template>
     <template v-if="auth === null">
-        <Link
-            v-bind="$attrs"
-            :href="login.create().url"
-            class="flex h-10 items-center justify-center whitespace-nowrap px-4 text-base font-normal leading-none text-secondary-300 transition-colors hover:text-secondary-200"
-        >
-            Log in/Sign Up
-        </Link>
+        <nav v-bind="$attrs" class="flex items-center gap-3 self-center md:gap-4" aria-label="Account">
+            <Link
+                :href="login.create().url"
+                class="inline-flex h-9 items-center justify-center whitespace-nowrap px-1 font-[Inter] text-[0.9375rem] leading-none font-normal text-[#D8D8D8] transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+                Log in
+            </Link>
+            <Link
+                :href="register.create().url"
+                class="inline-flex h-9 items-center justify-center rounded-full border border-primary bg-cta-fill px-4 font-[Inter] text-[0.8125rem] leading-none font-medium tracking-[0.02em] whitespace-nowrap text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+                Sign up
+            </Link>
+        </nav>
     </template>
     <template v-else>
         <div ref="profileWrap" v-bind="$attrs" class="relative">
