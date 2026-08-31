@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import mainLogo from '@/assets/logo/main-logo.png';
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import { isStoryPlayable } from '@/data/playableStorySlugs';
@@ -13,7 +14,7 @@ import { computed, ref } from 'vue';
 interface NewStoryCard {
     id: number;
     title: string;
-    cover: string;
+    cover: string | null;
     category: string;
     rating: string;
     playable: boolean;
@@ -67,7 +68,7 @@ function toSheetData(story: NewStoryCard): StorySheetData {
     return {
         id: story.id,
         title: story.title,
-        cover: story.cover,
+        cover: story.cover ?? '',
         themes: getStoryDescriptorThemes(story.slug),
         category: story.category,
         rating: story.rating,
@@ -81,6 +82,16 @@ function toSheetData(story: NewStoryCard): StorySheetData {
 function openSheet(story: NewStoryCard) {
     if (story.playable) return;
     sheetStory.value = toSheetData(story);
+}
+
+const failedCoverSlugs = ref<Set<string>>(new Set());
+
+function showCover(story: NewStoryCard): boolean {
+    return Boolean(story.cover) && !failedCoverSlugs.value.has(story.slug);
+}
+
+function onCoverError(slug: string): void {
+    failedCoverSlugs.value = new Set([...failedCoverSlugs.value, slug]);
 }
 </script>
 
@@ -120,12 +131,23 @@ function openSheet(story: NewStoryCard) {
                                         class="new-story-card flex h-[13.625rem] w-[min(18.75rem,78vw)] shrink-0 flex-col items-center justify-center gap-[0.375rem] rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 text-left outline-none transition-colors hover:border-primary/50 md:w-[18.75rem]"
                                         @click="!story.playable && openSheet(story)"
                                     >
-                                        <span class="relative min-h-0 w-full flex-1 overflow-hidden rounded-[0.46875rem]">
+                                        <span class="relative min-h-0 w-full flex-1 overflow-hidden rounded-[0.46875rem] bg-[#0c0c0c]">
                                             <img
-                                                :src="story.cover"
+                                                v-if="showCover(story)"
+                                                :src="story.cover!"
                                                 :alt="story.title"
                                                 class="absolute inset-0 size-full object-cover"
+                                                decoding="async"
+                                                @error="onCoverError(story.slug)"
                                             />
+                                            <span
+                                                v-else
+                                                class="new-story-cover-fallback absolute inset-0 flex flex-col items-center justify-center gap-2 px-3"
+                                                aria-hidden="true"
+                                            >
+                                                <span class="new-story-cover-fallback__title">{{ story.title }}</span>
+                                                <img :src="mainLogo" alt="" class="new-story-cover-fallback__logo" />
+                                            </span>
                                         </span>
                                         <span class="flex w-full items-end justify-between gap-2 px-1">
                                             <span class="flex min-w-0 flex-1 flex-col gap-[0.1875rem]">
@@ -206,5 +228,29 @@ function openSheet(story: NewStoryCard) {
 .story-slider-viewport--new-stories {
     --story-slider-track-gap: 0.625rem;
     --story-slider-card-height: 13.625rem;
+}
+
+.new-story-cover-fallback {
+    background: linear-gradient(165deg, #1a1a1f 0%, #0d0d10 45%, #141418 100%);
+}
+
+.new-story-cover-fallback__title {
+    max-width: 100%;
+    font-size: clamp(0.75rem, 2.4vw, 0.9375rem);
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.88);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.new-story-cover-fallback__logo {
+    width: auto;
+    height: 0.875rem;
+    opacity: 0.55;
+    object-fit: contain;
 }
 </style>
