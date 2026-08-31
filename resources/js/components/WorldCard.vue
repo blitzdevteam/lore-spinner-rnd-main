@@ -24,6 +24,16 @@ function openWorldModal(): void {
     modalOpen.value = true;
 }
 
+function onCardClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+
+    if (target?.closest('a')) {
+        return;
+    }
+
+    openWorldModal();
+}
+
 function markCoverBroken(storyId: number): void {
     brokenCovers.value = new Set(brokenCovers.value).add(storyId);
 }
@@ -45,7 +55,17 @@ function storyHref(story: StoryInterface): string {
             'world-card--dimmed': dimmed,
         }"
     >
-        <div class="world-card__shell">
+        <div
+            class="world-card__shell"
+            role="button"
+            tabindex="0"
+            :aria-expanded="modalOpen"
+            aria-haspopup="dialog"
+            :aria-label="`Open ${world.title} stories`"
+            @click="onCardClick"
+            @keydown.enter.prevent="openWorldModal"
+            @keydown.space.prevent="openWorldModal"
+        >
             <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" aria-hidden="true">
                 <img
                     v-if="world.background"
@@ -66,17 +86,9 @@ function storyHref(story: StoryInterface): string {
                     <div class="flex h-[4.625rem] w-full flex-col justify-center">
                         <div class="flex flex-col gap-1.5">
                             <div class="flex flex-col gap-1">
-                                <button
-                                    type="button"
-                                    class="world-card__title-btn"
-                                    :aria-expanded="modalOpen"
-                                    aria-haspopup="dialog"
-                                    @click.stop="openWorldModal"
-                                >
-                                    <h3 class="font-inria-serif text-[1.125rem] leading-normal font-bold text-white">
-                                        {{ world.title }}
-                                    </h3>
-                                </button>
+                                <h3 class="font-inria-serif text-[1.125rem] leading-normal font-bold text-white">
+                                    {{ world.title }}
+                                </h3>
                                 <p class="text-[0.8125rem] leading-normal font-light text-white">
                                     {{ world.tagline }}
                                 </p>
@@ -153,9 +165,8 @@ function storyHref(story: StoryInterface): string {
                     <button
                         type="button"
                         class="world-card__cta"
-                        :aria-expanded="modalOpen"
-                        aria-haspopup="dialog"
-                        @click.stop="openWorldModal"
+                        tabindex="-1"
+                        aria-hidden="true"
                     >
                         <span class="world-card__cta-label">Enter World</span>
                     </button>
@@ -191,6 +202,7 @@ function storyHref(story: StoryInterface): string {
     border: 0.5px solid #191919;
     padding: 0.75rem 17px;
     box-sizing: border-box;
+    cursor: pointer;
     transition:
         border-color 280ms ease,
         box-shadow 280ms ease;
@@ -384,34 +396,6 @@ function storyHref(story: StoryInterface): string {
     clip-path: inset(0 0 0 0 round 5px);
 }
 
-.world-card__title-btn {
-    pointer-events: auto;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    text-align: left;
-    appearance: none;
-    transition:
-        opacity 180ms ease,
-        transform 120ms ease;
-}
-
-.world-card__title-btn:hover h3 {
-    color: var(--color-primary);
-}
-
-.world-card__title-btn:active {
-    opacity: 0.88;
-}
-
-.world-card__title-btn:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: 2px;
-}
-
 .world-card__story-link {
     transition:
         border-color 180ms ease,
@@ -506,6 +490,19 @@ function storyHref(story: StoryInterface): string {
     width: 100%;
     font-weight: 500;
     color: #000;
+}
+
+.world-card__shell:hover h3 {
+    color: var(--color-primary);
+}
+
+.world-card__shell:active {
+    opacity: 0.94;
+}
+
+.world-card__shell:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .world-card__cta:focus-visible {
