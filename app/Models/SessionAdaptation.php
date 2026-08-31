@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\BoilerStatus;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Enums\BoilerStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property array|null $editorial_verification
  * @property string|null $runtime_narrator_prompt
  * @property Carbon|null $runtime_narrator_assembled_at
+ * @property Carbon|null $boiler_drafting_started_at
  * @property Carbon|null $boiler_generated_at
  * @property Carbon|null $boiler_finalized_at
  * @property Carbon|null $created_at
@@ -52,6 +53,7 @@ final class SessionAdaptation extends Model
         'session_close_design' => 'json',
         'boiler_final_cut' => 'json',
         'editorial_verification' => 'json',
+        'boiler_drafting_started_at' => 'datetime',
         'boiler_generated_at' => 'datetime',
         'boiler_finalized_at' => 'datetime',
         'runtime_narrator_assembled_at' => 'datetime',

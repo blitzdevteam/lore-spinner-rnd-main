@@ -75,6 +75,7 @@ final class BoilerDraftJob implements ShouldQueue
         $session->update([
             'boiler_status' => BoilerStatus::DRAFTING,
             'boiler_error' => null,
+            'boiler_drafting_started_at' => now(),
         ]);
         Log::info('boiler.draft_started', [
             'story_id' => $this->story->id,

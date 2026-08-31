@@ -270,6 +270,7 @@ final class RepairBoilerEditorialCommand extends Command
                 'boiler_status' => BoilerStatus::PENDING,
                 'boiler_error' => null,
                 'boiler_draft' => null,
+                'boiler_drafting_started_at' => null,
                 'boiler_generated_at' => null,
                 'boiler_final_cut' => null,
                 'boiler_finalized_at' => null,
