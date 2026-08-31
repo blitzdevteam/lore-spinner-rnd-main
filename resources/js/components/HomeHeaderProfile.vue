@@ -42,23 +42,15 @@ onClickOutside(profileWrap, () => {
 
 <template>
     <template v-if="auth === null">
-        <nav
-            v-bind="$attrs"
-            class="flex h-[4.6875rem] items-center gap-4"
-            aria-label="Account"
-        >
-            <Link
-                :href="login.create().url"
-                class="inline-flex h-full items-center font-[Inter] text-[1rem] leading-none font-normal whitespace-nowrap text-[#D8D8D8] transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-                Log in
-            </Link>
-            <Link
-                :href="register.create().url"
-                class="inline-flex h-[1.875rem] items-center justify-center rounded-[0.5rem] border border-primary bg-cta-fill px-[0.9375rem] font-[Inter] text-[0.875rem] leading-none font-medium whitespace-nowrap text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-                Sign up
-            </Link>
+        <nav v-bind="$attrs" class="header-auth" aria-label="Account">
+            <div class="header-auth__group">
+                <Link :href="login.create().url" class="header-auth__btn header-auth__btn--login">
+                    Log in
+                </Link>
+                <Link :href="register.create().url" class="header-auth__btn header-auth__btn--signup">
+                    Sign up
+                </Link>
+            </div>
         </nav>
     </template>
     <template v-else>
@@ -102,6 +94,76 @@ onClickOutside(profileWrap, () => {
 </template>
 
 <style scoped>
+.header-auth {
+    display: flex;
+    align-items: center;
+}
+
+.header-auth__group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(17, 24, 27, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.header-auth__btn {
+    display: inline-flex;
+    height: 2.125rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5625rem;
+    padding: 0 0.875rem;
+    font-family: Inter, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+        color 150ms ease,
+        background-color 150ms ease,
+        border-color 150ms ease,
+        box-shadow 150ms ease,
+        transform 150ms ease;
+}
+
+.header-auth__btn:focus-visible {
+    outline: 2px solid var(--color-primary, #59c1ca);
+    outline-offset: 2px;
+}
+
+.header-auth__btn--login {
+    color: rgb(200, 206, 209);
+}
+
+.header-auth__btn--login:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.header-auth__btn--signup {
+    border: 1px solid rgba(89, 193, 202, 0.35);
+    background: linear-gradient(180deg, rgba(89, 193, 202, 0.24) 0%, rgba(22, 63, 70, 0.95) 100%);
+    color: #fff;
+    box-shadow:
+        0 0 0 1px rgba(89, 193, 202, 0.1),
+        0 4px 16px rgba(89, 193, 202, 0.12);
+}
+
+.header-auth__btn--signup:hover {
+    border-color: rgba(143, 203, 211, 0.55);
+    background: linear-gradient(180deg, rgba(89, 193, 202, 0.32) 0%, rgba(30, 80, 88, 0.98) 100%);
+}
+
+.header-auth__btn--signup:active {
+    transform: scale(0.98);
+}
+
 .profile-dropdown {
     background:
         linear-gradient(180deg, rgba(111, 175, 186, 0.2) 1.34%, rgba(102, 102, 102, 0) 12.75%),
