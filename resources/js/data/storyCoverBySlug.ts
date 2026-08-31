@@ -2,7 +2,6 @@ import iLoveLucyCover from '@/assets/featured/i-love-lucy.png';
 import theMatrixCover from '@/assets/featured/the-matrix.png';
 import janeEyreCover from '@/assets/featured/janeEyre.png';
 import frankensteinComingCover from '@/assets/commingSoon/frankstein-comming.png';
-import drjComingCover from '@/assets/commingSoon/drj-comming.png';
 import underseaComingCover from '@/assets/commingSoon/undersea-comming.JPG';
 import pjPosterCover from '@/assets/commingSoon/pj-comming.JPG';
 import romeoComingCover from '@/assets/commingSoon/romeo-comming.png';
@@ -43,12 +42,12 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     'momotaro-the-peach-boy': momotaroCover,
     // Explore by Mood / mood library picks
     'jekyll-and-hyde': jekyllCover,
-    'the-strange-case-of-dr-jekyll-and-mr-hyde': drjComingCover,
+    'the-strange-case-of-dr-jekyll-and-mr-hyde': jekyllCover,
     '20000-leagues-under-the-sea': underseaComingCover,
     // Coming Soon / library portrait cards
     'jane-eyre': janeEyreCover,
     frankenstein: frankensteinComingCover,
-    'dr-jekyll-and-mr-hyde': drjComingCover,
+    'dr-jekyll-and-mr-hyde': jekyllCover,
     leagues: underseaComingCover,
     'romeo-and-juliet': romeoComingCover,
 };

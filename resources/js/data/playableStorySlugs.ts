@@ -16,7 +16,6 @@ export const LAUNCH_PLAYABLE_SLUGS = [
     'the-tell-tale-heart',
     'pride-and-prejudice',
     'emma',
-    'treasure-island',
     'around-the-world-in-eighty-days',
     'journey-to-the-center-of-the-earth',
     'the-three-musketeers',
@@ -27,6 +26,8 @@ export const LAUNCH_PLAYABLE_SLUGS = [
 
 /** Already-boiled RnD titles — playable when `is_playable` is true from the API. */
 export const BOILED_PLAYABLE_SLUGS = [
+    'dr-jekyll-and-mr-hyde',
+    'the-strange-case-of-dr-jekyll-and-mr-hyde',
     'momotaro-the-peach-boy',
     'the-unwritten-ones',
 ] as const;

@@ -23,9 +23,20 @@ final class StoryPlayability
         return array_values(array_unique([...$launch, ...$boiled]));
     }
 
+    public static function canonicalSlug(string $slug): string
+    {
+        /** @var array<string, string> $aliases */
+        $aliases = config('stories.playable_slug_aliases', []);
+
+        return $aliases[$slug] ?? $slug;
+    }
+
     public static function isLaunchSlug(string $slug): bool
     {
-        return in_array($slug, self::launchSlugs(), true);
+        $canonical = self::canonicalSlug($slug);
+        $slugs = self::launchSlugs();
+
+        return in_array($slug, $slugs, true) || in_array($canonical, $slugs, true);
     }
 
     /** @deprecated Use isLaunchSlug() */

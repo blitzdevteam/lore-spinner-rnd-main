@@ -22,7 +22,6 @@ return [
         'the-tell-tale-heart',
         'pride-and-prejudice',
         'emma',
-        'treasure-island',
         'around-the-world-in-eighty-days',
         'journey-to-the-center-of-the-earth',
         'the-three-musketeers',
@@ -33,8 +32,16 @@ return [
 
     /** Already boiled on Cloud — stay playable even though not on the 18-title launch roster. */
     'boiled_playable_slugs' => [
+        'dr-jekyll-and-mr-hyde',
+        'the-strange-case-of-dr-jekyll-and-mr-hyde',
         'momotaro-the-peach-boy',
         'the-unwritten-ones',
+    ],
+
+    /** Legacy / seed DB slugs → canonical launch slug. */
+    'playable_slug_aliases' => [
+        'the-strange-case-of-dr-jekyll-and-mr-hyde' => 'dr-jekyll-and-mr-hyde',
+        'jekyll-and-hyde' => 'dr-jekyll-and-mr-hyde',
     ],
 
     'launch_catalog' => [

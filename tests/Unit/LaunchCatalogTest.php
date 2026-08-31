@@ -31,8 +31,15 @@ it('lists every launch catalog slug in the playable allowlist', function (): voi
 it('keeps already-boiled rnd titles playable', function (): void {
     expect(StoryPlayability::isLaunchSlug('momotaro-the-peach-boy'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeTrue()
-        ->and(StoryPlayability::isLaunchSlug('wasteland'))->toBeFalse()
-        ->and(StoryPlayability::isLaunchSlug('anima-machina'))->toBeFalse();
+        ->and(StoryPlayability::isLaunchSlug('dr-jekyll-and-mr-hyde'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('the-strange-case-of-dr-jekyll-and-mr-hyde'))->toBeTrue()
+        ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeFalse()
+        ->and(StoryPlayability::isLaunchSlug('wasteland'))->toBeFalse();
+});
+
+it('resolves playable slug aliases', function (): void {
+    expect(StoryPlayability::canonicalSlug('the-strange-case-of-dr-jekyll-and-mr-hyde'))
+        ->toBe('dr-jekyll-and-mr-hyde');
 });
 
 it('lists every launch world from the catalog', function (): void {
