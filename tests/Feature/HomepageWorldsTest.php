@@ -55,6 +55,7 @@ it('loads only active worlds ordered by position with published stories', functi
                 ->component('Index')
                 ->has('worlds', 2)
                 ->where('worlds.0.title', 'Jane Austen')
+                ->where('worlds.0.slug', 'jane-austen')
                 ->where('worlds.0.tagline', 'Find love without losing yourself.')
                 ->where('worlds.0.stories_count', 1)
                 ->where('worlds.0.stories.0.title', 'Emma')
