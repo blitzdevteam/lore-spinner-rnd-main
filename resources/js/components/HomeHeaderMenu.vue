@@ -26,12 +26,11 @@ const {
     aboutUsHref,
 } = useHomeHeaderNav();
 
-/* Reserve the same box for every item so labels never shift; underline bar is hidden even when active */
-const underlineSlotClass = (): string => 'pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0 rounded-bl-[0.4375rem] rounded-br-[0.4375rem]';
 const navItemShell =
     'relative flex h-[4.6875rem] w-fit items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black';
-const navStack = 'relative flex flex-col items-center';
-const navLabelRow = 'relative z-[1] flex items-center justify-center p-[0.625rem] font-[Inter] text-[1rem] leading-[2.0625rem] transition-colors';
+const navLabelRow =
+    'flex items-center justify-center px-[0.625rem] font-[Inter] text-[1rem] leading-none transition-colors';
+const navDividerItem = 'hidden h-[4.6875rem] items-center md:flex';
 
 const inactiveText = 'text-[#D8D8D8] hover:text-primary';
 const activeText = 'text-primary';
@@ -51,21 +50,13 @@ const moodItemClass = (slug: string): string =>
         <ul class="flex h-[4.6875rem] items-center gap-1 md:gap-0">
             <li>
                 <Link :href="homeHref" :class="navItemShell">
-                    <span :class="navStack">
-                        <span :class="navClass(isHomeActive)">Home</span>
-                        <span :class="underlineSlotClass()" aria-hidden="true" />
-                    </span>
+                    <span :class="navClass(isHomeActive)">Home</span>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-1 flex items-center justify-center py-2.5">
-                        <span class="flex h-8 items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="-mx-5 flex items-center justify-center">
+                    <span class="nav-divider" />
                 </span>
             </li>
 
@@ -77,20 +68,14 @@ const moodItemClass = (slug: string): string =>
                     aria-haspopup="true"
                     @click="moodsOpen = !moodsOpen"
                 >
-                    <span :class="navStack">
-                        <span
-                            class="inline-flex items-center justify-center gap-0 p-[0.625rem] font-[Inter] text-[1rem] leading-[2.0625rem] font-light"
-                        >
-                            Moods
-                            <ChevronDown
-                                class="h-[1.375rem] w-[1.625rem] shrink-0 text-current transition-transform"
-                                :stroke-width="1.75"
-                                :class="moodsOpen ? 'rotate-180' : ''"
-                                style="margin-right: -8px"
-                            />
-                        </span>
-                        <!-- Reserve bar space so label aligns with other nav items -->
-                        <span :class="underlineSlotClass()" aria-hidden="true" />
+                    <span class="inline-flex items-center justify-center gap-0 px-[0.625rem] font-[Inter] text-[1rem] leading-none font-light">
+                        Moods
+                        <ChevronDown
+                            class="h-[1.375rem] w-[1.625rem] shrink-0 text-current transition-transform"
+                            :stroke-width="1.75"
+                            :class="moodsOpen ? 'rotate-180' : ''"
+                            style="margin-right: -8px"
+                        />
                     </span>
                 </button>
 
@@ -112,63 +97,39 @@ const moodItemClass = (slug: string): string =>
                 </div>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="-mx-5 flex items-center justify-center">
+                    <span class="nav-divider" />
                 </span>
             </li>
 
             <li>
                 <Link :href="libraryHref" :class="navItemShell">
-                    <span :class="navStack">
-                        <span :class="navClass(isLibraryActive)">Library</span>
-                        <span :class="underlineSlotClass()" aria-hidden="true" />
-                    </span>
+                    <span :class="navClass(isLibraryActive)">Library</span>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="-mx-5 flex items-center justify-center">
+                    <span class="nav-divider" />
                 </span>
             </li>
 
             <li>
                 <Link :href="worldsHref" :class="navItemShell">
-                    <span :class="navStack">
-                        <span :class="navClass(isWorldsActive)">Worlds</span>
-                        <span :class="underlineSlotClass()" aria-hidden="true" />
-                    </span>
+                    <span :class="navClass(isWorldsActive)">Worlds</span>
                 </Link>
             </li>
 
-            <li aria-hidden="true" class="hidden md:flex">
-                <span class="relative -mx-5 flex flex-col items-center">
-                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
-                        <span class="flex h-[2.0625rem] items-center justify-center">
-                            <span class="nav-divider" />
-                        </span>
-                    </span>
-                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+            <li aria-hidden="true" :class="navDividerItem">
+                <span class="-mx-5 flex items-center justify-center">
+                    <span class="nav-divider" />
                 </span>
             </li>
 
             <li>
                 <Link :href="aboutUsHref" :class="navItemShell">
-                    <span :class="navStack">
-                        <span :class="navClass(isAboutUsActive)">About Us</span>
-                        <span :class="underlineSlotClass()" aria-hidden="true" />
-                    </span>
+                    <span :class="navClass(isAboutUsActive)">About Us</span>
                 </Link>
             </li>
         </ul>

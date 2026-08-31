@@ -131,14 +131,14 @@ const moodLinkClass = (slug: string): string =>
                 <div v-if="auth === null" class="flex flex-col gap-2 border-t border-white/10 p-4">
                     <Link
                         :href="login.create().url"
-                        class="flex h-12 w-full items-center justify-center rounded-full border border-white/15 font-[Inter] text-sm font-medium leading-none text-[#c8ced1] transition-colors hover:border-primary/60 hover:bg-white/5 hover:text-white"
+                        class="flex h-12 w-full items-center justify-center rounded-xl border border-white/15 font-[Inter] text-sm font-medium leading-none text-[#c8ced1] transition-colors hover:border-primary/60 hover:bg-white/5 hover:text-white"
                         @click="closeMenu"
                     >
                         Log in
                     </Link>
                     <Link
                         :href="register.create().url"
-                        class="flex h-12 w-full items-center justify-center rounded-full border border-primary bg-cta-fill font-[Inter] text-sm font-medium leading-none text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active"
+                        class="flex h-12 w-full items-center justify-center rounded-xl border border-primary bg-cta-fill font-[Inter] text-sm font-medium leading-none text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active"
                         @click="closeMenu"
                     >
                         Sign up

@@ -42,16 +42,20 @@ onClickOutside(profileWrap, () => {
 
 <template>
     <template v-if="auth === null">
-        <nav v-bind="$attrs" class="flex items-center gap-3 self-center md:gap-4" aria-label="Account">
+        <nav
+            v-bind="$attrs"
+            class="flex h-[4.6875rem] items-center gap-4"
+            aria-label="Account"
+        >
             <Link
                 :href="login.create().url"
-                class="inline-flex h-9 items-center justify-center whitespace-nowrap px-1 font-[Inter] text-[0.9375rem] leading-none font-normal text-[#D8D8D8] transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                class="inline-flex h-full items-center font-[Inter] text-[1rem] leading-none font-normal whitespace-nowrap text-[#D8D8D8] transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
                 Log in
             </Link>
             <Link
                 :href="register.create().url"
-                class="inline-flex h-9 items-center justify-center rounded-full border border-primary bg-cta-fill px-4 font-[Inter] text-[0.8125rem] leading-none font-medium tracking-[0.02em] whitespace-nowrap text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                class="inline-flex h-[1.875rem] items-center justify-center rounded-[0.5rem] border border-primary bg-cta-fill px-[0.9375rem] font-[Inter] text-[0.875rem] leading-none font-medium whitespace-nowrap text-cta-text transition-colors hover:border-primary-300 hover:bg-cta-hover active:bg-cta-active focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
                 Sign up
             </Link>
