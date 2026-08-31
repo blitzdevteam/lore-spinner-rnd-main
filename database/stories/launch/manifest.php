@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 /**
- * Launch title registry — 18 titles across 6 worlds + 2 standalones.
+ * Launch title registry — Baker Street, Oz, Olympus, Journey to the West, Jane Austen, LoreSpinner Originals, Hyde's London, and standalones.
  *
  * Each title folder holds two files named after the story (not source.pdf / script.txt):
  *   database/stories/launch/{world}/{slug}/{source}
@@ -368,9 +370,27 @@ return [
             'legacy_source_pdf' => null,
             'script' => 'THE UNWRITTEN ONES - Season One_script.txt',
             'category' => 'Dark Fantasy',
-            'teaser' => "A carnival that opens one night only promises any story you want. Three siblings follow a vanishing trail of names — and learn that names are knots, and pulling too hard can make you disappear.",
+            'teaser' => 'A carnival that opens one night only promises any story you want. Three siblings follow a vanishing trail of names — and learn that names are knots, and pulling too hard can make you disappear.',
             'rating' => 'teen',
             'creator' => 'thomas',
+        ],
+
+        // ── Hyde's London ─────────────────────────────────────────────────
+        [
+            'seed_keys' => ['jekyll', 'hyde', 'dr-jekyll-and-mr-hyde', 'jekyll-and-hyde', 'the-strange-case-of-dr-jekyll-and-mr-hyde'],
+            'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
+            'slug' => 'dr-jekyll-and-mr-hyde',
+            'world' => "Hyde's London",
+            'world_slug' => 'standalone',
+            'launch_path' => 'launch/standalone/dr-jekyll-and-mr-hyde',
+            'source' => 'The strange case of Dr. Jekyll and Mr. Hyde.pdf',
+            'source_inbox' => null,
+            'legacy_source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/The strange case of Dr. Jekyll and Mr. Hyde.pdf',
+            'script' => 'The strange case of Dr. Jekyll and Mr. Hyde_script.txt',
+            'category' => 'Gothic Horror',
+            'teaser' => "Beneath the fog-covered streets of Victorian London, a terrifying secret grows inside Dr. Jekyll's laboratory, threatening to consume everyone around him.",
+            'rating' => 'teen',
+            'creator' => 'classics',
         ],
 
         // ── Standalone ────────────────────────────────────────────────────

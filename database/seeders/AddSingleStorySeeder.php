@@ -12,7 +12,6 @@ use App\Jobs\Event\EventExtractorJob;
 use App\Jobs\Story\StoryOpeningGeneratorJob;
 use App\Jobs\Story\SystemPromptGeneratorJob;
 use App\Models\Category;
-use App\Models\Chapter;
 use App\Models\Creator;
 use App\Models\Story;
 use Illuminate\Database\Seeder;
@@ -37,7 +36,7 @@ use Throwable;
  *   SEED_LAUNCH=all      php artisan db:seed --class=AddSingleStorySeeder --force
  *   SEED_LAUNCH=pending  php artisan db:seed --class=AddSingleStorySeeder --force
  */
-class AddSingleStorySeeder extends Seeder
+final class AddSingleStorySeeder extends Seeder
 {
     private const int MAX_RETRIES = 3;
 
@@ -77,7 +76,7 @@ class AddSingleStorySeeder extends Seeder
         $titles = $manifest['titles'];
 
         if (! in_array($mode, ['all', 'pending'], true)) {
-            $keys = array_map(static fn (string $k): string => strtolower(trim($k)), explode(',', $mode));
+            $keys = array_map(static fn (string $k): string => mb_strtolower(mb_trim($k)), explode(',', $mode));
             $titles = array_values(array_filter(
                 $titles,
                 static fn (array $entry): bool => (bool) array_intersect($keys, $entry['seed_keys'])
@@ -145,19 +144,19 @@ class AddSingleStorySeeder extends Seeder
             $pdfPath = $this->resolveSourcePdfPath($config);
 
             if ($pdfPath !== null) {
-                $scriptPath = database_path('stories/' . $config['script']);
+                $scriptPath = database_path('stories/'.$config['script']);
                 $this->command->info('Converting PDF → TXT...');
                 $this->convertPdf($pdfPath, $scriptPath);
 
                 if (isset($config['launch_path'], $config['script'])) {
-                    $worldScript = database_path('stories/' . $config['launch_path'] . '/' . $config['script']);
+                    $worldScript = database_path('stories/'.$config['launch_path'].'/'.$config['script']);
                     if (File::exists($scriptPath)) {
                         File::copy($scriptPath, $worldScript);
                     }
                 }
             }
         } else {
-            $this->command->info('Using existing script: ' . basename($scriptPath));
+            $this->command->info('Using existing script: '.basename($scriptPath));
         }
 
         if ($scriptPath === null || ! File::exists($scriptPath)) {
@@ -258,12 +257,12 @@ class AddSingleStorySeeder extends Seeder
                 'bio' => $data['bio'],
             ]);
 
-        $avatarPath = database_path('stories/avatars/' . $data['avatar']);
+        $avatarPath = database_path('stories/avatars/'.$data['avatar']);
 
         if (File::exists($avatarPath) && ! $creator->getFirstMedia('avatar')) {
             $creator->addMedia($avatarPath)
                 ->preservingOriginal()
-                ->usingFileName('avatar-' . $creator->id . '.' . pathinfo($avatarPath, PATHINFO_EXTENSION))
+                ->usingFileName('avatar-'.$creator->id.'.'.pathinfo($avatarPath, PATHINFO_EXTENSION))
                 ->toMediaCollection('avatar', 'public');
         }
 
@@ -281,7 +280,7 @@ class AddSingleStorySeeder extends Seeder
                 $ext = pathinfo($coverFile, PATHINFO_EXTENSION) ?: 'png';
                 $story->addMedia($coverFile)
                     ->preservingOriginal()
-                    ->usingFileName('cover-' . $slug . '.' . $ext)
+                    ->usingFileName('cover-'.$slug.'.'.$ext)
                     ->toMediaCollection('cover', 'public');
                 $this->command->info('Story cover attached.');
             } else {
@@ -318,11 +317,11 @@ class AddSingleStorySeeder extends Seeder
         $text = preg_replace('/^\d+\.?\s*$/m', '', $text);
         $text = preg_replace("/\n{4,}/", "\n\n\n", $text);
         $text = implode("\n", array_map('rtrim', explode("\n", $text)));
-        $text = mb_trim($text) . "\n";
+        $text = mb_trim($text)."\n";
 
         File::put($txtPath, $text);
 
-        $this->command->info('Saved: ' . basename($txtPath) . ' (' . mb_strlen($text) . ' bytes)');
+        $this->command->info('Saved: '.basename($txtPath).' ('.mb_strlen($text).' bytes)');
     }
 
     protected function withRetry(callable $callback): void
@@ -357,6 +356,7 @@ class AddSingleStorySeeder extends Seeder
      *   havoc-in-heaven · white-bone-demon
      *   pride-and-prejudice · emma
      *   anima-machina · wasteland · driftheart · dream-police · unwritten-ones
+     *   jekyll · dr-jekyll-and-mr-hyde
      *   momotaro · tell-tale-heart
      *
      * RnD / legacy (not in launch manifest):
@@ -367,7 +367,7 @@ class AddSingleStorySeeder extends Seeder
      */
     protected function getStoryConfig(): array
     {
-        $key = strtolower((string) env('SEED_STORY', 'masque'));
+        $key = mb_strtolower((string) env('SEED_STORY', 'masque'));
 
         $launch = $this->launchConfigForKey($key);
 
@@ -376,12 +376,12 @@ class AddSingleStorySeeder extends Seeder
         }
 
         return match ($key) {
-            'the-matrix', 'matrix', 'the-matrix-1999'                          => $this->configTheMatrix(),
+            'the-matrix', 'matrix', 'the-matrix-1999' => $this->configTheMatrix(),
             'job-switching', 'i-love-lucy-job-switching', 'job-switching-final' => $this->configJobSwitching(),
-            'nocturne', 'nocturne-final'                                       => $this->configNocturne(),
-            'pjs', 'pjs-final'                                                 => $this->configPjs(),
-            'treasure-island', 'treasure'                                      => $this->configTreasureIsland(),
-            default                                                              => $this->configMasque(),
+            'nocturne', 'nocturne-final' => $this->configNocturne(),
+            'pjs', 'pjs-final' => $this->configPjs(),
+            'treasure-island', 'treasure' => $this->configTreasureIsland(),
+            default => $this->configMasque(),
         };
     }
 
@@ -401,7 +401,7 @@ class AddSingleStorySeeder extends Seeder
 
         foreach ($manifest['titles'] as $entry) {
             foreach ($entry['seed_keys'] as $seedKey) {
-                $byKey[strtolower($seedKey)] = $entry;
+                $byKey[mb_strtolower($seedKey)] = $entry;
             }
         }
 
@@ -455,11 +455,11 @@ class AddSingleStorySeeder extends Seeder
     protected function resolveLaunchCoverPath(string $path): string
     {
         if (str_starts_with($path, 'resource:')) {
-            return resource_path(substr($path, strlen('resource:')));
+            return resource_path(mb_substr($path, mb_strlen('resource:')));
         }
 
         if (str_starts_with($path, 'database:')) {
-            return database_path('stories/' . substr($path, strlen('database:')));
+            return database_path('stories/'.mb_substr($path, mb_strlen('database:')));
         }
 
         return $path;
@@ -492,10 +492,10 @@ class AddSingleStorySeeder extends Seeder
         $candidates = [];
 
         if (isset($config['launch_path'], $config['script'])) {
-            $candidates[] = database_path('stories/' . $config['launch_path'] . '/' . $config['script']);
+            $candidates[] = database_path('stories/'.$config['launch_path'].'/'.$config['script']);
         }
 
-        $candidates[] = database_path('stories/' . $config['script']);
+        $candidates[] = database_path('stories/'.$config['script']);
 
         foreach ($candidates as $path) {
             if (File::exists($path)) {
@@ -510,7 +510,7 @@ class AddSingleStorySeeder extends Seeder
     {
         $relativePaths = array_values(array_filter([
             isset($config['launch_path'], $config['source'])
-                ? $config['launch_path'] . '/' . $config['source']
+                ? $config['launch_path'].'/'.$config['source']
                 : null,
             $config['source_inbox'] ?? null,
             $config['legacy_source_pdf'] ?? null,
@@ -518,7 +518,7 @@ class AddSingleStorySeeder extends Seeder
         ]));
 
         foreach ($relativePaths as $relative) {
-            $path = database_path('stories/' . $relative);
+            $path = database_path('stories/'.$relative);
 
             if (File::exists($path)) {
                 return $path;
@@ -528,31 +528,67 @@ class AddSingleStorySeeder extends Seeder
         return null;
     }
 
+    protected function thomasWittmerCreator(): array
+    {
+        return [
+            'first_name' => 'Thomas',
+            'last_name' => 'Wittmer',
+            'username' => 'thomaswittmer',
+            'email' => 'thomas@lorespinner.com',
+            'bio' => 'Mythic blockbuster storyteller building high-concept cinematic worlds fueled by awe, danger, and emotionally charged spectacle.',
+            'avatar' => 'THOMAS WITTMER - PROFILE PIC.jpg',
+        ];
+    }
+
+    protected function classicsCreator(): array
+    {
+        return [
+            'first_name' => 'The Classics, Unbound',
+            'last_name' => '',
+            'username' => 'theclassicsunbound',
+            'email' => 'classics@lorespinner.com',
+            'bio' => "Enter the world's most iconic classic stories—now immersive, interactive adventures where your choices reshape timeless legends.",
+            'avatar' => 'THE CLASSICS, UNBOUND - PROFILE PIC.jpg',
+        ];
+    }
+
+    protected function freepCreator(): array
+    {
+        return [
+            'first_name' => 'FREEP1',
+            'last_name' => '',
+            'username' => 'freep',
+            'email' => 'freep@lorespinner.com',
+            'bio' => 'Hollywood writing team creating high-impact television worlds where serialized mythology, procedural engines, and commercial concept collide.',
+            'avatar' => 'FREEP1 - PROFILE PIC.jpg',
+        ];
+    }
+
     private function configMasque(): array
     {
         return [
-            'title'      => 'The Masque of the Red Death',
-            'slug'       => 'the-masque-of-the-red-death',
-            'category'   => 'Horror',
-            'script'     => 'The Masque of the Red Death_script.txt',
+            'title' => 'The Masque of the Red Death',
+            'slug' => 'the-masque-of-the-red-death',
+            'category' => 'Horror',
+            'script' => 'The Masque of the Red Death_script.txt',
             'source_pdf' => 'launch/Launch titles/The Masque of the Red Death.pdf',
             'legacy_source_pdf' => 'RnD/rest of titles/The Masque of the Red Death copy.pdf',
-            'teaser'     => 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
-            'rating'     => StoryRatingEnum::MATURE->value,
-            'opening'    => null,
-            'creator'    => $this->classicsCreator(),
+            'teaser' => 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
+            'rating' => StoryRatingEnum::MATURE->value,
+            'opening' => null,
+            'creator' => $this->classicsCreator(),
         ];
     }
 
     private function configWizardOfOz(): array
     {
         return [
-            'title'   => 'The Wonderful Wizard of Oz',
-            'slug'    => 'the-wonderful-wizard-of-oz',
+            'title' => 'The Wonderful Wizard of Oz',
+            'slug' => 'the-wonderful-wizard-of-oz',
             'category' => 'Fantasy Adventure',
-            'script'  => 'THE WONDERFUL WIZARD OF OZ_script.txt',
-            'teaser'  => 'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
-            'rating'  => StoryRatingEnum::EVERYONE->value,
+            'script' => 'THE WONDERFUL WIZARD OF OZ_script.txt',
+            'teaser' => 'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
+            'rating' => StoryRatingEnum::EVERYONE->value,
             'opening' => null,
             'creator' => $this->classicsCreator(),
         ];
@@ -561,160 +597,124 @@ class AddSingleStorySeeder extends Seeder
     private function configAnimaMachina(): array
     {
         return [
-            'title'      => 'Anima Machina',
-            'slug'       => 'anima-machina',
-            'category'   => 'Science Fiction',
-            'script'     => 'ANIMA_MACHINA_FINAL_MASTER_SCRIPT_JUNE_16th_script.txt',
+            'title' => 'Anima Machina',
+            'slug' => 'anima-machina',
+            'category' => 'Science Fiction',
+            'script' => 'ANIMA_MACHINA_FINAL_MASTER_SCRIPT_JUNE_16th_script.txt',
             'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/ANIMA_MACHINA_FINAL_MASTER_SCRIPT_JUNE 16th.pdf',
-            'teaser'     => 'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
-            'rating'     => StoryRatingEnum::MATURE->value,
-            'opening'    => 'Rain stitches neon into the dark. The city of Neo-Vault is a cathedral of glass and wire, every tower a sermon to order. Holo-billboards pulse: "ONE PARTNER. ONE MIND. NO MORE PAIN." The NEURAL RESET countdown hovers in the sky — 49 hours remain. Below, faces glow with false joy as citizens replay their happiest memories in loops. You are a Memory Diver. Your wrist is looped with a child\'s worn ballet slipper — your anchor. Your HUD bleeds glyph-static: ARCHIVE FAILURE. MEMORY OVERWRITE IN 47:59:00. What do you do?',
-            'creator'    => $this->thomasWittmerCreator(),
+            'teaser' => 'When a sentient AI threatens to overwrite all human grief with synthetic perfection, a haunted memory diver races against the clock to stop the digital reset.',
+            'rating' => StoryRatingEnum::MATURE->value,
+            'opening' => 'Rain stitches neon into the dark. The city of Neo-Vault is a cathedral of glass and wire, every tower a sermon to order. Holo-billboards pulse: "ONE PARTNER. ONE MIND. NO MORE PAIN." The NEURAL RESET countdown hovers in the sky — 49 hours remain. Below, faces glow with false joy as citizens replay their happiest memories in loops. You are a Memory Diver. Your wrist is looped with a child\'s worn ballet slipper — your anchor. Your HUD bleeds glyph-static: ARCHIVE FAILURE. MEMORY OVERWRITE IN 47:59:00. What do you do?',
+            'creator' => $this->thomasWittmerCreator(),
         ];
     }
 
     private function configTheMatrix(): array
     {
         return [
-            'title'      => 'The Matrix',
-            'slug'       => 'the-matrix',
-            'category'   => 'Science Fiction',
-            'script'     => 'THE_MATRIX_1999_script.txt',
+            'title' => 'The Matrix',
+            'slug' => 'the-matrix',
+            'category' => 'Science Fiction',
+            'script' => 'THE_MATRIX_1999_script.txt',
             'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/the-matrix-1999 copy.pdf',
-            'teaser'     => 'A hacker named Neo discovers the world he knows is a simulation — and the only way out is to trust rebels who claim reality has been hijacked.',
-            'rating'     => StoryRatingEnum::MATURE->value,
-            'opening'    => null,
-            'creator'    => $this->classicsCreator(),
+            'teaser' => 'A hacker named Neo discovers the world he knows is a simulation — and the only way out is to trust rebels who claim reality has been hijacked.',
+            'rating' => StoryRatingEnum::MATURE->value,
+            'opening' => null,
+            'creator' => $this->classicsCreator(),
         ];
     }
 
     private function configJobSwitching(): array
     {
         return [
-            'title'      => 'I Love Lucy: Job Switching',
-            'slug'       => 'i-love-lucy-job-switching',
-            'category'   => 'Comedy',
-            'script'     => 'I Love Lucy Job Switching_script.txt',
+            'title' => 'I Love Lucy: Job Switching',
+            'slug' => 'i-love-lucy-job-switching',
+            'category' => 'Comedy',
+            'script' => 'I Love Lucy Job Switching_script.txt',
             'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/Job_Switching_FINAL.pdf',
-            'teaser'     => 'When Lucy and Ethel swap lives with Ricky and Fred for a week, a night at the candy factory turns into the most delicious disaster in television history.',
-            'rating'     => StoryRatingEnum::EVERYONE->value,
-            'opening'    => null,
-            'creator'    => $this->classicsCreator(),
+            'teaser' => 'When Lucy and Ethel swap lives with Ricky and Fred for a week, a night at the candy factory turns into the most delicious disaster in television history.',
+            'rating' => StoryRatingEnum::EVERYONE->value,
+            'opening' => null,
+            'creator' => $this->classicsCreator(),
         ];
     }
 
     private function configNocturne(): array
     {
         return [
-            'title'      => 'Nocturne',
-            'slug'       => 'nocturne',
-            'category'   => 'Thriller',
-            'script'     => 'NOCTURNE_FINAL_script.txt',
+            'title' => 'Nocturne',
+            'slug' => 'nocturne',
+            'category' => 'Thriller',
+            'script' => 'NOCTURNE_FINAL_script.txt',
             'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/NOCTURNE_FINAL.pdf',
-            'teaser'     => 'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
-            'rating'     => StoryRatingEnum::MATURE->value,
-            'opening'    => 'A sparse, modern Tokyo high-rise. Concrete, teak, and tension. A single table set for two. You are Akira, 26. Your lipstick is too dark for the room. Across from you sits Professor Shin — married, respected, calm in the way men are when they\'ve never been truly cornered. He refills your sake without asking. "You should learn to keep secrets if you want to stay important," he says with a smile like advice, not a blade. But you\'ve already sent the files. There\'s no going back. What do you do?',
-            'creator'    => $this->thomasWittmerCreator(),
+            'teaser' => 'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
+            'rating' => StoryRatingEnum::MATURE->value,
+            'opening' => 'A sparse, modern Tokyo high-rise. Concrete, teak, and tension. A single table set for two. You are Akira, 26. Your lipstick is too dark for the room. Across from you sits Professor Shin — married, respected, calm in the way men are when they\'ve never been truly cornered. He refills your sake without asking. "You should learn to keep secrets if you want to stay important," he says with a smile like advice, not a blade. But you\'ve already sent the files. There\'s no going back. What do you do?',
+            'creator' => $this->thomasWittmerCreator(),
         ];
     }
 
     private function configWasteland(): array
     {
         return [
-            'title'      => 'Wasteland',
-            'slug'       => 'wasteland',
-            'category'   => 'Dystopian',
-            'script'     => 'WASTELAND_script.txt',
+            'title' => 'Wasteland',
+            'slug' => 'wasteland',
+            'category' => 'Dystopian',
+            'script' => 'WASTELAND_script.txt',
             'source_pdf' => 'FREEP1 - STORIES/WASTELAND/Wasteland.pdf',
-            'teaser'     => "Abandoned in a desert built from humanity's castoffs, an engineer must decide whether to escape or help the people that the world chose to forget.",
-            'rating'     => StoryRatingEnum::YOUNG_ADULT->value,
-            'opening'    => null,
+            'teaser' => "Abandoned in a desert built from humanity's castoffs, an engineer must decide whether to escape or help the people that the world chose to forget.",
+            'rating' => StoryRatingEnum::YOUNG_ADULT->value,
+            'opening' => null,
             'story_cover' => resource_path('js/assets/commingSoon/wasteland-comming.JPG'),
-            'creator'    => $this->freepCreator(),
+            'creator' => $this->freepCreator(),
         ];
     }
 
     private function configPjs(): array
     {
         return [
-            'title'      => "PJ's",
-            'slug'       => 'pjs',
-            'category'   => 'Military Drama',
-            'script'     => 'PJS_script.txt',
+            'title' => "PJ's",
+            'slug' => 'pjs',
+            'category' => 'Military Drama',
+            'script' => 'PJS_script.txt',
             'source_pdf' => "FREEP1 - STORIES/PJ'S/PJ's.pdf",
-            'teaser'     => "A team of elite Air Force PJs discover that the hardest battlefield may be the one where there's no enemy to shoot, only lives to save and ghosts to outrun.",
-            'rating'     => StoryRatingEnum::MATURE->value,
-            'opening'    => null,
+            'teaser' => "A team of elite Air Force PJs discover that the hardest battlefield may be the one where there's no enemy to shoot, only lives to save and ghosts to outrun.",
+            'rating' => StoryRatingEnum::MATURE->value,
+            'opening' => null,
             'story_cover' => resource_path('js/assets/commingSoon/pj-comming.JPG'),
-            'creator'    => $this->freepCreator(),
+            'creator' => $this->freepCreator(),
         ];
     }
 
     private function configMomotaro(): array
     {
         return [
-            'title'      => 'Momotaro: The Peach Boy',
-            'slug'       => 'momotaro-the-peach-boy',
-            'category'   => 'Fantasy Adventure',
-            'script'     => 'Momotaro_The_Peach_Boy_script.txt',
+            'title' => 'Momotaro: The Peach Boy',
+            'slug' => 'momotaro-the-peach-boy',
+            'category' => 'Fantasy Adventure',
+            'script' => 'Momotaro_The_Peach_Boy_script.txt',
             'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/Momotaro_The_Peach_Boy.pdf',
-            'teaser'     => 'Born from a miraculous peach and raised by humble elders, a fearless boy gathers unlikely companions and sails to Oni Island to face the demons who have stolen everything his village fears to name.',
-            'rating'     => StoryRatingEnum::EVERYONE->value,
-            'opening'    => null,
+            'teaser' => 'Born from a miraculous peach and raised by humble elders, a fearless boy gathers unlikely companions and sails to Oni Island to face the demons who have stolen everything his village fears to name.',
+            'rating' => StoryRatingEnum::EVERYONE->value,
+            'opening' => null,
             'story_cover' => database_path('stories/covers/Momotaro.png'),
-            'creator'    => $this->classicsCreator(),
+            'creator' => $this->classicsCreator(),
         ];
     }
 
     private function configTreasureIsland(): array
     {
         return [
-            'title'       => 'Treasure Island',
-            'slug'        => 'treasure-island',
-            'category'    => 'Adventure',
-            'script'      => 'Treasure_Island_script.txt',
-            'source_pdf'  => 'RnD/MORE R&D TITLES - JUNE 15/TREASURE ISLAND.pdf',
-            'teaser'      => 'Every choice at sea carries a price: who to trust, when to run, and what kind of courage survives betrayal. The map is only the beginning.',
-            'rating'      => StoryRatingEnum::TEEN->value,
-            'opening'     => null,
+            'title' => 'Treasure Island',
+            'slug' => 'treasure-island',
+            'category' => 'Adventure',
+            'script' => 'Treasure_Island_script.txt',
+            'source_pdf' => 'RnD/MORE R&D TITLES - JUNE 15/TREASURE ISLAND.pdf',
+            'teaser' => 'Every choice at sea carries a price: who to trust, when to run, and what kind of courage survives betrayal. The map is only the beginning.',
+            'rating' => StoryRatingEnum::TEEN->value,
+            'opening' => null,
             'story_cover' => resource_path('js/assets/featured/treasure.png'),
-            'creator'     => $this->classicsCreator(),
-        ];
-    }
-
-    protected function thomasWittmerCreator(): array
-    {
-        return [
-            'first_name' => 'Thomas',
-            'last_name'  => 'Wittmer',
-            'username'   => 'thomaswittmer',
-            'email'      => 'thomas@lorespinner.com',
-            'bio'        => 'Mythic blockbuster storyteller building high-concept cinematic worlds fueled by awe, danger, and emotionally charged spectacle.',
-            'avatar'     => 'THOMAS WITTMER - PROFILE PIC.jpg',
-        ];
-    }
-
-    protected function classicsCreator(): array
-    {
-        return [
-            'first_name' => 'The Classics, Unbound',
-            'last_name'  => '',
-            'username'   => 'theclassicsunbound',
-            'email'      => 'classics@lorespinner.com',
-            'bio'        => "Enter the world's most iconic classic stories—now immersive, interactive adventures where your choices reshape timeless legends.",
-            'avatar'     => 'THE CLASSICS, UNBOUND - PROFILE PIC.jpg',
-        ];
-    }
-
-    protected function freepCreator(): array
-    {
-        return [
-            'first_name' => 'FREEP1',
-            'last_name'  => '',
-            'username'   => 'freep',
-            'email'      => 'freep@lorespinner.com',
-            'bio'        => 'Hollywood writing team creating high-impact television worlds where serialized mythology, procedural engines, and commercial concept collide.',
-            'avatar'     => 'FREEP1 - PROFILE PIC.jpg',
+            'creator' => $this->classicsCreator(),
         ];
     }
 }

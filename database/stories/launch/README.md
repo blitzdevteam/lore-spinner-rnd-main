@@ -66,3 +66,4 @@ SEED_STORY=blue-carbuncle php artisan db:seed --class=AddSingleStorySeeder --for
 | The Unwritten Ones | `THE UNWRITTEN ONES - Season One.pdf` | `THE UNWRITTEN ONES - Season One_script.txt` |
 | Momotaro: The Peach Boy | `Momotaro_The_Peach_Boy.pdf` | `Momotaro_The_Peach_Boy_script.txt` |
 | The Tell-Tale Heart | `TellTaleHeart_Premium.pdf` | `TellTaleHeart_Premium_script.txt` |
+| Dr. Jekyll and Mr. Hyde | `The strange case of Dr. Jekyll and Mr. Hyde.pdf` *(RnD)* | `The strange case of Dr. Jekyll and Mr. Hyde_script.txt` ✓ |
