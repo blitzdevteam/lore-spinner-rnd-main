@@ -12,15 +12,18 @@ use App\Models\Game;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Services\Adaptation\StoryGameResetService;
+use App\Support\LaunchStoryActivator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 final class AdaptationStatusReconciliationJob implements ShouldQueue
 {
     use Queueable;
 
     public int $tries = 3;
+
     public int $timeout = 60;
 
     public function __construct(
@@ -32,8 +35,7 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
     public function handle(
         RuntimeNarratorPromptValidator $promptValidator,
         StoryGameResetService $gameResetService,
-    ): void
-    {
+    ): void {
         $adaptation = $this->story->adaptation;
 
         if (! $adaptation) {
@@ -62,7 +64,7 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
 
                 try {
                     $promptValidator->validate($prompt, (bool) $adaptation->boiler_enabled);
-                } catch (\RuntimeException) {
+                } catch (RuntimeException) {
                     return true;
                 }
 
@@ -107,5 +109,7 @@ final class AdaptationStatusReconciliationJob implements ShouldQueue
 
             $lockedAdaptation->update(['adaptation_status' => AdaptationStatusEnum::COMPLETED]);
         });
+
+        LaunchStoryActivator::activate($this->story->fresh());
     }
 }
