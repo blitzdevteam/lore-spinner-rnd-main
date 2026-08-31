@@ -54,7 +54,10 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <!-- Step into Worlds -->
         <StepIntoWorlds :worlds="worlds" :worlds-count="worldsCount" />
 
-        <!-- Top Stories -->
+        <!-- New Stories -->
+        <NewStoriesBanners :stories="newestStories" />
+
+        <!-- Featured Worlds -->
         <FeaturedWorldsGames :coming-soon-stories="featuredWorldComingSoonStories" />
 
         <!-- Xen Banner -->
@@ -62,9 +65,6 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
 
         <!-- Explore by Mood -->
         <ExploreByMood />
-
-        <!-- Featured Worlds -->
-        <NewStoriesBanners :stories="newestStories" />
 
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 

@@ -4,7 +4,7 @@ import { onClickOutside } from '@vueuse/core';
 import { ArrowDownUp, LucideCheck } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-export type LibrarySortMode = 'recent' | 'title_asc' | 'title_desc';
+export type LibrarySortMode = 'playable' | 'recent' | 'title_asc' | 'title_desc';
 
 withDefaults(
     defineProps<{
@@ -20,6 +20,7 @@ withDefaults(
 const sortMode = defineModel<LibrarySortMode>({ required: true });
 
 const SORT_OPTIONS: { value: LibrarySortMode; label: string }[] = [
+    { value: 'playable', label: 'Playable' },
     { value: 'recent', label: 'Recent' },
     { value: 'title_asc', label: 'A–Z' },
     { value: 'title_desc', label: 'Z–A' },
@@ -73,7 +74,7 @@ function optionClass(mode: LibrarySortMode): string {
 
         <div
             v-show="menuOpen"
-            class="library-sort-dropdown absolute top-full right-0 z-50 mt-2 min-w-[9.5rem] overflow-hidden rounded-[0.9375rem] p-1.5"
+            class="library-sort-dropdown absolute top-full right-0 z-50 mt-2 min-w-[10.5rem] overflow-hidden rounded-[0.9375rem] p-1.5"
             role="listbox"
             :aria-label="`Sort by. ${sortLabel} selected.`"
         >

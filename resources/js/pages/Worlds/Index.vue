@@ -4,6 +4,7 @@ import WorldCard from '@/components/WorldCard.vue';
 import WorldsSearchField from '@/components/WorldsSearchField.vue';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
+import { compareWorldsByPlayableOrder } from '@/data/playableStorySlugs';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import type { WorldInterface } from '@/types';
 import { Head } from '@inertiajs/vue3';
@@ -40,6 +41,8 @@ const visibleWorlds = computed(() => {
         list.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
     } else if (sortMode.value === 'title_desc') {
         list.sort((a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }));
+    } else if (sortMode.value === 'playable') {
+        list.sort(compareWorldsByPlayableOrder);
     }
 
     return list;

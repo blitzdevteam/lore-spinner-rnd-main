@@ -15,7 +15,7 @@ import { filterVisibleLibraryStories } from '@/data/hiddenLibraryStorySlugs';
 import { MOCK_LIBRARY_STORIES } from '@/data/mockLibraryStories';
 import { getMoodBannerConfig, normalizeMood, storyMatchesMood } from '@/data/moodBanners';
 import { dedupeStoriesByCanonicalSlug, getMoodSecondaryPickSlugs, selectStoriesByMoodSlugs } from '@/data/moodStories';
-import { isStoryPlayable } from '@/data/playableStorySlugs';
+import { compareStoriesByPlayableOrder, isStoryPlayable } from '@/data/playableStorySlugs';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import HomeLayout from '@/layouts/HomeLayout.vue';
@@ -115,12 +115,20 @@ const headerTitle = computed(() => {
 
 const sortMode = ref<LibrarySortMode>('recent');
 
+function isPlayableStory(story: StoryInterface): boolean {
+    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story);
+}
+
 const sortedStories = computed(() => {
     const list = [...libraryStories.value];
     if (sortMode.value === 'title_asc') {
         list.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
     } else if (sortMode.value === 'title_desc') {
         list.sort((a, b) => b.title.localeCompare(a.title, undefined, { sensitivity: 'base' }));
+    } else if (sortMode.value === 'playable') {
+        list.sort((a, b) =>
+            compareStoriesByPlayableOrder({ ...a, is_playable: isPlayableStory(a) }, { ...b, is_playable: isPlayableStory(b) }),
+        );
     } else if (!normalizedMood.value) {
         list.sort((a, b) => {
             const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0;
@@ -131,10 +139,6 @@ const sortedStories = computed(() => {
     /* Mood pages: keep secondary catalog order when sort is Recent. */
     return list;
 });
-
-function isPlayableStory(story: StoryInterface): boolean {
-    return story.status?.value === StoryStatusEnum.PUBLISHED && isStoryPlayable(story);
-}
 
 const games = computed<StoryGridGame[]>(() =>
     sortedStories.value.map((story) => ({

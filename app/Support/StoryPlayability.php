@@ -39,6 +39,22 @@ final class StoryPlayability
         return in_array($slug, $slugs, true) || in_array($canonical, $slugs, true);
     }
 
+    /**
+     * Position in the launch/boiled roster (0-based). Unknown slugs sort last.
+     */
+    public static function orderIndex(string $slug): int
+    {
+        $canonical = self::canonicalSlug($slug);
+        $slugs = self::launchSlugs();
+        $index = array_search($canonical, $slugs, true);
+
+        if ($index === false) {
+            $index = array_search($slug, $slugs, true);
+        }
+
+        return $index === false ? PHP_INT_MAX : $index;
+    }
+
     /** @deprecated Use isLaunchSlug() */
     public static function isReviewSlug(string $slug): bool
     {

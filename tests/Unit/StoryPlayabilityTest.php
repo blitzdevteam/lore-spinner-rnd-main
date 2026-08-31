@@ -8,6 +8,16 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Support\StoryPlayability;
 
+it('orders launch slugs ahead of boiled extras and unknown titles', function () {
+    expect(StoryPlayability::orderIndex('the-wonderful-wizard-of-oz'))->toBe(0)
+        ->and(StoryPlayability::orderIndex('peter-pan'))->toBe(1)
+        ->and(StoryPlayability::orderIndex('the-strange-case-of-dr-jekyll-and-mr-hyde'))
+        ->toBe(StoryPlayability::orderIndex('dr-jekyll-and-mr-hyde'))
+        ->and(StoryPlayability::orderIndex('momotaro-the-peach-boy'))
+        ->toBeGreaterThan(StoryPlayability::orderIndex('sir-gawain-and-the-green-knight'))
+        ->and(StoryPlayability::orderIndex('wasteland'))->toBe(PHP_INT_MAX);
+});
+
 it('keeps non-playable rnd slugs off the allowlist', function () {
     expect(StoryPlayability::isLaunchSlug('the-adventure-of-the-speckled-band'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('emma'))->toBeTrue()
