@@ -84,7 +84,7 @@ function worldCardId(id: number): string {
                         <header class="flex w-full min-w-0 flex-col gap-0">
                             <div class="flex w-full min-w-0 items-center justify-between gap-4">
                                 <h1 class="home-section-title min-w-0 flex-1">{{ headerTitle }}</h1>
-                                <LibrarySortMenu v-model="sortMode" variant="boxed" items-label="worlds" />
+                                <LibrarySortMenu v-model="sortMode" items-label="worlds" />
                             </div>
                             <p class="home-section-description mt-2.5 max-w-none text-[#8f8f8f]">
                                 Choose a world to enter. Each one contains its own stories, tone, and memory.

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import sortListAlt from '@/assets/worlds/sort-list-alt.svg';
 import { onClickOutside } from '@vueuse/core';
 import { ArrowDownUp, LucideCheck } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -8,11 +7,9 @@ export type LibrarySortMode = 'playable' | 'recent' | 'title_asc' | 'title_desc'
 
 withDefaults(
     defineProps<{
-        variant?: 'text' | 'boxed';
         itemsLabel?: string;
     }>(),
     {
-        variant: 'text',
         itemsLabel: 'stories',
     },
 );
@@ -58,16 +55,12 @@ function optionClass(mode: LibrarySortMode): string {
         <button
             type="button"
             class="library-sort-btn group"
-            :class="variant === 'boxed' && 'library-sort-btn--boxed'"
             :aria-expanded="menuOpen"
             aria-haspopup="listbox"
             :aria-label="`Sort ${itemsLabel}. Current: ${sortLabel}.`"
             @click="toggleMenu"
         >
-            <span v-if="variant === 'boxed'" class="library-sort-btn__icon-wrap" aria-hidden="true">
-                <img :src="sortListAlt" alt="" class="library-sort-btn__icon-img" width="26" height="26" />
-            </span>
-            <ArrowDownUp v-else class="library-sort-btn__icon" :stroke-width="2.25" aria-hidden="true" />
+            <ArrowDownUp class="library-sort-btn__icon" :stroke-width="2.25" aria-hidden="true" />
             <span class="library-sort-btn__label">Sort</span>
             <span class="sr-only"> ({{ sortLabel }})</span>
         </button>
@@ -98,13 +91,15 @@ function optionClass(mode: LibrarySortMode): string {
 .library-sort-btn {
     position: relative;
     display: inline-flex;
-    height: calc(1.375rem * 1.1);
+    height: 2rem;
     flex-shrink: 0;
     align-items: center;
-    gap: 0.3125rem;
+    justify-content: center;
+    gap: 0.375rem;
     border: 0;
+    border-radius: 0.5rem;
     background: transparent;
-    padding: 0;
+    padding: 0 0.625rem;
     font-size: 0.875rem;
     font-weight: 500;
     line-height: 1;
@@ -114,17 +109,13 @@ function optionClass(mode: LibrarySortMode): string {
     cursor: pointer;
     transition:
         opacity 150ms ease,
-        transform 150ms ease;
-}
-
-@media (min-width: 768px) {
-    .library-sort-btn {
-        height: calc(1.625rem * 1.1);
-    }
+        transform 150ms ease,
+        background-color 150ms ease;
 }
 
 .library-sort-btn:hover {
-    opacity: 0.8;
+    opacity: 0.85;
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .library-sort-btn:active {
@@ -141,45 +132,6 @@ function optionClass(mode: LibrarySortMode): string {
 
 .library-sort-menu:has([aria-expanded='true']) .library-sort-btn__icon {
     transform: rotate(180deg);
-}
-
-.library-sort-btn--boxed {
-    height: 2.375rem;
-    width: 6rem;
-    justify-content: center;
-    gap: 0.5rem;
-    border-radius: 0.5rem;
-    background: #0f0f0f;
-    font-size: 1.125rem;
-    font-weight: 500;
-    letter-spacing: 0;
-}
-
-@media (min-width: 768px) {
-    .library-sort-btn--boxed {
-        height: 2.375rem;
-    }
-}
-
-.library-sort-btn--boxed:hover {
-    opacity: 1;
-    background: #161616;
-}
-
-.library-sort-btn__icon-wrap {
-    display: flex;
-    width: 1.625rem;
-    height: 1.625rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: clip;
-}
-
-.library-sort-btn__icon-img {
-    display: block;
-    width: 1.625rem;
-    height: 1.625rem;
 }
 
 .library-sort-btn__label {
