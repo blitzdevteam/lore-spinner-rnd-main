@@ -64,6 +64,7 @@ it('exposes world search fields on the worlds index', function () {
 
     $story = Story::factory()->create([
         'title' => 'Pride and Prejudice',
+        'slug' => 'pride-and-prejudice',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
     ]);
@@ -79,6 +80,7 @@ it('exposes world search fields on the worlds index', function () {
                 ->where('worlds.0.tagline', 'Find love without losing yourself.')
                 ->where('worlds.0.tags', ['Destiny', 'Courage', 'Control'])
                 ->where('worlds.0.stories.0.title', 'Pride and Prejudice')
+                ->where('worlds.0.stories.0.slug', 'pride-and-prejudice')
                 ->etc()
         );
 });
