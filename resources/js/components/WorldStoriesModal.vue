@@ -93,24 +93,26 @@ onUnmounted(() => {
                         class="world-modal relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0c0c0c] sm:rounded-2xl"
                         @click.stop
                     >
-                        <div
-                            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
-                            aria-hidden="true"
-                        />
-
-                        <div class="world-modal__hero relative shrink-0 overflow-hidden">
+                        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                             <img
                                 v-if="world.background"
                                 :src="world.background"
-                                :alt="world.title"
-                                class="absolute inset-0 size-full object-cover"
+                                alt=""
+                                class="absolute inset-0 size-full object-cover object-center"
                             />
                             <div
                                 v-else
                                 class="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#0f0f1a] to-[#0c0c0c]"
                             />
-                            <div class="world-modal__hero-shade pointer-events-none absolute inset-0" aria-hidden="true" />
+                            <div class="world-modal__shade absolute inset-0" />
+                        </div>
 
+                        <div
+                            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+                            aria-hidden="true"
+                        />
+
+                        <div class="world-modal__hero relative z-[1] shrink-0">
                             <div
                                 class="pointer-events-none absolute inset-x-0 top-0 flex justify-center pt-2.5 sm:hidden"
                                 aria-hidden="true"
@@ -143,7 +145,7 @@ onUnmounted(() => {
                             </div>
                         </div>
 
-                        <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7 sm:py-6">
+                        <div class="relative z-[1] flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7 sm:py-6">
                             <p v-if="world.description" class="max-w-2xl text-sm leading-relaxed text-[#b8b8b8]">
                                 {{ world.description }}
                             </p>
@@ -191,10 +193,10 @@ onUnmounted(() => {
     height: 13.5rem;
 }
 
-.world-modal__hero-shade {
+.world-modal__shade {
     background-image:
-        linear-gradient(to top, #0c0c0c 0%, rgba(12, 12, 12, 0.55) 42%, rgba(0, 0, 0, 0.2) 100%),
-        linear-gradient(105deg, rgba(0, 0, 0, 0.55) 8%, rgba(0, 0, 0, 0) 52%);
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0%, rgba(12, 12, 12, 0.24) 58%, rgba(12, 12, 12, 0.36) 100%),
+        linear-gradient(105deg, rgba(0, 0, 0, 0.32) 8%, rgba(0, 0, 0, 0) 52%);
 }
 
 @media (min-width: 640px) {
