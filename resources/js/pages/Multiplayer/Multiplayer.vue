@@ -32,7 +32,7 @@ const lobbySettings = ref({
     votingTime: '20 Sec',
 });
 const lobbyCreationForm = useForm<{
-    mode: 'arbiter';
+    mode: 'arbiter' | 'roulette';
     max_players: number;
     settings: {
         custom_input_enabled: boolean;
@@ -101,8 +101,8 @@ const storyModes: StoryMode[] = [
         accent: '#59c1ca',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['2-4 Players', 'Turn Based', 'One player decides'],
-        available: false,
+        features: ['3-4 Players', 'Turn Based', 'One player decides'],
+        available: true,
     },
     {
         name: 'Streamer',
@@ -139,7 +139,7 @@ function chooseMode(mode: StoryMode): void {
 }
 
 function createLobby(): void {
-    lobbyCreationForm.mode = 'arbiter';
+    lobbyCreationForm.mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
     lobbyCreationForm.max_players = 4;
     lobbyCreationForm.settings = {
         custom_input_enabled: lobbySettings.value.customInput === 'On',

@@ -92,7 +92,7 @@ const updatingReadiness = ref(false);
 const startingStory = ref(false);
 const readinessError = ref<string | null>(null);
 const startError = ref<string | null>(null);
-const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : liveLobby.value.mode));
+const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : 'Roulette'));
 const playersCountLabel = computed(() => `${members.value.length}/${liveLobby.value.max_players}`);
 const chaptersLabel = computed(() => `${story.value.chapters_count ?? 0} Chapters`);
 const hostLabel = computed(() => {
@@ -108,20 +108,39 @@ const lobbySettings = computed(() => ({
     powerUpsPerUser: String(liveLobby.value.settings.power_ups_per_user),
 }));
 
-const rules = [
-    {
-        title: 'The Arbiter decides',
-        description: 'Everyone submits a choice. The current Arbiter selects the narration that becomes canon.',
-    },
-    {
-        title: 'Everyone contributes',
-        description: 'Choose a story point or write a custom action for each turn.',
-    },
-    {
-        title: 'The Arbiter rotates',
-        description: 'After a narration is chosen, the next player becomes the Arbiter.',
-    },
-];
+const rules = computed(() => {
+    if (liveLobby.value.mode === 'roulette') {
+        return [
+            {
+                title: 'Xen presents the paths',
+                description: 'Each turn, Xen generates the choices for the current player.',
+            },
+            {
+                title: 'One player chooses',
+                description: 'Only the current player chooses which path becomes canon.',
+            },
+            {
+                title: 'The turn rotates',
+                description: 'After the narration, the next player takes the next choice.',
+            },
+        ];
+    }
+
+    return [
+        {
+            title: 'The Arbiter decides',
+            description: 'Everyone submits a choice. The current Arbiter selects the narration that becomes canon.',
+        },
+        {
+            title: 'Everyone contributes',
+            description: 'Choose a story point or write a custom action for each turn.',
+        },
+        {
+            title: 'The Arbiter rotates',
+            description: 'After a narration is chosen, the next player becomes the Arbiter.',
+        },
+    ];
+});
 
 useEchoPresence<MultiplayerLobbyEventPayload>(
     `multiplayer.lobby.${props.lobby.id}`,

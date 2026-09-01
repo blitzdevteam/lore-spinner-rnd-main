@@ -22,13 +22,14 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
     GameInterface,
     MultiplayerArbiterStateInterface,
+    MultiplayerGeneratedChoiceInterface,
     MultiplayerLobbyChatMessageInterface,
     MultiplayerLobbyInterface,
     MultiplayerLobbyMemberInterface,
     MultiplayerLobbyProposalInterface,
     PromptInterface,
 } from '@/types';
-import { show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
@@ -119,10 +120,14 @@ const members = computed(() => props.lobby.members);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
 const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value) ?? null);
 const currentArbiter = computed(() => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null);
+const currentChooser = computed(() => members.value.find((member) => member.id === props.arbiter.current_chooser_member_id) ?? null);
+const isRouletteMode = computed(() => props.lobby.mode === 'roulette');
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
+const isCurrentUserChooser = computed(() => props.arbiter.is_current_user_chooser);
 const isCollectingProposals = computed(() => turnStatus.value === 'collecting_proposals');
 const isAwaitingArbiter = computed(() => turnStatus.value === 'awaiting_arbiter');
+const isAwaitingRouletteChoice = computed(() => turnStatus.value === 'awaiting_roulette_choice');
 const isNarrating = computed(() => turnStatus.value === 'narrating');
 const isSessionComplete = computed(() => turnStatus.value === 'session_complete');
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
@@ -156,11 +161,20 @@ const ownProposal = computed(() => {
 });
 const availableProposals = computed(() => props.arbiter.proposals.filter((proposal) => proposal.text !== null));
 const selectedProposal = computed(() => props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null);
+const generatedChoices = computed(() => props.arbiter.generated_choices);
+const turnRoleLabel = computed(() => (isRouletteMode.value ? 'Chooser' : 'Arbiter'));
 const canSubmitProposal = computed(() => {
-    return !!(currentMember.value && !isCurrentUserArbiter.value && !isGameplayPaused.value && isCollectingProposals.value && !ownProposal.value);
+    return !!(
+        !isRouletteMode.value
+        && currentMember.value
+        && !isCurrentUserArbiter.value
+        && !isGameplayPaused.value
+        && isCollectingProposals.value
+        && !ownProposal.value
+    );
 });
 const canChooseProposal = computed(
-    () => !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
+    () => !isRouletteMode.value && !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
 );
 const canAdvanceSession = computed(() => !isGameplayPaused.value && isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host);
 const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
@@ -209,6 +223,9 @@ const isMobile = ref(false);
 const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
+const canChooseRouletteChoice = computed(
+    () => !isGameplayPaused.value && isRouletteMode.value && isAwaitingRouletteChoice.value && isCurrentUserChooser.value && generatedChoices.value.length > 0,
+);
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
 const actionError = ref<string | null>(null);
@@ -525,7 +542,7 @@ function memberDisplayName(member: MultiplayerLobbyMemberInterface): string {
 
 function memberRole(member: MultiplayerLobbyMemberInterface): string {
     if (member.id === props.arbiter.current_arbiter_member_id) {
-        return 'Arbiter';
+        return turnRoleLabel.value;
     }
 
     return member.role === 'host' ? 'Host' : 'Player';
@@ -549,11 +566,11 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
     }
 
     if (member.id === props.arbiter.current_arbiter_member_id) {
-        if (isAwaitingArbiter.value) {
-            return 'Choosing…';
+        if (isAwaitingArbiter.value || isAwaitingRouletteChoice.value) {
+            return isRouletteMode.value ? 'Choosing a path…' : 'Choosing…';
         }
 
-        return 'Arbiter';
+        return turnRoleLabel.value;
     }
 
     if (isMemberTyping(member)) {
@@ -607,6 +624,10 @@ const decisionTitle = computed(() => {
         return `It’s ${currentArbiter.value?.user.full_name ?? 'the Arbiter'}’s Turn!`;
     }
 
+    if (isAwaitingRouletteChoice.value) {
+        return `It’s ${currentChooser.value?.user.full_name ?? 'the current player'}’s Turn!`;
+    }
+
     if (isNarrating.value) {
         return 'The Story Is Moving Forward';
     }
@@ -615,7 +636,7 @@ const decisionTitle = computed(() => {
         return 'Episode Complete';
     }
 
-    return 'Everyone Gets a Say';
+    return isRouletteMode.value ? 'The Wheel Is Turning' : 'Everyone Gets a Say';
 });
 
 const decisionDescription = computed(() => {
@@ -631,6 +652,10 @@ const decisionDescription = computed(() => {
         return 'Everyone has contributed. The Arbiter is making the final choice.';
     }
 
+    if (isAwaitingRouletteChoice.value) {
+        return 'Xen has presented the paths. The current player chooses what becomes canon.';
+    }
+
     if (isNarrating.value) {
         return 'The selected choice is becoming the next moment in the story.';
     }
@@ -643,7 +668,9 @@ const decisionDescription = computed(() => {
         return 'Xen is preparing the opening narration.';
     }
 
-    return 'Write your choice. The Arbiter will make the final decision after everyone has contributed.';
+    return isRouletteMode.value
+        ? 'The next player receives Xen’s generated paths.'
+        : 'Write your choice. The Arbiter will make the final decision after everyone has contributed.';
 });
 
 const waitingStatus = computed(() => {
@@ -687,6 +714,12 @@ const waitingStatus = computed(() => {
         return isCurrentUserArbiter.value
             ? 'Choose the proposal that becomes canon.'
             : `Waiting for ${currentArbiter.value?.user.full_name ?? 'the Arbiter'} to choose…`;
+    }
+
+    if (isAwaitingRouletteChoice.value) {
+        return isCurrentUserChooser.value
+            ? 'Choose the path that becomes canon.'
+            : `Waiting for ${currentChooser.value?.user.full_name ?? 'the current player'} to choose…`;
     }
 
     if (isCurrentUserArbiter.value) {
@@ -890,6 +923,39 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
                     setSourcePromptValue(sourcePromptId, previousPromptValue);
                 }
                 actionError.value = errors.lobby ?? 'We could not select that proposal.';
+            },
+            onFinish: () => {
+                isSelectingProposal.value = false;
+            },
+        },
+    );
+}
+
+function chooseRouletteChoice(choice: MultiplayerGeneratedChoiceInterface): void {
+    if (!canChooseRouletteChoice.value || isSelectingProposal.value) {
+        return;
+    }
+
+    actionError.value = null;
+    tts.primeAudio();
+    isSelectingProposal.value = true;
+    const sourcePromptId = props.arbiter.source_prompt_id;
+    const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
+
+    if (sourcePromptId) {
+        setSourcePromptValue(sourcePromptId, choice.text);
+    }
+
+    router.post(
+        storeRouletteChoice(props.lobby.room_code).url,
+        { choice_index: choice.index },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (sourcePromptId) {
+                    setSourcePromptValue(sourcePromptId, previousPromptValue);
+                }
+                actionError.value = errors.lobby ?? 'We could not select that path.';
             },
             onFinish: () => {
                 isSelectingProposal.value = false;
@@ -1131,7 +1197,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Arbiter" />
+    <Head :title="isRouletteMode ? 'Roulette' : 'Arbiter'" />
 
     <main class="arbiter-page">
         <div
@@ -1232,8 +1298,8 @@ onUnmounted(() => {
                                                 v-if="player.isArbiter"
                                                 class="player-badge-icon player-badge-icon--arbiter"
                                                 role="img"
-                                                aria-label="Arbiter"
-                                                title="Arbiter"
+                                                :aria-label="turnRoleLabel"
+                                                :title="turnRoleLabel"
                                             >
                                                 <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                             </span>
@@ -1324,6 +1390,7 @@ onUnmounted(() => {
                                 <p>{{ decisionDescription }}</p>
                             </div>
                             <span
+                                v-if="!isRouletteMode"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
                                 :aria-label="`${decisionSecondsRemaining} seconds decision window`"
                             >
@@ -1331,7 +1398,21 @@ onUnmounted(() => {
                             </span>
                         </div>
 
-                        <div v-if="canChooseProposal" class="proposal-choice-list">
+                        <div v-if="isRouletteMode && isAwaitingRouletteChoice" class="proposal-choice-list">
+                            <button
+                                v-for="choice in generatedChoices"
+                                :key="choice.index"
+                                type="button"
+                                class="proposal-choice-card"
+                                :disabled="!canChooseRouletteChoice || isSelectingProposal"
+                                @click="chooseRouletteChoice(choice)"
+                            >
+                                <span class="proposal-choice-radio" aria-hidden="true" />
+                                <span>{{ choice.text }}</span>
+                            </button>
+                        </div>
+
+                        <div v-else-if="canChooseProposal" class="proposal-choice-list">
                             <button
                                 v-for="proposal in availableProposals"
                                 :key="proposal.id"
@@ -1346,7 +1427,7 @@ onUnmounted(() => {
                             </button>
                         </div>
 
-                        <div v-else-if="isCollectingProposals || isAwaitingArbiter" class="contributions">
+                        <div v-else-if="!isRouletteMode && (isCollectingProposals || isAwaitingArbiter)" class="contributions">
                             <article
                                 v-for="(member, index) in nonArbiterMembers"
                                 :key="member.id"
@@ -1462,7 +1543,7 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <footer class="arbiter-proposal-dock flex-col">
+        <footer v-if="!isRouletteMode || isGameplayPaused || (tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
             <section v-if="isGameplayPaused" class="gameplay-paused-notice flex items-center backdrop-blur-[2px]" role="status" aria-live="polite">
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
@@ -1471,6 +1552,7 @@ onUnmounted(() => {
                 <GameplayMediaPlayer />
             </div>
             <GameplayInput
+                v-if="!isRouletteMode"
                 class="arbiter-proposal-input"
                 :disabled="!canSubmitProposal || isSubmittingProposal"
                 :placeholder="isGameplayPaused ? 'Story paused' : canSubmitProposal ? 'What Do You Do?' : ownProposal ? 'Choice submitted' : ''"
@@ -1509,8 +1591,8 @@ onUnmounted(() => {
                                     v-if="player.isArbiter"
                                     class="player-badge-icon player-badge-icon--arbiter"
                                     role="img"
-                                    aria-label="Arbiter"
-                                    title="Arbiter"
+                                    :aria-label="turnRoleLabel"
+                                    :title="turnRoleLabel"
                                 >
                                     <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                 </span>

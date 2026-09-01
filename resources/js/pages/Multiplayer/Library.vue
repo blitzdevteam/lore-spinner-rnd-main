@@ -73,7 +73,7 @@ function roomCover(room: MultiplayerLobbyInterface): string {
 }
 
 function roomMode(room: MultiplayerLobbyInterface): string {
-    return room.mode === 'arbiter' ? 'Arbiter Mode' : room.mode;
+    return room.mode === 'arbiter' ? 'Arbiter Mode' : 'Roulette Mode';
 }
 
 function playersLabel(room: MultiplayerLobbyInterface): string {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
@@ -35,7 +36,10 @@ final class SelectMultiplayerLobbyProposalAction
                 throw MultiplayerLobbyStateException::isNotStarted();
             }
 
-            if ($lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingArbiter) {
+            if (
+                $lockedLobby->mode !== MultiplayerLobbyModeEnum::Arbiter
+                || $lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingArbiter
+            ) {
                 throw MultiplayerLobbyStateException::proposalsAreNotReady();
             }
 

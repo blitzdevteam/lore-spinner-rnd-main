@@ -46,7 +46,7 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
     {
         return [
             'mode.required' => 'Choose a multiplayer mode.',
-            'max_players.between' => 'An Arbiter room can have between 3 and 4 players.',
+            'max_players.between' => 'A multiplayer room can have between 3 and 4 players.',
             'settings.required' => 'Choose the lobby settings before creating the room.',
         ];
     }

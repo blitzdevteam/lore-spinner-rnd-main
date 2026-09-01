@@ -68,6 +68,21 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('That proposal is not available for this turn.');
     }
 
+    public static function onlyCurrentRoulettePlayerCanChoose(): self
+    {
+        return new self('Only the player whose turn it is can choose a path.');
+    }
+
+    public static function rouletteChoicesAreNotReady(): self
+    {
+        return new self('The Roulette choices are not ready yet.');
+    }
+
+    public static function rouletteChoiceIsNotAvailable(): self
+    {
+        return new self('That Roulette choice is no longer available.');
+    }
+
     public static function onlyHostCanAdvanceSession(): self
     {
         return new self('Only the lobby host can advance to the next chapter.');

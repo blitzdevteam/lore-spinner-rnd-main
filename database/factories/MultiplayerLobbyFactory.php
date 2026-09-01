@@ -38,4 +38,11 @@ final class MultiplayerLobbyFactory extends Factory
             ],
         ];
     }
+
+    public function roulette(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'mode' => MultiplayerLobbyModeEnum::Roulette,
+        ]);
+    }
 }

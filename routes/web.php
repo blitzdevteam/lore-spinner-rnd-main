@@ -57,6 +57,9 @@ Route::middleware('auth:user')->group(function (): void {
     Route::post('multiplayer/lobbies/{lobby:room_code}/proposals', [Controllers\User\MultiplayerLobbyController::class, 'submitProposal'])
         ->name('multiplayer.lobbies.proposals.store');
 
+    Route::post('multiplayer/lobbies/{lobby:room_code}/choices', [Controllers\User\MultiplayerLobbyController::class, 'chooseRouletteChoice'])
+        ->name('multiplayer.lobbies.choices.store');
+
     Route::post('multiplayer/lobbies/{lobby:room_code}/heartbeat', [Controllers\User\MultiplayerLobbyController::class, 'heartbeat'])
         ->name('multiplayer.lobbies.heartbeat');
 

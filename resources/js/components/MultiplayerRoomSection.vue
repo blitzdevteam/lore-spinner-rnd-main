@@ -18,7 +18,7 @@ function playersLabel(room: MultiplayerLobbyCardInterface): string {
 }
 
 function roomMode(room: MultiplayerLobbyCardInterface): string {
-    return room.mode === 'arbiter' ? 'Arbiter Mode' : room.mode;
+    return room.mode === 'arbiter' ? 'Arbiter Mode' : 'Roulette Mode';
 }
 </script>
 

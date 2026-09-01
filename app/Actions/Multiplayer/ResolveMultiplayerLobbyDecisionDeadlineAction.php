@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Models\MultiplayerLobby;
@@ -27,6 +28,7 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
             if (
                 $lockedLobby === null
                 || $lockedLobby->status !== MultiplayerLobbyStatusEnum::Started
+                || $lockedLobby->mode !== MultiplayerLobbyModeEnum::Arbiter
                 || $lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingArbiter
                 || $lockedLobby->current_source_prompt_id !== $sourcePromptId
                 || $lockedLobby->current_arbiter_member_id === null

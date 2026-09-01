@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User;
 
 use App\Actions\Multiplayer\AdvanceMultiplayerLobbySessionAction;
+use App\Actions\Multiplayer\ChooseMultiplayerLobbyRouletteChoiceAction;
 use App\Actions\Multiplayer\CreateMultiplayerLobbyAction;
 use App\Actions\Multiplayer\JoinMultiplayerLobbyAction;
 use App\Actions\Multiplayer\LeaveMultiplayerLobbyAction;
-use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyNextSessionAction;
+use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyTurnAction;
-use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
 use App\Actions\Multiplayer\ReconcileMultiplayerLobbyPauseAction;
+use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
 use App\Actions\Multiplayer\ResolveMultiplayerLobbyGuestAction;
 use App\Actions\Multiplayer\SelectMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\SendMultiplayerLobbyChatMessageAction;
@@ -28,8 +29,9 @@ use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Multiplayer\JoinMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyChatMessageRequest;
-use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyProposalRequest;
+use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
+use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRouletteChoiceRequest;
 use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbyReadinessRequest;
 use App\Http\Resources\MultiplayerArbiterStateResource;
 use App\Http\Resources\MultiplayerLobbyChatMessageResource;
@@ -303,6 +305,42 @@ final class MultiplayerLobbyController extends Controller
             throw ValidationException::withMessages([
                 'lobby' => $exception->getMessage(),
             ]);
+        }
+
+        return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
+    }
+
+    public function chooseRouletteChoice(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        StoreMultiplayerLobbyRouletteChoiceRequest $request,
+        ChooseMultiplayerLobbyRouletteChoiceAction $chooseMultiplayerLobbyRouletteChoice,
+    ): RedirectResponse {
+        Gate::forUser($user)->authorize('view', $lobby);
+
+        try {
+            $lobby = $chooseMultiplayerLobbyRouletteChoice->handle(
+                $user,
+                $lobby,
+                $request->integer('choice_index'),
+            );
+        } catch (MultiplayerLobbyStateException $exception) {
+            throw ValidationException::withMessages([
+                'lobby' => $exception->getMessage(),
+            ]);
+        }
+
+        $lobbyId = $lobby->id;
+        $selectionId = $lobby->proposals()
+            ->where('source_prompt_id', $lobby->current_source_prompt_id)
+            ->where('member_id', $lobby->current_arbiter_member_id)
+            ->whereNotNull('selected_at')
+            ->value('id');
+
+        if (is_string($selectionId)) {
+            dispatch(static function () use ($lobbyId, $selectionId): void {
+                app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $selectionId);
+            })->afterResponse();
         }
 
         return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);

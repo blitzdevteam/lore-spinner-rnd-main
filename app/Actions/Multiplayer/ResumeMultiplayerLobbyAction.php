@@ -7,6 +7,7 @@ namespace App\Actions\Multiplayer;
 use App\Actions\Game\ProcessGameOpeningAction;
 use App\Actions\Game\ProcessGameTurnAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Jobs\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineJob;
@@ -159,7 +160,7 @@ final class ResumeMultiplayerLobbyAction
 
     private function completeOpening(MultiplayerLobby $lobby, Prompt $sourcePrompt): void
     {
-        if ($sourcePrompt->choices !== []) {
+        if ($lobby->mode === MultiplayerLobbyModeEnum::Arbiter && $sourcePrompt->choices !== []) {
             $sourcePrompt->forceFill(['choices' => []])->save();
         }
 
@@ -186,7 +187,9 @@ final class ResumeMultiplayerLobbyAction
                 'current_source_prompt_id' => $sourcePrompt->id,
                 'turn_status' => $game?->current_session_complete
                     ? MultiplayerArbiterTurnStatusEnum::SessionComplete
-                    : MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+                    : ($lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette
+                        ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+                        : MultiplayerArbiterTurnStatusEnum::CollectingProposals),
                 'decision_deadline_at' => null,
                 'decision_remaining_seconds' => null,
             ]);
