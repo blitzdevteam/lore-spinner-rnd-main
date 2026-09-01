@@ -3,16 +3,15 @@ import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
 import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
 import checkCircleSelectedIcon from '@/assets/multiplayer/check-circle-selected.svg';
-import copyIcon from '@/assets/multiplayer/copy.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
-import linkSimpleIcon from '@/assets/multiplayer/link-simple.svg';
 import plusIcon from '@/assets/multiplayer/plus.svg';
 import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { StoryInterface } from '@/types';
 import { join as joinMultiplayerLobby, store as storeMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import login from '@/wayfinder/routes/user/authentication/login';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { LucideCircleHelp, LucideGamepad2, LucideScale, LucideUsers, LucideVenetianMask } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -126,6 +125,12 @@ function goBack(): void {
 }
 
 function createRoom(): void {
+    if (page.props.auth === null) {
+        router.visit(login.create().url);
+
+        return;
+    }
+
     selectedModeName.value = 'Arbiter';
     showHostSetup.value = true;
 }
@@ -443,25 +448,6 @@ function joinRoom(): void {
                     </div>
                 </div>
 
-                <div class="h-px w-full bg-white/20" />
-
-                <div class="flex flex-col gap-2.5">
-                    <h2 class="text-base">3. Invite Your Friends</h2>
-                    <div class="grid gap-2.5 sm:grid-cols-2">
-                        <div
-                            class="flex h-[50px] items-center justify-between rounded-[5px] border-[0.5px] border-[#5c5c5c] bg-[#191919] px-2 py-1.5"
-                        >
-                            <p class="text-sm text-[#8f8f8f]">Room code after you open the lobby</p>
-                            <img :src="copyIcon" alt="" class="size-[38px]" />
-                        </div>
-                        <div
-                            class="flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base"
-                        >
-                            <img :src="linkSimpleIcon" alt="" class="size-6" />
-                            Invite Via Link
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <button

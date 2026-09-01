@@ -9,6 +9,7 @@ use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
+use App\Jobs\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineJob;
 use App\Models\Game;
 use App\Models\MultiplayerLobby;
 use App\Models\Prompt;
@@ -59,7 +60,9 @@ final class ProcessMultiplayerLobbyOpeningAction
             $sourcePrompt->forceFill(['choices' => []])->save();
         }
 
-        $updatedLobby = DB::transaction(function () use ($lobby, $sourcePrompt): ?MultiplayerLobby {
+        $rouletteDecisionDeadlineAt = null;
+
+        $updatedLobby = DB::transaction(function () use ($lobby, $sourcePrompt, &$rouletteDecisionDeadlineAt): ?MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->find($lobby->id);
@@ -80,16 +83,28 @@ final class ProcessMultiplayerLobbyOpeningAction
             }
 
             $game = Game::query()->find($lockedLobby->game_id);
+            $turnStatus = $game?->current_session_complete
+                ? MultiplayerArbiterTurnStatusEnum::SessionComplete
+                : ($lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette
+                    ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+                    : MultiplayerArbiterTurnStatusEnum::CollectingProposals);
+            $decisionDeadlineAt = null;
+            $decisionRemainingSeconds = null;
+
+            if ($turnStatus === MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice) {
+                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
+                    $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
+                    $rouletteDecisionDeadlineAt = $decisionDeadlineAt;
+                } else {
+                    $decisionRemainingSeconds = $lockedLobby->decisionWindowSeconds();
+                }
+            }
 
             $lockedLobby->update([
                 'current_source_prompt_id' => $sourcePrompt->id,
-                'turn_status' => $game?->current_session_complete
-                    ? MultiplayerArbiterTurnStatusEnum::SessionComplete
-                    : ($lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette
-                        ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
-                        : MultiplayerArbiterTurnStatusEnum::CollectingProposals),
-                'decision_deadline_at' => null,
-                'decision_remaining_seconds' => null,
+                'turn_status' => $turnStatus,
+                'decision_deadline_at' => $decisionDeadlineAt,
+                'decision_remaining_seconds' => $decisionRemainingSeconds,
             ]);
 
             return $lockedLobby;
@@ -97,6 +112,14 @@ final class ProcessMultiplayerLobbyOpeningAction
 
         if ($updatedLobby !== null) {
             MultiplayerArbiterStateChanged::dispatch($updatedLobby);
+        }
+
+        if ($updatedLobby !== null && $rouletteDecisionDeadlineAt !== null) {
+            ResolveMultiplayerLobbyDecisionDeadlineJob::dispatch(
+                $updatedLobby->id,
+                $sourcePrompt->id,
+                $rouletteDecisionDeadlineAt->getTimestamp(),
+            )->delay($rouletteDecisionDeadlineAt->copy()->addSeconds(1));
         }
     }
 }

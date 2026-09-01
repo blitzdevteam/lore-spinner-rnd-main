@@ -40,6 +40,10 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 throw MultiplayerLobbyStateException::rouletteChoicesAreNotReady();
             }
 
+            if ($lockedLobby->decision_deadline_at !== null && ! $lockedLobby->decision_deadline_at->isAfter(now())) {
+                throw MultiplayerLobbyStateException::rouletteChoiceWindowExpired();
+            }
+
             $members = $lockedLobby->members()
                 ->orderBy('joined_at')
                 ->orderBy('id')

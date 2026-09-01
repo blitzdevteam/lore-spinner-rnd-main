@@ -156,6 +156,7 @@ export interface MultiplayerArbiterStateInterface {
     current_chooser_member_id: string | null;
     decision_deadline_at: string | null;
     decision_remaining_seconds: number | null;
+    decision_window_seconds: number;
     is_current_user_arbiter: boolean;
     is_current_user_chooser: boolean;
     awaiting_member_ids: string[];

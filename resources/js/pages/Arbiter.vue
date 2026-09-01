@@ -134,6 +134,27 @@ const isNarrating = computed(() => turnStatus.value === 'narrating');
 const isSessionComplete = computed(() => turnStatus.value === 'session_complete');
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isGameplayPaused = computed(() => props.lobby.status === 'paused');
+const hasDecisionTimer = computed(() => isAwaitingArbiter.value || isAwaitingRouletteChoice.value);
+const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds);
+const decisionTimerNow = ref(Date.now());
+const decisionSecondsRemaining = computed(() => {
+    const deadline = props.arbiter.decision_deadline_at;
+
+    if (hasDecisionTimer.value && deadline) {
+        const deadlineTimestamp = Date.parse(deadline);
+
+        if (!Number.isNaN(deadlineTimestamp)) {
+            return Math.max(0, Math.ceil((deadlineTimestamp - decisionTimerNow.value) / 1_000));
+        }
+    }
+
+    if (hasDecisionTimer.value && props.arbiter.decision_remaining_seconds !== null) {
+        return Math.max(0, props.arbiter.decision_remaining_seconds);
+    }
+
+    return decisionWindowSeconds.value;
+});
+const isDecisionTimerUrgent = computed(() => hasDecisionTimer.value && decisionSecondsRemaining.value <= 5);
 const pausedMembers = computed(() => members.value.filter((member) => member.left_at !== null));
 const pausedMemberLabel = computed(() => {
     const names = pausedMembers.value.map((member) => member.user.full_name);
@@ -184,6 +205,7 @@ const canSubmitRouletteCustomInput = computed(() => {
         && !isGameplayPaused.value
         && isAwaitingRouletteChoice.value
         && isCurrentUserChooser.value
+        && decisionSecondsRemaining.value > 0
     );
 });
 const canSubmitCustomInput = computed(() => (isRouletteMode.value ? canSubmitRouletteCustomInput.value : canSubmitProposal.value));
@@ -207,26 +229,6 @@ const canChooseProposal = computed(
     () => !isRouletteMode.value && !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
 );
 const canAdvanceSession = computed(() => !isGameplayPaused.value && isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host);
-const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
-const decisionTimerNow = ref(Date.now());
-const decisionSecondsRemaining = computed(() => {
-    const deadline = props.arbiter.decision_deadline_at;
-
-    if (isAwaitingArbiter.value && deadline) {
-        const deadlineTimestamp = Date.parse(deadline);
-
-        if (!Number.isNaN(deadlineTimestamp)) {
-            return Math.max(0, Math.ceil((deadlineTimestamp - decisionTimerNow.value) / 1_000));
-        }
-    }
-
-    if (isAwaitingArbiter.value && props.arbiter.decision_remaining_seconds !== null) {
-        return Math.max(0, props.arbiter.decision_remaining_seconds);
-    }
-
-    return decisionWindowSeconds.value;
-});
-const isDecisionTimerUrgent = computed(() => isAwaitingArbiter.value && decisionSecondsRemaining.value <= 5);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
@@ -255,7 +257,13 @@ const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const canChooseRouletteChoice = computed(
-    () => !isGameplayPaused.value && isRouletteMode.value && isAwaitingRouletteChoice.value && isCurrentUserChooser.value && generatedChoices.value.length > 0,
+    () =>
+        !isGameplayPaused.value
+        && isRouletteMode.value
+        && isAwaitingRouletteChoice.value
+        && isCurrentUserChooser.value
+        && decisionSecondsRemaining.value > 0
+        && generatedChoices.value.length > 0,
 );
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
@@ -1512,7 +1520,7 @@ onUnmounted(() => {
                                 <p>{{ decisionDescription }}</p>
                             </div>
                             <span
-                                v-if="!isRouletteMode"
+                                v-if="!isRouletteMode || hasDecisionTimer"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
                                 :aria-label="`${decisionSecondsRemaining} seconds decision window`"
                             >

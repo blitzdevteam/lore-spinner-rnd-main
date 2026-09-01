@@ -45,6 +45,8 @@ use Override;
  */
 final class MultiplayerLobby extends Model
 {
+    public const int ROULETTE_DECISION_WINDOW_SECONDS = 120;
+
     /** @use HasFactory<MultiplayerLobbyFactory> */
     use HasFactory;
 
@@ -123,6 +125,15 @@ final class MultiplayerLobby extends Model
         return $this->members()
             ->where('user_id', $user->getKey())
             ->exists();
+    }
+
+    public function decisionWindowSeconds(): int
+    {
+        if ($this->mode === MultiplayerLobbyModeEnum::Roulette) {
+            return self::ROULETTE_DECISION_WINDOW_SECONDS;
+        }
+
+        return (int) $this->settings['decision_window_seconds'];
     }
 
     #[Override]
