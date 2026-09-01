@@ -12,6 +12,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
+beforeEach(function (): void {
+    $this->withoutVite();
+});
+
 it('lists active worlds on the worlds index page', function () {
     World::factory()->create([
         'title' => 'Jane Austen',
@@ -81,6 +85,7 @@ it('exposes world search fields on the worlds index', function () {
                 ->where('worlds.0.tags', ['Destiny', 'Courage', 'Control'])
                 ->where('worlds.0.stories.0.title', 'Pride and Prejudice')
                 ->where('worlds.0.stories.0.slug', 'pride-and-prejudice')
+                ->has('worlds.0.stories.0.cover')
                 ->etc()
         );
 });
