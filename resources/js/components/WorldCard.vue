@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import WorldStoriesModal from '@/components/WorldStoriesModal.vue';
-import type { WorldInterface } from '@/types';
+import type { StoryInterface, WorldInterface } from '@/types';
+import { show as storyShow } from '@/wayfinder/routes/stories';
+import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -29,15 +31,20 @@ function markCoverBroken(storyId: number): void {
 function hasCover(story: { id: number; cover?: string | null }): boolean {
     return Boolean(story.cover) && !brokenCovers.value.has(story.id);
 }
+
+function storyHref(story: StoryInterface): string {
+    return storyShow(story.slug).url;
+}
 </script>
 
 <template>
     <article
-        class="world-card relative h-[18.125rem] w-full shrink-0"
+        class="world-card relative h-[18.125rem] w-full shrink-0 cursor-pointer"
         :class="{
             'world-card--expanded': expanded,
             'world-card--dimmed': dimmed,
         }"
+        @click="openWorldModal"
     >
         <div class="world-card__shell">
             <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" aria-hidden="true">
@@ -79,10 +86,14 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                     <div class="world-card__stories-inner">
                         <div class="flex h-[7.625rem] w-full items-center overflow-hidden">
                             <div class="flex items-center gap-2.5">
-                                <div
+                                <component
+                                    :is="Link"
                                     v-for="story in previewStories"
                                     :key="story.id"
-                                    class="flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px]"
+                                    :href="storyHref(story)"
+                                    class="flex shrink-0 items-center overflow-hidden rounded border-[0.25px] border-[#373737] bg-[#0f0f0f] p-[2.5px] no-underline"
+                                    :aria-label="`Open ${story.title}`"
+                                    @click.stop
                                 >
                                     <img
                                         v-if="hasCover(story)"
@@ -97,7 +108,7 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                                     >
                                         {{ story.title }}
                                     </span>
-                                </div>
+                                </component>
                             </div>
                         </div>
                     </div>
@@ -106,12 +117,16 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                 <div class="world-card__footer">
                     <div class="world-card__meta" :aria-hidden="expanded ? true : undefined">
                         <div v-if="avatarStories.length" class="flex items-center pr-2">
-                            <span
+                            <component
+                                :is="Link"
                                 v-for="(story, index) in avatarStories"
                                 :key="story.id"
-                                class="relative size-[2.34375rem] overflow-hidden rounded-full border border-black/40"
+                                :href="storyHref(story)"
+                                class="relative size-[2.34375rem] overflow-hidden rounded-full border border-black/40 no-underline"
                                 :class="index > 0 ? '-ml-4' : ''"
                                 :style="{ zIndex: avatarStories.length - index }"
+                                :aria-label="`Open ${story.title}`"
+                                @click.stop
                             >
                                 <img
                                     v-if="hasCover(story)"
@@ -121,7 +136,7 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
                                     @error="markCoverBroken(story.id)"
                                 />
                                 <span v-else class="block size-full bg-[#2a2a2a]" />
-                            </span>
+                            </component>
                         </div>
                         <p class="text-[0.75rem] leading-[1.125rem] font-light text-[#8f8f8f]">
                             {{ storyCountLabel }}
@@ -325,6 +340,8 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 }
 
 .world-card__meta {
+    position: relative;
+    z-index: 3;
     display: flex;
     min-width: 0;
     align-items: center;
@@ -343,31 +360,33 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 .world-card__cta-fill {
     pointer-events: none;
     position: absolute;
-    inset-inline: 0;
+    right: 0;
     top: 50%;
     z-index: 1;
+    width: 6.875rem;
     height: 1.875rem;
     border-radius: 5px;
     background: var(--color-primary);
     opacity: 0;
     transform: translateY(-50%);
-    clip-path: inset(0 50% 0 50% round 5px);
+    transform-origin: right center;
     transition:
-        clip-path var(--world-duration) var(--world-ease),
+        width var(--world-duration) var(--world-ease),
         opacity 180ms ease;
 }
 
 .world-card--expanded .world-card__cta-fill {
     opacity: 1;
-    clip-path: inset(0 0 0 0 round 5px);
+    width: 100%;
 }
 
 .world-card__cta {
     position: absolute;
-    inset-inline: 0;
+    right: 0;
     top: 50%;
     z-index: 2;
     display: flex;
+    width: 6.875rem;
     height: 1.875rem;
     align-items: center;
     overflow: hidden;
@@ -382,15 +401,17 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
     color: #fff;
     text-decoration: none;
     transform: translateY(-50%);
+    transition: width var(--world-duration) var(--world-ease);
+}
+
+.world-card--expanded .world-card__cta {
+    width: 100%;
 }
 
 .world-card__cta::before {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 6.875rem;
+    inset: 0;
     border-radius: 5px;
     border: 0.5px solid var(--color-primary);
     background: #0e1f22;
@@ -402,21 +423,16 @@ function hasCover(story: { id: number; cover?: string | null }): boolean {
 }
 
 .world-card__cta-label {
-    position: absolute;
-    left: calc(100% - 6.875rem);
+    position: relative;
     z-index: 1;
-    width: 6.875rem;
+    width: 100%;
     text-align: center;
     transition:
-        left var(--world-duration) var(--world-ease),
-        width var(--world-duration) var(--world-ease),
         color 280ms ease,
         font-weight 280ms ease;
 }
 
 .world-card--expanded .world-card__cta-label {
-    left: 0;
-    width: 100%;
     font-weight: 500;
     color: #000;
 }
