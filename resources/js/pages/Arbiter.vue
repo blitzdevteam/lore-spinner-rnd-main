@@ -37,19 +37,19 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
-type PlayerTone = 'cyan' | 'gold' | 'green' | 'left';
+type PlayerTone = 'cyan' | 'gold' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
 type MobilePanel = 'players' | 'chat' | null;
 
 type Player = {
     id: string;
     name: string;
+    role: string;
     state: string;
     isTyping: boolean;
     hasLeft: boolean;
     avatar: string;
     tone: PlayerTone;
-    turnsPlayed: number;
     isActiveTurn: boolean;
     isUpNext: boolean;
     isCurrentUser: boolean;
@@ -575,6 +575,14 @@ function memberDisplayName(member: MultiplayerLobbyMemberInterface): string {
     return member.user.full_name;
 }
 
+function memberRole(member: MultiplayerLobbyMemberInterface): string {
+    if (member.id === props.arbiter.current_arbiter_member_id) {
+        return turnRoleLabel.value;
+    }
+
+    return member.role === 'host' ? 'Host' : 'Player';
+}
+
 const activeTurnMemberId = computed(() => {
     if (!isAwaitingArbiter.value && !isAwaitingRouletteChoice.value) {
         return null;
@@ -616,12 +624,12 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
         return 'Episode complete';
     }
 
-    if (member.id === activeTurnMemberId.value) {
-        return isRouletteMode.value ? 'Active Player' : 'Active Arbiter';
-    }
+    if (member.id === props.arbiter.current_arbiter_member_id) {
+        if (isAwaitingArbiter.value || isAwaitingRouletteChoice.value) {
+            return isRouletteMode.value ? 'Choosing a path…' : 'Choosing…';
+        }
 
-    if (member.id === upNextTurnMemberId.value) {
-        return 'Up Next';
+        return turnRoleLabel.value;
     }
 
     if (isMemberTyping(member)) {
@@ -643,12 +651,12 @@ const players = computed<Player[]>(() =>
         return {
             id: member.id,
             name: memberDisplayName(member),
+            role: memberRole(member),
             state: memberState(member),
             isTyping: isMemberTyping(member),
             hasLeft: member.left_at !== null,
             avatar: memberAvatar(member, index),
-            tone: member.left_at !== null ? 'left' : isActiveTurn ? 'gold' : isUpNext ? 'green' : 'cyan',
-            turnsPlayed: props.arbiter.turns_played_by_member_id[member.id] ?? 0,
+            tone: member.left_at !== null ? 'left' : member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
             isActiveTurn,
             isUpNext,
             isCurrentUser: member.user.id === currentUserId.value,
@@ -1409,7 +1417,7 @@ onUnmounted(() => {
                                                 <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                             </span>
                                             <span
-                                                v-if="player.isArbiter && !isRouletteMode"
+                                                v-if="player.isArbiter"
                                                 class="player-badge-icon player-badge-icon--arbiter"
                                                 role="img"
                                                 :aria-label="turnRoleLabel"
@@ -1431,7 +1439,7 @@ onUnmounted(() => {
                                         <template v-else>{{ player.state }}</template>
                                     </span>
                                 </div>
-                                <span class="player-score">Turns Played: {{ player.turnsPlayed }}</span>
+                                <span class="player-score">{{ player.role }}</span>
                             </article>
                         </div>
 
@@ -1715,7 +1723,7 @@ onUnmounted(() => {
                                     <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                 </span>
                                 <span
-                                    v-if="player.isArbiter && !isRouletteMode"
+                                    v-if="player.isArbiter"
                                     class="player-badge-icon player-badge-icon--arbiter"
                                     role="img"
                                     :aria-label="turnRoleLabel"
@@ -1737,7 +1745,7 @@ onUnmounted(() => {
                             <template v-else>{{ player.state }}</template>
                         </span>
                     </div>
-                    <span class="player-score">Turns Played: {{ player.turnsPlayed }}</span>
+                    <span class="player-score">{{ player.role }}</span>
                 </article>
             </div>
 
@@ -2016,15 +2024,15 @@ onUnmounted(() => {
     align-items: baseline;
     justify-content: flex-start;
     gap: 0.6rem;
-    min-height: 2.5rem;
-    margin-bottom: 1rem;
+    min-height: 2rem;
+    margin-bottom: 0.625rem;
     color: #59c1ca;
-    font-size: 1.45rem;
+    font-size: 1rem;
 }
 
 .panel-title small {
     color: #7e7e7e;
-    font-size: 1rem;
+    font-size: 0.75rem;
 }
 
 .players-left-count {
@@ -2047,29 +2055,20 @@ onUnmounted(() => {
 
 .player-card {
     display: grid;
-    min-height: 9.5rem;
-    grid-template-columns: 4.5rem minmax(0, 1fr);
-    align-content: start;
-    gap: 0 0.75rem;
-    border: 1px solid transparent;
-    border-radius: 1rem;
-    padding: 1rem;
+    height: 5.4375rem;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0 0.375rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
     background: #191919;
-    transition:
-        border-color 160ms ease,
-        box-shadow 160ms ease;
 }
 
 .player-card--active {
-    border-color: #ffbe58;
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 190, 88, 0.08),
-        0 0 1.25rem rgba(255, 190, 88, 0.06);
+    box-shadow: inset 0 0 0 1px #ffbe58;
 }
 
 .player-card--up-next {
-    border-color: #58d9a1;
-    box-shadow: inset 0 0 0 1px rgba(88, 217, 161, 0.06);
+    box-shadow: inset 0 0 0 1px #58d9a1;
 }
 
 .player-card--left {
@@ -2097,26 +2096,18 @@ onUnmounted(() => {
 
 .player-avatar,
 .contribution-avatar {
-    border-radius: 9999px;
-    object-fit: cover;
-}
-
-.player-avatar {
-    width: 4.5rem;
-    height: 4.5rem;
-}
-
-.contribution-avatar {
     width: 2.5rem;
     height: 2.5rem;
+    border-radius: 9999px;
+    object-fit: cover;
 }
 
 .player-name-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.6rem;
-    font-size: 1.15rem;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
 }
 
 .player-name {
@@ -2130,7 +2121,7 @@ onUnmounted(() => {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.4rem;
+    gap: 0.3rem;
 }
 
 .player-host,
@@ -2142,8 +2133,8 @@ onUnmounted(() => {
 
 .player-badge-icon {
     display: inline-grid;
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1rem;
+    height: 1rem;
     place-items: center;
     border: 1px solid currentColor;
     border-radius: 9999px;
@@ -2165,7 +2156,7 @@ onUnmounted(() => {
 
 .player-host {
     color: #ffbe58;
-    font-size: 0.85rem;
+    font-size: 0.625rem;
 }
 
 .player-left-badge {
@@ -2192,13 +2183,13 @@ onUnmounted(() => {
 }
 
 .player-state {
-    margin-top: 0.5rem;
-    font-size: 1rem;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
 }
 
 .player-state i {
-    width: 0.6rem;
-    height: 0.6rem;
+    width: 0.35rem;
+    height: 0.35rem;
     border-radius: 9999px;
     background: currentColor;
 }
@@ -2209,10 +2200,6 @@ onUnmounted(() => {
 
 .player-state--gold {
     color: #ffbe58;
-}
-
-.player-state--green {
-    color: #58d9a1;
 }
 
 .player-state--left {
@@ -2273,23 +2260,23 @@ onUnmounted(() => {
 
 .player-score {
     grid-column: 1 / -1;
-    margin-top: 0.9rem;
+    margin-top: 0.5rem;
     border-top: 1px solid #2f2f2f;
-    padding-top: 0.7rem;
+    padding-top: 0.5rem;
     color: #8f8f8f;
-    font-size: 1rem;
+    font-size: 0.75rem;
 }
 
 .invite-card {
     position: relative;
     display: flex;
-    min-height: 8.5rem;
+    height: 7.0625rem;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 0.75rem;
     margin-top: 1.25rem;
     border: 1px dashed #5c5c5c;
     border-radius: 0.5rem;
-    padding: 0.85rem;
+    padding: 0.5rem 0.625rem 0.5rem 0.5rem;
 }
 
 .invite-label {
@@ -2297,9 +2284,9 @@ onUnmounted(() => {
     align-items: center;
     gap: 0.45rem;
     color: #e4e4e4;
-    min-height: 1.8rem;
-    padding-left: 0.15rem;
-    font-size: 1.2rem;
+    min-height: 1.6875rem;
+    padding-left: 0.3125rem;
+    font-size: 1rem;
 }
 
 .room-code-card {
@@ -2366,13 +2353,13 @@ onUnmounted(() => {
 
 .leave-room-button {
     width: 100%;
-    height: 3.75rem;
+    height: 2.5rem;
     margin-top: 1.875rem;
     border: 1px solid #fd6d6d;
     border-radius: 0.45rem;
     color: #fd6d6d;
     background: transparent;
-    font-size: 1.1rem;
+    font-size: 0.8125rem;
 }
 
 .leave-room-button:hover {

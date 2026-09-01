@@ -160,7 +160,6 @@ export interface MultiplayerArbiterStateInterface {
     is_current_user_chooser: boolean;
     awaiting_member_ids: string[];
     generated_choices: MultiplayerGeneratedChoiceInterface[];
-    turns_played_by_member_id: Record<string, number>;
     proposals: MultiplayerLobbyProposalInterface[];
     last_selected_proposal: MultiplayerLobbyProposalInterface | null;
 }

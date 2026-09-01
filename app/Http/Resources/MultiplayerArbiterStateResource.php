@@ -86,14 +86,6 @@ final class MultiplayerArbiterStateResource extends BaseResource
                 ->values()
                 ->all()
             : [];
-        $turnsPlayedByMemberId = $this->proposals()
-            ->whereNotNull('selected_at')
-            ->selectRaw('member_id, count(*) as turns_played')
-            ->groupBy('member_id')
-            ->pluck('turns_played', 'member_id')
-            ->map(static fn (mixed $turnsPlayed): int => (int) $turnsPlayed)
-            ->all();
-
         return [
             'mode' => $this->mode->value,
             'turn_status' => $this->turn_status?->value,
@@ -106,7 +98,6 @@ final class MultiplayerArbiterStateResource extends BaseResource
             'is_current_user_chooser' => $isCurrentUserChooser,
             'awaiting_member_ids' => $awaitingMemberIds,
             'generated_choices' => $generatedChoices,
-            'turns_played_by_member_id' => $turnsPlayedByMemberId,
             'proposals' => $proposals
                 ->map(function (MultiplayerLobbyProposal $proposal) use ($canRevealAllProposals, $currentUserId): array {
                     $isOwnProposal = $proposal->member->user_id === $currentUserId;
