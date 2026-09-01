@@ -119,6 +119,7 @@ it('includes every published story on homepage worlds so the enter-world modal c
                 ->component('Index')
                 ->has('worlds', 1)
                 ->where('worlds.0.title', 'Jane Austen')
+                ->has('worlds.0.background')
                 ->has('worlds.0.stories', 5)
                 ->where('worlds.0.stories.0.title', 'Emma')
                 ->where('worlds.0.stories.4.title', 'Sense and Sensibility')
