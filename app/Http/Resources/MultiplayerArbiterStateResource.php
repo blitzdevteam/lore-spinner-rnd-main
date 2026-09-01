@@ -92,7 +92,7 @@ final class MultiplayerArbiterStateResource extends BaseResource
             'source_prompt_id' => $this->current_source_prompt_id,
             'current_arbiter_member_id' => $this->current_arbiter_member_id,
             'current_chooser_member_id' => $this->current_arbiter_member_id,
-            'decision_deadline_at' => $this->decision_deadline_at?->toISOString(),
+            'decision_deadline_at' => $this->decision_deadline_at?->utc()->format('Y-m-d\TH:i:s.v\Z'),
             'decision_remaining_seconds' => $this->decision_remaining_seconds,
             'decision_window_seconds' => $this->decisionWindowSeconds(),
             'is_current_user_arbiter' => $isCurrentUserArbiter,

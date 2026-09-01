@@ -135,7 +135,9 @@ const isSessionComplete = computed(() => turnStatus.value === 'session_complete'
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isGameplayPaused = computed(() => props.lobby.status === 'paused');
 const hasDecisionTimer = computed(() => isAwaitingArbiter.value || isAwaitingRouletteChoice.value);
-const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds);
+const decisionWindowSeconds = computed(
+    () => props.arbiter.decision_window_seconds ?? (isRouletteMode.value ? 120 : props.lobby.settings.decision_window_seconds),
+);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
     const deadline = props.arbiter.decision_deadline_at;

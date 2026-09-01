@@ -14,6 +14,7 @@ use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyTurnAction;
 use App\Actions\Multiplayer\ReconcileMultiplayerLobbyPauseAction;
 use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
+use App\Actions\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineAction;
 use App\Actions\Multiplayer\ResolveMultiplayerLobbyGuestAction;
 use App\Actions\Multiplayer\SelectMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\SendMultiplayerLobbyChatMessageAction;
@@ -236,10 +237,38 @@ final class MultiplayerLobbyController extends Controller
         #[CurrentUser] User $user,
         MultiplayerLobby $lobby,
         RecordMultiplayerLobbyHeartbeatAction $recordMultiplayerLobbyHeartbeat,
+        ResolveMultiplayerLobbyDecisionDeadlineAction $resolveMultiplayerLobbyDecisionDeadline,
     ): HttpResponse {
         Gate::forUser($user)->authorize('view', $lobby);
 
         $recordMultiplayerLobbyHeartbeat->handle($user, $lobby);
+        $lobby->refresh();
+
+        if (
+            $lobby->mode !== MultiplayerLobbyModeEnum::Roulette
+            || $lobby->status !== MultiplayerLobbyStatusEnum::Started
+            || $lobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+            || $lobby->current_source_prompt_id === null
+            || $lobby->decision_deadline_at === null
+            || $lobby->decision_deadline_at->isAfter(now())
+        ) {
+            return response()->noContent();
+        }
+
+        $selection = $resolveMultiplayerLobbyDecisionDeadline->handle(
+            $lobby->id,
+            $lobby->current_source_prompt_id,
+            $lobby->decision_deadline_at->getTimestamp(),
+        );
+
+        if ($selection !== null) {
+            $lobbyId = $selection['lobby']->id;
+            $proposalId = $selection['proposal_id'];
+
+            dispatch(static function () use ($lobbyId, $proposalId): void {
+                app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $proposalId);
+            })->afterResponse();
+        }
 
         return response()->noContent();
     }
@@ -319,7 +348,7 @@ final class MultiplayerLobbyController extends Controller
         Gate::forUser($user)->authorize('view', $lobby);
 
         try {
-            $lobby = $chooseMultiplayerLobbyRouletteChoice->handle(
+            $selection = $chooseMultiplayerLobbyRouletteChoice->handle(
                 $user,
                 $lobby,
                 $request->has('choice_index') ? $request->integer('choice_index') : null,
@@ -331,18 +360,13 @@ final class MultiplayerLobbyController extends Controller
             ]);
         }
 
+        $lobby = $selection['lobby'];
         $lobbyId = $lobby->id;
-        $selectionId = $lobby->proposals()
-            ->where('source_prompt_id', $lobby->current_source_prompt_id)
-            ->where('member_id', $lobby->current_arbiter_member_id)
-            ->whereNotNull('selected_at')
-            ->value('id');
+        $selectionId = $selection['proposal_id'];
 
-        if (is_string($selectionId)) {
-            dispatch(static function () use ($lobbyId, $selectionId): void {
-                app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $selectionId);
-            })->afterResponse();
-        }
+        dispatch(static function () use ($lobbyId, $selectionId): void {
+            app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $selectionId);
+        })->afterResponse();
 
         return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
     }

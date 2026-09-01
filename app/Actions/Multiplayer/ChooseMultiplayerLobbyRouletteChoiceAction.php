@@ -18,9 +18,12 @@ use Illuminate\Support\Facades\DB;
 
 final class ChooseMultiplayerLobbyRouletteChoiceAction
 {
-    public function handle(User $user, MultiplayerLobby $lobby, ?int $choiceIndex, ?string $customChoice = null): MultiplayerLobby
+    /**
+     * @return array{lobby: MultiplayerLobby, proposal_id: string}
+     */
+    public function handle(User $user, MultiplayerLobby $lobby, ?int $choiceIndex, ?string $customChoice = null): array
     {
-        $lobby = DB::transaction(function () use ($user, $lobby, $choiceIndex, $customChoice): MultiplayerLobby {
+        $selection = DB::transaction(function () use ($user, $lobby, $choiceIndex, $customChoice): array {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
@@ -106,12 +109,15 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 'decision_remaining_seconds' => null,
             ]);
 
-            return $lockedLobby->load(['host', 'members.user', 'game']);
+            return [
+                'lobby' => $lockedLobby->load(['host', 'members.user', 'game']),
+                'proposal_id' => (string) $selection->id,
+            ];
         });
 
-        MultiplayerArbiterStateChanged::dispatch($lobby);
+        MultiplayerArbiterStateChanged::dispatch($selection['lobby']);
 
-        return $lobby;
+        return $selection;
     }
 
     private function choiceAt(Prompt $sourcePrompt, int $choiceIndex): ?string
