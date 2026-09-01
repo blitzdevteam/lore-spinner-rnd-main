@@ -199,10 +199,15 @@ onUnmounted(() => {
     min-height: 48%;
 }
 
+.world-modal__hero p,
+.world-modal__hero h2 {
+    text-shadow: 0 1px 14px rgb(0 0 0 / 0.72);
+}
+
 .world-modal__shade {
     background-image:
-        linear-gradient(to top, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.08) 38%, rgba(0, 0, 0, 0.2) 100%),
-        linear-gradient(105deg, rgba(0, 0, 0, 0.32) 8%, rgba(0, 0, 0, 0) 52%);
+        linear-gradient(to top, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.03) 42%, rgba(0, 0, 0, 0.12) 100%),
+        linear-gradient(105deg, rgba(0, 0, 0, 0.2) 8%, rgba(0, 0, 0, 0) 48%);
 }
 
 .world-modal__scroll {
@@ -219,15 +224,15 @@ onUnmounted(() => {
     pointer-events: none;
     position: absolute;
     inset: 0;
+    top: -20rem;
     background: linear-gradient(
         to bottom,
         rgb(0 0 0 / 0) 0,
-        rgb(0 0 0 / 0.08) 3.5rem,
-        rgb(0 0 0 / 0.28) 7rem,
-        rgb(0 0 0 / 0.55) 10rem,
-        rgb(0 0 0 / 0.78) 13rem,
-        rgb(0 0 0 / 0.9) 16rem,
-        rgb(0 0 0 / 0.95) 100%
+        rgb(0 0 0 / 0) 29.5rem,
+        rgb(0 0 0 / 0.14) 31rem,
+        rgb(0 0 0 / 0.55) 32.5rem,
+        rgb(0 0 0 / 0.9) 34rem,
+        rgb(0 0 0 / 0.97) 100%
     );
 }
 
@@ -251,6 +256,19 @@ onUnmounted(() => {
 
     .world-modal__sheet {
         margin-top: -6.5rem;
+    }
+
+    .world-modal__veil {
+        top: -22rem;
+        background: linear-gradient(
+            to bottom,
+            rgb(0 0 0 / 0) 0,
+            rgb(0 0 0 / 0) 33.25rem,
+            rgb(0 0 0 / 0.14) 34.75rem,
+            rgb(0 0 0 / 0.55) 36.5rem,
+            rgb(0 0 0 / 0.9) 38.25rem,
+            rgb(0 0 0 / 0.97) 100%
+        );
     }
 
     .world-modal__sheet-body {
