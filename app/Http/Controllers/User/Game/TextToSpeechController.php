@@ -44,8 +44,7 @@ final class TextToSpeechController extends Controller
             return response()->json(['status' => 'failed', 'message' => $failure], 503);
         }
 
-        if (! $this->audio->isGenerating($prompt)) {
-            $this->audio->markPending($prompt);
+        if ($this->audio->reserve($prompt)) {
             $this->renderAfterResponse((string) $game->id, (string) $prompt->id);
         }
 

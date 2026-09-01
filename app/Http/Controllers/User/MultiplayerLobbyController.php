@@ -322,7 +322,8 @@ final class MultiplayerLobbyController extends Controller
             $lobby = $chooseMultiplayerLobbyRouletteChoice->handle(
                 $user,
                 $lobby,
-                $request->integer('choice_index'),
+                $request->has('choice_index') ? $request->integer('choice_index') : null,
+                $request->has('proposal') ? $request->string('proposal')->toString() : null,
             );
         } catch (MultiplayerLobbyStateException $exception) {
             throw ValidationException::withMessages([

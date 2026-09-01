@@ -37,19 +37,21 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
-type PlayerTone = 'cyan' | 'gold' | 'left';
+type PlayerTone = 'cyan' | 'gold' | 'green' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
 type MobilePanel = 'players' | 'chat' | null;
 
 type Player = {
     id: string;
     name: string;
-    role: string;
     state: string;
     isTyping: boolean;
     hasLeft: boolean;
     avatar: string;
     tone: PlayerTone;
+    turnsPlayed: number;
+    isActiveTurn: boolean;
+    isUpNext: boolean;
     isCurrentUser: boolean;
     isArbiter: boolean;
     host?: boolean;
@@ -163,6 +165,7 @@ const availableProposals = computed(() => props.arbiter.proposals.filter((propos
 const selectedProposal = computed(() => props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null);
 const generatedChoices = computed(() => props.arbiter.generated_choices);
 const turnRoleLabel = computed(() => (isRouletteMode.value ? 'Chooser' : 'Arbiter'));
+const customInputEnabled = computed(() => props.lobby.settings.custom_input_enabled);
 const canSubmitProposal = computed(() => {
     return !!(
         !isRouletteMode.value
@@ -172,6 +175,33 @@ const canSubmitProposal = computed(() => {
         && isCollectingProposals.value
         && !ownProposal.value
     );
+});
+const canSubmitRouletteCustomInput = computed(() => {
+    return !!(
+        isRouletteMode.value
+        && customInputEnabled.value
+        && currentMember.value
+        && !isGameplayPaused.value
+        && isAwaitingRouletteChoice.value
+        && isCurrentUserChooser.value
+    );
+});
+const canSubmitCustomInput = computed(() => (isRouletteMode.value ? canSubmitRouletteCustomInput.value : canSubmitProposal.value));
+const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value);
+const customInputPlaceholder = computed(() => {
+    if (isGameplayPaused.value) {
+        return 'Story paused';
+    }
+
+    if (canSubmitCustomInput.value) {
+        return isRouletteMode.value ? 'Write your own path...' : 'What Do You Do?';
+    }
+
+    if (isRouletteMode.value) {
+        return 'Wait for your turn...';
+    }
+
+    return ownProposal.value ? 'Choice submitted' : '';
 });
 const canChooseProposal = computed(
     () => !isRouletteMode.value && !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
@@ -214,7 +244,8 @@ const hasVisibleStreamedResponse = computed(() => {
 });
 
 const chatMessages = ref<MultiplayerLobbyChatMessageInterface[]>([...props.chatMessages]);
-const chatWindow = ref<HTMLElement | null>(null);
+const desktopChatWindow = ref<HTMLElement | null>(null);
+const mobileChatWindow = ref<HTMLElement | null>(null);
 const chatDraft = ref('');
 const isPlayersPanelOpen = ref(true);
 const isChatPanelOpen = ref(true);
@@ -262,6 +293,10 @@ function toggleChatPanel(): void {
     }
 
     isChatPanelOpen.value = !isChatPanelOpen.value;
+
+    if (isChatPanelOpen.value) {
+        scrollChatToBottom('auto');
+    }
 }
 
 function closeMobilePanel(): void {
@@ -540,13 +575,29 @@ function memberDisplayName(member: MultiplayerLobbyMemberInterface): string {
     return member.user.full_name;
 }
 
-function memberRole(member: MultiplayerLobbyMemberInterface): string {
-    if (member.id === props.arbiter.current_arbiter_member_id) {
-        return turnRoleLabel.value;
+const activeTurnMemberId = computed(() => {
+    if (!isAwaitingArbiter.value && !isAwaitingRouletteChoice.value) {
+        return null;
     }
 
-    return member.role === 'host' ? 'Host' : 'Player';
-}
+    return props.arbiter.current_arbiter_member_id;
+});
+
+const upNextTurnMemberId = computed(() => {
+    const activeMemberId = activeTurnMemberId.value;
+
+    if (activeMemberId === null || members.value.length < 2) {
+        return null;
+    }
+
+    const activeIndex = members.value.findIndex((member) => member.id === activeMemberId);
+
+    if (activeIndex === -1) {
+        return null;
+    }
+
+    return members.value[(activeIndex + 1) % members.value.length]?.id ?? null;
+});
 
 function memberState(member: MultiplayerLobbyMemberInterface): string {
     if (member.left_at !== null) {
@@ -565,12 +616,12 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
         return 'Episode complete';
     }
 
-    if (member.id === props.arbiter.current_arbiter_member_id) {
-        if (isAwaitingArbiter.value || isAwaitingRouletteChoice.value) {
-            return isRouletteMode.value ? 'Choosing a path…' : 'Choosing…';
-        }
+    if (member.id === activeTurnMemberId.value) {
+        return isRouletteMode.value ? 'Active Player' : 'Active Arbiter';
+    }
 
-        return turnRoleLabel.value;
+    if (member.id === upNextTurnMemberId.value) {
+        return 'Up Next';
     }
 
     if (isMemberTyping(member)) {
@@ -585,19 +636,26 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
 }
 
 const players = computed<Player[]>(() =>
-    members.value.map((member, index) => ({
-        id: member.id,
-        name: memberDisplayName(member),
-        role: memberRole(member),
-        state: memberState(member),
-        isTyping: isMemberTyping(member),
-        hasLeft: member.left_at !== null,
-        avatar: memberAvatar(member, index),
-        tone: member.left_at !== null ? 'left' : member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
-        isCurrentUser: member.user.id === currentUserId.value,
-        isArbiter: member.id === props.arbiter.current_arbiter_member_id,
-        host: member.role === 'host',
-    })),
+    members.value.map((member, index) => {
+        const isActiveTurn = member.id === activeTurnMemberId.value;
+        const isUpNext = member.id === upNextTurnMemberId.value;
+
+        return {
+            id: member.id,
+            name: memberDisplayName(member),
+            state: memberState(member),
+            isTyping: isMemberTyping(member),
+            hasLeft: member.left_at !== null,
+            avatar: memberAvatar(member, index),
+            tone: member.left_at !== null ? 'left' : isActiveTurn ? 'gold' : isUpNext ? 'green' : 'cyan',
+            turnsPlayed: props.arbiter.turns_played_by_member_id[member.id] ?? 0,
+            isActiveTurn,
+            isUpNext,
+            isCurrentUser: member.user.id === currentUserId.value,
+            isArbiter: member.id === props.arbiter.current_arbiter_member_id,
+            host: member.role === 'host',
+        };
+    }),
 );
 
 const messages = computed<ChatMessage[]>(() =>
@@ -781,17 +839,19 @@ function formatChatMessageTime(value: string | null): string {
     }).format(timestamp);
 }
 
-function scrollChatToBottom(): void {
-    nextTick(() => {
-        const element = chatWindow.value;
+function scrollChatToBottom(behavior: ScrollBehavior = 'smooth'): void {
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            for (const element of [desktopChatWindow.value, mobileChatWindow.value]) {
+                if (element === null) {
+                    continue;
+                }
 
-        if (!element) {
-            return;
-        }
-
-        element.scrollTo({
-            top: element.scrollHeight,
-            behavior: 'smooth',
+                element.scrollTo({
+                    top: element.scrollHeight,
+                    behavior,
+                });
+            }
         });
     });
 }
@@ -896,6 +956,49 @@ function submitProposal(proposal: string): void {
             },
         },
     );
+}
+
+function submitRouletteCustomChoice(proposal: string): void {
+    if (!canSubmitRouletteCustomInput.value || isSubmittingProposal.value) {
+        return;
+    }
+
+    actionError.value = null;
+    tts.primeAudio();
+    isSubmittingProposal.value = true;
+    const sourcePromptId = props.arbiter.source_prompt_id;
+    const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
+
+    if (sourcePromptId) {
+        setSourcePromptValue(sourcePromptId, proposal);
+    }
+
+    router.post(
+        storeRouletteChoice(props.lobby.room_code).url,
+        { proposal },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (sourcePromptId) {
+                    setSourcePromptValue(sourcePromptId, previousPromptValue);
+                }
+                actionError.value = errors.lobby ?? errors.proposal ?? 'We could not submit that path.';
+            },
+            onFinish: () => {
+                isSubmittingProposal.value = false;
+            },
+        },
+    );
+}
+
+function submitCustomInput(proposal: string): void {
+    if (isRouletteMode.value) {
+        submitRouletteCustomChoice(proposal);
+
+        return;
+    }
+
+    submitProposal(proposal);
 }
 
 function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
@@ -1278,7 +1381,18 @@ onUnmounted(() => {
                             </span>
                         </div>
                         <div class="player-list">
-                            <article v-for="player in players" :key="player.id" :class="['player-card', { 'player-card--left': player.hasLeft }]">
+                            <article
+                                v-for="player in players"
+                                :key="player.id"
+                                :class="[
+                                    'player-card',
+                                    {
+                                        'player-card--left': player.hasLeft,
+                                        'player-card--active': player.isActiveTurn,
+                                        'player-card--up-next': player.isUpNext,
+                                    },
+                                ]"
+                            >
                                 <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
                                 <div class="player-details">
                                     <div class="player-name-row">
@@ -1295,7 +1409,7 @@ onUnmounted(() => {
                                                 <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                             </span>
                                             <span
-                                                v-if="player.isArbiter"
+                                                v-if="player.isArbiter && !isRouletteMode"
                                                 class="player-badge-icon player-badge-icon--arbiter"
                                                 role="img"
                                                 :aria-label="turnRoleLabel"
@@ -1317,7 +1431,7 @@ onUnmounted(() => {
                                         <template v-else>{{ player.state }}</template>
                                     </span>
                                 </div>
-                                <span class="player-score">{{ player.role }}</span>
+                                <span class="player-score">Turns Played: {{ player.turnsPlayed }}</span>
                             </article>
                         </div>
 
@@ -1509,15 +1623,17 @@ onUnmounted(() => {
                     </div>
 
                     <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
-                        <div ref="chatWindow" class="chat-window" aria-live="polite">
-                            <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
-                            <article v-for="message in messages" :key="message.id" class="chat-message">
-                                <div class="chat-message-meta">
-                                    <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                                    <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
-                                </div>
-                                <p>{{ message.text }}</p>
-                            </article>
+                        <div ref="desktopChatWindow" class="chat-window" aria-live="polite">
+                            <div class="chat-window-content">
+                                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                                <article v-for="message in messages" :key="message.id" class="chat-message">
+                                    <div class="chat-message-meta">
+                                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
+                                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
+                                    </div>
+                                    <p>{{ message.text }}</p>
+                                </article>
+                            </div>
                         </div>
                         <form class="chat-compose" @submit.prevent="submitChat">
                             <label class="sr-only" for="arbiter-chat-message">Type a message</label>
@@ -1543,7 +1659,7 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <footer v-if="!isRouletteMode || isGameplayPaused || (tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
+        <footer v-if="shouldShowCustomInput || isGameplayPaused || (tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
             <section v-if="isGameplayPaused" class="gameplay-paused-notice flex items-center backdrop-blur-[2px]" role="status" aria-live="polite">
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
@@ -1552,11 +1668,11 @@ onUnmounted(() => {
                 <GameplayMediaPlayer />
             </div>
             <GameplayInput
-                v-if="!isRouletteMode"
+                v-if="shouldShowCustomInput"
                 class="arbiter-proposal-input"
-                :disabled="!canSubmitProposal || isSubmittingProposal"
-                :placeholder="isGameplayPaused ? 'Story paused' : canSubmitProposal ? 'What Do You Do?' : ownProposal ? 'Choice submitted' : ''"
-                @submit="submitProposal"
+                :disabled="!canSubmitCustomInput || isSubmittingProposal"
+                :placeholder="customInputPlaceholder"
+                @submit="submitCustomInput"
                 @typing="handleProposalTyping"
             />
         </footer>
@@ -1571,7 +1687,18 @@ onUnmounted(() => {
                 </span>
             </div>
             <div class="player-list">
-                <article v-for="player in players" :key="player.id" :class="['player-card', { 'player-card--left': player.hasLeft }]">
+                <article
+                    v-for="player in players"
+                    :key="player.id"
+                    :class="[
+                        'player-card',
+                        {
+                            'player-card--left': player.hasLeft,
+                            'player-card--active': player.isActiveTurn,
+                            'player-card--up-next': player.isUpNext,
+                        },
+                    ]"
+                >
                     <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
                     <div class="player-details">
                         <div class="player-name-row">
@@ -1588,7 +1715,7 @@ onUnmounted(() => {
                                     <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                 </span>
                                 <span
-                                    v-if="player.isArbiter"
+                                    v-if="player.isArbiter && !isRouletteMode"
                                     class="player-badge-icon player-badge-icon--arbiter"
                                     role="img"
                                     :aria-label="turnRoleLabel"
@@ -1610,7 +1737,7 @@ onUnmounted(() => {
                             <template v-else>{{ player.state }}</template>
                         </span>
                     </div>
-                    <span class="player-score">{{ player.role }}</span>
+                    <span class="player-score">Turns Played: {{ player.turnsPlayed }}</span>
                 </article>
             </div>
 
@@ -1637,15 +1764,17 @@ onUnmounted(() => {
 
     <GameplayBottomSheet :open="isMobile && activeMobilePanel === 'chat'" title="Chat" @close="closeMobilePanel">
         <section id="arbiter-chat-drawer" class="arbiter-mobile-panel arbiter-mobile-chat-panel">
-            <div ref="chatWindow" class="chat-window" aria-live="polite">
-                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
-                <article v-for="message in messages" :key="message.id" class="chat-message">
-                    <div class="chat-message-meta">
-                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
-                    </div>
-                    <p>{{ message.text }}</p>
-                </article>
+            <div ref="mobileChatWindow" class="chat-window" aria-live="polite">
+                <div class="chat-window-content">
+                    <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                    <article v-for="message in messages" :key="message.id" class="chat-message">
+                        <div class="chat-message-meta">
+                            <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
+                            <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
+                        </div>
+                        <p>{{ message.text }}</p>
+                    </article>
+                </div>
             </div>
             <form class="chat-compose" @submit.prevent="submitChat">
                 <label class="sr-only" for="arbiter-mobile-chat-message">Type a message</label>
@@ -1887,15 +2016,15 @@ onUnmounted(() => {
     align-items: baseline;
     justify-content: flex-start;
     gap: 0.6rem;
-    min-height: 2rem;
-    margin-bottom: 0.625rem;
+    min-height: 2.5rem;
+    margin-bottom: 1rem;
     color: #59c1ca;
-    font-size: 1rem;
+    font-size: 1.45rem;
 }
 
 .panel-title small {
     color: #7e7e7e;
-    font-size: 0.75rem;
+    font-size: 1rem;
 }
 
 .players-left-count {
@@ -1918,12 +2047,29 @@ onUnmounted(() => {
 
 .player-card {
     display: grid;
-    height: 5.4375rem;
-    grid-template-columns: 2.5rem minmax(0, 1fr);
-    gap: 0 0.375rem;
-    border-radius: 0.5rem;
-    padding: 0.5rem;
+    min-height: 9.5rem;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    align-content: start;
+    gap: 0 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 1rem;
+    padding: 1rem;
     background: #191919;
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.player-card--active {
+    border-color: #ffbe58;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 190, 88, 0.08),
+        0 0 1.25rem rgba(255, 190, 88, 0.06);
+}
+
+.player-card--up-next {
+    border-color: #58d9a1;
+    box-shadow: inset 0 0 0 1px rgba(88, 217, 161, 0.06);
 }
 
 .player-card--left {
@@ -1951,18 +2097,26 @@ onUnmounted(() => {
 
 .player-avatar,
 .contribution-avatar {
-    width: 2.5rem;
-    height: 2.5rem;
     border-radius: 9999px;
     object-fit: cover;
+}
+
+.player-avatar {
+    width: 4.5rem;
+    height: 4.5rem;
+}
+
+.contribution-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 .player-name-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
+    gap: 0.6rem;
+    font-size: 1.15rem;
 }
 
 .player-name {
@@ -1976,7 +2130,7 @@ onUnmounted(() => {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.3rem;
+    gap: 0.4rem;
 }
 
 .player-host,
@@ -1988,8 +2142,8 @@ onUnmounted(() => {
 
 .player-badge-icon {
     display: inline-grid;
-    width: 1rem;
-    height: 1rem;
+    width: 1.15rem;
+    height: 1.15rem;
     place-items: center;
     border: 1px solid currentColor;
     border-radius: 9999px;
@@ -2011,7 +2165,7 @@ onUnmounted(() => {
 
 .player-host {
     color: #ffbe58;
-    font-size: 0.625rem;
+    font-size: 0.85rem;
 }
 
 .player-left-badge {
@@ -2038,13 +2192,13 @@ onUnmounted(() => {
 }
 
 .player-state {
-    margin-top: 0.25rem;
-    font-size: 0.6875rem;
+    margin-top: 0.5rem;
+    font-size: 1rem;
 }
 
 .player-state i {
-    width: 0.35rem;
-    height: 0.35rem;
+    width: 0.6rem;
+    height: 0.6rem;
     border-radius: 9999px;
     background: currentColor;
 }
@@ -2055,6 +2209,10 @@ onUnmounted(() => {
 
 .player-state--gold {
     color: #ffbe58;
+}
+
+.player-state--green {
+    color: #58d9a1;
 }
 
 .player-state--left {
@@ -2115,23 +2273,23 @@ onUnmounted(() => {
 
 .player-score {
     grid-column: 1 / -1;
-    margin-top: 0.5rem;
+    margin-top: 0.9rem;
     border-top: 1px solid #2f2f2f;
-    padding-top: 0.5rem;
+    padding-top: 0.7rem;
     color: #8f8f8f;
-    font-size: 0.75rem;
+    font-size: 1rem;
 }
 
 .invite-card {
     position: relative;
     display: flex;
-    height: 7.0625rem;
+    min-height: 8.5rem;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.9rem;
     margin-top: 1.25rem;
     border: 1px dashed #5c5c5c;
     border-radius: 0.5rem;
-    padding: 0.5rem 0.625rem 0.5rem 0.5rem;
+    padding: 0.85rem;
 }
 
 .invite-label {
@@ -2139,9 +2297,9 @@ onUnmounted(() => {
     align-items: center;
     gap: 0.45rem;
     color: #e4e4e4;
-    min-height: 1.6875rem;
-    padding-left: 0.3125rem;
-    font-size: 1rem;
+    min-height: 1.8rem;
+    padding-left: 0.15rem;
+    font-size: 1.2rem;
 }
 
 .room-code-card {
@@ -2208,13 +2366,13 @@ onUnmounted(() => {
 
 .leave-room-button {
     width: 100%;
-    height: 2.5rem;
+    height: 3.75rem;
     margin-top: 1.875rem;
     border: 1px solid #fd6d6d;
     border-radius: 0.45rem;
     color: #fd6d6d;
     background: transparent;
-    font-size: 0.8125rem;
+    font-size: 1.1rem;
 }
 
 .leave-room-button:hover {
@@ -2647,19 +2805,25 @@ onUnmounted(() => {
 }
 
 .chat-window {
-    display: flex;
+    display: block;
     min-height: 0;
     flex: 1;
-    flex-direction: column;
-    justify-content: flex-end;
-    gap: 0.625rem;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid #262626;
     border-radius: 0.5rem;
     padding: 0.875rem;
     background: #131313;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
+}
+
+.chat-window-content {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.625rem;
 }
 
 .chat-message {

@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\DB;
 
 final class ChooseMultiplayerLobbyRouletteChoiceAction
 {
-    public function handle(User $user, MultiplayerLobby $lobby, int $choiceIndex): MultiplayerLobby
+    public function handle(User $user, MultiplayerLobby $lobby, ?int $choiceIndex, ?string $customChoice = null): MultiplayerLobby
     {
-        $lobby = DB::transaction(function () use ($user, $lobby, $choiceIndex): MultiplayerLobby {
+        $lobby = DB::transaction(function () use ($user, $lobby, $choiceIndex, $customChoice): MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
@@ -61,9 +61,15 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 throw MultiplayerLobbyStateException::rouletteChoicesAreNotReady();
             }
 
-            $choice = $this->choiceAt($sourcePrompt, $choiceIndex);
+            if ($choiceIndex === null && ! $lockedLobby->settings['custom_input_enabled']) {
+                throw MultiplayerLobbyStateException::rouletteCustomInputIsDisabled();
+            }
 
-            if ($choice === null) {
+            $choice = $choiceIndex === null
+                ? mb_trim((string) $customChoice)
+                : $this->choiceAt($sourcePrompt, $choiceIndex);
+
+            if ($choice === null || $choice === '') {
                 throw MultiplayerLobbyStateException::rouletteChoiceIsNotAvailable();
             }
 

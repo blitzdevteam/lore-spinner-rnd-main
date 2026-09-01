@@ -83,6 +83,11 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('That Roulette choice is no longer available.');
     }
 
+    public static function rouletteCustomInputIsDisabled(): self
+    {
+        return new self('Custom input is disabled for this Roulette lobby.');
+    }
+
     public static function onlyHostCanAdvanceSession(): self
     {
         return new self('Only the lobby host can advance to the next chapter.');
