@@ -16,6 +16,7 @@ use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyMember;
 use App\Models\MultiplayerLobbyProposal;
 use App\Models\Prompt;
+use App\Services\ChaosEngineService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +24,10 @@ use Throwable;
 
 final class ProcessMultiplayerLobbyTurnAction
 {
-    public function __construct(private readonly ProcessGameTurnAction $processGameTurn) {}
+    public function __construct(
+        private readonly ProcessGameTurnAction $processGameTurn,
+        private readonly ChaosEngineService $engine,
+    ) {}
 
     public function handle(string $lobbyId, string $proposalId): void
     {
@@ -273,10 +277,38 @@ final class ProcessMultiplayerLobbyTurnAction
             return null;
         }
 
+        $game = Game::query()
+            ->with(['story.adaptation.sessionAdaptations', 'currentPlayableMoment'])
+            ->find($lobby->game_id);
+        $momentChoiceIds = (array) data_get($game?->currentPlayableMoment?->scene_card, 'choice_ids', []);
+
+        if ($game === null || ! in_array($choiceId, $momentChoiceIds, true)) {
+            return null;
+        }
+
+        $choiceSession = $this->engine->extractSessionNumber($choiceId);
+        $session = $game->story?->adaptation?->sessionAdaptations?->firstWhere('session_number', $choiceSession);
+        $choiceDesign = (array) ($session?->session_choice_design ?? []);
+        $branchingChoice = collect((array) ($choiceDesign['branching_choices'] ?? []))
+            ->firstWhere('choice_id', $choiceId);
+
+        if (! is_array($branchingChoice)) {
+            return null;
+        }
+
+        $option = collect((array) ($branchingChoice['options'] ?? []))
+            ->first(fn (mixed $option): bool => mb_strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+
+        if (! is_array($option)) {
+            return null;
+        }
+
         return [
             'defining_choice_id' => $choiceId,
             'defining_path_label' => $pathLabel,
-            'defining_choice_line' => null,
+            'defining_choice_line' => ($option['defining_line'] ?? '') !== ''
+                ? (string) $option['defining_line']
+                : null,
         ];
     }
 }
