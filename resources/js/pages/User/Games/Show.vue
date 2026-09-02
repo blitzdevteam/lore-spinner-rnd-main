@@ -261,7 +261,15 @@ function handleChoicesReady() {
     nudgeTrigger.value++;
 }
 
+// The opening narration is the long pole, so it is kicked off as early as the page
+// mounts rather than when the showcard appears. Guarded because both the mount hook
+// and the cinematic's prepare event race to call it.
+let beginRequested = false;
+
 const handleBegin = () => {
+    if (beginRequested) return;
+    beginRequested = true;
+
     router.post(
         `/user/games/${props.game.id}/begin`,
         {},
@@ -325,6 +333,7 @@ const handleSubmit = (prompt: string) => {
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
+    pendingSelection.value[source.id] = prompt;
     submitPrompt(prompt, { promptId: source.id });
 };
 
@@ -335,9 +344,11 @@ const handleRetryTurn = () => {
 
     // The source card may have been reissued by a refresh since the failure.
     const source = awaitingPrompt.value;
+    const promptId = source ? source.id : attempt.options.promptId;
+    pendingSelection.value[promptId] = attempt.prompt;
     submitPrompt(attempt.prompt, {
         ...attempt.options,
-        promptId: source ? source.id : attempt.options.promptId,
+        promptId,
     });
 };
 
@@ -662,11 +673,14 @@ onMounted(() => {
         }
     } else if (props.game.opening_pending) {
         if (!hasPrompts.value) {
+            beginRequested = true;
             void pollForOpeningCompletion('begin');
         } else {
             isStartingNextSession.value = true;
             void pollForOpeningCompletion('next', Math.max(0, (props.game.current_session_number ?? 1) - 1));
         }
+    } else if (showCinematic.value) {
+        handleBegin();
     }
 });
 
@@ -678,6 +692,7 @@ const handleRetryBegin = () => {
     tts.primeAudio();
     beginSettled.value = false;
     isRetryingBegin.value = true;
+    beginRequested = false;
     handleBegin();
 };
 
