@@ -13,6 +13,7 @@ An AI-powered interactive fiction platform that transforms screenplay scripts in
 - [Database](#database)
 - [AI Agent System](#ai-agent-system)
 - [Story Processing Pipeline](#story-processing-pipeline)
+- [The Boiler](#the-boiler)
 - [Gameplay Loop](#gameplay-loop)
 - [Artisan Commands](#artisan-commands)
 - [Admin Panel](#admin-panel)
@@ -382,6 +383,23 @@ PDF Script
 # Generate story openings (or regenerate with --force)
 ./vendor/bin/sail artisan stories:generate-openings
 ./vendor/bin/sail artisan stories:generate-openings --story=5 --force --sync
+```
+
+---
+
+## The Boiler
+
+Boiler is LoreSpinner’s **playable-cut compiler**: an adaptation-time pacing layer that turns source events into ordered playable moments (rooms), then makes Chaos perform only the active room at runtime. It does not replace Chaos, Choice Design, or A/B/C branching.
+
+**Team documentation (product, writers, engineering, ops):**
+
+- [`docs/Boiler/BOILER_DOCUMENTATION_V1.md`](Boiler/BOILER_DOCUMENTATION_V1.md) — start here
+- [`docs/Boiler/README.md`](Boiler/README.md) — index of Boiler docs
+
+Enable at adaptation time only:
+
+```bash
+php artisan stories:run-adaptation {story-id-or-slug} --force --boiler
 ```
 
 ---

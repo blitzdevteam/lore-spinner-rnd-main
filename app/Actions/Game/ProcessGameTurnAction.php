@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Game;
 
+use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Game;
 use App\Models\PlayableMoment;
 use App\Models\PlayerTokenUsage;
@@ -235,7 +236,10 @@ final class ProcessGameTurnAction
                     systemPrompt: $systemPrompt,
                     conversationHistory: $historyWindow,
                     playerAction: $playerAction,
-                    protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                    protagonist: ChaosStoryConfig::protagonistFor(
+                        $story->slug,
+                        $story->system_prompt['character_name'] ?? null,
+                    ),
                     temperature: $this->engine->gameTemperatureFor($game->model),
                     worldState: $worldState,
                     game: $game,
@@ -246,7 +250,10 @@ final class ProcessGameTurnAction
                     systemPrompt: $systemPrompt,
                     conversationHistory: $historyWindow,
                     playerAction: $playerAction,
-                    protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                    protagonist: ChaosStoryConfig::protagonistFor(
+                        $story->slug,
+                        $story->system_prompt['character_name'] ?? null,
+                    ),
                     onResponseDelta: $onResponseDelta,
                     temperature: $this->engine->gameTemperatureFor($game->model),
                     worldState: $worldState,
@@ -513,7 +520,10 @@ final class ProcessGameTurnAction
     private function buildConversationHistory(Game $game, mixed $story): array
     {
         $history = [];
-        $protagonist = (string) ($story->system_prompt['character_name'] ?? 'the protagonist');
+        $protagonist = ChaosStoryConfig::protagonistFor(
+            $story->slug,
+            $story->system_prompt['character_name'] ?? null,
+        );
 
         // ULID order, not created_at: this is the narrator's memory of the session,
         // and two turns sharing a created_at second could be replayed out of sequence.

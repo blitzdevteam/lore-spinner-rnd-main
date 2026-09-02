@@ -696,7 +696,7 @@ flowchart LR
 
 ### Sprint A — Safe foundation (no IP rebuild required)
 
-- [ ] A1. Backup V2.2 voice-lock + runtime blades
+- [ ] A1. Backup V2.2 voice-lock + runtime blades  
 - [ ] A2. Paste **D8 v2 COPY-PASTE template** from `DELIVERABLE 8 v2 … copy.md` + Section 13 substitution; builder fail-safe omit
 - [ ] A3. Pre-flight asserts in `RuntimeNarratorAssemblyJob`
 - [ ] A4. Re-assemble one **old** IP; confirm behavior unchanged

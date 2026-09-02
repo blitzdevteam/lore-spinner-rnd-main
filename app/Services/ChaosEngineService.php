@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Ai\Agents\Chaos\ChaosNarrationSchema;
-use App\Ai\Agents\Chaos\NativeObjectSchema;
 use App\Ai\Adaptation\ReintroTracker;
+use App\Ai\Agents\Chaos\ChaosNarrationSchema;
+use App\Ai\Agents\Chaos\NarrationToolProperty;
+use App\Ai\Agents\Chaos\NativeObjectSchema;
 use App\Models\Game;
 use App\Models\PlayableMoment;
 use App\Models\SessionAdaptation;
@@ -15,15 +16,16 @@ use App\Models\StoryAdaptation;
 use App\Services\Adaptation\SessionEventLoader;
 use App\Services\Runtime\StreamingJsonResponseExtractor;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
-use Illuminate\JsonSchema\Serializer as JsonSchemaSerializer;
-use Illuminate\JsonSchema\Types\Type as JsonSchemaType;
 use Illuminate\Support\Facades\Log;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use RuntimeException;
 
 /**
@@ -56,15 +58,16 @@ final class ChaosEngineService
         'claude-haiku-4-5' => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
     ];
 
+    /** Alternate production narrator: 'claude-sonnet-4-6'. */
     public const DEFAULT_MODEL = 'claude-haiku-4-5';
-    // public const DEFAULT_MODEL = 'claude-sonnet-4-6';
-    // /** Production /user/games narration — tighter than chaos-mode lab defaults. */
-    // public const GAME_TEMPERATURE = 0.4;
+
+    /**
+     * Production /user/games narration — matches chaos-mode temperature for
+     * maximum player agency. The lab previously ran a tighter 0.4.
+     */
+    public const GAME_TEMPERATURE = 0.9;
 
     private const OPENAI_FALLBACK_MODEL = 'gpt-5.2';
-
-    /** Production /user/games narration — matches chaos-mode temperature for maximum player agency. */
-    public const GAME_TEMPERATURE = 0.9;
 
     /**
      * Narrator self-reported relationship between a turn and the active room.
@@ -132,6 +135,13 @@ TEXT;
      * No dynamic budgeting and no in-request truncation retry — one call, one budget.
      */
     private const NARRATION_MAX_TOKENS = 8_192;
+
+    /**
+     * Tool the streaming narrator is forced to call. Its input_schema is the
+     * narration schema, which moves JSON validity from something the model is
+     * asked to honour to something the provider's decoder guarantees.
+     */
+    private const NARRATION_TOOL_NAME = 'emit_narration';
 
     public function __construct(private SessionEventLoader $eventLoader) {}
 
@@ -667,9 +677,15 @@ TEXT;
     }
 
     /**
-     * Stream the Chaos narration object as plain JSON text, emit decoded
-     * "response" field deltas for UX, then parse the complete object for the
+     * Stream the Chaos narration object as a forced tool call, emit decoded
+     * "response" field deltas for UX, then hand the complete object to the
      * existing commit pipeline.
+     *
+     * The narration schema is attached as the tool's input_schema and the
+     * provider is told it must call that tool, so the JSON is produced by the
+     * provider's constrained decoder rather than by the model choosing to obey
+     * a formatting instruction. String escaping, brace balance, and property
+     * presence stop being things the narrator can get wrong.
      *
      * @param  array<int, array{role:string, text:string}>  $conversationHistory
      * @param  callable(string): void  $onResponseDelta
@@ -713,27 +729,13 @@ TEXT;
             $isOpening,
         );
 
-        $schemaArray = array_map(
-            static fn (mixed $type): mixed => $type instanceof JsonSchemaType
-                ? JsonSchemaSerializer::serialize($type)
-                : $type,
-            ChaosNarrationSchema::definition(new JsonSchemaTypeFactory),
-        );
-        $schemaJson = json_encode($schemaArray, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (! is_string($schemaJson)) {
-            throw new RuntimeException('Unable to encode narration schema for streaming.');
-        }
-
         $streamingContract = implode("\n", [
             'STREAMING OUTPUT CONTRACT:',
-            'Return exactly one valid JSON object and nothing else.',
-            'Do not wrap the object in Markdown fences.',
-            'The first property MUST be "response" so the UI can stream it while the rest of the object is still generating.',
+            'Deliver this turn by calling the '.self::NARRATION_TOOL_NAME.' tool. Never answer in plain prose.',
+            'Fill "response" first so the UI can stream it while the rest of the object is still generating.',
             $game?->current_playable_moment_id === null
                 ? 'LEGACY GAMEPLAY REQUIREMENT: when "session_complete" is false, "choices" MUST contain exactly three non-empty suggested actions. Only a completed session may return "choices": []. "visible_suggestions" MUST be [].'
                 : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Emit contextual "visible_suggestions" and follow every authored option requirement in the active-moment block.',
-            'After "response", include every property required by this JSON schema:',
-            $schemaJson,
         ]);
 
         $providerOptions = $this->providerOptionsFor($config);
@@ -744,6 +746,9 @@ TEXT;
         $request = Prism::text()
             ->using($config['provider'], $model)
             ->withMessages($messages)
+            ->withTools([$this->narrationTool()])
+            ->withToolChoice(self::NARRATION_TOOL_NAME)
+            ->withMaxSteps(1)
             ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
             ->withProviderOptions($providerOptions);
 
@@ -765,22 +770,75 @@ TEXT;
         }
 
         $text = '';
+        $toolJson = '';
         $usage = [];
+        $structured = null;
+        $finishReason = null;
+        $streamedResponse = false;
         $responseExtractor = new StreamingJsonResponseExtractor;
 
         foreach ($request->asStream() as $event) {
-            if ($event instanceof TextDeltaEvent) {
-                $text .= $event->delta;
+            if ($event instanceof ToolCallDeltaEvent) {
+                if ($event->toolName !== '' && $event->toolName !== self::NARRATION_TOOL_NAME) {
+                    continue;
+                }
+
+                $toolJson .= $event->delta;
                 $delta = $responseExtractor->push($event->delta);
                 if ($delta !== '') {
+                    $streamedResponse = true;
                     $onResponseDelta($delta);
                 }
 
                 continue;
             }
 
-            if ($event instanceof StreamEndEvent && $event->usage !== null) {
-                $usage = $event->usage->toArray();
+            if ($event instanceof ToolCallEvent) {
+                if ($event->toolCall->name === self::NARRATION_TOOL_NAME) {
+                    $structured = $event->toolCall->arguments();
+                }
+
+                continue;
+            }
+
+            // Retained only as evidence for the contract-violation log below:
+            // a forced tool call means prose here is never the turn's payload.
+            if ($event instanceof TextDeltaEvent) {
+                $text .= $event->delta;
+
+                continue;
+            }
+
+            if ($event instanceof StreamEndEvent) {
+                $finishReason = $event->finishReason->name;
+                if ($event->usage !== null) {
+                    $usage = $event->usage->toArray();
+                }
+            }
+        }
+
+        if (! is_array($structured) || $structured === []) {
+            Log::channel('narration')->error('game.narration_tool_call_missing', [
+                'game_id' => $game?->id,
+                'model' => $model,
+                'provider' => $config['provider'],
+                'finish_reason' => $finishReason,
+                'tool_json_bytes' => mb_strlen($toolJson, '8bit'),
+                'tool_json_head' => mb_substr($toolJson, 0, 500),
+                'text_bytes' => mb_strlen($text, '8bit'),
+                'text_head' => mb_substr($text, 0, 500),
+            ]);
+
+            throw new RuntimeException('Streaming narration did not return the narration tool call.');
+        }
+
+        // Providers that deliver the tool input in one piece rather than as
+        // incremental JSON never reach the extractor, so the player would sit
+        // on a blank pane until the turn commits.
+        if (! $streamedResponse) {
+            $response = (string) ($structured['response'] ?? '');
+            if ($response !== '') {
+                $onResponseDelta($response);
             }
         }
 
@@ -789,7 +847,6 @@ TEXT;
             $config['provider'],
             streamed: true,
         );
-        $structured = $this->decodeStreamedStructuredObject($text);
         [$structured, $repairUsage] = $this->repairMissingLegacyChoices(
             structured: $structured,
             model: $model,
@@ -1157,28 +1214,37 @@ TEXT;
     }
 
     /**
-     * @return array<string, mixed>
+     * Build the narration tool from the same schema the buffered structured
+     * call uses, so streaming and non-streaming turns can never drift apart.
+     *
+     * The handler is never meaningfully invoked: maxSteps is 1, so Prism runs
+     * it once to close the step and then ends the stream instead of sending
+     * the result back for a second, billable round trip.
      */
-    private function decodeStreamedStructuredObject(string $text): array
+    private function narrationTool(): Tool
     {
-        $trimmed = mb_trim($text);
-        $trimmed = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $trimmed) ?? $trimmed;
+        $schema = (new NativeObjectSchema(
+            ChaosNarrationSchema::definition(new JsonSchemaTypeFactory),
+        ))->toArray();
 
-        $decoded = json_decode($trimmed, true);
-        if (is_array($decoded)) {
-            return $decoded;
+        /** @var array<string, array<string, mixed>> $properties */
+        $properties = $schema['properties'] ?? [];
+        /** @var array<int, string> $required */
+        $required = $schema['required'] ?? [];
+
+        $tool = (new Tool)
+            ->as(self::NARRATION_TOOL_NAME)
+            ->for('Deliver one complete Chaos narration turn.')
+            ->using(static fn (): string => '');
+
+        foreach ($properties as $name => $property) {
+            $tool->withParameter(
+                new NarrationToolProperty($name, $property),
+                in_array($name, $required, true),
+            );
         }
 
-        $start = mb_strpos($trimmed, '{');
-        $end = mb_strrpos($trimmed, '}');
-        if ($start !== false && $end !== false && $end > $start) {
-            $decoded = json_decode(mb_substr($trimmed, $start, $end - $start + 1), true);
-            if (is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        throw new RuntimeException('Streaming narration did not return a valid JSON object.');
+        return $tool;
     }
 
     private function normalizeMemoryLine(string $line): string
@@ -2353,7 +2419,7 @@ TEXT;
         bool $isOpening,
     ): array {
         $messages = [];
-        $protagonistUpper = strtoupper($protagonist);
+        $protagonistUpper = mb_strtoupper($protagonist);
 
         foreach ($conversationHistory as $turn) {
             $text = mb_trim((string) ($turn['text'] ?? ''));
@@ -2363,10 +2429,11 @@ TEXT;
 
             if (($turn['role'] ?? '') === 'narrator') {
                 $messages[] = new AssistantMessage($text);
+
                 continue;
             }
 
-            $speaker = strtoupper((string) ($turn['protagonist'] ?? $protagonist));
+            $speaker = mb_strtoupper((string) ($turn['protagonist'] ?? $protagonist));
             $messages[] = new UserMessage("[{$speaker}]: {$text}");
         }
 
@@ -2416,7 +2483,7 @@ TEXT;
             "RESOLVE THE PRONOUN: when the player uses a pronoun — it, that, this, him, her, them — resolve it against the immediately preceding narrator turn before you respond. \"I demand she name it\" means name the THING the previous turn just described (\"something she cannot name\"), not a different thing, not her own name. The pronoun points backward into the last thing said; find its referent and answer that referent.\n\n".
             "HONOR THE OBJECT: if the player's action targets something specific — a person, an object, a name, a place — the world responds to THAT target, not a substitute. \"Name it\" means name the thing they asked about, not a different thing. \"Her\" means the specific person they addressed, not a different person. The player chose their target; the world does not redirect it.\n\n".
             "THE PLAYER'S WORDS ARE THEIR AGENCY: do not paraphrase their intent into something safer, softer, or more convenient. If they said it, they meant it. The world responds to what they said, not to what would have been easier to respond to.\n\n".
-            "Move the scene forward by however much the action deserves. End on the unresolved live moment — image, gesture, or status condition — not with a question aimed at the player. Return the full structured object.";
+            'Move the scene forward by however much the action deserves. End on the unresolved live moment — image, gesture, or status condition — not with a question aimed at the player. Return the full structured object.';
     }
 
     /**

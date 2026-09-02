@@ -9,11 +9,10 @@ use App\Ai\Agents\Adaptation\EntryPointDiagnosisAgent;
 use App\ChaosMode\ChaosStoryConfig;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
-use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use RuntimeException;
 use Throwable;
@@ -71,35 +70,38 @@ final class EntryPointDiagnosisJob implements ShouldQueue
             $sessionSourcePages = $this->story->getSessionTrimmedText($this->sessionNumber);
 
             $storySessionMap = $adaptation->story_session_map;
-            $ipAudit         = $adaptation->ip_audit;
+            $ipAudit = $adaptation->ip_audit;
 
-            // Derive protagonist name from session map or ip_audit (best-effort; Phase 3 D10 slot).
-            $protagonist = $storySessionMap['protagonist'] ?? ($ipAudit['protagonist'] ?? $this->story->title);
+            // ChaosStoryConfig is the playable-avatar hint (Watson on Baker Street).
+            $protagonist = ChaosStoryConfig::protagonistFor(
+                $this->story->slug,
+                $storySessionMap['protagonist'] ?? ($ipAudit['protagonist'] ?? $this->story->title),
+            );
 
             // Format label for D10 prompt slot.
-            $format = match (strtoupper((string) ($adaptation->voice_profile['profile_type'] ?? ''))) {
+            $format = match (mb_strtoupper((string) ($adaptation->voice_profile['profile_type'] ?? ''))) {
                 'SCREENWRITER' => 'SCREENPLAY (via 1B v3)',
-                'NOVELIST'     => 'NOVEL (via 1A v2)',
-                default        => strtoupper((string) ($adaptation->voice_profile['profile_type'] ?? 'UNKNOWN')),
+                'NOVELIST' => 'NOVEL (via 1A v2)',
+                default => mb_strtoupper((string) ($adaptation->voice_profile['profile_type'] ?? 'UNKNOWN')),
             };
 
             $response = (new EntryPointDiagnosisAgent)->prompt(
                 view('ai.agents.adaptation.entry-point-diagnosis.prompt', [
-                    'storySessionMap'    => $storySessionMap,
-                    'ipAudit'            => $ipAudit,
-                    'sessionNumber'      => $this->sessionNumber,
+                    'storySessionMap' => $storySessionMap,
+                    'ipAudit' => $ipAudit,
+                    'sessionNumber' => $this->sessionNumber,
                     'sessionSourcePages' => $sessionSourcePages,
-                    'sessionEvents'      => $sessionEvents->map(fn (Event $ev) => [
-                        'story_position'   => $ev->story_position,
-                        'position'         => $ev->position,
+                    'sessionEvents' => $sessionEvents->map(fn (Event $ev) => [
+                        'story_position' => $ev->story_position,
+                        'position' => $ev->position,
                         'chapter_position' => $ev->chapter_position,
-                        'title'            => $ev->title,
-                        'objectives'       => $ev->objectives,
+                        'title' => $ev->title,
+                        'objectives' => $ev->objectives,
                     ])->all(),
-                    'voiceProfile'          => $voiceProfile,
-                    'protagonist'           => $protagonist,
-                    'format'                => $format,
-                    'preferLiteralOpening'  => (bool) (ChaosStoryConfig::find($this->story->slug)['prefer_literal_opening'] ?? false),
+                    'voiceProfile' => $voiceProfile,
+                    'protagonist' => $protagonist,
+                    'format' => $format,
+                    'preferLiteralOpening' => (bool) (ChaosStoryConfig::find($this->story->slug)['prefer_literal_opening'] ?? false),
                 ])->render()
             );
 
@@ -120,5 +122,4 @@ final class EntryPointDiagnosisJob implements ShouldQueue
             throw $throwable;
         }
     }
-
 }

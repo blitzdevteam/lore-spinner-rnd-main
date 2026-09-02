@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Game;
 
+use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Game;
 use App\Models\GameSessionCompletion;
 use App\Models\PlayableMoment;
@@ -100,7 +101,10 @@ final class ProcessGameOpeningAction
                 systemPrompt: $systemPrompt,
                 conversationHistory: [],
                 playerAction: null,
-                protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                protagonist: ChaosStoryConfig::protagonistFor(
+                    $story->slug,
+                    $story->system_prompt['character_name'] ?? null,
+                ),
                 temperature: $this->engine->gameTemperatureFor($game->model),
                 game: $game,
                 isOpening: true,
@@ -319,7 +323,10 @@ final class ProcessGameOpeningAction
                 systemPrompt: $systemPrompt,
                 conversationHistory: [],
                 playerAction: null,
-                protagonist: (string) ($story->system_prompt['character_name'] ?? 'the protagonist'),
+                protagonist: ChaosStoryConfig::protagonistFor(
+                    $story->slug,
+                    $story->system_prompt['character_name'] ?? null,
+                ),
                 temperature: $this->engine->gameTemperatureFor($game->model),
                 worldState: $carriedWorldState,
                 game: $game,

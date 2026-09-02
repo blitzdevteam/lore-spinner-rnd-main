@@ -15,6 +15,10 @@ That is the team-wide source of truth for The Boiler (product, creative, enginee
 | `Debug/BOILER_AGENCY_RESTORATION_PROCESS_LOG.md` | Runtime player-agency debugging pass (2026-08-03) |
 | `Debug/WASTELAND-BOILER-PIPELINE-HARDENING-PROCESS-LOG.md` | Wasteland pipeline root-cause + hardening (`e582a10`, `d46bda9`) |
 | `Debug/WASTELAND-OPUS-DIAGNOSTIC-EXPORT.md` | Cloud tinker export for Wasteland Boiler diagnose JSON |
+| `../BOILER-FUN-SCOREBOARD.md` | Fun score rubric (pillars A–F) |
+| `../BOILER-QA-PLAYBOOK.md` | QA workflow, reviewers, Laravel Cloud commands |
+| `QA/TITLE-TRACKER.md` | Per-title reviewer status and analysis links |
+| `QA/_ANALYSIS-TEMPLATE.md` | Copy for scored log write-ups |
 
 ## Canary export
 

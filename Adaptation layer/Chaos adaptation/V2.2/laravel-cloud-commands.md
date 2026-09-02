@@ -3,7 +3,7 @@
 Practical command reference from the **Wizard of Oz** V2.2 re-adaptation on Laravel Cloud (June 2026).  
 Replace `the-wonderful-wizard-of-oz` with your story slug where needed.
 
-**Boiler pacing** commands (export bundle, probes, **`stories:rebuild-runtime-prompts`**, `--boiler` runs) are in **§6** — example slug: `the-adventure-of-the-speckled-band`.
+**Boiler pacing** commands (adaptation export bundle, **game evidence bundle §6.1**, **recent plays §6.2**, **estimated playtime §6.3**, **injected runtime prompt §6**, probes, **`stories:rebuild-runtime-prompts`**, `--boiler` runs) are in **§6** — example slug: `the-adventure-of-the-speckled-band`.
 
 Companion exports live in `Exported JSON/` (`Oz-V2-2.json`, `oz-voice-profile.json`).
 
@@ -406,6 +406,102 @@ foreach (range(1, 6) as $n) {
 
 All 6 files land in the bucket under `exports/` in one run. Replace slug and session range for other stories.
 
+### Runtime prompt — cached assembly vs fully injected
+
+Two different exports — do not confuse them:
+
+| Export | Source | Injection tokens | Use when |
+|---|---|---|---|
+| **Cached assembly** | `session_adaptations.runtime_narrator_prompt` | Still present (`[OPENING_SCENE_INJECTION_POINT]`, etc.) | Adaptation QA, diffing template rebuilds |
+| **Fully injected** | `ChaosEngineService::renderSystemPrompt()` with `isSessionStart=true` | Filled in — cold open, tiers, active moment | What the model actually sees on session 1 turn 1 |
+
+Change **`$slug`** and **`$session`**. Optional **`$gid`** when you want the live game's active moment card injected (Boiler stories).
+
+#### Cached assembly only → bucket
+
+```bash
+php artisan tinker --execute='
+$slug = "wasteland";
+$session = 1;
+$rp = App\Models\Story::where("slug", $slug)->firstOrFail()
+  ->adaptation->sessionAdaptations()->where("session_number", $session)->value("runtime_narrator_prompt");
+if (!filled($rp)) { echo "MISSING runtime_narrator_prompt for {$slug} S{$session}\n"; return; }
+$dest = "exports/{$slug}-session-{$session}-runtime-cached.txt";
+Illuminate\Support\Facades\Storage::disk("public")->put($dest, $rp);
+echo "uploaded {$dest}: " . strlen($rp) . " bytes\n";
+'
+```
+
+#### Fully injected (session start) → bucket — recommended
+
+Renders the same pipeline as `ProcessGameOpeningAction` / `chaos:dump-prompt`: empty world state, session-start opening block, runtime injection points resolved.
+
+```bash
+php artisan tinker --execute='
+$slug = "wasteland";
+$session = 1;
+$gid = null;
+$engine = app(App\Services\ChaosEngineService::class);
+$story = App\Models\Story::where("slug", $slug)->firstOrFail();
+$game = $gid ? App\Models\Game::find($gid) : null;
+$ctx = $engine->loadSessionContext($story, $session, null, null, null, $game);
+if ($ctx === null) { echo "MISSING adaptation/runtime prompt for {$slug} S{$session}\n"; return; }
+$rp = $engine->renderSystemPrompt($ctx, $engine->emptyWorldState(), $engine->emptyAlignmentScaffold(), null, true, false);
+$suffix = $gid ? "-game-{$gid}" : "";
+$dest = "exports/{$slug}-session-{$session}-runtime-injected{$suffix}.txt";
+Illuminate\Support\Facades\Storage::disk("public")->put($dest, $rp);
+echo "uploaded {$dest}: " . strlen($rp) . " bytes\n";
+echo "active_moment=" . ($ctx["active_moment_context"] ? "yes" : "no") . "\n";
+'
+```
+
+**With a live game** (includes `[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]` from that save — e.g. Tom's Wasteland opening as-played):
+
+```bash
+php artisan tinker --execute='
+$slug = "wasteland";
+$session = 1;
+$gid = "PASTE_GAME_ULID_HERE";
+$engine = app(App\Services\ChaosEngineService::class);
+$story = App\Models\Story::where("slug", $slug)->firstOrFail();
+$game = App\Models\Game::findOrFail($gid);
+$ctx = $engine->loadSessionContext($story, $session, null, null, null, $game);
+$rp = $engine->renderSystemPrompt($ctx, $engine->emptyWorldState(), $engine->emptyAlignmentScaffold(), null, true, false);
+$dest = "exports/{$slug}-session-{$session}-runtime-injected-game-{$gid}.txt";
+Illuminate\Support\Facades\Storage::disk("public")->put($dest, $rp);
+echo "uploaded {$dest}: " . strlen($rp) . " bytes\n";
+'
+```
+
+#### Stdout only (quick check on Cloud CLI)
+
+May truncate very long prompts — prefer bucket upload above for the full file.
+
+```bash
+php artisan chaos:dump-prompt wasteland --session=1
+```
+
+**Quick recipes:**
+
+| Request | `$slug` | `$session` | `$gid` |
+|---|---|---|---|
+| Wasteland S1 injected (generic) | `"wasteland"` | `1` | `null` |
+| PJ's S1 injected | `"pjs"` | `1` | `null` |
+| Tom's Wasteland S1 with active moment | `"wasteland"` | `1` | `01kyk029yz3y3y39b05d60d53x` |
+
+**Worked example — Thomas / Wasteland** (evidence: `docs/Boiler/Debug/Thomas log/Thomas latest test on-wasteland-01kyk029yz3y3y39b05d60d53x-evidence.json`):
+
+| Field | Value |
+|---|---|
+| `game_id` | `01kyk029yz3y3y39b05d60d53x` |
+| `user` | `thomas@lorespinner.com` |
+| `story` | `wasteland` |
+| `session` | 1 |
+| `moment` | `S1_M04` (at export) |
+| `turns` | 11 |
+
+Use `$gid = null` above for a **fresh S1 opening** (no active moment card). Use Tom's `game_id` when you want the **current moment card** (`S1_M04` at time of export) injected into the prompt.
+
 ### Boiler — full output bundle → File explorer (recommended)
 
 Uploads **whatever Boiler has produced so far** — draft, finalize manifest, normalized scene cards, event roles, runtime prompts, and one combined JSON. Partial runs are fine; only existing artifacts are written.
@@ -520,6 +616,321 @@ echo "\nDownload from bucket File explorer under: {$prefix}/\n";
 | `session-N-boiler-final-manifest.json` | Finalize manifest only (`boiler_final_cut`) |
 | `session-N-scene-cards.json` | Canonical finalized moment cards from `playable_moments` |
 | `session-N-runtime-prompt.txt` | Assembled runtime narrator prompt |
+
+### 6.1 Game evidence bundle (played game → File explorer)
+
+Exports **one player's live game** — full turn transcript, world state, moment footnote, scene-card exit budgets, and narration-log joins (`boiler.moment_turn_committed`, repairs, failures).  
+**Not** the adaptation bundle above (drafts / scene cards / runtime prompts from the pipeline).
+
+Run on **Laravel Cloud** (production DB + `storage/logs/narration*.log`). Download from bucket **File explorer** → save locally under `docs/Boiler/Debug/`.
+
+#### What to change (only these inputs)
+
+| You know | Set in command | Example |
+|---|---|---|
+| Email + story slug | `$player` + `$slug` | `$player="thomas@lorespinner.com"` `$slug="pjs"` |
+| Username + story slug | `$player` + `$slug` | `$player="curt"` `$slug="wasteland"` |
+| Game ULID only | `$gid` in Step B | from play URL `/user/games/{game_id}` or Step A |
+
+`$player` accepts **email or username** — whichever you have.  
+`$slug` is the story slug (`pjs`, `wasteland`, `the-adventure-of-the-speckled-band`, …).  
+**Latest game** = most recently `updated_at` row for that user + story.
+
+Output filename: `exports/{username-or-email-local}-{slug}-{game_id}-evidence.json` (auto-derived).
+
+---
+
+#### Recommended — find latest + export (one command)
+
+Change **`$player`** and **`$slug`** only. Paste into **Laravel Cloud → Commands**.
+
+```bash
+php artisan tinker --execute='try{$player="curt";$slug="wasteland";$u=App\Models\User::query()->where("email",$player)->orWhere("username",$player)->firstOrFail();$s=App\Models\Story::where("slug",$slug)->firstOrFail();$g=$u->games()->where("story_id",$s->id)->orderByDesc("updated_at")->first();if(!$g){echo "NO_GAME player={$player} slug={$slug}\n";return;}$gid=$g->id;$label=($u->username?:explode("@",$u->email)[0])."-".$slug;$g=App\Models\Game::with(["user","story","currentPlayableMoment","currentPlayableSessionCut.moments"])->findOrFail($gid);$cm=$g->currentPlayableMoment;$cut=$g->currentPlayableSessionCut;$moments=[];if($cut){foreach($cut->moments()->orderBy("moment_order")->get() as $m){$c=is_array($m->scene_card)?$m->scene_card:[];$moments[]=["id"=>$m->id,"moment_key"=>$m->moment_key,"moment_order"=>$m->moment_order,"anchor_event_id"=>$m->anchor_event_id,"title"=>$c["title"]??null,"exit_condition"=>$c["exit_condition"]??null,"next_moment_key"=>$c["next_moment_key"]??null,"turn_budget"=>$c["turn_budget"]??null,"word_budget"=>$c["word_budget"]??null,"choice_ids"=>$c["choice_ids"]??null,"is_current"=>($m->id===$g->current_playable_moment_id)];}}$commits=[];$counts=[];$repairs=[];$failures=[];$files=[];foreach(glob(storage_path("logs/narration*.log"))?:[] as $file){$files[]=basename($file);$fh=fopen($file,"r");if(!$fh)continue;while(($line=fgets($fh))!==false){if(!str_contains($line,$gid))continue;if(!preg_match("/\\] (?:production|local|staging)\\.(INFO|WARNING|ERROR|DEBUG): ([\\w\\.]+) /",$line,$mm))continue;$type=$mm[2];$start=strpos($line,"{");$payload=null;if($start!==false){$decoded=json_decode(substr($line,$start),true);if(is_array($decoded))$payload=$decoded;}if(is_array($payload)&&isset($payload["game_id"])&&$payload["game_id"]!==$gid)continue;$counts[$type]=($counts[$type]??0)+1;$at=preg_match("/^\\[([^\\]]+)\\]/",$line,$tm)?$tm[1]:null;if($type==="boiler.moment_turn_committed"&&is_array($payload)){$sid=(string)($payload["source_prompt_id"]??"");if($sid!==""){$commits[$sid]=["logged_at"=>$at,"moment_key"=>$payload["moment_key"]??null,"exit_condition_met"=>$payload["exit_condition_met"]??null,"result"=>$payload["result"]??null,"next_moment_key"=>$payload["next_moment_key"]??null,"moment_footnote"=>$payload["moment_footnote"]??null,"anchor_event_id"=>$payload["anchor_event_id"]??null];}}$bad=str_contains($type,"repair")||str_contains($type,"defaulted")||str_contains($type,"demoted")||str_contains($type,"healed")||str_contains($type,"held")||str_contains($type,"stripped")||str_contains($type,"truncated")||str_contains($type,"mismatch");if($bad)$repairs[]=["at"=>$at,"event"=>$type,"payload"=>$payload];if(str_ends_with($type,"_failed"))$failures[]=["at"=>$at,"event"=>$type,"payload"=>$payload];}fclose($fh);}$turns=[];$joined=0;foreach($g->prompts()->orderBy("created_at")->get() as $i=>$p){$resp=strip_tags((string)$p->response);$sid=$p->source_prompt_id;$c=(is_string($sid)&&isset($commits[$sid]))?$commits[$sid]:null;if($c)$joined++;$turns[]=["n"=>$i+1,"id"=>$p->id,"at"=>(string)$p->created_at,"session"=>$p->session_number,"player"=>$p->prompt,"narrator"=>$resp,"narrator_words"=>str_word_count($resp),"choices"=>$p->choices,"source_prompt_id"=>$sid,"moment_key"=>$c["moment_key"]??null,"exit_condition_met"=>$c["exit_condition_met"]??null,"moment_result"=>$c["result"]??null,"next_moment_key"=>$c["next_moment_key"]??null,"moment_footnote"=>$c["moment_footnote"]??null,"log_at"=>$c["logged_at"]??null];}$pack=["exported_at"=>now()->toIso8601String(),"game"=>["id"=>$g->id,"user"=>$g->user->email,"story"=>$g->story->slug,"updated_at"=>(string)$g->updated_at,"session"=>$g->current_session_number,"complete"=>(bool)$g->current_session_complete,"cut_id"=>$g->current_playable_session_cut_id,"moment_id"=>$g->current_playable_moment_id,"moment_key"=>$cm?$cm->moment_key:null,"moment_order"=>$cm?$cm->moment_order:null,"playable_moment_turn_count"=>$g->playable_moment_turn_count,"footnote"=>$g->moment_footnote,"path"=>$g->defining_path_label,"choice_id"=>$g->defining_choice_id,"choice_line"=>$g->defining_choice_line,"world_state"=>$g->world_state,"alignment"=>$g->alignment_scaffold,"symbolic_memory"=>$g->symbolic_memory],"moments"=>$moments,"logs"=>["files_scanned"=>$files,"counts_by_type"=>$counts,"commits_joined_to_turns"=>$joined,"repair_count"=>count($repairs),"failure_count"=>count($failures),"repairs"=>$repairs,"failures"=>$failures],"turns"=>$turns];$json=json_encode($pack,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);if($json===false)throw new RuntimeException("json_encode failed");$path="exports/{$label}-{$gid}-evidence.json";Illuminate\Support\Facades\Storage::disk("public")->put($path,$json);echo "OK player={$player} slug={$slug} game_id={$gid}\n";echo "OK uploaded={$path}\n";echo "bytes=".strlen($json)." turns=".count($turns)." joined={$joined} repairs=".count($repairs)." failures=".count($failures)."\n";echo "moment=".($cm?$cm->moment_key:"null")." turn_count=".$g->playable_moment_turn_count."\n";}catch(Throwable $e){echo "ERROR ".$e::class.": ".$e->getMessage()."\n".$e->getFile().":".$e->getLine()."\n";}'
+```
+
+**Quick recipes** — same command, change the two lines at the top:
+
+| Request | `$player` | `$slug` |
+|---|---|---|
+| Curt's latest Wasteland | `"curt"` | `"wasteland"` |
+| Thomas's latest PJ's | `"thomas@lorespinner.com"` | `"pjs"` |
+| Thomas's latest Speckled Band | `"lorespinner"` | `"the-adventure-of-the-speckled-band"` |
+
+---
+
+#### Step A — lookup only (verify before export)
+
+Use when you want the `game_id` first, or when the one-shot returns `NO_GAME`.
+
+```bash
+php artisan tinker --execute='$player="curt";$slug="wasteland";$u=App\Models\User::query()->where("email",$player)->orWhere("username",$player)->firstOrFail();$s=App\Models\Story::where("slug",$slug)->firstOrFail();$g=$u->games()->where("story_id",$s->id)->orderByDesc("updated_at")->first();if(!$g){echo "NO_GAME player={$player} slug={$slug}\n";return;}echo "game_id=".$g->id."\n";echo "user=".$u->email." (@".$u->username.")\n";echo "story=".$s->slug."\n";echo "updated_at=".$g->updated_at."\n";echo "session=".$g->current_session_number."\n";echo "prompts=".$g->prompts()->count()."\n";'
+```
+
+#### Step A2 — list recent games (multiple saves / pick wrong one)
+
+When a player has **reset or replayed** the same story, list the last five and take the top row (or copy a specific `game_id` into Step B).
+
+```bash
+php artisan tinker --execute='$player="curt";$slug="wasteland";$u=App\Models\User::query()->where("email",$player)->orWhere("username",$player)->firstOrFail();$s=App\Models\Story::where("slug",$slug)->firstOrFail();$games=$u->games()->where("story_id",$s->id)->orderByDesc("updated_at")->limit(5)->get();if($games->isEmpty()){echo "NO_GAME player={$player} slug={$slug}\n";return;}foreach($games as $i=>$g){echo ($i===0?"LATEST ":"")."game_id={$g->id} updated={$g->updated_at} session={$g->current_session_number} prompts=".$g->prompts()->count()."\n";}'
+```
+
+#### Step B — export by `game_id` (skip lookup)
+
+Use when you already have the ULID (from Step A, Step A2, or the play URL).  
+Change **`$gid`** only; `$label` is optional (defaults from the game record).
+
+```bash
+php artisan tinker --execute='try{$gid="PASTE_GAME_ULID_HERE";$g=App\Models\Game::with(["user","story","currentPlayableMoment","currentPlayableSessionCut.moments"])->findOrFail($gid);$label=($g->user->username?:explode("@",$g->user->email)[0])."-".$g->story->slug;$cm=$g->currentPlayableMoment;$cut=$g->currentPlayableSessionCut;$moments=[];if($cut){foreach($cut->moments()->orderBy("moment_order")->get() as $m){$c=is_array($m->scene_card)?$m->scene_card:[];$moments[]=["id"=>$m->id,"moment_key"=>$m->moment_key,"moment_order"=>$m->moment_order,"anchor_event_id"=>$m->anchor_event_id,"title"=>$c["title"]??null,"exit_condition"=>$c["exit_condition"]??null,"next_moment_key"=>$c["next_moment_key"]??null,"turn_budget"=>$c["turn_budget"]??null,"word_budget"=>$c["word_budget"]??null,"choice_ids"=>$c["choice_ids"]??null,"is_current"=>($m->id===$g->current_playable_moment_id)];}}$commits=[];$counts=[];$repairs=[];$failures=[];$files=[];foreach(glob(storage_path("logs/narration*.log"))?:[] as $file){$files[]=basename($file);$fh=fopen($file,"r");if(!$fh)continue;while(($line=fgets($fh))!==false){if(!str_contains($line,$gid))continue;if(!preg_match("/\\] (?:production|local|staging)\\.(INFO|WARNING|ERROR|DEBUG): ([\\w\\.]+) /",$line,$mm))continue;$type=$mm[2];$start=strpos($line,"{");$payload=null;if($start!==false){$decoded=json_decode(substr($line,$start),true);if(is_array($decoded))$payload=$decoded;}if(is_array($payload)&&isset($payload["game_id"])&&$payload["game_id"]!==$gid)continue;$counts[$type]=($counts[$type]??0)+1;$at=preg_match("/^\\[([^\\]]+)\\]/",$line,$tm)?$tm[1]:null;if($type==="boiler.moment_turn_committed"&&is_array($payload)){$sid=(string)($payload["source_prompt_id"]??"");if($sid!==""){$commits[$sid]=["logged_at"=>$at,"moment_key"=>$payload["moment_key"]??null,"exit_condition_met"=>$payload["exit_condition_met"]??null,"result"=>$payload["result"]??null,"next_moment_key"=>$payload["next_moment_key"]??null,"moment_footnote"=>$payload["moment_footnote"]??null,"anchor_event_id"=>$payload["anchor_event_id"]??null];}}$bad=str_contains($type,"repair")||str_contains($type,"defaulted")||str_contains($type,"demoted")||str_contains($type,"healed")||str_contains($type,"held")||str_contains($type,"stripped")||str_contains($type,"truncated")||str_contains($type,"mismatch");if($bad)$repairs[]=["at"=>$at,"event"=>$type,"payload"=>$payload];if(str_ends_with($type,"_failed"))$failures[]=["at"=>$at,"event"=>$type,"payload"=>$payload];}fclose($fh);}$turns=[];$joined=0;foreach($g->prompts()->orderBy("created_at")->get() as $i=>$p){$resp=strip_tags((string)$p->response);$sid=$p->source_prompt_id;$c=(is_string($sid)&&isset($commits[$sid]))?$commits[$sid]:null;if($c)$joined++;$turns[]=["n"=>$i+1,"id"=>$p->id,"at"=>(string)$p->created_at,"session"=>$p->session_number,"player"=>$p->prompt,"narrator"=>$resp,"narrator_words"=>str_word_count($resp),"choices"=>$p->choices,"source_prompt_id"=>$sid,"moment_key"=>$c["moment_key"]??null,"exit_condition_met"=>$c["exit_condition_met"]??null,"moment_result"=>$c["result"]??null,"next_moment_key"=>$c["next_moment_key"]??null,"moment_footnote"=>$c["moment_footnote"]??null,"log_at"=>$c["logged_at"]??null];}$pack=["exported_at"=>now()->toIso8601String(),"game"=>["id"=>$g->id,"user"=>$g->user->email,"story"=>$g->story->slug,"updated_at"=>(string)$g->updated_at,"session"=>$g->current_session_number,"complete"=>(bool)$g->current_session_complete,"cut_id"=>$g->current_playable_session_cut_id,"moment_id"=>$g->current_playable_moment_id,"moment_key"=>$cm?$cm->moment_key:null,"moment_order"=>$cm?$cm->moment_order:null,"playable_moment_turn_count"=>$g->playable_moment_turn_count,"footnote"=>$g->moment_footnote,"path"=>$g->defining_path_label,"choice_id"=>$g->defining_choice_id,"choice_line"=>$g->defining_choice_line,"world_state"=>$g->world_state,"alignment"=>$g->alignment_scaffold,"symbolic_memory"=>$g->symbolic_memory],"moments"=>$moments,"logs"=>["files_scanned"=>$files,"counts_by_type"=>$counts,"commits_joined_to_turns"=>$joined,"repair_count"=>count($repairs),"failure_count"=>count($failures),"repairs"=>$repairs,"failures"=>$failures],"turns"=>$turns];$json=json_encode($pack,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE);if($json===false)throw new RuntimeException("json_encode failed");$path="exports/{$label}-{$gid}-evidence.json";Illuminate\Support\Facades\Storage::disk("public")->put($path,$json);echo "OK uploaded={$path}\n";echo "bytes=".strlen($json)." turns=".count($turns)." joined={$joined} repairs=".count($repairs)." failures=".count($failures)."\n";echo "moment=".($cm?$cm->moment_key:"null")." turn_count=".$g->playable_moment_turn_count."\n";}catch(Throwable $e){echo "ERROR ".$e::class.": ".$e->getMessage()."\n".$e->getFile().":".$e->getLine()."\n";}'
+```
+
+---
+
+#### Worked example — Thomas / PJ's (2026-08-16)
+
+Same as the recommended command with `$player="thomas@lorespinner.com"` `$slug="pjs"`. Verified output:
+
+| Field | Value |
+|---|---|
+| `game_id` | `01kww7cqt1cv030aybbnzqdktq` |
+| `user` | `thomas@lorespinner.com` |
+| `story` | `pjs` |
+| `session` | 2 |
+| `prompts` | 40 |
+| bucket file | `exports/lorespinner-pjs-01kww7cqt1cv030aybbnzqdktq-evidence.json` |
+
+```text
+OK player=thomas@lorespinner.com slug=pjs game_id=01kww7cqt1cv030aybbnzqdktq
+OK uploaded=exports/lorespinner-pjs-01kww7cqt1cv030aybbnzqdktq-evidence.json
+bytes=... turns=40 joined=... repairs=... failures=...
+moment=S2_M?? turn_count=...
+```
+
+**Bundle shape:**
+
+| Key | Contents |
+|---|---|
+| `game` | session, footnote, world_state, path/choice, moment position |
+| `moments[]` | scene cards, exit budgets, current moment flag |
+| `turns[]` | player + narrator transcript per turn, choices, log joins |
+| `logs` | narration files scanned, repair/failure events, `commits_joined_to_turns` |
+
+- `joined > 0` → turns include `moment_key` / `moment_footnote` from narration logs  
+- `joined = 0` → log disk empty or rotated; transcript + `game.footnote` + `moments[]` still export  
+
+If stdout is blank, Cloud mangled the paste — use Step A + Step B separately, or see `../../../../Adaptation layer/Boiler Adaptation/Boiled Speckeld band /CLOUD-EXPORT-THOMAS-EVIDENCE.md`.
+
+### 6.2 Recent plays & game lookup (QA)
+
+For systematic QA review — who played what, when. Full workflow: `docs/BOILER-QA-PLAYBOOK.md`.
+
+**Recent plays (all stories):**
+
+```bash
+php artisan tinker --execute='$limit=20;$rows=App\Models\Game::query()->with(["user","story"])->where("is_preview",false)->orderByDesc("updated_at")->limit($limit)->get();foreach($rows as $g){echo $g->updated_at." | ".$g->id." | ".($g->user->email??"?")." (@".($g->user->username??"?").") | ".$g->story->slug." | S".$g->current_session_number." | prompts=".$g->prompts()->count()."\n";}'
+```
+
+**Recent plays on one story** — set `$slug`:
+
+```bash
+php artisan tinker --execute='$slug="wasteland";$limit=10;$s=App\Models\Story::where("slug",$slug)->firstOrFail();$rows=App\Models\Game::query()->with("user")->where("story_id",$s->id)->where("is_preview",false)->orderByDesc("updated_at")->limit($limit)->get();foreach($rows as $g){echo $g->updated_at." | ".$g->id." | ".($g->user->email??"?")." (@".($g->user->username??"?").") | prompts=".$g->prompts()->count()." | S".$g->current_session_number."\n";}'
+```
+
+**Recent plays by one reviewer** — set `$player` (email or username):
+
+```bash
+php artisan tinker --execute='$player="curt";$limit=10;$u=App\Models\User::query()->where("email",$player)->orWhere("username",$player)->firstOrFail();$rows=$u->games()->with("story")->where("is_preview",false)->orderByDesc("updated_at")->limit($limit)->get();foreach($rows as $g){echo $g->updated_at." | ".$g->id." | ".$g->story->slug." | prompts=".$g->prompts()->count()." | S".$g->current_session_number."\n";}'
+```
+
+**Who owns a `game_id`?** — set `$gid`:
+
+```bash
+php artisan tinker --execute='$gid="PASTE_GAME_ULID";$g=App\Models\Game::with(["user","story","currentPlayableMoment"])->find($gid);if(!$g){echo "NOT_FOUND\n";return;}echo "game_id=".$g->id."\n";echo "email=".$g->user->email."\n";echo "username=".($g->user->username??"(none)")."\n";echo "name=".trim(($g->user->first_name??"")." ".($g->user->last_name??""))."\n";echo "story=".$g->story->slug."\n";echo "updated_at=".$g->updated_at."\n";echo "session=".$g->current_session_number."\n";echo "moment=".($g->currentPlayableMoment?->moment_key??"null")."\n";echo "prompts=".$g->prompts()->count()."\n";'
+```
+
+### 6.3 Boiler estimated playtime (all stories)
+
+Story-wide **editorial targets** from `story_adaptations.story_session_map.boiling_profile` — produced by the Story Session Map agent at adaptation time. **Not measured playtime.** Use this to compare catalog length, spot stories that may run long, and sanity-check pacing before launch.
+
+**Reading the output:**
+
+| Column | Meaning |
+|---|---|
+| `TARGET` | Per-story total: `target_total_playtime_minutes` (all sessions combined) |
+| `SESSION MIN` | Sum of per-session `target_playtime_minutes` (should ≈ `TARGET`) |
+| `SESS` | Session count from `per_session_guidance` |
+| `MISSING` | `boiler_enabled=true` but Story Session Map has not produced `boiling_profile` yet |
+| `GRAND TOTAL` | Sum of all per-story `TARGET` values that have a profile |
+
+Example: `the-adventure-of-the-speckled-band` with `TARGET=48m` and `SESS=2` means ~48 minutes for the **whole story** (~24m/session), not 48m per session.
+
+**All boiler-enabled stories (summary table + grand total):**
+
+```bash
+php artisan tinker --execute='
+$rows = App\Models\StoryAdaptation::query()
+  ->where("boiler_enabled", true)
+  ->with("story")
+  ->get()
+  ->sortBy(fn ($a) => $a->story?->slug ?? "");
+
+$grandTotal = 0;
+$withProfile = 0;
+$missingProfile = 0;
+
+echo "=== BOILER ESTIMATED PLAYTIME (all boiler_enabled stories) ===\n\n";
+echo str_pad("SLUG", 42) . str_pad("STATUS", 18) . str_pad("COMPACT", 10) . str_pad("SESS", 5) . str_pad("TARGET", 8) . "SESSION MIN\n";
+echo str_repeat("-", 110) . "\n";
+
+foreach ($rows as $a) {
+  $story = $a->story;
+  $slug = $story?->slug ?? "(no story)";
+  $status = $a->adaptation_status->value ?? "?";
+  $profile = data_get($a->story_session_map, "boiling_profile");
+  $compaction = data_get($profile, "compaction_level", "—");
+  $targetTotal = data_get($profile, "target_total_playtime_minutes");
+  $guidance = collect(data_get($profile, "per_session_guidance", []));
+  $sessionCount = $guidance->count();
+  $sessionSum = $guidance->sum("target_playtime_minutes");
+
+  if ($targetTotal === null) {
+    $missingProfile++;
+    $targetStr = "MISSING";
+    $sessionStr = "—";
+  } else {
+    $withProfile++;
+    $grandTotal += (int) $targetTotal;
+    $targetStr = (string) $targetTotal . "m";
+    $sessionStr = $sessionSum > 0 ? (string) $sessionSum . "m" : "—";
+  }
+
+  echo str_pad($slug, 42)
+    . str_pad($status, 18)
+    . str_pad((string) $compaction, 10)
+    . str_pad((string) $sessionCount, 5)
+    . str_pad($targetStr, 8)
+    . $sessionStr . "\n";
+}
+
+echo str_repeat("-", 110) . "\n";
+echo "stories with boiler_enabled: " . $rows->count() . "\n";
+echo "with boiling_profile:        " . $withProfile . "\n";
+echo "missing boiling_profile:     " . $missingProfile . " (adaptation not through Story Session Map yet)\n";
+echo "GRAND TOTAL (target minutes): " . $grandTotal . "m (~" . round($grandTotal / 60, 1) . "h)\n";
+echo "\nNOTE: These are AI-estimated editorial targets from Story Session Map, not measured playtime.\n";
+'
+```
+
+**Completed adaptations only** (compact list with per-session breakdown):
+
+```bash
+php artisan tinker --execute='
+$rows = App\Models\StoryAdaptation::query()
+  ->where("boiler_enabled", true)
+  ->where("adaptation_status", "completed")
+  ->with("story")
+  ->get()
+  ->sortBy(fn ($a) => $a->story?->slug ?? "");
+
+$grandTotal = 0;
+
+echo "=== BOILER ESTIMATED PLAYTIME (completed only) ===\n\n";
+
+foreach ($rows as $a) {
+  $slug = $a->story?->slug ?? "?";
+  $profile = data_get($a->story_session_map, "boiling_profile");
+  $target = data_get($profile, "target_total_playtime_minutes");
+  $compaction = data_get($profile, "compaction_level", "—");
+  $sessions = collect(data_get($profile, "per_session_guidance", []))
+    ->sortBy("session_number")
+    ->map(fn ($g) => "S" . ($g["session_number"] ?? "?") . "=" . ($g["target_playtime_minutes"] ?? "?") . "m")
+    ->implode(", ");
+
+  if ($target === null) {
+    echo "{$slug}: MISSING boiling_profile\n";
+    continue;
+  }
+
+  $grandTotal += (int) $target;
+  echo str_pad($slug, 42) . str_pad((string) $compaction, 10) . str_pad((string) $target . "m", 8) . $sessions . "\n";
+}
+
+echo "\nGRAND TOTAL: {$grandTotal}m (~" . round($grandTotal / 60, 1) . "h) across " . $rows->count() . " completed boiler stories\n";
+'
+```
+
+**One story — per-session breakdown** (change `$slug`):
+
+```bash
+php artisan tinker --execute='
+$slug = "the-adventure-of-the-speckled-band";
+$story = App\Models\Story::where("slug", $slug)->firstOrFail();
+$a = $story->adaptation;
+
+echo "story: {$story->title}\n";
+echo "boiler_enabled: " . ($a->boiler_enabled ? "yes" : "no") . "\n";
+echo "adaptation_status: " . $a->adaptation_status->value . "\n\n";
+
+$profile = data_get($a->story_session_map, "boiling_profile");
+if (! $profile) { echo "MISSING boiling_profile\n"; return; }
+
+echo "compaction_level: " . ($profile["compaction_level"] ?? "?") . "\n";
+echo "target_total_playtime_minutes: " . ($profile["target_total_playtime_minutes"] ?? "?") . "\n";
+echo "diagnosis: " . Illuminate\Support\Str::limit($profile["diagnosis"] ?? "", 200) . "\n\n";
+
+$sum = 0;
+foreach (collect($profile["per_session_guidance"] ?? [])->sortBy("session_number") as $g) {
+  $n = $g["session_number"] ?? "?";
+  $mins = $g["target_playtime_minutes"] ?? 0;
+  $minMom = $g["recommended_moment_count_min"] ?? "?";
+  $maxMom = $g["recommended_moment_count_max"] ?? "?";
+  $sum += (int) $mins;
+  $sa = $a->sessionAdaptations()->where("session_number", $n)->first();
+  $moments = $sa?->playableCut?->moments()->count() ?? 0;
+  $boiler = $sa?->boiler_status->value ?? "—";
+  echo "S{$n}: {$mins}m | moments {$minMom}-{$maxMom} | finalized={$moments} | boiler_status={$boiler}\n";
+}
+
+echo "\nsession sum: {$sum}m\n";
+'
+```
+
+**Upload summary JSON to bucket** (optional — download from File explorer):
+
+```bash
+php artisan tinker --execute='
+$rows = App\Models\StoryAdaptation::query()
+  ->where("boiler_enabled", true)
+  ->with("story")
+  ->get()
+  ->sortBy(fn ($a) => $a->story?->slug ?? "");
+
+$pack = [
+  "exported_at" => now()->toIso8601String(),
+  "note" => "AI-estimated editorial targets from boiling_profile — not measured playtime",
+  "stories" => $rows->map(function ($a) {
+    $profile = data_get($a->story_session_map, "boiling_profile");
+    $guidance = collect(data_get($profile, "per_session_guidance", []));
+    return [
+      "story_id" => $a->story_id,
+      "slug" => $a->story?->slug,
+      "title" => $a->story?->title,
+      "adaptation_status" => $a->adaptation_status->value,
+      "compaction_level" => data_get($profile, "compaction_level"),
+      "target_total_playtime_minutes" => data_get($profile, "target_total_playtime_minutes"),
+      "per_session_minutes_sum" => $guidance->sum("target_playtime_minutes"),
+      "per_session_guidance" => $guidance->sortBy("session_number")->values(),
+    ];
+  })->values(),
+  "grand_total_minutes" => $rows->sum(fn ($a) => (int) data_get($a->story_session_map, "boiling_profile.target_total_playtime_minutes", 0)),
+];
+
+$json = json_encode($pack, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+$dest = "exports/boiler-playtime-summary.json";
+Illuminate\Support\Facades\Storage::disk("public")->put($dest, $json);
+echo "uploaded {$dest}: " . strlen($json) . " bytes\n";
+echo "grand_total_minutes=" . $pack["grand_total_minutes"] . "\n";
+'
+```
 
 ### Boiler — upload straight from DB (skip local `adaptation:export`)
 
@@ -754,3 +1165,5 @@ echo (str_contains($rp,"300") && str_contains($rp,"350") ? "has_cadence: yes\n" 
 - `../v2-implementation/chaos-v2-command-list.md` — broader command list
 - `REFERENCE - VOICE PROFILE - L FRANK BAUM v2.1 copy.md` — Oz voice QA baseline
 - `../../../../docs/Boiler/Boiler Run/BOILER_VALIDATION_RUNBOOK.md` — Boiler canary validation on Cloud
+- `../../../../docs/BOILER-QA-PLAYBOOK.md` — QA review workflow + Cloud commands for log export
+- `../../../../Adaptation layer/Boiler Adaptation/Boiled Speckeld band /CLOUD-EXPORT-THOMAS-EVIDENCE.md` — game evidence bundle (Speckled Band example)

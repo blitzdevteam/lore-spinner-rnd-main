@@ -44,7 +44,7 @@ final class StorySessionMapJob implements ShouldQueue
         $adaptation = $this->story->adaptation;
 
         if (empty($adaptation->voice_profile)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'voice_profile missing — Voice Lock must complete before Phase 2 (StorySessionMap)'
             );
         }
@@ -97,6 +97,7 @@ final class StorySessionMapJob implements ShouldQueue
                     'ipTrimmingConversionNotes' => $ipTrimming['interactive_conversion_notes'] ?? null,
                     'voiceProfile' => VoiceProfilePromptSlice::alignmentContext((array) ($adaptation->voice_profile ?? [])),
                     'preferLiteralOpening' => (bool) (ChaosStoryConfig::find($this->story->slug)['prefer_literal_opening'] ?? false),
+                    'playableProtagonist' => ChaosStoryConfig::find($this->story->slug)['protagonist'] ?? null,
                     'boilerEnabled' => (bool) $adaptation->boiler_enabled,
                 ])->render()
             );
@@ -177,7 +178,7 @@ final class StorySessionMapJob implements ShouldQueue
     {
         $parts = explode('-', $range);
 
-        return [(int) trim($parts[0]), (int) trim($parts[1] ?? $parts[0])];
+        return [(int) mb_trim($parts[0]), (int) mb_trim($parts[1] ?? $parts[0])];
     }
 
     /**
@@ -281,5 +282,4 @@ final class StorySessionMapJob implements ShouldQueue
             throw new RuntimeException('boiling_profile per-session minutes do not reconcile with target_total_playtime_minutes.');
         }
     }
-
 }

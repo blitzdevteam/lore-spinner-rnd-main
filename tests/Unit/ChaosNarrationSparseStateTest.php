@@ -11,18 +11,47 @@ use App\Services\Runtime\NarrationResultNormalizer;
 use Illuminate\Http\Client\Request;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Http;
+use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Providers\Anthropic\Handlers\Structured as AnthropicStructuredHandler;
 use Prism\Prism\Structured\Request as StructuredRequest;
 use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
+use Prism\Prism\Text\Step;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 
 function sparseStateEngine(): ChaosEngineService
 {
     return new ChaosEngineService(new SessionEventLoader());
+}
+
+/**
+ * The streaming narrator receives its turn as a forced tool call, so the
+ * provider validates the JSON before the runtime ever sees it.
+ *
+ * @param  array<string, mixed>  $structured
+ */
+function streamedNarrationToolCall(array $structured, Usage $usage): TextResponseFake
+{
+    return TextResponseFake::make()
+        ->withSteps(collect([
+            new Step(
+                text: '',
+                finishReason: FinishReason::ToolCalls,
+                toolCalls: [new ToolCall(id: 'call-1', name: 'emit_narration', arguments: $structured)],
+                toolResults: [],
+                providerToolCalls: [],
+                usage: $usage,
+                meta: new Meta('fake', 'fake'),
+                messages: [],
+                systemPrompts: [],
+            ),
+        ]))
+        ->withUsage($usage);
 }
 
 /**
@@ -366,8 +395,9 @@ it('repairs missing choices after a buffered opening narration', function () {
     $fake->assertRequest(function (array $requests): void {
         expect($requests[0])->toBeInstanceOf(StructuredRequest::class)
             ->and($requests[1])->toBeInstanceOf(StructuredRequest::class)
-            ->and($requests[1]->schema()->toArray()['properties']['choices']['minItems'])->toBe(3)
-            ->and($requests[1]->schema()->toArray()['properties']['choices']['maxItems'])->toBe(3);
+            ->and($requests[1]->schema()->name())->toBe('narration_choices_repair')
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['type'])->toBe('array')
+            ->and($requests[1]->systemPrompts()[0]->content)->toContain('exactly three');
     });
 });
 
@@ -405,9 +435,7 @@ it('repairs missing choices after streaming without replacing the streamed narra
     ];
 
     $fake = Prism::fake([
-        TextResponseFake::make()
-            ->withText(json_encode($streamed, JSON_THROW_ON_ERROR))
-            ->withUsage(new Usage(100, 40, 10, 20, 5)),
+        streamedNarrationToolCall($streamed, new Usage(100, 40, 10, 20, 5)),
         StructuredResponseFake::make()->withStructured([
             'choices' => ['Enter the room', 'Wait beneath the awning', 'Circle around the house'],
         ])->withUsage(new Usage(30, 10, 0, 0, 2)),
@@ -450,17 +478,16 @@ it('repairs missing choices after streaming without replacing the streamed narra
     $fake->assertRequest(function (array $requests): void {
         expect($requests[0])->toBeInstanceOf(TextRequest::class)
             ->and($requests[1])->toBeInstanceOf(StructuredRequest::class)
-            ->and($requests[1]->schema()->toArray()['properties']['choices']['minItems'])->toBe(3)
-            ->and($requests[1]->schema()->toArray()['properties']['choices']['maxItems'])->toBe(3);
+            ->and($requests[1]->schema()->name())->toBe('narration_choices_repair')
+            ->and($requests[1]->schema()->toArray()['properties']['choices']['type'])->toBe('array')
+            ->and($requests[1]->systemPrompts()[0]->content)->toContain('exactly three');
     });
 });
 
 it('separates cached tokens from OpenAI streamed prompt tokens', function () {
     $streamed = streamedSparseNarrationFixture();
     $fake = Prism::fake([
-        TextResponseFake::make()
-            ->withText(json_encode($streamed, JSON_THROW_ON_ERROR))
-            ->withUsage(new Usage(100, 40, 0, 30, 5)),
+        streamedNarrationToolCall($streamed, new Usage(100, 40, 0, 30, 5)),
     ]);
     $game = new Game;
     $game->setRawAttributes([
@@ -487,4 +514,72 @@ it('separates cached tokens from OpenAI streamed prompt tokens', function () {
     ]);
 
     $fake->assertCallCount(1);
+});
+
+it('forces the streamed turn through a tool carrying the full narration schema', function () {
+    $fake = Prism::fake([
+        streamedNarrationToolCall(streamedSparseNarrationFixture(), new Usage(10, 5, 0, 0, 0)),
+    ]);
+    $game = new Game;
+    $game->setRawAttributes([
+        'id' => 'game-test',
+        'current_playable_moment_id' => null,
+    ]);
+
+    sparseStateEngine()->callAgentStreaming(
+        model: 'claude-haiku-4-5',
+        systemPrompt: 'Narrate the next turn.',
+        conversationHistory: [],
+        playerAction: 'Open the door.',
+        protagonist: 'Watson',
+        onResponseDelta: static function (string $delta): void {},
+        game: $game,
+    );
+
+    $fake->assertRequest(function (array $requests): void {
+        $request = $requests[0];
+        expect($request)->toBeInstanceOf(TextRequest::class);
+
+        $tools = $request->tools();
+        expect($tools)->toHaveCount(1)
+            ->and($tools[0]->name())->toBe('emit_narration')
+            ->and($request->toolChoice())->toBe('emit_narration')
+            ->and($request->maxSteps())->toBe(1);
+
+        $expected = (new NativeObjectSchema(
+            ChaosNarrationSchema::definition(new JsonSchemaTypeFactory),
+        ))->toArray();
+
+        expect($tools[0]->parametersAsArray())->toBe($expected['properties'])
+            ->and($tools[0]->requiredParameters())->toBe($expected['required']);
+    });
+});
+
+it('fails loudly when the narrator answers in prose instead of calling the tool', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I am not going to narrate that.')
+            ->withUsage(new Usage(10, 5, 0, 0, 0)),
+    ]);
+    $game = new Game;
+    $game->setRawAttributes([
+        'id' => 'game-test',
+        'current_playable_moment_id' => null,
+    ]);
+
+    $deltas = '';
+
+    expect(fn (): array => sparseStateEngine()->callAgentStreaming(
+        model: 'claude-haiku-4-5',
+        systemPrompt: 'Narrate the next turn.',
+        conversationHistory: [],
+        playerAction: 'Open the door.',
+        protagonist: 'Watson',
+        onResponseDelta: function (string $delta) use (&$deltas): void {
+            $deltas .= $delta;
+        },
+        game: $game,
+    ))->toThrow(RuntimeException::class, 'Streaming narration did not return the narration tool call.');
+
+    expect($deltas)->toBe('');
 });

@@ -33,6 +33,30 @@ final class RuntimeNarratorPromptValidator
         '[BRANCHING]',
     ];
 
+    /**
+     * Agency guarantees that must survive every future edit to the template.
+     * Losing any of them reintroduces the failure where the narrator quietly
+     * downgrades a canon-safe player action into a tamer one.
+     *
+     * @var list<string>
+     */
+    private const array REQUIRED_AGENCY_BLOCKS = [
+        'PLAYER ACTION EXECUTION — LITERAL FIRST',
+        'ORDER OF OPERATIONS: PLAYER INTENT → LITERAL EXECUTION → WORLD/NPC REACTION → LOCAL CONSEQUENCE → NARRATIVE GRAVITY.',
+        'NO SILENT SUBSTITUTION',
+        'ACTION FIDELITY',
+    ];
+
+    /**
+     * Prose-discipline guarantees. Separate from the agency contract above:
+     * these govern how the narrator writes a turn, not what it lets happen.
+     *
+     * @var list<string>
+     */
+    private const array REQUIRED_PROSE_BLOCKS = [
+        'INTERPRETIVE GLOSS',
+    ];
+
     public function validate(string $prompt, bool $boilerEnabled): void
     {
         $length = mb_strlen($prompt);
@@ -56,8 +80,14 @@ final class RuntimeNarratorPromptValidator
             throw new RuntimeException('Runtime narrator prompt contains an unresolved adaptation-time template token.');
         }
 
+        foreach ([...self::REQUIRED_AGENCY_BLOCKS, ...self::REQUIRED_PROSE_BLOCKS] as $block) {
+            if (! str_contains($prompt, $block)) {
+                throw new RuntimeException("Runtime narrator prompt is missing the required narrator contract block \"{$block}\".");
+            }
+        }
+
         foreach (self::RUNTIME_TOKENS as $token) {
-            if (substr_count($prompt, $token) !== 1) {
+            if (mb_substr_count($prompt, $token) !== 1) {
                 throw new RuntimeException("Runtime narrator prompt must contain {$token} exactly once.");
             }
         }
@@ -71,7 +101,7 @@ final class RuntimeNarratorPromptValidator
         }
 
         foreach (['[BOILER_RUNTIME_V1]', '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]'] as $marker) {
-            if (substr_count($prompt, $marker) !== 1) {
+            if (mb_substr_count($prompt, $marker) !== 1) {
                 throw new RuntimeException("Boiler runtime prompt must contain {$marker} exactly once.");
             }
         }

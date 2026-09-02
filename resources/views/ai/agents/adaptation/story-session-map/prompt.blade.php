@@ -18,6 +18,10 @@ prefer_literal_opening: {{ $preferLiteralOpening ? 'true' : 'false' }}
 
 If prefer_literal_opening is true, Session 1 must preserve the literal source opening beats when Session 1 covers the beginning of the story. Do not allocate Session 1 in a way that excludes the authored opening and starts at a later louder beat.
 
+@if(!empty($playableProtagonist))
+CANONICAL PLAYABLE PROTAGONIST (BINDING): The player avatar for this IP is {{ $playableProtagonist }}. Design session openings, agency, and dramatic questions from that character's body. Do not treat a more famous companion as the player.
+@endif
+
 @if(!empty($ipTrimmingWorldRules))
 IP TRIMMING: WORLD RULES (feed these into StoryGuard Canon Extraction: every rule here is source-confirmed):
 {{ json_encode($ipTrimmingWorldRules, JSON_PRETTY_PRINT) }}
