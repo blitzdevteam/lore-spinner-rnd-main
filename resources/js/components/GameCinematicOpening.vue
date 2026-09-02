@@ -11,7 +11,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    // Fired when the showcard appears → parent should start the game API call in background
+    // Fired when the showcard appears. The parent normally starts the game API call on mount;
+    // this is the fallback so the card is never shown without a request in flight.
     prepare: [];
     // Fired when the full sequence has faded out → parent should unmount this component
     done: [];
@@ -25,8 +26,13 @@ const atCardPhase    = ref(false);
 const fadingOut      = ref(false);
 const minDwellReached = ref(false);
 const exitStarted    = ref(false);
+const skipped        = ref(false);
 
 const SHOWCARD_MIN_MS = 5200;
+/** A skip is a request to play, not to admire the card — hold only long enough to read it. */
+const SHOWCARD_SKIP_MS = 700;
+const FADE_OUT_MS = 1100;
+const FADE_OUT_SKIP_MS = 400;
 
 const timers: ReturnType<typeof setTimeout>[] = [];
 let prepareEmitted = false;
@@ -79,17 +85,17 @@ function tryBeginFadeOut() {
 function doRevealCard() {
     atCardPhase.value = true;
     showCard.value    = true;
-    emitPrepare(); // kick off game API while card is still visible
+    emitPrepare();
 
     schedule(() => {
         minDwellReached.value = true;
         tryBeginFadeOut();
-    }, SHOWCARD_MIN_MS);
+    }, skipped.value ? SHOWCARD_SKIP_MS : SHOWCARD_MIN_MS);
 }
 
 function beginFadeOut() {
     fadingOut.value = true;
-    schedule(() => emitDone(), 1100); // wait for fade-out CSS transition
+    schedule(() => emitDone(), skipped.value ? FADE_OUT_SKIP_MS : FADE_OUT_MS);
 }
 
 function primeAudioFromGesture() {
@@ -99,14 +105,23 @@ function primeAudioFromGesture() {
 // Click/tap: skip text phases, jump straight to showcard
 function skipToCard() {
     primeAudioFromGesture();
-    if (atCardPhase.value) return;
+    skipped.value = true;
+
+    // A tap once the card is already up drops the remaining dwell. The exit still
+    // waits on `canExit`, because there is no game to show until the opening lands.
+    if (atCardPhase.value) {
+        minDwellReached.value = true;
+        tryBeginFadeOut();
+        return;
+    }
+
     timers.forEach(clearTimeout);
     timers.length = 0;
     showHeadphones.value = false;
     showStory.value      = false;
     showShape.value      = false;
     // Tiny pause so current opacity transitions settle cleanly
-    timers.push(setTimeout(() => revealCardWhenReady(), 250));
+    timers.push(setTimeout(() => revealCardWhenReady(), 150));
 }
 
 watch(
@@ -143,7 +158,7 @@ onUnmounted(() => {
 <template>
     <div
         class="co-root"
-        :class="{ 'co-root--out': fadingOut }"
+        :class="{ 'co-root--out': fadingOut, 'co-root--fast': skipped }"
         tabindex="0"
         aria-label="Story opening sequence. Tap to skip."
         @click="skipToCard"
@@ -180,7 +195,7 @@ onUnmounted(() => {
         </Transition>
 
         <!-- ── Showcard — full viewport, pure fade ── -->
-        <Transition name="co-card">
+        <Transition :name="skipped ? 'co-card-fast' : 'co-card'">
             <div v-if="showCard" class="co-card-wrap">
                 <img
                     src="/images/opening/showcard.webp"
@@ -213,6 +228,10 @@ onUnmounted(() => {
     cursor: default;
     /* Fade-out of the entire screen back to black before handing off to game */
     transition: opacity 1s ease;
+}
+
+.co-root--fast {
+    transition: opacity 0.4s ease;
 }
 
 .co-root--out {
@@ -346,6 +365,14 @@ onUnmounted(() => {
 .co-card-enter-to     { opacity: 1; }
 .co-card-leave-from   { opacity: 1; }
 .co-card-leave-to     { opacity: 0; }
+
+/* Showcard after a skip: same dissolve, but the player asked to move on */
+.co-card-fast-enter-active { transition: opacity 0.45s ease; }
+.co-card-fast-leave-active { transition: opacity 0.3s ease; }
+.co-card-fast-enter-from   { opacity: 0; }
+.co-card-fast-enter-to     { opacity: 1; }
+.co-card-fast-leave-from   { opacity: 1; }
+.co-card-fast-leave-to     { opacity: 0; }
 
 /* Skip hint */
 .co-hint-enter-active { transition: opacity 0.8s ease 2s; }
