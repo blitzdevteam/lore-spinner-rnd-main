@@ -5,12 +5,18 @@ export interface TtsVoiceOption {
     id: string;
     label: string;
     description: string;
+    gender: 'male' | 'female';
 }
 
 export function useTtsVoices() {
     const page = usePage<{ ttsVoices?: TtsVoiceOption[]; recommendedVoiceId?: string }>();
 
-    const voices = computed(() => page.props.ttsVoices ?? []);
+    const voices = computed(() =>
+        (page.props.ttsVoices ?? []).map((voice) => ({
+            ...voice,
+            gender: voice.gender === 'female' ? 'female' as const : 'male' as const,
+        })),
+    );
     const recommendedVoiceId = computed(() => page.props.recommendedVoiceId ?? '');
 
     function recommendedLabel(): string {

@@ -5,6 +5,11 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { LucideLoader, LucidePause, LucidePlay, LucideRotateCcw, LucideRotateCw, LucideVolume2, LucideVolumeX, LucideZap } from 'lucide-vue-next';
 import { computed } from 'vue';
 
+defineProps<{
+    gameId?: string;
+    promptId?: string | null;
+}>();
+
 const tts = useTextToSpeech();
 const { settings } = useGameplaySettings();
 
@@ -118,7 +123,7 @@ const onProgressInput = (event: Event) => {
 
         <!-- Voice -->
         <section class="gp-audio-section">
-            <GameplayVoicePicker />
+            <GameplayVoicePicker :game-id="gameId" :prompt-id="promptId" />
         </section>
 
         <!-- Volume -->

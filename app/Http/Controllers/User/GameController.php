@@ -14,7 +14,6 @@ use App\Models\GameSessionCompletion;
 use App\Models\Story;
 use App\Models\User;
 use App\Models\UserActivityDay;
-use App\ChaosMode\ChaosStoryConfig;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
@@ -61,7 +60,7 @@ final class GameController extends Controller
         return inertia('User/Games/Show', [
             'game' => $game->toResource(),
             'ttsVoices' => TtsVoiceCatalog::options(),
-            'recommendedVoiceId' => ChaosStoryConfig::ttsVoiceId($game->story->slug ?? ''),
+            'recommendedVoiceId' => TtsVoiceCatalog::recommendedForGame($game),
             'usage' => fn (): array => $this->gameplayUsage($game),
         ]);
     }
@@ -144,8 +143,8 @@ final class GameController extends Controller
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
 
         $currentSessionNumber = (int) $game->current_session_number;
-        $nextSessionNumber    = $currentSessionNumber + 1;
-        $totalSessions        = (int) ($story->adaptation?->sessionAdaptations?->count() ?? 0);
+        $nextSessionNumber = $currentSessionNumber + 1;
+        $totalSessions = (int) ($story->adaptation?->sessionAdaptations?->count() ?? 0);
 
         if ($nextSessionNumber > $totalSessions) {
             $now = now();
@@ -159,12 +158,12 @@ final class GameController extends Controller
 
             GameCompletion::updateOrCreate(
                 [
-                    'game_id'            => $game->id,
+                    'game_id' => $game->id,
                     'story_cycle_number' => $game->current_story_cycle_number,
                 ],
                 [
-                    'user_id'      => $game->user_id,
-                    'story_id'     => $game->story_id,
+                    'user_id' => $game->user_id,
+                    'story_id' => $game->story_id,
                     'completed_at' => $now,
                 ],
             );
@@ -175,7 +174,7 @@ final class GameController extends Controller
                 ->with('story_complete', true);
         }
 
-        $arcRow         = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
+        $arcRow = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
         $openingHandoff = (string) ($arcRow['opens_with'] ?? '');
 
         // Resolve consequence path from the player's last defining choice.

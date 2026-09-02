@@ -12,6 +12,7 @@ import { computed, ref } from 'vue';
 const props = withDefaults(
     defineProps<{
         gameId?: string;
+        promptId?: string | null;
         usage?: GameplayUsageSummary;
         variant?: 'sidebar' | 'sheet';
     }>(),
@@ -254,7 +255,7 @@ const onVolumeInput = (event: Event) => {
         </div>
 
         <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
-            <GameplayVoicePicker />
+            <GameplayVoicePicker :game-id="gameId" :prompt-id="promptId" />
         </div>
 
         <div v-if="gameId" class="flex flex-col gap-2.5 border-t border-gray-700/40 pt-6">
@@ -451,7 +452,7 @@ const onVolumeInput = (event: Event) => {
         <section class="gp-settings-section">
             <h3 class="gp-section-title">Audio</h3>
             <div class="gp-settings-group">
-                <GameplayVoicePicker />
+                <GameplayVoicePicker :game-id="gameId" :prompt-id="promptId" />
             </div>
             <div class="gp-settings-group">
                 <label class="gp-field-label">Narration Volume</label>

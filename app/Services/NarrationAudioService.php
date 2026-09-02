@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\Story;
 use App\Services\Runtime\Mp3DurationCalculator;
 use App\Services\Runtime\PlayerVoiceUsageRecorder;
+use App\Tts\TtsVoiceCatalog;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -254,7 +254,7 @@ final class NarrationAudioService
     {
         $slug = Story::query()->whereKey($game->story_id)->value('slug');
 
-        return ChaosStoryConfig::ttsVoiceId(is_string($slug) ? $slug : '');
+        return TtsVoiceCatalog::recommendedForSlug(is_string($slug) ? $slug : '');
     }
 
     /**

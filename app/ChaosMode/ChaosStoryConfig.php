@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\ChaosMode;
 
+use App\Tts\TtsVoiceCatalog;
+
 /**
  * Whitelist + creative metadata for chaos-mode-enabled stories.
  *
@@ -21,33 +23,14 @@ namespace App\ChaosMode;
  *   - the `protagonist` first name (used by the AGENCY HANDOFF prompt so the
  *     narrator says "What does Watson do?" not "What does Alice do?")
  *   - a short `tagline` for the story selector UI
- *   - `tts_voice_id` — the ElevenLabs voice ID used for TTS in BOTH Chaos Mode
- *     and the main Story Guard mode. null = fall back to
- *     config('services.elevenlabs.voice_id').
+ *
+ * Narration voice defaults live in config/tts-voices.php and are resolved
+ * through TtsVoiceCatalog (used by both Chaos Mode and Story Guard).
  */
 final class ChaosStoryConfig
 {
     /**
-     * Female voice (j3QcmAr55TvFW5CDB0Q3) — used for Anima Machina and Nocturne.
-     *
-     * Previous voices:
-     * - Anima Machina: Declan Sage (kqVT88a5QfII1HNAEPTJ)
-     * - Nocturne: Davidof (TWutjvRaJqAX89preB4e)
-     */
-    private const VOICE_FEMALE = 'j3QcmAr55TvFW5CDB0Q3';
-
-    /**
-     * Declan Sage voice (kqVT88a5QfII1HNAEPTJ) — used for Driftheart and The Matrix.
-     */
-    private const VOICE_DECLAN_SAGE = 'kqVT88a5QfII1HNAEPTJ';
-
-    /**
-     * Yusuke voice (Lci8YeL6PAFHJjNKvwXq) — used for Momotaro: The Peach Boy.
-     */
-    private const VOICE_YUSUKE = 'Lci8YeL6PAFHJjNKvwXq';
-
-    /**
-     * @return array<int, array{slug:string, title:string, protagonist:string, tagline:string, tts_voice_id:string|null, prefer_literal_opening?: bool}>
+     * @return array<int, array{slug:string, title:string, protagonist:string, tagline:string, prefer_literal_opening?: bool}>
      */
     public static function all(): array
     {
@@ -57,35 +40,42 @@ final class ChaosStoryConfig
                 'title' => "Alice's Adventures in Wonderland",
                 'protagonist' => 'Alice',
                 'tagline' => 'Carroll — full agency through Wonderland.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'the-adventure-of-the-speckled-band',
                 'title' => 'Sherlock Holmes: The Speckled Band',
                 'protagonist' => 'Watson',
                 'tagline' => 'Doyle — investigate beside Holmes.',
-                'tts_voice_id' => null,
+            ],
+            [
+                'slug' => 'the-adventure-of-the-blue-carbuncle',
+                'title' => 'Sherlock Holmes: The Blue Carbuncle',
+                'protagonist' => 'Watson',
+                'tagline' => 'Doyle — investigate beside Holmes.',
+            ],
+            [
+                'slug' => 'a-scandal-in-bohemia',
+                'title' => 'Sherlock Holmes: A Scandal in Bohemia',
+                'protagonist' => 'Watson',
+                'tagline' => 'Doyle — investigate beside Holmes.',
             ],
             [
                 'slug' => 'the-tell-tale-heart',
                 'title' => 'The Tell-Tale Heart: Beneath the Floor',
                 'protagonist' => 'the Narrator',
                 'tagline' => 'Poe — descend into the cracked mind.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'dr-jekyll-and-mr-hyde',
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
                 'protagonist' => 'Utterson',
                 'tagline' => 'Stevenson — chase the other self through foggy London.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'nocturne',
                 'title' => 'Nocturne',
                 'protagonist' => 'Akira',
                 'tagline' => 'Wittmer — vanish into Tokyo\'s shadow-house.',
-                'tts_voice_id' => self::VOICE_FEMALE,
                 'prefer_literal_opening' => true,
             ],
             [
@@ -93,7 +83,6 @@ final class ChaosStoryConfig
                 'title' => 'Anima Machina',
                 'protagonist' => 'Nora',
                 'tagline' => 'Wittmer — dive grief in the neon archive.',
-                'tts_voice_id' => self::VOICE_FEMALE,
                 'prefer_literal_opening' => true,
             ],
             [
@@ -101,56 +90,48 @@ final class ChaosStoryConfig
                 'title' => 'Driftheart',
                 'protagonist' => 'Kataria',
                 'tagline' => 'Wittmer — fall from the sky-villa into the Drift.',
-                'tts_voice_id' => self::VOICE_DECLAN_SAGE,
             ],
             [
                 'slug' => 'the-matrix',
                 'title' => 'The Matrix',
                 'protagonist' => 'Neo',
                 'tagline' => 'Wachowski — wake up and choose the real world.',
-                'tts_voice_id' => self::VOICE_DECLAN_SAGE,
             ],
             [
                 'slug' => 'the-snow-queen',
                 'title' => 'The Snow Queen',
                 'protagonist' => 'Gerda',
                 'tagline' => 'Andersen — walk north through winter to find Kay.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'the-masque-of-the-red-death',
                 'title' => 'The Masque of the Red Death',
                 'protagonist' => 'Prospero',
                 'tagline' => 'Poe — hide from the plague behind abbey walls.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'the-wonderful-wizard-of-oz',
                 'title' => 'The Wonderful Wizard of Oz: The Road Home',
                 'protagonist' => 'Dorothy',
                 'tagline' => 'Baum — follow the yellow brick road to the Emerald City.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'wasteland',
                 'title' => 'Wasteland',
                 'protagonist' => 'Emmit',
                 'tagline' => 'Soares — survive the desert built from the world\'s castoffs.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'pjs',
                 'title' => "PJ's",
                 'protagonist' => 'Stills',
                 'tagline' => 'FREEP1 — jump into the hardest battlefield there is.',
-                'tts_voice_id' => null,
             ],
             [
                 'slug' => 'momotaro-the-peach-boy',
                 'title' => 'Momotaro: The Peach Boy',
                 'protagonist' => 'Momotaro',
                 'tagline' => 'Japanese folktale — sail to Oni Island and face the demons.',
-                'tts_voice_id' => self::VOICE_YUSUKE,
                 'prefer_literal_opening' => true,
             ],
             [
@@ -158,7 +139,6 @@ final class ChaosStoryConfig
                 'title' => 'The Unwritten Ones',
                 'protagonist' => 'Leo',
                 'tagline' => 'Wittmer — a carnival of endings, and names that can vanish.',
-                'tts_voice_id' => self::VOICE_DECLAN_SAGE,
                 'prefer_literal_opening' => true,
             ],
         ];
@@ -173,7 +153,7 @@ final class ChaosStoryConfig
     }
 
     /**
-     * @return array{slug:string, title:string, protagonist:string, tagline:string, tts_voice_id:string|null, prefer_literal_opening?: bool}|null
+     * @return array{slug:string, title:string, protagonist:string, tagline:string, prefer_literal_opening?: bool}|null
      */
     public static function find(string $slug): ?array
     {
@@ -188,13 +168,18 @@ final class ChaosStoryConfig
 
     /**
      * Resolve the ElevenLabs voice ID for a story slug.
-     * Returns the story-specific ID when one is configured, otherwise the
-     * application-wide default from config('services.elevenlabs.voice_id').
      */
     public static function ttsVoiceId(string $slug): string
     {
-        $row = self::find($slug);
+        return TtsVoiceCatalog::recommendedForSlug($slug);
+    }
 
-        return $row['tts_voice_id'] ?? (string) config('services.elevenlabs.voice_id');
+    /**
+     * Canonical playable protagonist. ChaosStoryConfig wins over extracted names
+     * so Baker Street titles stay Watson even when the source centers Holmes.
+     */
+    public static function protagonistFor(string $slug, ?string $fallback = null): string
+    {
+        return self::find($slug)['protagonist'] ?? $fallback ?? 'the protagonist';
     }
 }
