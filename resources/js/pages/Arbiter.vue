@@ -31,7 +31,7 @@ import type {
 } from '@/types';
 import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
+import { useConnectionStatus, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
@@ -112,6 +112,8 @@ const typingIndicatorTimeout = 2_500;
 const typingWhisperInterval = 750;
 const lobbyHeartbeatInterval = 3_000;
 const multiplayerLobbyPresenceChannel = usePresenceChannel(lobbyChannelName);
+const connectionStatus = useConnectionStatus();
+const hasEstablishedRealtimeConnection = ref(connectionStatus.value === 'connected');
 const page = usePage();
 const tts = useTextToSpeech();
 const gameplayBackgroundImage = computed(
@@ -481,6 +483,22 @@ watch(
     },
     { immediate: true },
 );
+
+watch(connectionStatus, (status) => {
+    if (status !== 'connected') {
+        return;
+    }
+
+    if (!hasEstablishedRealtimeConnection.value) {
+        hasEstablishedRealtimeConnection.value = true;
+
+        return;
+    }
+
+    if (!isLeavingLobby.value) {
+        reloadArbiterState();
+    }
+});
 
 watch(turnStatus, (status) => {
     if (status === 'narrating' || !streamingPromptId.value) {
@@ -1162,7 +1180,7 @@ function csrfToken(): string {
 function sendLobbyHeartbeat(): void {
     const member = currentMember.value;
 
-    if (isSendingLobbyHeartbeat || !member || member.left_at !== null) {
+    if (isSendingLobbyHeartbeat || isLeavingLobby.value || !member || member.left_at !== null) {
         return;
     }
 
@@ -1177,6 +1195,11 @@ function sendLobbyHeartbeat(): void {
             'X-XSRF-TOKEN': csrfToken(),
         },
     })
+        .then((response) => {
+            if (response.status === 409 && !isLeavingLobby.value) {
+                reloadArbiterState();
+            }
+        })
         .catch(() => {})
         .finally(() => {
             isSendingLobbyHeartbeat = false;
@@ -1199,7 +1222,7 @@ function stopLobbyHeartbeat(): void {
 
 function handleDocumentVisibilityChange(): void {
     if (document.visibilityState === 'visible') {
-        sendLobbyHeartbeat();
+        reloadArbiterState();
     }
 }
 

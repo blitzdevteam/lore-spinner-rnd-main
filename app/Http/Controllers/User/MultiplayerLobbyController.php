@@ -101,9 +101,12 @@ final class MultiplayerLobbyController extends Controller
     public function show(
         #[CurrentUser] User $user,
         MultiplayerLobby $lobby,
+        JoinMultiplayerLobbyAction $joinMultiplayerLobby,
         ReconcileMultiplayerLobbyPauseAction $reconcileMultiplayerLobbyPause,
     ): Response {
         Gate::forUser($user)->authorize('view', $lobby);
+
+        $lobby = $joinMultiplayerLobby->handle($user, $lobby);
 
         if ($reconcileMultiplayerLobbyPause->handle($lobby)) {
             $lobby->refresh();
@@ -241,7 +244,10 @@ final class MultiplayerLobbyController extends Controller
     ): HttpResponse {
         Gate::forUser($user)->authorize('view', $lobby);
 
-        $recordMultiplayerLobbyHeartbeat->handle($user, $lobby);
+        if ($recordMultiplayerLobbyHeartbeat->handle($user, $lobby)) {
+            return response()->noContent(HttpResponse::HTTP_CONFLICT);
+        }
+
         $lobby->refresh();
 
         if (
