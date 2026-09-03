@@ -167,10 +167,16 @@ onUnmounted(() => {
                                     <div class="flex min-w-0 flex-col gap-3">
                                         <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
 
-                                        <div v-if="stories.length" class="flex flex-wrap gap-2.5">
+                                        <div
+                                            v-if="stories.length"
+                                            class="world-modal__stories-slider"
+                                            role="list"
+                                            aria-label="Available stories"
+                                        >
                                             <WorldAvailableStoryCard
                                                 v-for="story in stories"
                                                 :key="story.id"
+                                                class="world-modal__story-slide"
                                                 :story="story"
                                                 :playable="isPlayable(story.slug)"
                                             />
@@ -199,10 +205,15 @@ onUnmounted(() => {
     min-height: 48%;
 }
 
+.world-modal__hero p,
+.world-modal__hero h2 {
+    text-shadow: 0 1px 14px rgb(0 0 0 / 0.72);
+}
+
 .world-modal__shade {
     background-image:
-        linear-gradient(to top, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.08) 38%, rgba(0, 0, 0, 0.2) 100%),
-        linear-gradient(105deg, rgba(0, 0, 0, 0.32) 8%, rgba(0, 0, 0, 0) 52%);
+        linear-gradient(to top, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.03) 42%, rgba(0, 0, 0, 0.12) 100%),
+        linear-gradient(105deg, rgba(0, 0, 0, 0.2) 8%, rgba(0, 0, 0, 0) 48%);
 }
 
 .world-modal__scroll {
@@ -219,15 +230,15 @@ onUnmounted(() => {
     pointer-events: none;
     position: absolute;
     inset: 0;
+    top: -20rem;
     background: linear-gradient(
         to bottom,
         rgb(0 0 0 / 0) 0,
-        rgb(0 0 0 / 0.08) 3.5rem,
-        rgb(0 0 0 / 0.28) 7rem,
-        rgb(0 0 0 / 0.55) 10rem,
-        rgb(0 0 0 / 0.78) 13rem,
-        rgb(0 0 0 / 0.9) 16rem,
-        rgb(0 0 0 / 0.95) 100%
+        rgb(0 0 0 / 0) 29.5rem,
+        rgb(0 0 0 / 0.14) 31rem,
+        rgb(0 0 0 / 0.55) 32.5rem,
+        rgb(0 0 0 / 0.9) 34rem,
+        rgb(0 0 0 / 0.97) 100%
     );
 }
 
@@ -238,6 +249,28 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 1.25rem;
     padding: 11.5rem 1.25rem 2.5rem;
+}
+
+.world-modal__stories-slider {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.625rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.world-modal__stories-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.world-modal__story-slide {
+    scroll-snap-align: start;
 }
 
 @media (min-width: 640px) {
@@ -253,8 +286,26 @@ onUnmounted(() => {
         margin-top: -6.5rem;
     }
 
+    .world-modal__veil {
+        top: -22rem;
+        background: linear-gradient(
+            to bottom,
+            rgb(0 0 0 / 0) 0,
+            rgb(0 0 0 / 0) 33.25rem,
+            rgb(0 0 0 / 0.14) 34.75rem,
+            rgb(0 0 0 / 0.55) 36.5rem,
+            rgb(0 0 0 / 0.9) 38.25rem,
+            rgb(0 0 0 / 0.97) 100%
+        );
+    }
+
     .world-modal__sheet-body {
         padding: 13.5rem 1.75rem 2.75rem;
+    }
+
+    .world-modal__stories-slider {
+        margin-inline: -1.75rem;
+        padding-inline: 1.75rem;
     }
 }
 

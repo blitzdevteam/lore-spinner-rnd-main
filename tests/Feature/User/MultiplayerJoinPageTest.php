@@ -35,3 +35,13 @@ it('passes an invite room code to the multiplayer join page', function () {
             ->component('Multiplayer/Multiplayer')
             ->where('inviteRoomCode', 'ABC123'));
 });
+
+it('marks streamer mode as coming soon and unavailable', function () {
+    $template = file_get_contents(resource_path('js/pages/Multiplayer/Multiplayer.vue'));
+
+    expect($template)
+        ->toContain("name: 'Streamer'")
+        ->toContain('available: false')
+        ->toContain('Coming Soon')
+        ->toContain('!mode.available');
+});

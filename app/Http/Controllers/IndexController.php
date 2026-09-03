@@ -39,7 +39,14 @@ final class IndexController extends Controller
                 ? Game::query()
                     ->where('user_id', Auth::id())
                     ->with([
-                        'story' => fn ($q) => $q->with(['media', 'category:id,title', 'creator:id,first_name,last_name']),
+                        'story' => fn ($q) => $q->with([
+                            'media',
+                            'category:id,title',
+                            'creator:id,first_name,last_name,username',
+                            'chapters' => fn ($chapters) => $chapters
+                                ->select(['id', 'story_id', 'title', 'position', 'status'])
+                                ->orderBy('position'),
+                        ]),
                     ])
                     ->withCount('prompts')
                     ->latest('updated_at')

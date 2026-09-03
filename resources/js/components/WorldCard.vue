@@ -192,7 +192,7 @@ function storyHref(story: StoryInterface): string {
 
 .world-card--expanded {
     z-index: 4;
-    transform: translateY(-6px) scale(1.02);
+    transform: none;
 }
 
 .world-card--expanded .world-card__shell {
@@ -201,9 +201,21 @@ function storyHref(story: StoryInterface): string {
 
 .world-card--dimmed {
     z-index: 0;
-    transform: scale(0.98);
-    opacity: 0.72;
-    filter: brightness(0.86);
+    transform: none;
+    opacity: 1;
+    filter: none;
+}
+
+@media (min-width: 1024px) and (hover: hover) {
+    .world-card--expanded {
+        transform: translateY(-6px) scale(1.02);
+    }
+
+    .world-card--dimmed {
+        transform: scale(0.98);
+        opacity: 0.72;
+        filter: brightness(0.86);
+    }
 }
 
 .world-card__image {

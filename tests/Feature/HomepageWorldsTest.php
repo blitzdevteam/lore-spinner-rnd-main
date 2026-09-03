@@ -10,6 +10,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
+beforeEach(function (): void {
+    $this->withoutVite();
+});
+
 it('loads only active worlds ordered by position with published stories', function () {
     $firstWorld = World::factory()->create([
         'title' => 'Jane Austen',

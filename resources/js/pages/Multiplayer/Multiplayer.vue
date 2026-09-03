@@ -395,10 +395,11 @@ function joinRoom(): void {
                             class="relative flex h-[190px] flex-col items-center justify-end rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
                             :class="[
                                 selectedModeName === mode.name ? 'bg-[#141819]' : 'bg-black',
-                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed',
+                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-70',
                             ]"
                             :style="{ borderColor: selectedModeName === mode.name ? '#59c1ca' : '#373737' }"
                             :disabled="!mode.available"
+                            :aria-disabled="!mode.available"
                             @click="chooseMode(mode)"
                         >
                             <img
@@ -407,6 +408,12 @@ function joinRoom(): void {
                                 alt=""
                                 class="absolute top-1.5 right-1.5 size-6"
                             />
+                            <span
+                                v-else-if="!mode.available"
+                                class="absolute top-2 right-2 z-[1] flex h-6 items-center justify-center rounded-full border-[0.5px] border-[#8f8f8f] bg-black/80 px-2 font-['Inter',sans-serif] text-[0.6875rem] leading-none font-normal tracking-wide text-[#8f8f8f]"
+                            >
+                                Coming Soon
+                            </span>
                             <span
                                 class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
                                 :style="{ borderColor: mode.accent, color: mode.accent }"
