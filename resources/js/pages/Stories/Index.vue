@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
+import LibraryMultiplayerCard from '@/components/LibraryMultiplayerCard.vue';
 import LibrarySortMenu, { type LibrarySortMode } from '@/components/LibrarySortMenu.vue';
 import MoodHeroBanner from '@/components/MoodHeroBanner.vue';
 import MoodSelector from '@/components/MoodSelector.vue';
 import MoodTopPicks from '@/components/MoodTopPicks.vue';
-import MultiplayerRoomSection from '@/components/MultiplayerRoomSection.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
@@ -21,7 +21,8 @@ import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import type { MultiplayerLobbyCardInterface, StoryInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
-import { Head } from '@inertiajs/vue3';
+import { index as storiesIndex } from '@/wayfinder/routes/stories';
+import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 interface StoryGridGame {
@@ -36,6 +37,8 @@ interface StoryGridGame {
     rating?: string;
 }
 
+type LibraryTab = 'all' | 'single' | 'multiplayer';
+
 const props = withDefaults(
     defineProps<{
         stories?: StoryInterface[];
@@ -48,11 +51,43 @@ const props = withDefaults(
 );
 
 const { activeMood } = useHomeHeaderNav();
-const activeLibraryTab = ref<'all' | 'single' | 'multiplayer'>('all');
 
-function switchLibraryTab(tab: 'all' | 'single' | 'multiplayer'): void {
-    activeLibraryTab.value = tab;
+function tabFromUrl(): LibraryTab {
+    if (typeof window === 'undefined') {
+        return 'all';
+    }
+
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'single' || tab === 'multiplayer') {
+        return tab;
+    }
+
+    return 'all';
 }
+
+const activeLibraryTab = ref<LibraryTab>(tabFromUrl());
+
+function switchLibraryTab(tab: LibraryTab): void {
+    activeLibraryTab.value = tab;
+
+    router.get(
+        storiesIndex.url({
+            query: {
+                mood: activeMood.value || null,
+                tab: tab === 'all' ? null : tab,
+            },
+        }),
+        {},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        },
+    );
+}
+
+const showSinglePlayer = computed(() => activeLibraryTab.value !== 'multiplayer');
+const showMultiplayer = computed(() => activeLibraryTab.value !== 'single');
 
 const normalizedMood = computed(() => normalizeMood(activeMood.value));
 
@@ -98,19 +133,38 @@ const libraryStories = computed((): StoryInterface[] => {
 });
 
 const isMoodPage = computed(() => normalizedMood.value !== null);
+const showMoodTopPicks = computed(() => isMoodPage.value && activeLibraryTab.value === 'all');
 
-const listHeading = computed(() => {
-    if (normalizedMood.value) {
-        return `${libraryStories.value.length} Stories`;
+const filteredStories = computed((): StoryInterface[] => {
+    if (!showSinglePlayer.value) {
+        return [];
     }
-    return 'Stories';
+
+    return sortedStories.value;
 });
+
+const filteredRooms = computed((): MultiplayerLobbyCardInterface[] => {
+    if (!showMultiplayer.value) {
+        return [];
+    }
+
+    const rooms = props.multiplayerRooms ?? [];
+    const mood = normalizedMood.value;
+    if (!mood) {
+        return rooms;
+    }
+
+    return rooms.filter((room) => storyMatchesMood(room.story.slug, mood));
+});
+
+const visibleCount = computed(() => filteredStories.value.length + filteredRooms.value.length);
 
 const headerTitle = computed(() => {
     if (normalizedMood.value) {
-        return listHeading.value;
+        return `${visibleCount.value} Stories`;
     }
-    return `${listHeading.value} (${libraryStories.value.length})`;
+
+    return `Stories (${visibleCount.value})`;
 });
 
 const sortMode = ref<LibrarySortMode>('recent');
@@ -137,7 +191,7 @@ function isPlayableStory(story: StoryInterface): boolean {
 }
 
 const games = computed<StoryGridGame[]>(() =>
-    sortedStories.value.map((story) => ({
+    filteredStories.value.map((story) => ({
         id: String(story.id),
         storyId: story.id,
         title: story.title,
@@ -182,7 +236,7 @@ function openSheet(game: StoryGridGame): void {
     <HomeLayout>
         <MoodHeroBanner :mood="activeMood" />
 
-        <div class="mx-auto flex w-full justify-center px-5 pt-6 sm:px-8 lg:px-16">
+        <div class="mx-auto flex w-full justify-center px-5 pt-6 pb-10 sm:px-8 lg:px-16">
             <div class="flex items-center gap-2.5 rounded-[150px] bg-[#0f0f0f] p-[5px]">
                 <button
                     v-for="tab in [
@@ -194,99 +248,78 @@ function openSheet(game: StoryGridGame): void {
                     type="button"
                     class="flex h-[35px] w-[122px] items-center justify-center rounded-[150px] px-2.5 py-2 text-[13px] transition-colors"
                     :class="activeLibraryTab === tab.key ? 'bg-[#232323] text-[#59c1ca]' : 'text-[#7e7e7e] hover:text-white'"
-                    @click="switchLibraryTab(tab.key as 'all' | 'single' | 'multiplayer')"
+                    @click="switchLibraryTab(tab.key as LibraryTab)"
                 >
                     {{ tab.label }}
                 </button>
             </div>
         </div>
 
-        <template v-if="activeLibraryTab !== 'multiplayer'">
+        <div :class="isMoodPage ? 'mood-page-flow' : ''">
             <template v-if="isMoodPage && normalizedMood">
-                <div class="mood-page-flow">
-                    <MoodSelector :active-mood="normalizedMood" />
-                    <MoodTopPicks :mood="normalizedMood" :mood-label="moodHero.label" :stories="moodPageStories" />
-
-                    <div id="all-stories" class="mood-page-stories-section overflow-visible pb-12 md:pb-[3.75rem]">
-                        <div class="container">
-                            <div class="container-content mood-page-section-header-gap">
-                                <SectionHeader :title="headerTitle">
-                                    <template #action>
-                                        <LibrarySortMenu v-model="sortMode" />
-                                    </template>
-                                </SectionHeader>
-
-                                <div class="story-card-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                                    <div v-for="game in games" :key="game.id" class="col-span-1 min-w-0">
-                                        <StoryExpandableCard
-                                            :expanded="isExpanded(game.id)"
-                                            :dimmed="isDimmed(game.id)"
-                                            :desktop-expand="isDesktopHover"
-                                            :class="!game.playable && 'cursor-pointer'"
-                                            @mouseenter="isDesktopHover && onCardEnter(game.id)"
-                                            @mouseleave="isDesktopHover && onCardLeave()"
-                                            @click="!game.playable && openSheet(game)"
-                                        >
-                                            <HomePortraitStoryCard
-                                                :title="game.title"
-                                                :cover="game.cover"
-                                                :themes="getStoryDescriptorThemes(game.slug ?? game.id)"
-                                                :teaser="game.teaser"
-                                                :playable="game.playable"
-                                                :slug="game.slug"
-                                                :focused="isDesktopHover && isExpanded(game.id)"
-                                                :is-desktop-hover="isDesktopHover"
-                                                @preview="openSheet(game)"
-                                            />
-                                        </StoryExpandableCard>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <MoodSelector :active-mood="normalizedMood" :overlap-next="showMoodTopPicks" />
+                <MoodTopPicks
+                    v-if="showMoodTopPicks"
+                    :mood="normalizedMood"
+                    :mood-label="moodHero.label"
+                    :stories="moodPageStories"
+                />
             </template>
 
-            <div v-else id="all-stories" class="relative z-10 pt-6 pb-12 md:pt-[3.75rem] md:pb-[3.75rem]">
-                <div class="container">
-                    <div class="container-content flex min-w-0 flex-col gap-5 md:gap-[1.125rem]">
-                        <SectionHeader :title="headerTitle">
-                            <template #action>
-                                <LibrarySortMenu v-model="sortMode" />
-                            </template>
-                        </SectionHeader>
+            <div
+                id="all-stories"
+                class="overflow-visible pb-12 md:pb-[3.75rem]"
+                :class="isMoodPage ? 'mood-page-stories-section' : 'relative z-10'"
+            >
+            <div class="container">
+                <div class="container-content flex min-w-0 flex-col gap-5 md:gap-[1.125rem]">
+                    <SectionHeader :title="headerTitle">
+                        <template #action>
+                            <LibrarySortMenu v-model="sortMode" />
+                        </template>
+                    </SectionHeader>
 
-                        <div class="story-card-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                            <div v-for="game in games" :key="game.id" class="col-span-1 min-w-0">
-                                <StoryExpandableCard
-                                    :expanded="isExpanded(game.id)"
-                                    :dimmed="isDimmed(game.id)"
-                                    :desktop-expand="isDesktopHover"
-                                    :class="!game.playable && 'cursor-pointer'"
-                                    @mouseenter="isDesktopHover && onCardEnter(game.id)"
-                                    @mouseleave="isDesktopHover && onCardLeave()"
-                                    @click="!game.playable && openSheet(game)"
-                                >
-                                    <HomePortraitStoryCard
-                                        :title="game.title"
-                                        :cover="game.cover"
-                                        :themes="getStoryDescriptorThemes(game.slug ?? game.id)"
-                                        :teaser="game.teaser"
-                                        :playable="game.playable"
-                                        :slug="game.slug"
-                                        :focused="isDesktopHover && isExpanded(game.id)"
-                                        :is-desktop-hover="isDesktopHover"
-                                        @preview="openSheet(game)"
-                                    />
-                                </StoryExpandableCard>
-                            </div>
+                    <div v-if="visibleCount" class="story-card-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                        <div v-for="game in games" :key="`story-${game.id}`" class="col-span-1 min-w-0">
+                            <StoryExpandableCard
+                                :expanded="isExpanded(game.id)"
+                                :dimmed="isDimmed(game.id)"
+                                :desktop-expand="isDesktopHover"
+                                :class="!game.playable && 'cursor-pointer'"
+                                @mouseenter="isDesktopHover && onCardEnter(game.id)"
+                                @mouseleave="isDesktopHover && onCardLeave()"
+                                @click="!game.playable && openSheet(game)"
+                            >
+                                <HomePortraitStoryCard
+                                    :title="game.title"
+                                    :cover="game.cover"
+                                    :themes="getStoryDescriptorThemes(game.slug ?? game.id)"
+                                    :teaser="game.teaser"
+                                    :playable="game.playable"
+                                    :slug="game.slug"
+                                    :focused="isDesktopHover && isExpanded(game.id)"
+                                    :is-desktop-hover="isDesktopHover"
+                                    @preview="openSheet(game)"
+                                />
+                            </StoryExpandableCard>
                         </div>
+                        <LibraryMultiplayerCard v-for="room in filteredRooms" :key="`room-${room.id}`" :room="room" />
+                    </div>
+
+                    <div
+                        v-else
+                        class="rounded-lg border border-dashed border-[#373737] bg-[#0f0f0f] px-6 py-10 text-center text-sm text-[#7e7e7e]"
+                    >
+                        {{
+                            activeLibraryTab === 'multiplayer'
+                                ? 'No multiplayer rooms are waiting for players right now.'
+                                : 'No stories to show.'
+                        }}
                     </div>
                 </div>
             </div>
-        </template>
-
-        <MultiplayerRoomSection v-if="activeLibraryTab === 'all' || activeLibraryTab === 'multiplayer'" :rooms="props.multiplayerRooms" />
+        </div>
+        </div>
 
         <StoryDetailsSheet :story="sheetStory" @close="sheetStory = null" />
     </HomeLayout>

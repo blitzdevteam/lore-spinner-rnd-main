@@ -97,7 +97,7 @@ function optionClass(mode: LibrarySortMode): string {
 .library-sort-btn {
     position: relative;
     display: inline-flex;
-    height: calc(1.375rem * 1.1);
+    height: calc(22px * 1.1);
     flex-shrink: 0;
     align-items: center;
     gap: 0.3125rem;
@@ -118,7 +118,7 @@ function optionClass(mode: LibrarySortMode): string {
 
 @media (min-width: 768px) {
     .library-sort-btn {
-        height: calc(1.625rem * 1.1);
+        height: calc(22px * 1.1);
     }
 }
 

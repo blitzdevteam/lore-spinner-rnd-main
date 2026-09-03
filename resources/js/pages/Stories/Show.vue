@@ -18,7 +18,7 @@ import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { resolveStoryDisplayTitle } from '@/data/storyDisplayTitleBySlug';
 import { StoryInterface } from '@/types';
-import { show as showGame, store } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
+import { reset as resetGame, show as showGame, store } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
 import { multiplayer as multiplayerStoryRoute, show as storyShowRoute } from '@/wayfinder/routes/stories';
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -33,6 +33,7 @@ const props = defineProps<{
 type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
+const isRestarting = ref(false);
 const hasExistingGame = computed(() => !!props.existingGameId);
 const { isBookmarked, toggleBookmark } = useBookmark(props.story.id, props.story.is_bookmarked ?? false);
 const { share } = useShare();
@@ -71,6 +72,32 @@ const handleStartStory = (): void => {
             story_id: props.story.id,
         });
     }
+};
+
+const handleRestartStory = (): void => {
+    if (!props.isPlayable || !props.existingGameId || isRestarting.value) {
+        return;
+    }
+
+    const confirmed = window.confirm(
+        'Start a fresh story? This will erase all your current progress, including every prompt and choice you have made.',
+    );
+    if (!confirmed) {
+        return;
+    }
+
+    isRestarting.value = true;
+    router.post(
+        resetGame.url(props.existingGameId),
+        {},
+        {
+            preserveScroll: false,
+            preserveState: false,
+            onFinish: () => {
+                isRestarting.value = false;
+            },
+        },
+    );
 };
 
 const handleMultiplayer = (): void => {
@@ -168,7 +195,7 @@ const statItems = computed(() => [
     },
 ]);
 
-const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Enter The Story'));
+const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Single Player'));
 
 const creatorAvatar = computed(() => resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar));
 
@@ -181,13 +208,30 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
     <div
         class="relative min-h-svh overflow-x-hidden bg-black text-white selection:bg-primary-500/30 lg:h-svh lg:overflow-hidden lg:selection:bg-primary-500/35"
     >
-        <StoryPlayAmbientGlows />
+        <StoryPlayAmbientGlows class="hidden lg:block" />
 
         <div
-            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 pb-28 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+            :class="isPlayable ? 'pb-40' : 'pb-28'"
         >
             <!-- Left: Poster column -->
-            <div class="relative mb-8 w-[20.875rem] max-w-full shrink-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:shrink-0 xl:mr-2">
+            <div class="relative mx-auto w-full max-w-[20.875rem] shrink-0 pb-8 lg:mx-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:max-w-none lg:shrink-0 lg:pb-0 xl:mr-2">
+                <div
+                    v-if="coverImageUrl"
+                    class="pointer-events-none absolute inset-x-0 top-[-2rem] bottom-0 z-0 md:top-[-2.5rem] lg:hidden"
+                    aria-hidden="true"
+                >
+                    <div class="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden">
+                        <img
+                            :src="coverImageUrl"
+                            alt=""
+                            class="absolute inset-[-80px] size-[calc(100%+160px)] max-w-none object-cover blur-[40px]"
+                        />
+                        <div class="absolute inset-0 bg-[rgba(0,0,0,0.45)]" />
+                        <div class="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black to-transparent" />
+                    </div>
+                </div>
+
                 <StoryPlayCoverColumn :src="coverImageUrl" :title="displayTitle" :headline="coverHeadline" :footer-credit="coverFooterCredit">
                     <template #overlay>
                         <!-- Back button — Figma 45×45 glass circle -->
@@ -209,7 +253,7 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
             <div class="story-show-panel relative min-w-0 flex-1 lg:min-h-0 lg:self-stretch lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
                 <div class="flex flex-col lg:min-h-full">
                     <!-- Top bar: tabs + action buttons -->
-                    <div class="shrink-0 overflow-visible pt-4 lg:pt-0">
+                    <div class="relative z-[1] shrink-0 overflow-visible bg-black pt-0 lg:bg-transparent lg:pt-0">
                         <StoryPlayTopBar
                             :tab="panel"
                             :bookmark-filled="isBookmarked"
@@ -285,9 +329,20 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                     <div
                         class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
                     >
-                        <div class="flex gap-2.5">
-                            <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                            <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                        <div class="flex flex-col gap-6">
+                            <div class="flex gap-2.5">
+                                <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                                <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                            </div>
+                            <button
+                                v-if="isPlayable"
+                                type="button"
+                                class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
+                                :disabled="!hasExistingGame || isRestarting"
+                                @click="handleRestartStory"
+                            >
+                                Restart Story
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -296,11 +351,25 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
 
         <!-- Mobile CTA strip -->
         <div class="fixed inset-x-0 bottom-0 z-30 lg:hidden">
-            <div class="pointer-events-none absolute inset-x-0 bottom-[4.5rem] h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent" />
+            <div
+                class="pointer-events-none absolute inset-x-0 h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent"
+                :class="isPlayable ? 'bottom-[7.5rem]' : 'bottom-[4.5rem]'"
+            />
             <div class="relative bg-black/90 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] backdrop-blur-md">
-                <div class="flex gap-2.5">
-                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                    <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                <div class="flex flex-col gap-6">
+                    <div class="flex gap-2.5">
+                        <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
+                        <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                    </div>
+                    <button
+                        v-if="isPlayable"
+                        type="button"
+                        class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
+                        :disabled="!hasExistingGame || isRestarting"
+                        @click="handleRestartStory"
+                    >
+                        Restart Story
+                    </button>
                 </div>
             </div>
         </div>

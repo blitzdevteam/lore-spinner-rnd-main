@@ -7,7 +7,7 @@ withDefaults(
         comingSoon?: boolean;
     }>(),
     {
-        label: 'Enter The Story',
+        label: 'Single Player',
         variant: 'primary',
         comingSoon: false,
     },

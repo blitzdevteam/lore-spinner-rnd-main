@@ -47,7 +47,7 @@ const actionLabel = computed(() => {
 
 <style scoped>
 .section-header {
-    --section-header-title-size: 1.175rem;
+    --section-header-title-size: 22px;
     --section-header-title-leading: 1.1;
     --section-header-action-size: 0.875rem;
 
@@ -60,12 +60,6 @@ const actionLabel = computed(() => {
     align-items: start;
     column-gap: 0.75rem;
     row-gap: 0.625rem;
-}
-
-@media (min-width: 768px) {
-    .section-header {
-        --section-header-title-size: 1.325rem;
-    }
 }
 
 .section-header__title {
