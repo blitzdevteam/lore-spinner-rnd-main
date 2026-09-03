@@ -23,8 +23,8 @@ final class StoreMultiplayerLobbyRouletteChoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'choice_index' => ['nullable', 'integer', 'between:0,2', 'required_without:proposal', 'prohibited_with:proposal'],
-            'proposal' => ['nullable', 'string', 'min:3', 'max:2000', 'required_without:choice_index', 'prohibited_with:choice_index'],
+            'choice_index' => ['nullable', 'integer', 'between:0,2', 'required_without:proposal', 'prohibits:proposal'],
+            'proposal' => ['nullable', 'string', 'min:3', 'max:2000', 'required_without:choice_index', 'prohibits:choice_index'],
         ];
     }
 }
