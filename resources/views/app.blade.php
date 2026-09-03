@@ -17,11 +17,30 @@
 
         <!-- Microsoft Clarity -->
         <script type="text/javascript">
-            (function(c,l,a,r,i,t,y){
-                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-            })(window, document, "clarity", "script", "x2x3tavro1");
+            (function (w, d, n, projectId) {
+                var userAgent = n.userAgent || '';
+                var isSafari = /Safari/i.test(userAgent) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS/i.test(userAgent);
+
+                // Clarity's session recorder is a global DOM observer. Keep it
+                // off Safari pages because it can make WebKit unresponsive on
+                // the site's animation-heavy surfaces.
+                if (isSafari) {
+                    return;
+                }
+
+                w.clarity = w.clarity || function () {
+                    (w.clarity.q = w.clarity.q || []).push(arguments);
+                };
+
+                var script = d.createElement('script');
+                script.async = 1;
+                script.src = 'https://www.clarity.ms/tag/' + projectId;
+
+                var firstScript = d.getElementsByTagName('script')[0];
+                if (firstScript && firstScript.parentNode) {
+                    firstScript.parentNode.insertBefore(script, firstScript);
+                }
+            })(window, document, navigator, 'x2x3tavro1');
         </script>
 
         <!-- SEO / Open Graph -->

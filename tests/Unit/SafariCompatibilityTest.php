@@ -7,6 +7,8 @@ it('keeps gameplay rendering compatible with Safari', function (): void {
     $showPage = file_get_contents(resource_path('js/pages/User/Games/Show.vue'));
     $arbiterPage = file_get_contents(resource_path('js/pages/Arbiter.vue'));
     $chaosTextToSpeech = file_get_contents(resource_path('js/composables/useChaosTextToSpeech.ts'));
+    $feedbackWidget = file_get_contents(resource_path('js/components/FeedbackWidget.vue'));
+    $appTemplate = file_get_contents(resource_path('views/app.blade.php'));
 
     expect($streamingRenderer)
         ->toContain('window.requestAnimationFrame(flushHtml)')
@@ -23,4 +25,12 @@ it('keeps gameplay rendering compatible with Safari', function (): void {
 
     expect($chaosTextToSpeech)
         ->toContain("typeof navigator !== 'undefined'");
+
+    expect($feedbackWidget)
+        ->toContain('installAutoplayGestureListener: false');
+
+    expect($appTemplate)
+        ->toContain('var isSafari =')
+        ->toContain('if (isSafari)')
+        ->toContain('https://www.clarity.ms/tag/');
 });

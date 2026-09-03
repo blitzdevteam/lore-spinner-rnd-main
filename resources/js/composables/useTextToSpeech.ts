@@ -52,6 +52,8 @@ let primedAudio: HTMLAudioElement | null = null;
 
 const AUTOPLAY_GESTURE_EVENTS = ['touchend', 'mousedown', 'click'] as const;
 let autoplayGestureListenerInstalled = false;
+let autoplayGestureListenerUsers = 0;
+let removeAutoplayGestureListeners: (() => void) | null = null;
 
 // Key whose element is claimed but has no real source yet, because the mp3 is
 // still downloading. Calling play() on it would fail with NotSupportedError.
@@ -176,23 +178,56 @@ function primeAudio() {
  * from pointerdown/touchstart. Capture the first valid gesture at document level
  * so the unlock runs before a gameplay control starts its async request.
  */
-function installAutoplayGestureListener() {
-    if (typeof window === 'undefined' || autoplayGestureListenerInstalled) return;
-    autoplayGestureListenerInstalled = true;
+function detachAutoplayGestureListeners(): void {
+    removeAutoplayGestureListeners?.();
+    removeAutoplayGestureListeners = null;
+}
 
-    const unlockFromGesture = () => {
-        primeAudio();
+function installAutoplayGestureListener(): () => void {
+    if (typeof window === 'undefined') {
+        return () => {};
+    }
+
+    autoplayGestureListenerUsers += 1;
+
+    if (!autoplayGestureListenerInstalled && !audioUnlocked) {
+        const unlockFromGesture = () => {
+            primeAudio();
+            detachAutoplayGestureListeners();
+        };
+
+        const removeListeners = () => {
+            if (!autoplayGestureListenerInstalled) return;
+
+            for (const eventName of AUTOPLAY_GESTURE_EVENTS) {
+                window.removeEventListener(eventName, unlockFromGesture, true);
+            }
+
+            autoplayGestureListenerInstalled = false;
+        };
+
+        removeAutoplayGestureListeners = removeListeners;
+        autoplayGestureListenerInstalled = true;
+
         for (const eventName of AUTOPLAY_GESTURE_EVENTS) {
-            window.removeEventListener(eventName, unlockFromGesture, true);
+            window.addEventListener(eventName, unlockFromGesture, {
+                capture: true,
+                passive: true,
+            });
+        }
+    }
+
+    let released = false;
+
+    return () => {
+        if (released) return;
+        released = true;
+        autoplayGestureListenerUsers = Math.max(0, autoplayGestureListenerUsers - 1);
+
+        if (autoplayGestureListenerUsers === 0) {
+            detachAutoplayGestureListeners();
         }
     };
-
-    for (const eventName of AUTOPLAY_GESTURE_EVENTS) {
-        window.addEventListener(eventName, unlockFromGesture, {
-            capture: true,
-            passive: true,
-        });
-    }
 }
 
 function handlePlayRejected(audio: HTMLAudioElement, key: string, token: number, err: unknown, gameId: string, promptId: string): void {
@@ -748,10 +783,15 @@ function formatTime(seconds: number): string {
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function useTextToSpeech() {
-    installAutoplayGestureListener();
+type UseTextToSpeechOptions = {
+    installAutoplayGestureListener?: boolean;
+};
+
+export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
+    const releaseAutoplayGestureListener = options.installAutoplayGestureListener !== false ? installAutoplayGestureListener() : null;
 
     onUnmounted(() => {
+        releaseAutoplayGestureListener?.();
         stopTimeUpdates();
     });
 
