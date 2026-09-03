@@ -46,8 +46,7 @@ let audioUnlocked = false;
 let pendingAutoplay: { gameId: string; promptId: string } | null = null;
 
 // iOS Safari only allows HTMLAudioElement.play() on elements that were previously
-// activated during a user gesture — even if the AudioContext is already running.
-// We pre-claim a fresh element on every user gesture so the subsequent async
+// activated during a user gesture. We pre-claim an element so the subsequent async
 // autoplay call can reuse it (src-swap preserves iOS activation).
 let primedAudio: HTMLAudioElement | null = null;
 
@@ -57,109 +56,31 @@ let autoplayGestureListenerInstalled = false;
 // Key whose element is claimed but has no real source yet, because the mp3 is
 // still downloading. Calling play() on it would fail with NotSupportedError.
 let awaitingSourceKey: string | null = null;
+let awaitingSourceAudio: HTMLAudioElement | null = null;
 
 // Identifies the newest playback request. Anything that silences audio bumps it,
 // so a download that lands afterwards knows not to start on its own.
 let playToken = 0;
+let pendingSeek: { audio: HTMLAudioElement; key: string; seconds: number } | null = null;
 
-// ── Web Audio API unlock ──────────────────────────────────────────────────────
-// On iOS Safari, audio playback permission is per-page once ANY audio element
-// plays during a user gesture. Routing all HTMLAudioElements through a shared
-// AudioContext is the most reliable cross-version strategy:
-//   • The AudioContext is unlocked (resumed) during a user gesture.
-//   • All elements connected via createMediaElementSource inherit that unlock,
-//     so async play() calls (e.g. from watches after a POST) succeed.
-//   • If AudioContext is still suspended we proactively queue instead of letting
-//     audio play silently (suspended context → play() resolves but no sound).
-
-let audioCtx: AudioContext | null = null;
-const ctxConnected = new WeakSet<HTMLAudioElement>();
-
-function getOrCreateAudioCtx(): AudioContext | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const ACtx = window.AudioContext ?? (window as any).webkitAudioContext;
-        if (!ACtx) return null;
-        if (!audioCtx) {
-            audioCtx = new ACtx() as AudioContext;
-            // When AudioContext resumes after a gesture (async resume() resolved),
-            // flush any play that was queued while it was still suspended.
-            audioCtx.addEventListener('statechange', () => {
-                if (audioCtx?.state === 'running' && audioUnlocked) {
-                    flushPendingAutoplay();
-                }
-            });
-        }
-        return audioCtx;
-    } catch {
-        return null;
-    }
-}
-
-function playContextSilence(ctx: AudioContext): void {
-    try {
-        const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(ctx.destination);
-        src.start(0);
-    } catch {}
-}
-
-/**
- * Connect an HTMLAudioElement to the shared AudioContext graph.
- * Called once per element; repeated calls are no-ops.
- * After connection the element's audio ONLY flows through the AudioContext —
- * meaning it will be silent while the context is suspended and audible once running.
- */
-function connectToAudioCtx(audio: HTMLAudioElement): void {
-    if (ctxConnected.has(audio)) return;
-    const ctx = getOrCreateAudioCtx();
-    if (!ctx) return;
-    try {
-        const source = ctx.createMediaElementSource(audio);
-        source.connect(ctx.destination);
-        ctxConnected.add(audio);
-    } catch {
-        // Already connected or unsupported — fall through to browser-default behaviour
-    }
-}
-
-/**
- * Must be called synchronously inside a user-gesture handler.
- * Resumes the AudioContext and plays 1 frame of silence to fully activate it on iOS.
- */
-function unlockAudioCtx(): Promise<void> {
-    const ctx = getOrCreateAudioCtx();
-    if (!ctx) return Promise.resolve();
-
-    if (ctx.state === 'running') {
-        playContextSilence(ctx);
-        return Promise.resolve();
-    }
-
-    // Safari can report "interrupted" as well as "suspended". Calling resume()
-    // for every non-running state also covers Safari versions that do not emit a
-    // useful statechange event after a user gesture.
-    return ctx
-        .resume()
-        .then(() => {
-            playContextSilence(ctx);
-            flushPendingAutoplay();
-        })
-        .catch(() => {});
-}
-
-function configureAudioElement(audio: HTMLAudioElement) {
+// Keep media on the browser's native HTMLAudioElement path. Routing the element
+// through MediaElementAudioSourceNode makes WebKit's seek and rate handling much
+// less predictable, while a gesture-primed element is enough to unlock autoplay.
+function configureAudioElement(audio: HTMLAudioElement): void {
     audio.setAttribute('playsinline', 'true');
-    // Route through AudioContext so the gesture-unlock propagates to this element.
-    // crossOrigin is intentionally omitted: same-origin TTS endpoint; adding it
-    // requires CORS headers on the server and breaks playback on iOS without them.
-    connectToAudioCtx(audio);
+    audio.preload = 'auto';
 }
 
 function isAutoplayBlocked(err: unknown): boolean {
     return err instanceof DOMException && err.name === 'NotAllowedError';
+}
+
+function isCurrentAudio(audio: HTMLAudioElement, key: string): boolean {
+    return currentAudio === audio && currentKey === key;
+}
+
+function isCurrentRequest(audio: HTMLAudioElement, key: string, token: number): boolean {
+    return isCurrentAudio(audio, key) && playToken === token;
 }
 
 /**
@@ -170,7 +91,11 @@ function isAutoplayBlocked(err: unknown): boolean {
 function silenceOthers(keep: HTMLAudioElement | null) {
     const rewind = (audio: HTMLAudioElement) => {
         if (!audio.paused) audio.pause();
-        if (audio.currentTime) audio.currentTime = 0;
+        try {
+            if (audio.currentTime) audio.currentTime = 0;
+        } catch {
+            // The element may still be between source changes in WebKit.
+        }
     };
 
     for (const audio of audioCache.values()) {
@@ -180,7 +105,7 @@ function silenceOthers(keep: HTMLAudioElement | null) {
     if (currentAudio && currentAudio !== keep) rewind(currentAudio);
 }
 
-function queuePendingAutoplay(gameId: string, promptId: string) {
+function queuePendingAutoplay(gameId: string, promptId: string): void {
     // The UI is about to point at this turn, so nothing from an earlier one may
     // keep playing underneath it. A retry of the current turn keeps its position.
     // Ordered before the queue is recorded because stop() clears the queue.
@@ -194,14 +119,14 @@ function queuePendingAutoplay(gameId: string, promptId: string) {
     pendingAutoplay = { gameId, promptId };
 
     // Show a pending-play indicator on the relevant card while we wait for the
-    // AudioContext to be unlocked via a user gesture.
+    // browser media policy to be unlocked via a user gesture.
     revealMediaPlayer();
     activeKey.value = key;
     isLoading.value = true;
 }
 
-function flushPendingAutoplay() {
-    if (!pendingAutoplay || !audioUnlocked || (audioCtx && audioCtx.state !== 'running')) return;
+function flushPendingAutoplay(): void {
+    if (!pendingAutoplay || !audioUnlocked) return;
     const { gameId, promptId } = pendingAutoplay;
     pendingAutoplay = null;
     play(gameId, promptId);
@@ -211,43 +136,39 @@ function flushPendingAutoplay() {
 function primeAudio() {
     if (typeof window === 'undefined') return;
 
-    // 1. Resume the AudioContext — this is the primary iOS unlock signal.
-    const contextUnlock = unlockAudioCtx();
-
     if (!audioUnlocked) {
-        // 2. Also play a silent HTML Audio element as a belt-and-suspenders unlock
-        //    for browsers that gate on HTMLAudioElement rather than AudioContext.
+        // Play a valid silent clip during the gesture. It is deliberately not
+        // muted: WebKit may allow muted playback without granting media access.
         if (!unlockAudio) {
             unlockAudio = new Audio(SILENT_WAV);
-            unlockAudio.volume = 0;
-            unlockAudio.muted = true;
+            unlockAudio.volume = 0.001;
             configureAudioElement(unlockAudio);
         }
-        unlockAudio.play().catch(() => {});
+        void unlockAudio.play().catch(() => {});
 
-        // 3. Mark unlocked immediately — we ARE inside a user-gesture call stack.
+        // Mark unlocked immediately — we ARE inside a user-gesture call stack.
         //    Deferring to .then() risks losing gesture propagation on iOS Safari.
         audioUnlocked = true;
     }
 
-    // 4. Pre-claim a fresh HTMLAudioElement within this gesture context.
+    // Pre-claim an HTMLAudioElement within this gesture context.
     //    iOS Safari permits async .play() on the SAME instance later (even after
     //    src is changed), because the activation is tied to the element object.
-    //    A new element created outside a gesture is always rejected on iOS.
-    const primed = new Audio(SILENT_WAV);
-    primed.volume = 0;
-    primed.muted = true;
-    primed.preload = 'auto';
-    configureAudioElement(primed);
-    primedAudio = primed;
-    primed.play().catch(() => {
-        // Do not reuse an element that WebKit failed to activate.
-        if (primedAudio === primed) primedAudio = null;
-    });
+    //    Keep an already-primed element instead of creating a new media element
+    //    for every captured gesture and leaking stale WebKit media state.
+    if (!primedAudio) {
+        const primed = new Audio(SILENT_WAV);
+        primed.volume = 0.001;
+        configureAudioElement(primed);
+        primedAudio = primed;
+        void primed.play().catch(() => {
+            // Do not reuse an element that WebKit failed to activate.
+            if (primedAudio === primed) primedAudio = null;
+        });
+    }
 
-    // 5. Flush any queued play() synchronously while still inside gesture scope.
+    // Flush any queued play() synchronously while still inside gesture scope.
     flushPendingAutoplay();
-    void contextUnlock.then(flushPendingAutoplay);
 }
 
 /**
@@ -274,7 +195,11 @@ function installAutoplayGestureListener() {
     }
 }
 
-function handlePlayRejected(key: string, err: unknown, gameId: string, promptId: string) {
+function handlePlayRejected(audio: HTMLAudioElement, key: string, token: number, err: unknown, gameId: string, promptId: string): void {
+    // A play() promise can settle after pause, close, or a newer narration has
+    // taken over. Those callbacks must not resurrect the old request.
+    if (!isCurrentRequest(audio, key, token)) return;
+
     console.warn('[TTS] play() rejected', key, err);
     isPlaying.value = false;
     if (isAutoplayBlocked(err)) {
@@ -286,13 +211,65 @@ function handlePlayRejected(key: string, err: unknown, gameId: string, promptId:
     }
 }
 
-function updateTime() {
-    if (currentAudio) {
-        currentTime.value = currentAudio.currentTime;
-        duration.value = currentAudio.duration || 0;
+function playAudio(audio: HTMLAudioElement, key: string, token: number, gameId: string, promptId: string): void {
+    void audio.play().catch((err) => {
+        handlePlayRejected(audio, key, token, err, gameId, promptId);
+    });
+}
+
+function finiteDuration(value: number): number | null {
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function clampSeekTarget(audio: HTMLAudioElement, seconds: number): number {
+    const requested = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+    const max = finiteDuration(audio.duration) ?? finiteDuration(duration.value);
+
+    return max === null ? requested : Math.min(max, requested);
+}
+
+function applyPendingSeek(audio: HTMLAudioElement, key: string): void {
+    const seek = pendingSeek;
+
+    if (seek === null || seek.audio !== audio || seek.key !== key || audio.readyState < 1) return;
+
+    const target = clampSeekTarget(audio, seek.seconds);
+
+    try {
+        audio.currentTime = target;
+        pendingSeek = null;
+        currentTime.value = Number.isFinite(audio.currentTime) ? audio.currentTime : target;
+    } catch {
+        // WebKit can still reject the setter during the metadata transition;
+        // the next metadata/readiness event will retry the same target.
     }
-    if (isPlaying.value) {
-        rafId = requestAnimationFrame(updateTime);
+}
+
+function syncAudioTime(audio: HTMLAudioElement, key: string): void {
+    if (!isCurrentAudio(audio, key)) return;
+
+    applyPendingSeek(audio, key);
+
+    if (Number.isFinite(audio.currentTime)) {
+        currentTime.value = Math.max(0, audio.currentTime);
+    }
+
+    const audioDuration = finiteDuration(audio.duration);
+    if (audioDuration !== null) {
+        duration.value = audioDuration;
+    }
+}
+
+function updateTime(audio: HTMLAudioElement, key: string): void {
+    if (!isCurrentAudio(audio, key)) return;
+
+    syncAudioTime(audio, key);
+
+    if (isPlaying.value && rafId === null) {
+        rafId = window.requestAnimationFrame(() => {
+            rafId = null;
+            updateTime(audio, key);
+        });
     }
 }
 
@@ -303,38 +280,50 @@ function stopTimeUpdates() {
     }
 }
 
-function attachListeners(audio: HTMLAudioElement, key: string) {
+function attachListeners(audio: HTMLAudioElement, key: string): void {
     // Guard: only attach once per element so cached replays don't stack handlers.
     if ((audio as any).__ttsListenersAttached) return;
     (audio as any).__ttsListenersAttached = true;
 
     // Handlers write shared state, so an element from an earlier turn being
     // silenced must not report over the turn that replaced it.
-    const isCurrent = () => currentKey === key;
+    const isCurrent = () => isCurrentAudio(audio, key);
 
     audio.addEventListener('canplay', () => {
         if (!isCurrent()) return;
+        applyAudioSettings(audio);
+        applyPendingSeek(audio, key);
+        syncAudioTime(audio, key);
         isLoading.value = false;
-        duration.value = audio.duration || 0;
-        console.debug('[TTS] canplay', key, 'duration', duration.value);
+        console.debug('[TTS] canplay', key, 'duration', finiteDuration(audio.duration) ?? 0);
     });
     audio.addEventListener('playing', () => {
         if (!isCurrent()) {
             audio.pause(); // a stale turn must never be audible
             return;
         }
+        applyAudioSettings(audio);
+        applyPendingSeek(audio, key);
         isPlaying.value = true;
         isLoading.value = false;
-        duration.value = audio.duration || 0;
+        syncAudioTime(audio, key);
         playedKeys.add(key);
         console.debug('[TTS] playing', key);
-        updateTime();
+        updateTime(audio, key);
     });
     audio.addEventListener('ended', () => {
         if (!isCurrent()) return;
-        if (isLooping.value && currentAudio) {
-            currentAudio.currentTime = 0;
-            currentAudio.play().catch(() => {
+        if (isLooping.value) {
+            try {
+                audio.currentTime = 0;
+            } catch {
+                isPlaying.value = false;
+                return;
+            }
+
+            const token = playToken;
+            void audio.play().catch(() => {
+                if (!isCurrentRequest(audio, key, token)) return;
                 isPlaying.value = false;
             });
             return;
@@ -358,8 +347,18 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
     });
     audio.addEventListener('loadedmetadata', () => {
         if (!isCurrent()) return;
-        duration.value = audio.duration || 0;
-        console.debug('[TTS] loadedmetadata', key, 'duration', duration.value);
+        applyAudioSettings(audio);
+        applyPendingSeek(audio, key);
+        syncAudioTime(audio, key);
+        console.debug('[TTS] loadedmetadata', key, 'duration', finiteDuration(audio.duration) ?? 0);
+    });
+    audio.addEventListener('durationchange', () => {
+        if (!isCurrent()) return;
+        applyPendingSeek(audio, key);
+        syncAudioTime(audio, key);
+    });
+    audio.addEventListener('timeupdate', () => {
+        syncAudioTime(audio, key);
     });
     audio.addEventListener('stalled', () => {
         console.warn('[TTS] stalled', key);
@@ -441,6 +440,7 @@ function prefetch(gameId: string, promptId: string) {
 }
 
 function applyAudioSettings(audio: HTMLAudioElement) {
+    audio.defaultPlaybackRate = playbackRate.value;
     audio.playbackRate = playbackRate.value;
     audio.volume = volume.value;
     audio.muted = isMuted.value;
@@ -450,23 +450,13 @@ function applyAudioSettings(audio: HTMLAudioElement) {
 function play(gameId: string, promptId: string) {
     const key = `${gameId}:${promptId}`;
 
-    // Guard: AudioContext exists but is still suspended — audio would play silently
-    // (context suppresses output). Queue and show the spinner; the statechange
-    // listener will flush once the context resumes during a user gesture.
-    if (audioCtx && audioCtx.state !== 'running') {
-        queuePendingAutoplay(gameId, promptId); // sets activeKey + isLoading for the UI
-        return;
-    }
-
     if (currentAudio && currentKey === key && !currentAudio.ended) {
         if (awaitingSourceKey === key) return; // download in flight, spinner already up
         if (currentAudio.paused) {
             silenceOthers(currentAudio);
             isLoading.value = true;
             revealMediaPlayer();
-            currentAudio.play().catch((err) => {
-                handlePlayRejected(key, err, gameId, promptId);
-            });
+            playAudio(currentAudio, key, playToken, gameId, promptId);
         }
         return;
     }
@@ -479,12 +469,15 @@ function play(gameId: string, promptId: string) {
         currentKey = key;
         activeKey.value = key;
         silenceOthers(currentAudio);
-        currentAudio.currentTime = 0;
+        try {
+            currentAudio.currentTime = 0;
+        } catch {
+            pendingSeek = { audio: currentAudio, key, seconds: 0 };
+        }
         applyAudioSettings(currentAudio);
+        duration.value = finiteDuration(currentAudio.duration) ?? 0;
         isLoading.value = true;
-        currentAudio.play().catch((err) => {
-            handlePlayRejected(key, err, gameId, promptId);
-        });
+        playAudio(currentAudio, key, playToken, gameId, promptId);
         return;
     }
 
@@ -504,11 +497,12 @@ function play(gameId: string, promptId: string) {
     currentKey = key;
     activeKey.value = key;
     awaitingSourceKey = key;
-    const token = ++playToken;
+    awaitingSourceAudio = audio;
+    const token = playToken;
 
     narrationUrl(gameId, promptId)
         .then((url) => {
-            if (currentKey !== key) return; // the player moved on while it rendered
+            if (!isCurrentAudio(audio, key)) return; // the player moved on while it rendered
 
             // Exactly one src assignment on this element, and listeners go on
             // straight after it, so the silent unlock clip it may still be
@@ -517,7 +511,11 @@ function play(gameId: string, promptId: string) {
             audio.load();
             attachListeners(audio, key);
             audioCache.set(key, audio);
-            awaitingSourceKey = null;
+            applyAudioSettings(audio);
+            if (awaitingSourceAudio === audio && awaitingSourceKey === key) {
+                awaitingSourceAudio = null;
+                awaitingSourceKey = null;
+            }
 
             // Paused or stopped while this downloaded — hand over the loaded
             // element but leave it silent.
@@ -530,26 +528,17 @@ function play(gameId: string, promptId: string) {
             // point while the new one downloaded.
             silenceOthers(audio);
 
-            // The context may have been created by autoplay before the user
-            // interacted. Do not call play() into a suspended/interrupted Safari
-            // context and treat a silent resolution as successful playback.
-            if (audioCtx && audioCtx.state !== 'running') {
-                queuePendingAutoplay(gameId, promptId);
-                return;
-            }
-
-            return audio.play().catch((err) => {
-                handlePlayRejected(key, err, gameId, promptId);
-            });
+            playAudio(audio, key, token, gameId, promptId);
         })
         .catch((err) => {
             console.warn('[TTS] unavailable', key, err);
-            if (currentKey === key) {
+            if (isCurrentRequest(audio, key, token)) {
                 isLoading.value = false;
             }
         })
         .finally(() => {
-            if (awaitingSourceKey === key) {
+            if (awaitingSourceAudio === audio && awaitingSourceKey === key) {
+                awaitingSourceAudio = null;
                 awaitingSourceKey = null;
             }
         });
@@ -560,19 +549,42 @@ function stop() {
     // gesture, since every gesture primes audio and primeAudio() flushes.
     pendingAutoplay = null;
     playToken++;
+    pendingSeek = null;
     silenceOthers(null); // rewinds every element, current one included
     isPlaying.value = false;
     isLoading.value = false;
     currentTime.value = 0;
+    duration.value = 0;
     stopTimeUpdates();
 }
 
 function dismiss() {
+    const audio = currentAudio;
+    const key = currentKey;
+
     pendingAutoplay = null;
+    awaitingSourceAudio = null;
     awaitingSourceKey = null;
+    pendingSeek = null;
     stop();
+
+    currentAudio = null;
     currentKey = null;
     activeKey.value = null;
+
+    if (audio) {
+        if (key !== null) audioCache.delete(key);
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+    }
+
+    if (primedAudio) {
+        primedAudio.pause();
+        primedAudio.removeAttribute('src');
+        primedAudio.load();
+        primedAudio = null;
+    }
 }
 
 /** Stop playback and discard cached narrations (e.g. after resetting the story). */
@@ -582,7 +594,11 @@ function resetForNewStory() {
     currentKey = null;
     for (const audio of audioCache.values()) {
         audio.pause();
-        audio.currentTime = 0;
+        try {
+            audio.currentTime = 0;
+        } catch {
+            // The element may not have metadata after a failed source change.
+        }
         audio.removeAttribute('src');
         audio.load();
     }
@@ -617,11 +633,10 @@ function resume() {
     if (currentAudio && currentAudio.paused && !currentAudio.ended) {
         silenceOthers(currentAudio);
         isLoading.value = true;
-        currentAudio.play().catch((err) => {
-            const key = currentKey ?? activeKey.value ?? 'unknown';
-            const [gameId = '', promptId = ''] = key.split(':');
-            handlePlayRejected(key, err, gameId, promptId);
-        });
+        const key = currentKey ?? activeKey.value;
+        if (!key) return;
+        const [gameId = '', promptId = ''] = key.split(':');
+        playAudio(currentAudio, key, playToken, gameId, promptId);
     }
 }
 
@@ -654,6 +669,7 @@ function cycleSpeed() {
     const nextIndex = (currentIndex + 1) % SPEED_OPTIONS.length;
     playbackRate.value = SPEED_OPTIONS[nextIndex];
     if (currentAudio) {
+        currentAudio.defaultPlaybackRate = playbackRate.value;
         currentAudio.playbackRate = playbackRate.value;
     }
 }
@@ -681,23 +697,42 @@ function toggleLoop() {
     isLooping.value = !isLooping.value;
 }
 
-function seekTo(seconds: number) {
-    if (!currentAudio) return;
-    const max = currentAudio.duration || duration.value || 0;
-    const clamped = Math.min(max, Math.max(0, seconds));
-    currentAudio.currentTime = clamped;
-    currentTime.value = clamped;
+function seekTo(seconds: number): void {
+    if (!currentAudio || !currentKey) return;
+
+    const audio = currentAudio;
+    const key = currentKey;
+    const target = clampSeekTarget(audio, seconds);
+
+    if (audio.readyState < 1) {
+        pendingSeek = { audio, key, seconds: target };
+        currentTime.value = target;
+        return;
+    }
+
+    try {
+        audio.currentTime = target;
+        pendingSeek = null;
+        syncAudioTime(audio, key);
+    } catch {
+        pendingSeek = { audio, key, seconds: target };
+        currentTime.value = target;
+    }
 }
 
-function seekBy(delta: number) {
+function seekBy(delta: number): void {
     if (!currentAudio) return;
-    seekTo(currentAudio.currentTime + delta);
+
+    const base = Number.isFinite(currentAudio.currentTime) ? currentAudio.currentTime : currentTime.value;
+    seekTo(base + delta);
 }
 
-function setSpeed(rate: number) {
-    playbackRate.value = rate;
+function setSpeed(rate: number): void {
+    const normalized = Number.isFinite(rate) && rate > 0 ? rate : 1;
+    playbackRate.value = normalized;
     if (currentAudio) {
-        currentAudio.playbackRate = rate;
+        currentAudio.defaultPlaybackRate = normalized;
+        currentAudio.playbackRate = normalized;
     }
 }
 
