@@ -169,7 +169,7 @@ const pausedMemberLabel = computed(() => {
         return `${names[0]} and ${names[1]}`;
     }
 
-    return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 });
 const isLastSession = computed(() => {
     const totalSessions = props.game?.total_sessions ?? 0;
@@ -236,7 +236,7 @@ const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const storyColumn = ref<HTMLElement | null>(null);
 const prompts = computed(() => localPrompts.value);
-const latestPromptId = computed(() => prompts.value.at(-1)?.id ?? null);
+const latestPromptId = computed(() => prompts.value[prompts.value.length - 1]?.id ?? null);
 const hasVisibleStreamedResponse = computed(() => {
     if (!streamingPromptId.value) {
         return false;
@@ -440,7 +440,7 @@ function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[]
 
         return localPrompt?.prompt && !prompt.prompt ? { ...prompt, prompt: localPrompt.prompt } : prompt;
     });
-    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts.at(-1)?.id ?? '') : '';
+    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts[serverPrompts.length - 1]?.id ?? '') : '';
     const newerLocalPrompts = localPrompts.value.filter(
         (prompt) => prompt.id !== streamingPromptId.value && !serverIds.has(String(prompt.id)) && String(prompt.id) > newestServerId,
     );

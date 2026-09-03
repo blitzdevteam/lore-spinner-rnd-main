@@ -5,7 +5,7 @@ const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
 // iOS Safari reports Infinity for duration on chunked streaming responses
 // (no Content-Length). The file is cached server-side after the first play,
 // so subsequent plays get a proper Content-Length and full seek support.
-const IOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+const IOS = typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent);
 
 // Module-level singleton — shared across all chaos components in the page
 const audioCache = new Map<string, HTMLAudioElement>();

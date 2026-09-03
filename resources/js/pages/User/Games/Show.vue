@@ -128,7 +128,7 @@ const hasVisibleStreamedResponse = computed(() => {
 
     const streamingPrompt = prompts.value.find((prompt) => prompt.id === streamingPromptId.value);
 
-    return !!streamingPrompt?.response && stripHtml(streamingPrompt.response).length > 0;
+    return hasVisibleStreamedText(streamingPrompt?.response ?? '');
 });
 const latestPromptId = computed(() => {
     const latestPrompt = prompts.value[prompts.value.length - 1];
@@ -160,6 +160,13 @@ function stripHtml(html: string): string {
     const el = document.createElement('div');
     el.innerHTML = input;
     return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function hasVisibleStreamedText(html: string): boolean {
+    return html
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&(?:nbsp|#160);/gi, ' ')
+        .trim().length > 0;
 }
 
 function excerpt(text: string, max = 120): string {
