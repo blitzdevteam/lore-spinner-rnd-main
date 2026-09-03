@@ -5,7 +5,6 @@ import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
 import type { WorldInterface } from '@/types';
 import { index as worldsIndex } from '@/wayfinder/routes/worlds';
-import { Link } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const HOMEPAGE_WORLD_LIMIT = 3;
@@ -15,11 +14,9 @@ const WORLDS_SLIDER_QUERY = '(max-width: 1023px)';
 const props = withDefaults(
     defineProps<{
         worlds?: WorldInterface[];
-        worldsCount?: number;
     }>(),
     {
         worlds: () => [],
-        worldsCount: 0,
     },
 );
 
@@ -36,9 +33,7 @@ const isMobileSlider = ref(false);
 const activeMobileId = ref<string | null>(null);
 
 const previewWorlds = computed(() => props.worlds.slice(0, HOMEPAGE_WORLD_LIMIT));
-const viewAllCount = computed(() => props.worldsCount || props.worlds.length);
 const viewAllHref = computed(() => worldsIndex().url);
-const viewAllLabel = computed(() => `View All (${viewAllCount.value})`);
 
 function worldCardId(id: number): string {
     return String(id);
@@ -146,11 +141,9 @@ onUnmounted(() => {
         <div class="container">
             <div class="container-content home-section-gap">
                 <SectionHeader
-                    class="worlds-section-header"
                     title="Step into Worlds"
                     subtitle="Choose a world to enter. Each has its own stories, and they remember who you become."
                     :href="viewAllHref"
-                    :count="viewAllCount"
                 />
 
                 <div class="worlds-slider-shell">
@@ -171,26 +164,12 @@ onUnmounted(() => {
                         </div>
                     </div>
                 </div>
-
-                <Link :href="viewAllHref" class="worlds-view-all-mobile">
-                    {{ viewAllLabel }}
-                </Link>
             </div>
         </div>
     </section>
 </template>
 
 <style scoped>
-.worlds-section-header :deep(.section-header__action-slot) {
-    display: none;
-}
-
-@media (min-width: 1024px) {
-    .worlds-section-header :deep(.section-header__action-slot) {
-        display: flex;
-    }
-}
-
 .worlds-slider-shell {
     position: relative;
     width: 100%;
@@ -246,29 +225,6 @@ onUnmounted(() => {
     .world-card-slot {
         width: 20.75rem;
         scroll-snap-align: unset;
-    }
-}
-
-.worlds-view-all-mobile {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    line-height: 0.875rem;
-    color: var(--color-primary, #00c6de);
-    text-align: center;
-    text-decoration: none;
-}
-
-.worlds-view-all-mobile:hover {
-    opacity: 0.85;
-}
-
-@media (min-width: 1024px) {
-    .worlds-view-all-mobile {
-        display: none;
     }
 }
 </style>

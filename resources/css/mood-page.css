@@ -7,13 +7,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--mood-section-gap, 3rem);
-    padding-top: var(--mood-hero-section-gap, 2rem);
+    padding-top: 0;
 }
 
 @media (min-width: 768px) {
     .mood-page-flow {
         --mood-section-gap: 3.5rem;
-        --mood-hero-section-gap: 2.5rem;
     }
 }
 
