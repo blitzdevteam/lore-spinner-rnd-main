@@ -167,10 +167,16 @@ onUnmounted(() => {
                                     <div class="flex min-w-0 flex-col gap-3">
                                         <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
 
-                                        <div v-if="stories.length" class="flex flex-wrap gap-2.5">
+                                        <div
+                                            v-if="stories.length"
+                                            class="world-modal__stories-slider"
+                                            role="list"
+                                            aria-label="Available stories"
+                                        >
                                             <WorldAvailableStoryCard
                                                 v-for="story in stories"
                                                 :key="story.id"
+                                                class="world-modal__story-slide"
                                                 :story="story"
                                                 :playable="isPlayable(story.slug)"
                                             />
@@ -245,6 +251,28 @@ onUnmounted(() => {
     padding: 11.5rem 1.25rem 2.5rem;
 }
 
+.world-modal__stories-slider {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.625rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.world-modal__stories-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.world-modal__story-slide {
+    scroll-snap-align: start;
+}
+
 @media (min-width: 640px) {
     .world-modal {
         height: min(90vh, 860px);
@@ -273,6 +301,11 @@ onUnmounted(() => {
 
     .world-modal__sheet-body {
         padding: 13.5rem 1.75rem 2.75rem;
+    }
+
+    .world-modal__stories-slider {
+        margin-inline: -1.75rem;
+        padding-inline: 1.75rem;
     }
 }
 
