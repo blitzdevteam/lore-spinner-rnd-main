@@ -119,6 +119,10 @@ type Panel = 'journal' | 'settings' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
 const recapOpen = ref(false);
+const recapDrawerEl = ref<HTMLElement | null>(null);
+const recapDragOffset = ref(0);
+const recapDragging = ref(false);
+let recapDragStartY = 0;
 const journalTab = ref<'journals' | 'characters'>('journals');
 const journalSheetTab = ref<'timeline' | 'characters'>('timeline');
 const isMobile = ref(false);
@@ -163,11 +167,32 @@ const toggleJournal = () => {
 };
 
 const toggleRecap = () => {
+    recapDragOffset.value = 0;
     recapOpen.value = !recapOpen.value;
     if (recapOpen.value) {
         emit('recap');
     }
 };
+
+function startRecapDrag(event: PointerEvent): void {
+    recapDragStartY = event.clientY;
+    recapDragging.value = true;
+    recapDrawerEl.value?.setPointerCapture(event.pointerId);
+}
+
+function moveRecapDrag(event: PointerEvent): void {
+    if (!recapDragging.value) return;
+    recapDragOffset.value = Math.max(0, event.clientY - recapDragStartY);
+}
+
+function endRecapDrag(): void {
+    if (!recapDragging.value) return;
+    recapDragging.value = false;
+    if (recapDragOffset.value > 72) {
+        recapOpen.value = false;
+    }
+    recapDragOffset.value = 0;
+}
 
 const refreshUsage = () => {
     router.reload({ only: ['usage'] });
@@ -375,12 +400,26 @@ const handleInputSubmit = (prompt: string) => {
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
-                        <div class="relative flex flex-col items-center gap-3 px-0">
+                        <div class="relative flex flex-col items-center gap-0 px-0">
                             <Transition name="recap-drawer">
                                 <div
                                     v-if="recapOpen"
-                                    class="absolute right-0 bottom-[7.25rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-primary/20 bg-gray-950/95 px-5 pt-4 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl md:bottom-[8.25rem] md:px-6"
+                                    ref="recapDrawerEl"
+                                    class="absolute right-0 bottom-[4.35rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-t-2xl border border-primary/20 bg-gray-950/95 px-5 pt-2 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl md:bottom-[5.35rem] md:px-6"
+                                    :class="{ 'recap-drawer--dragging': recapDragging }"
+                                    :style="{ transform: `translateY(${recapDragOffset}px)` }"
+                                    @pointermove="moveRecapDrag"
+                                    @pointerup="endRecapDrag"
+                                    @pointercancel="endRecapDrag"
                                 >
+                                    <button
+                                        type="button"
+                                        class="mx-auto flex h-7 w-full cursor-grab touch-none items-start justify-center pt-1 active:cursor-grabbing"
+                                        aria-label="Drag down to close recap"
+                                        @pointerdown="startRecapDrag"
+                                    >
+                                        <span class="h-1 w-12 rounded-full bg-white/35 transition-colors hover:bg-white/60" />
+                                    </button>
                                     <div class="mb-2 flex items-center justify-between">
                                         <span class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-300">Recap</span>
                                         <button
@@ -402,7 +441,7 @@ const handleInputSubmit = (prompt: string) => {
                             <div class="flex w-full items-center justify-start md:hidden">
                                 <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
-                            <div class="flex w-full items-center gap-2 overflow-x-auto px-1 md:max-w-3xl md:justify-start">
+                            <div class="relative z-10 flex w-full max-w-3xl items-center gap-2 overflow-x-auto rounded-t-[1.5rem] border border-white/15 border-b-transparent bg-[#111]/95 px-3 pt-2 pb-1 md:justify-start md:px-4">
                                 <button
                                     type="button"
                                     class="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-gray-300 transition hover:border-primary/50 hover:text-primary-300"
@@ -416,6 +455,7 @@ const handleInputSubmit = (prompt: string) => {
                                 </button>
                             </div>
                             <GameplayInput
+                                class="relative z-10"
                                 :disabled="props.inputDisabled"
                                 :glow-variant="inputGlowVariant"
                                 :placeholder="props.inputPlaceholder"
@@ -533,6 +573,10 @@ const handleInputSubmit = (prompt: string) => {
 .recap-drawer-leave-to {
     opacity: 0;
     transform: translateY(1rem);
+}
+
+.recap-drawer--dragging {
+    transition: none !important;
 }
 
 .backdrop-fade-enter-active,
