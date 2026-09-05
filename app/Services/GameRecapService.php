@@ -59,6 +59,7 @@ final class GameRecapService
 
                     throw new RuntimeException('The recap could not be generated.', previous: $fallbackFailure);
                 }
+            }
 
             Cache::put($cacheKey, $result, now()->addMinutes(30));
 
