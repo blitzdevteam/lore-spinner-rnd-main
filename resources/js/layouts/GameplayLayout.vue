@@ -7,6 +7,7 @@ import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayJournalPanel, { type JournalMeta } from '@/components/GameplayJournalPanel.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
+import GameplayRecapPanel from '@/components/GameplayRecapPanel.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
 import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
@@ -14,7 +15,7 @@ import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideRefreshCw, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -45,6 +46,9 @@ const props = withDefaults(
          * Suppresses the orbit glow so the UI does not read as "thinking".
          */
         inputLockedByDesign?: boolean;
+        recapText?: string | null;
+        recapLoading?: boolean;
+        recapError?: string | null;
     }>(),
     {
         inputDisabled: false,
@@ -56,6 +60,9 @@ const props = withDefaults(
         inputPlaceholder: '',
         nudgeTrigger: 0,
         inputLockedByDesign: false,
+        recapText: null,
+        recapLoading: false,
+        recapError: null,
     },
 );
 
@@ -108,7 +115,7 @@ function onInputReadyToType() {
     }
 }
 
-type Panel = 'journal' | 'settings' | 'audio' | null;
+type Panel = 'journal' | 'recap' | 'settings' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
 const journalTab = ref<'journals' | 'characters'>('journals');
@@ -152,6 +159,13 @@ watch([isMobile, activePanel], ([mobile, panel]) => {
 
 const toggleJournal = () => {
     activePanel.value = activePanel.value === 'journal' ? null : 'journal';
+};
+
+const toggleRecap = () => {
+    activePanel.value = activePanel.value === 'recap' ? null : 'recap';
+    if (activePanel.value === 'recap') {
+        emit('recap');
+    }
 };
 
 const refreshUsage = () => {
@@ -209,11 +223,13 @@ const closeMobilePanel = () => {
     }
 };
 
-const showDesktopBackdrop = () => !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'settings');
+const showDesktopBackdrop = () =>
+    !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'recap' || activePanel.value === 'settings');
 
 const emit = defineEmits<{
     submit: [prompt: string];
     back: [];
+    recap: [];
 }>();
 
 const handleInputSubmit = (prompt: string) => {
@@ -269,6 +285,15 @@ const handleInputSubmit = (prompt: string) => {
                         <!-- Right: desktop action buttons (capsule expands on hover) -->
                         <div class="hidden shrink-0 items-center gap-2 sm:gap-3 md:flex">
                             <GameplayCapsuleButton
+                                label="Recap"
+                                :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
+                                :active="activePanel === 'recap'"
+                                @click="toggleRecap"
+                            >
+                                <LucideX v-if="activePanel === 'recap'" class="size-5 text-primary-300" />
+                                <LucideRefreshCw v-else class="size-5 text-primary-300" />
+                            </GameplayCapsuleButton>
+                            <GameplayCapsuleButton
                                 label="Auto Play"
                                 :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'"
                                 :active="settings.autoplay"
@@ -304,6 +329,15 @@ const handleInputSubmit = (prompt: string) => {
 
                         <!-- Mobile: action pill -->
                         <div class="mobile-pill gameplay-header-glass flex md:hidden">
+                            <button
+                                class="mobile-pill__btn"
+                                :class="{ 'mobile-pill__btn--active': activePanel === 'recap' }"
+                                :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
+                                @click="toggleRecap"
+                            >
+                                <LucideX v-if="activePanel === 'recap'" class="size-5 text-primary-300" />
+                                <LucideRefreshCw v-else class="size-5 text-gray-300" />
+                            </button>
                             <button
                                 class="mobile-pill__btn"
                                 :class="{ 'mobile-pill__btn--active': activePanel === 'settings' }"
@@ -434,6 +468,29 @@ const handleInputSubmit = (prompt: string) => {
                         <GameplaySettingsPanel variant="sidebar" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
                     </div>
                 </div>
+                <div
+                    v-else-if="!isMobile && activePanel === 'recap'"
+                    key="recap"
+                    class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
+                >
+                    <div class="flex h-full w-full flex-col px-6 pt-8">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-semibold text-gray-50">Recap</h2>
+                            <button
+                                type="button"
+                                class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:border-primary/40 hover:text-primary-300"
+                                @click="activePanel = null"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <GameplayRecapPanel
+                            :text="props.recapText"
+                            :loading="props.recapLoading"
+                            :error="props.recapError"
+                        />
+                    </div>
+                </div>
             </Transition>
         </div>
 
@@ -451,6 +508,10 @@ const handleInputSubmit = (prompt: string) => {
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'settings'" title="Settings" @close="closeMobilePanel">
             <GameplaySettingsPanel variant="sheet" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
+        </GameplayBottomSheet>
+
+        <GameplayBottomSheet :open="isMobile && activePanel === 'recap'" title="Recap" @close="closeMobilePanel">
+            <GameplayRecapPanel :text="props.recapText" :loading="props.recapLoading" :error="props.recapError" />
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'audio'" title="Audio" @close="closeMobilePanel">

@@ -8,6 +8,7 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
 import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
+import { store as storeRecap } from '@/wayfinder/actions/App/Http/Controllers/User/Game/RecapController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -67,6 +68,9 @@ const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const streamError = ref<string | null>(null);
 const lastAttempt = ref<{ prompt: string; options: SubmitOptions } | null>(null);
+const recapText = ref<string | null>(null);
+const recapError = ref<string | null>(null);
+const recapLoading = ref(false);
 
 /**
  * A game refresh is fire-and-forget, so its response can land after a later turn
@@ -103,12 +107,45 @@ watch(
     () => props.game.prompts,
     (nextPrompts) => {
         if (isStreamingTurn.value) return;
+        recapText.value = null;
+        recapError.value = null;
         localPrompts.value = mergeServerPrompts([...(nextPrompts ?? [])]);
     },
     { deep: true },
 );
 
 const prompts = computed(() => localPrompts.value);
+
+async function loadRecap(): Promise<void> {
+    if (recapText.value || recapLoading.value) return;
+
+    recapLoading.value = true;
+    recapError.value = null;
+
+    try {
+        const route = storeRecap(props.game.id);
+        const response = await fetch(typeof route === 'string' ? route : route.url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': csrfToken(),
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('The recap could not be generated. Try again.');
+        }
+
+        const payload = (await response.json()) as { recap?: string };
+        recapText.value = payload.recap ?? null;
+    } catch {
+        recapError.value = 'The recap could not be generated. Try again.';
+    } finally {
+        recapLoading.value = false;
+    }
+}
 
 /**
  * The card the player is answering: the newest turn with no committed action yet.
@@ -287,6 +324,8 @@ const handleBegin = () => {
 
 const handleNextSession = () => {
     if (isStartingNextSession.value) return;
+    recapText.value = null;
+    recapError.value = null;
     tts.primeAudio();
     isStartingNextSession.value = true;
     const priorSession = props.game.current_session_number ?? 1;
@@ -330,6 +369,7 @@ const handleContinue = () => {
 
 const handleSubmit = (prompt: string) => {
     if (isSubmitting.value) return;
+    recapText.value = null;
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
@@ -340,6 +380,7 @@ const handleSubmit = (prompt: string) => {
 const handleRetryTurn = () => {
     const attempt = lastAttempt.value;
     if (isSubmitting.value || !attempt) return;
+    recapText.value = null;
     tts.primeAudio();
 
     // The source card may have been reissued by a refresh since the failure.
@@ -750,8 +791,12 @@ onUnmounted(() => {
         :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"
         :journal-meta="journalMeta"
+        :recap-text="recapText"
+        :recap-loading="recapLoading"
+        :recap-error="recapError"
         @submit="handleSubmit"
         @back="handleBack"
+        @recap="loadRecap"
     >
         <template #header>
             <div class="flex flex-col items-center gap-3 pt-2 pb-4">
