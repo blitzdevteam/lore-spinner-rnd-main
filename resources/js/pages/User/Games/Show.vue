@@ -8,7 +8,6 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
 import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
-import { store as storeRecap } from '@/wayfinder/actions/App/Http/Controllers/User/Game/RecapController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -123,8 +122,7 @@ async function loadRecap(): Promise<void> {
     recapError.value = null;
 
     try {
-        const route = storeRecap(props.game.id);
-        const response = await fetch(typeof route === 'string' ? route : route.url, {
+        const response = await fetch(`/user/games/${props.game.id}/recap`, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
