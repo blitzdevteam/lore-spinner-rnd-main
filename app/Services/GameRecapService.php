@@ -86,15 +86,18 @@ final class GameRecapService
         $request = Prism::structured()
             ->using($provider, $model)
             ->withSchema(new NativeObjectSchema(['recap' => $schema], 'game_recap'))
-            ->withMessages([
-                new SystemMessage($this->systemPrompt()),
-                new UserMessage($this->context($game)),
-            ])
+            ->withMessages([new UserMessage($this->context($game))])
             ->withClientOptions(['timeout' => 45, 'connect_timeout' => 10])
             ->withMaxTokens(300);
 
         if ($provider === 'openai') {
-            $request = $request->withProviderOptions(['schema' => ['strict' => true]]);
+            $request = $request
+                ->withSystemPrompt($this->systemPrompt())
+                ->withProviderOptions(['schema' => ['strict' => true]]);
+        } else {
+            $request = $request->withSystemPrompts([
+                new SystemMessage($this->systemPrompt()),
+            ]);
         }
 
         /** @var array<string, mixed> $structured */

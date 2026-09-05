@@ -115,9 +115,10 @@ function onInputReadyToType() {
     }
 }
 
-type Panel = 'journal' | 'recap' | 'settings' | 'audio' | null;
+type Panel = 'journal' | 'settings' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
+const recapOpen = ref(false);
 const journalTab = ref<'journals' | 'characters'>('journals');
 const journalSheetTab = ref<'timeline' | 'characters'>('timeline');
 const isMobile = ref(false);
@@ -162,8 +163,8 @@ const toggleJournal = () => {
 };
 
 const toggleRecap = () => {
-    activePanel.value = activePanel.value === 'recap' ? null : 'recap';
-    if (activePanel.value === 'recap') {
+    recapOpen.value = !recapOpen.value;
+    if (recapOpen.value) {
         emit('recap');
     }
 };
@@ -224,7 +225,7 @@ const closeMobilePanel = () => {
 };
 
 const showDesktopBackdrop = () =>
-    !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'recap' || activePanel.value === 'settings');
+    !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'settings');
 
 const emit = defineEmits<{
     submit: [prompt: string];
@@ -374,7 +375,30 @@ const handleInputSubmit = (prompt: string) => {
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
-                        <div class="flex flex-col items-center gap-3 px-0">
+                        <div class="relative flex flex-col items-center gap-3 px-0">
+                            <Transition name="recap-drawer">
+                                <div
+                                    v-if="recapOpen"
+                                    class="absolute right-0 bottom-[7.25rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-primary/20 bg-gray-950/95 px-5 pt-4 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl md:bottom-[8.25rem] md:px-6"
+                                >
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <span class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-300">Recap</span>
+                                        <button
+                                            type="button"
+                                            class="text-xs text-gray-500 transition hover:text-gray-200"
+                                            aria-label="Close recap"
+                                            @click="recapOpen = false"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                    <GameplayRecapPanel
+                                        :text="props.recapText"
+                                        :loading="props.recapLoading"
+                                        :error="props.recapError"
+                                    />
+                                </div>
+                            </Transition>
                             <div class="flex w-full items-center justify-start md:hidden">
                                 <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
@@ -382,11 +406,11 @@ const handleInputSubmit = (prompt: string) => {
                                 <button
                                     type="button"
                                     class="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-gray-300 transition hover:border-primary/50 hover:text-primary-300"
-                                    :class="{ 'border-primary/60 bg-primary/10 text-primary-300': activePanel === 'recap' }"
-                                    :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
+                                    :class="{ 'border-primary/60 bg-primary/10 text-primary-300': recapOpen }"
+                                    :title="recapOpen ? 'Close recap' : 'Catch me up'"
                                     @click="toggleRecap"
                                 >
-                                    <LucideX v-if="activePanel === 'recap'" class="size-4" />
+                                    <LucideX v-if="recapOpen" class="size-4" />
                                     <LucideMenu v-else class="size-4 text-primary-300" />
                                     <span>Recap</span>
                                 </button>
@@ -463,29 +487,6 @@ const handleInputSubmit = (prompt: string) => {
                         <GameplaySettingsPanel variant="sidebar" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
                     </div>
                 </div>
-                <div
-                    v-else-if="!isMobile && activePanel === 'recap'"
-                    key="recap"
-                    class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
-                >
-                    <div class="flex h-full w-full flex-col px-6 pt-8">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-xl font-semibold text-gray-50">Recap</h2>
-                            <button
-                                type="button"
-                                class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:border-primary/40 hover:text-primary-300"
-                                @click="activePanel = null"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <GameplayRecapPanel
-                            :text="props.recapText"
-                            :loading="props.recapLoading"
-                            :error="props.recapError"
-                        />
-                    </div>
-                </div>
             </Transition>
         </div>
 
@@ -505,10 +506,6 @@ const handleInputSubmit = (prompt: string) => {
             <GameplaySettingsPanel variant="sheet" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
         </GameplayBottomSheet>
 
-        <GameplayBottomSheet :open="isMobile && activePanel === 'recap'" title="Recap" @close="closeMobilePanel">
-            <GameplayRecapPanel :text="props.recapText" :loading="props.recapLoading" :error="props.recapError" />
-        </GameplayBottomSheet>
-
         <GameplayBottomSheet :open="isMobile && activePanel === 'audio'" title="Audio" @close="closeMobilePanel">
             <GameplayAudioPanel :game-id="props.gameId" :prompt-id="props.latestPromptId" />
         </GameplayBottomSheet>
@@ -525,6 +522,17 @@ const handleInputSubmit = (prompt: string) => {
 .sidebar-slide-leave-to {
     width: 0;
     opacity: 0;
+}
+
+.recap-drawer-enter-active,
+.recap-drawer-leave-active {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.recap-drawer-enter-from,
+.recap-drawer-leave-to {
+    opacity: 0;
+    transform: translateY(1rem);
 }
 
 .backdrop-fade-enter-active,
