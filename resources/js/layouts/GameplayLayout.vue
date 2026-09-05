@@ -15,7 +15,7 @@ import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideRefreshCw, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideAudioLines, LucideChevronLeft, LucideMenu, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -285,15 +285,6 @@ const handleInputSubmit = (prompt: string) => {
                         <!-- Right: desktop action buttons (capsule expands on hover) -->
                         <div class="hidden shrink-0 items-center gap-2 sm:gap-3 md:flex">
                             <GameplayCapsuleButton
-                                label="Recap"
-                                :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
-                                :active="activePanel === 'recap'"
-                                @click="toggleRecap"
-                            >
-                                <LucideX v-if="activePanel === 'recap'" class="size-5 text-primary-300" />
-                                <LucideRefreshCw v-else class="size-5 text-primary-300" />
-                            </GameplayCapsuleButton>
-                            <GameplayCapsuleButton
                                 label="Auto Play"
                                 :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'"
                                 :active="settings.autoplay"
@@ -329,15 +320,6 @@ const handleInputSubmit = (prompt: string) => {
 
                         <!-- Mobile: action pill -->
                         <div class="mobile-pill gameplay-header-glass flex md:hidden">
-                            <button
-                                class="mobile-pill__btn"
-                                :class="{ 'mobile-pill__btn--active': activePanel === 'recap' }"
-                                :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
-                                @click="toggleRecap"
-                            >
-                                <LucideX v-if="activePanel === 'recap'" class="size-5 text-primary-300" />
-                                <LucideRefreshCw v-else class="size-5 text-gray-300" />
-                            </button>
                             <button
                                 class="mobile-pill__btn"
                                 :class="{ 'mobile-pill__btn--active': activePanel === 'settings' }"
@@ -395,6 +377,19 @@ const handleInputSubmit = (prompt: string) => {
                         <div class="flex flex-col items-center gap-3 px-0">
                             <div class="flex w-full items-center justify-start md:hidden">
                                 <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
+                            </div>
+                            <div class="flex w-full items-center gap-2 overflow-x-auto px-1 md:max-w-3xl md:justify-start">
+                                <button
+                                    type="button"
+                                    class="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-gray-300 transition hover:border-primary/50 hover:text-primary-300"
+                                    :class="{ 'border-primary/60 bg-primary/10 text-primary-300': activePanel === 'recap' }"
+                                    :title="activePanel === 'recap' ? 'Close recap' : 'Catch me up'"
+                                    @click="toggleRecap"
+                                >
+                                    <LucideX v-if="activePanel === 'recap'" class="size-4" />
+                                    <LucideMenu v-else class="size-4 text-primary-300" />
+                                    <span>Recap</span>
+                                </button>
                             </div>
                             <GameplayInput
                                 :disabled="props.inputDisabled"
