@@ -15,7 +15,7 @@ import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronLeft, LucideMenu, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideAudioLines, LucideChevronDown, LucideChevronLeft, LucideChevronUp, LucideMenu, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -118,7 +118,7 @@ function onInputReadyToType() {
 type Panel = 'journal' | 'settings' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
-const recapOpen = ref(false);
+const recapView = ref<'closed' | 'actions' | 'recap'>('closed');
 const recapDrawerEl = ref<HTMLElement | null>(null);
 const recapDragOffset = ref(0);
 const recapDragging = ref(false);
@@ -166,12 +166,21 @@ const toggleJournal = () => {
     activePanel.value = activePanel.value === 'journal' ? null : 'journal';
 };
 
+const toggleRecapPanel = () => {
+    // Toggle the hidden action strip that reveals the Recap button.
+    recapView.value = recapView.value === 'closed' ? 'actions' : 'closed';
+};
+
 const toggleRecap = () => {
+    // From the action strip, open the recap drawer (slides up from behind the chat bar).
     recapDragOffset.value = 0;
-    recapOpen.value = !recapOpen.value;
-    if (recapOpen.value) {
-        emit('recap');
-    }
+    recapView.value = 'recap';
+    emit('recap');
+};
+
+const closeRecap = () => {
+    recapDragOffset.value = 0;
+    recapView.value = 'actions';
 };
 
 function startRecapDrag(event: PointerEvent): void {
@@ -189,7 +198,7 @@ function endRecapDrag(): void {
     if (!recapDragging.value) return;
     recapDragging.value = false;
     if (recapDragOffset.value > 72) {
-        recapOpen.value = false;
+        closeRecap();
     }
     recapDragOffset.value = 0;
 }
@@ -401,11 +410,12 @@ const handleInputSubmit = (prompt: string) => {
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
                         <div class="relative flex flex-col items-center gap-0 px-0">
+                            <!-- ── Recap drawer (behind chat bar, slides up) ── -->
                             <Transition name="recap-drawer">
                                 <div
-                                    v-if="recapOpen"
+                                    v-if="recapView === 'recap'"
                                     ref="recapDrawerEl"
-                                    class="absolute right-0 bottom-[4.35rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-t-2xl border border-primary/20 bg-gray-950/95 px-5 pt-2 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl md:bottom-[5.35rem] md:px-6"
+                                    class="absolute right-0 bottom-[4.5rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-t-2xl border border-primary/20 bg-gray-950/97 px-5 pt-2 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl md:bottom-[5.5rem] md:px-6"
                                     :class="{ 'recap-drawer--dragging': recapDragging }"
                                     :style="{ transform: `translateY(${recapDragOffset}px)` }"
                                     @pointermove="moveRecapDrag"
@@ -426,7 +436,7 @@ const handleInputSubmit = (prompt: string) => {
                                             type="button"
                                             class="text-xs text-gray-500 transition hover:text-gray-200"
                                             aria-label="Close recap"
-                                            @click="recapOpen = false"
+                                            @click="closeRecap"
                                         >
                                             Close
                                         </button>
@@ -438,32 +448,61 @@ const handleInputSubmit = (prompt: string) => {
                                     />
                                 </div>
                             </Transition>
-                            <div class="flex w-full items-center justify-start md:hidden">
-                                <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
-                            </div>
-                            <div class="relative z-10 flex w-full max-w-3xl items-center gap-2 overflow-x-auto rounded-t-[1.5rem] border border-white/15 border-b-transparent bg-[#111]/95 px-3 pt-2 pb-1 md:justify-start md:px-4">
+
+                            <!-- ── Chat bar shell (always in front) ── -->
+                            <div class="relative z-10 flex w-full max-w-3xl flex-col items-center gap-2">
+                                <!-- Subtle toggle handle (hidden by default, expands action strip) -->
                                 <button
                                     type="button"
-                                    class="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-gray-300 transition hover:border-primary/50 hover:text-primary-300"
-                                    :class="{ 'border-primary/60 bg-primary/10 text-primary-300': recapOpen }"
-                                    :title="recapOpen ? 'Close recap' : 'Catch me up'"
-                                    @click="toggleRecap"
+                                    class="group flex h-6 w-full max-w-3xl items-center justify-center"
+                                    :title="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    @click="toggleRecapPanel"
                                 >
-                                    <LucideX v-if="recapOpen" class="size-4" />
-                                    <LucideMenu v-else class="size-4 text-primary-300" />
-                                    <span>Recap</span>
+                                    <span class="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
+                                        <LucideChevronUp v-if="recapView === 'closed'" class="size-3.5" />
+                                        <LucideChevronDown v-else class="size-3.5" />
+                                    </span>
                                 </button>
+
+                                <!-- Action strip (expands on toggle, shows Recap button) -->
+                                <Transition name="action-strip">
+                                    <div
+                                        v-if="recapView !== 'closed'"
+                                        class="flex w-full items-center gap-2 overflow-x-auto rounded-2xl border border-white/12 bg-[#111]/95 px-3 py-2 md:px-4"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
+                                            :class="recapView === 'recap'
+                                                ? 'border-primary/60 bg-primary/15 text-primary-300'
+                                                : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
+                                            :title="recapView === 'recap' ? 'Close recap' : 'Catch me up'"
+                                            @click="recapView === 'recap' ? closeRecap() : toggleRecap()"
+                                        >
+                                            <LucideX v-if="recapView === 'recap'" class="size-4" />
+                                            <LucideMenu v-else class="size-4 text-primary-300" />
+                                            <span>Recap</span>
+                                        </button>
+                                    </div>
+                                </Transition>
+
+                                <!-- Mobile media player -->
+                                <div class="flex w-full items-center justify-start md:hidden">
+                                    <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
+                                </div>
+
+                                <!-- Chat input -->
+                                <GameplayInput
+                                    :disabled="props.inputDisabled"
+                                    :glow-variant="inputGlowVariant"
+                                    :placeholder="props.inputPlaceholder"
+                                    @submit="handleInputSubmit"
+                                    @ready-to-type="onInputReadyToType"
+                                    @focus="inputFocused = true"
+                                    @blur="inputFocused = false"
+                                />
                             </div>
-                            <GameplayInput
-                                class="relative z-10"
-                                :disabled="props.inputDisabled"
-                                :glow-variant="inputGlowVariant"
-                                :placeholder="props.inputPlaceholder"
-                                @submit="handleInputSubmit"
-                                @ready-to-type="onInputReadyToType"
-                                @focus="inputFocused = true"
-                                @blur="inputFocused = false"
-                            />
                         </div>
                     </div>
                 </div>
@@ -577,6 +616,24 @@ const handleInputSubmit = (prompt: string) => {
 
 .recap-drawer--dragging {
     transition: none !important;
+}
+
+.action-strip-enter-active,
+.action-strip-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease;
+    overflow: hidden;
+}
+
+.action-strip-enter-from,
+.action-strip-leave-to {
+    opacity: 0;
+    transform: translateY(0.5rem);
+    max-height: 0;
+}
+
+.action-strip-enter-to,
+.action-strip-leave-from {
+    max-height: 4rem;
 }
 
 .backdrop-fade-enter-active,
