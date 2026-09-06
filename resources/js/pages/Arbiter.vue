@@ -12,8 +12,8 @@ import playersIcon from '@/assets/arbiter/players.svg';
 import questionIcon from '@/assets/arbiter/question.svg';
 import sendIcon from '@/assets/arbiter/send.svg';
 import settingsIcon from '@/assets/arbiter/settings.svg';
-import BaseButton from '@/components/BaseButton.vue';
 import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
+import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
@@ -1394,9 +1394,9 @@ onUnmounted(() => {
             aria-hidden="true"
         />
 
-        <BaseButton severity="header-glass" :icon-only="true" class="arbiter-back" title="Go back" @click="goBack">
+        <GameplayCapsuleButton label="Back" class="arbiter-back" title="Go back" @click="goBack">
             <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
-        </BaseButton>
+        </GameplayCapsuleButton>
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
@@ -1405,56 +1405,51 @@ onUnmounted(() => {
                 </div>
 
                 <div class="arbiter-mobile-panel-controls" role="group" aria-label="Room panels">
-                    <BaseButton
-                        severity="header-glass"
-                        :icon-only="true"
+                    <GameplayCapsuleButton
+                        label="Players"
                         class="arbiter-mobile-panel-button"
-                        :class="{ 'gameplay-header-glass--active': activeMobilePanel === 'players' }"
+                        :active="activeMobilePanel === 'players'"
                         :title="activeMobilePanel === 'players' ? 'Close Players' : 'Open Players'"
                         :aria-expanded="activeMobilePanel === 'players'"
                         aria-controls="arbiter-players-drawer"
                         @click="togglePlayersPanel"
                     >
                         <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                    </BaseButton>
-                    <BaseButton
-                        severity="header-glass"
-                        :icon-only="true"
+                    </GameplayCapsuleButton>
+                    <GameplayCapsuleButton
+                        label="Chat"
                         class="arbiter-mobile-panel-button"
-                        :class="{ 'gameplay-header-glass--active': activeMobilePanel === 'chat' }"
+                        :active="activeMobilePanel === 'chat'"
                         :title="activeMobilePanel === 'chat' ? 'Close Chat' : 'Open Chat'"
                         :aria-expanded="activeMobilePanel === 'chat'"
                         aria-controls="arbiter-chat-drawer"
                         @click="toggleChatPanel"
                     >
                         <img :src="chatIcon" alt="" class="size-5" aria-hidden="true" />
-                    </BaseButton>
+                    </GameplayCapsuleButton>
                 </div>
             </header>
 
             <div class="arbiter-grid">
                 <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Players">
                     <div class="rail-tabs">
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Help">
+                        <GameplayCapsuleButton label="Help" class="rail-header-button" title="Help">
                             <img :src="questionIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton label="Settings" label-tone="secondary" class="rail-header-button" title="Settings">
                             <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton
-                            severity="header-glass"
-                            class="rail-tab"
-                            :class="{ 'gameplay-header-glass--active': isPlayersPanelOpen }"
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Players"
+                            class="rail-header-button"
+                            :active="isPlayersPanelOpen"
                             :title="isPlayersPanelOpen ? 'Hide Players' : 'Show Players'"
                             :aria-expanded="isPlayersPanelOpen"
                             aria-controls="arbiter-players-panel"
                             @click="togglePlayersPanel"
                         >
-                            <span class="rail-tab-content">
-                                <img :src="playersIcon" alt="" class="size-[18px]" aria-hidden="true" />
-                                <span>Players</span>
-                            </span>
-                        </BaseButton>
+                            <img :src="playersIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
                     </div>
 
                     <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
@@ -1682,29 +1677,26 @@ onUnmounted(() => {
 
                 <aside v-if="!isMobile" class="arbiter-rail arbiter-right-rail" aria-label="Chat">
                     <div class="rail-tabs rail-tabs--right">
-                        <BaseButton
-                            severity="header-glass"
-                            class="rail-tab"
-                            :class="{ 'gameplay-header-glass--active': isChatPanelOpen }"
+                        <GameplayCapsuleButton
+                            label="Chat"
+                            class="rail-header-button"
+                            :active="isChatPanelOpen"
                             :title="isChatPanelOpen ? 'Hide Chat' : 'Show Chat'"
                             :aria-expanded="isChatPanelOpen"
                             aria-controls="arbiter-chat-panel"
                             @click="toggleChatPanel"
                         >
-                            <span class="rail-tab-content">
-                                <img :src="chatIcon" alt="" class="size-[18px]" aria-hidden="true" />
-                                <span>Chat</span>
-                            </span>
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Power">
+                            <img :src="chatIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton label="Power" class="rail-header-button" title="Power">
                             <img :src="lightningIcon" alt="" class="size-[25px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Game order">
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton label="Game order" class="rail-header-button" title="Game order">
                             <LucideList class="size-[25.2px] text-gray-300" :stroke-width="1.75" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Notes">
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton label="Notes" label-tone="secondary" class="rail-header-button" title="Notes">
                             <img :src="notesIcon" alt="" class="size-[22.68px]" aria-hidden="true" />
-                        </BaseButton>
+                        </GameplayCapsuleButton>
                     </div>
 
                     <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
@@ -1949,8 +1941,7 @@ onUnmounted(() => {
 }
 
 .arbiter-mobile-panel-button {
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
+    flex: 0 0 auto;
 }
 
 .arbiter-back {
@@ -1958,8 +1949,6 @@ onUnmounted(() => {
     z-index: 5;
     top: 1.5625rem;
     left: 1.25rem;
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
 }
 
 .gameplay-paused-notice {
@@ -2048,34 +2037,8 @@ onUnmounted(() => {
     justify-content: flex-end;
 }
 
-.rail-icon-button {
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
+.rail-header-button {
     flex: 0 0 auto;
-}
-
-.rail-tab {
-    width: auto !important;
-    height: 2.1875rem !important;
-    flex: 0 0 auto;
-    border-radius: 9999px !important;
-    padding: 0 0.6875rem !important;
-    color: #e4e4e4;
-    font-size: 0.875rem;
-    font-weight: 500;
-    line-height: 1.2875rem;
-}
-
-.rail-tab.gameplay-header-glass--active {
-    color: #ffbe58;
-}
-
-.rail-tab-content {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    white-space: nowrap;
 }
 
 .arbiter-panel {
