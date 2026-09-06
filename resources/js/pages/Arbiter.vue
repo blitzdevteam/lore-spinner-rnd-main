@@ -1451,7 +1451,7 @@ onUnmounted(() => {
                             @click="togglePlayersPanel"
                         >
                             <span class="rail-tab-content">
-                                <img :src="playersIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
+                                <img :src="playersIcon" alt="" class="size-[18px]" aria-hidden="true" />
                                 <span>Players</span>
                             </span>
                         </BaseButton>
@@ -1692,7 +1692,7 @@ onUnmounted(() => {
                             @click="toggleChatPanel"
                         >
                             <span class="rail-tab-content">
-                                <img :src="chatIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
+                                <img :src="chatIcon" alt="" class="size-[18px]" aria-hidden="true" />
                                 <span>Chat</span>
                             </span>
                         </BaseButton>
@@ -2056,13 +2056,14 @@ onUnmounted(() => {
 
 .rail-tab {
     width: auto !important;
-    height: 2.8125rem !important;
+    height: 2.1875rem !important;
     flex: 0 0 auto;
     border-radius: 9999px !important;
-    padding: 0 1rem 0 0.45rem !important;
+    padding: 0 0.6875rem !important;
     color: #e4e4e4;
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 500;
+    line-height: 1.2875rem;
 }
 
 .rail-tab.gameplay-header-glass--active {
@@ -2072,7 +2073,8 @@ onUnmounted(() => {
 .rail-tab-content {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: center;
+    gap: 0.375rem;
     white-space: nowrap;
 }
 
@@ -3221,11 +3223,6 @@ onUnmounted(() => {
 @media (max-width: 440px) {
     .rail-tabs {
         gap: 0.35rem;
-    }
-
-    .rail-tab {
-        padding-right: 0.75rem;
-        font-size: 1rem;
     }
 
     .arbiter-panel {
