@@ -32,6 +32,12 @@ final class RecordMultiplayerLobbyHeartbeatAction
                 return null;
             }
 
+            if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Closed) {
+                $rejoinRequired = true;
+
+                return null;
+            }
+
             $member = $lockedLobby->members()
                 ->whereBelongsTo($user)
                 ->lockForUpdate()
@@ -50,7 +56,7 @@ final class RecordMultiplayerLobbyHeartbeatAction
             $now = now();
             $member->update(['last_seen_at' => $now]);
 
-            return $this->markStaleMembersAsLeft($lockedLobby, $now);
+            return $this->removeStaleMembers($lockedLobby, $now);
         });
 
         $this->broadcastDeparture($departedLobby);
@@ -69,7 +75,7 @@ final class RecordMultiplayerLobbyHeartbeatAction
                 return null;
             }
 
-            return $this->markStaleMembersAsLeft($lockedLobby, now());
+            return $this->removeStaleMembers($lockedLobby, now());
         });
 
         $this->broadcastDeparture($departedLobby);
@@ -77,7 +83,7 @@ final class RecordMultiplayerLobbyHeartbeatAction
         return $departedLobby !== null;
     }
 
-    private function markStaleMembersAsLeft(MultiplayerLobby $lobby, Carbon $now): ?MultiplayerLobby
+    private function removeStaleMembers(MultiplayerLobby $lobby, Carbon $now): ?MultiplayerLobby
     {
         if (! in_array($lobby->status, [
             MultiplayerLobbyStatusEnum::Started,

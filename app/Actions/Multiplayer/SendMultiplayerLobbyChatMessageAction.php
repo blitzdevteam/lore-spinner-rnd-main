@@ -30,6 +30,8 @@ final class SendMultiplayerLobbyChatMessageAction
                 throw MultiplayerLobbyStateException::mustRejoinBeforeChatting();
             }
 
+            $lockedLobby->update(['last_activity_at' => now()]);
+
             return $lockedLobby->chatMessages()->create([
                 'user_id' => $user->id,
                 'body' => $body,

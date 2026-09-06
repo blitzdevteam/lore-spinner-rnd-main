@@ -18,4 +18,9 @@ final class MultiplayerLobbyPolicy
     {
         return $lobby->host_user_id === $user->id;
     }
+
+    public function updateSettings(User $user, MultiplayerLobby $lobby): bool
+    {
+        return $lobby->host_user_id === $user->id;
+    }
 }

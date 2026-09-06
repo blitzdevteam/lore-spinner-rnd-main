@@ -30,9 +30,10 @@ final class MultiplayerLobbyFactory extends Factory
             'mode' => MultiplayerLobbyModeEnum::Arbiter,
             'status' => MultiplayerLobbyStatusEnum::Waiting,
             'max_players' => 4,
+            'last_activity_at' => now(),
             'settings' => [
                 'custom_input_enabled' => true,
-                'voice_over_enabled' => false,
+                'voice_over_enabled' => true,
                 'power_ups_per_user' => 10,
                 'decision_window_seconds' => 20,
             ],

@@ -68,7 +68,7 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 throw MultiplayerLobbyStateException::rouletteChoicesAreNotReady();
             }
 
-            if ($choiceIndex === null && ! $lockedLobby->settings['custom_input_enabled']) {
+            if ($choiceIndex === null && ! $lockedLobby->customInputEnabled()) {
                 throw MultiplayerLobbyStateException::rouletteCustomInputIsDisabled();
             }
 
@@ -107,6 +107,7 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Narrating,
                 'decision_deadline_at' => null,
                 'decision_remaining_seconds' => null,
+                'last_activity_at' => now(),
             ]);
 
             return [

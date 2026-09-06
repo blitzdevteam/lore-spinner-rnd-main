@@ -97,7 +97,7 @@ final class SubmitMultiplayerLobbyProposalAction
                 ->all();
 
             if (array_diff($requiredMemberIds, $submittedMemberIds) === []) {
-                $decisionDeadlineAt = now()->addSeconds((int) $lockedLobby->settings['decision_window_seconds']);
+                $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
                 $decisionSourcePromptId = (string) $sourcePrompt->id;
 
                 $lockedLobby->update([
@@ -106,6 +106,8 @@ final class SubmitMultiplayerLobbyProposalAction
                     'decision_remaining_seconds' => null,
                 ]);
             }
+
+            $lockedLobby->update(['last_activity_at' => now()]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);
         });

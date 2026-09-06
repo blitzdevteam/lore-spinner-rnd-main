@@ -28,6 +28,7 @@ final class UpdateMultiplayerLobbyReadinessAction
 
             $member = $lockedLobby->members()
                 ->whereBelongsTo($user)
+                ->whereNull('left_at')
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -35,6 +36,8 @@ final class UpdateMultiplayerLobbyReadinessAction
                 $member->update(['is_ready' => $isReady]);
                 $readinessChanged = true;
             }
+
+            $lockedLobby->update(['last_activity_at' => now()]);
 
             return $lockedLobby->load(['host', 'members.user']);
         });

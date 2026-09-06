@@ -18,6 +18,11 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('Only the lobby host can start the story.');
     }
 
+    public static function onlyHostCanUpdateSettings(): self
+    {
+        return new self('Only the lobby host can update these settings.');
+    }
+
     public static function needsMorePlayers(): self
     {
         return new self('At least three players must be in the lobby before the story can start.');
