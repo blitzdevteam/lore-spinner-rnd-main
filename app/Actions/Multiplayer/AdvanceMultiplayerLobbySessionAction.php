@@ -90,6 +90,7 @@ final class AdvanceMultiplayerLobbySessionAction
                     'turn_status' => MultiplayerArbiterTurnStatusEnum::SessionComplete,
                     'decision_deadline_at' => null,
                     'decision_remaining_seconds' => null,
+                    'last_activity_at' => $now,
                 ]);
                 $shouldRecordActivity = true;
 
@@ -108,6 +109,7 @@ final class AdvanceMultiplayerLobbySessionAction
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Opening,
                 'decision_deadline_at' => null,
                 'decision_remaining_seconds' => null,
+                'last_activity_at' => now(),
             ]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);

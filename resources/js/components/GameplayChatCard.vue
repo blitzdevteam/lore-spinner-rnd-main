@@ -27,6 +27,7 @@ const props = defineProps<{
     isStreamingResponse?: boolean;
     usesPlayableMoments?: boolean;
     narrationOnly?: boolean;
+    voiceOverEnabled?: boolean;
     /**
      * Onboarding staging (first two turns of a game only).
      * choicesLocked → turn 1: no buttons at all, the player must type or speak.
@@ -46,6 +47,7 @@ const emit = defineEmits<{
 
 const tts = useTextToSpeech();
 const typewriter = useTypewriter();
+const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);
 
 const effectiveSelection = computed(() => {
     return props.prompt.prompt || props.pendingChoice || null;
@@ -155,7 +157,7 @@ const isThisLoading = computed(() => tts.isLoading.value && tts.activeKey.value 
 const hasPlayedOnce = computed(() => tts.hasPlayed(props.gameId, props.prompt.id) || isThisPlaying.value || isThisLoading.value);
 
 const handleListenAgain = () => {
-    if (listenDisabled.value) return;
+    if (!voiceOverEnabled.value || listenDisabled.value) return;
     tts.toggle(props.gameId, props.prompt.id);
 };
 
@@ -169,7 +171,7 @@ const handleNarrationClick = () => {
 // by the time the text finishes.
 const beginNarration = (response: string) => {
     typewriter.start(response);
-    if (gameplaySettings.autoplay) {
+    if (voiceOverEnabled.value && gameplaySettings.autoplay) {
         tts.prefetch(props.gameId, props.prompt.id);
     }
 };
@@ -181,7 +183,7 @@ onMounted(() => {
         beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
-        if (props.isLatest && gameplaySettings.autoplay) {
+        if (voiceOverEnabled.value && props.isLatest && gameplaySettings.autoplay) {
             tts.play(props.gameId, props.prompt.id);
         }
     }
@@ -217,9 +219,19 @@ watch(
     (isTyping, wasTyping) => {
         if (isTyping || !wasTyping) return; // only on true → false transition
         if (!props.isLatest || !props.animate) return;
-        if (!gameplaySettings.autoplay) return;
+        if (!voiceOverEnabled.value || !gameplaySettings.autoplay) return;
         tts.play(props.gameId, props.prompt.id);
     },
+);
+
+watch(
+    voiceOverEnabled,
+    (enabled) => {
+        if (!enabled) {
+            tts.dismiss();
+        }
+    },
+    { immediate: true },
 );
 
 // Nudge trigger: fire once when this card first becomes actionable. Not conditioned
@@ -263,8 +275,9 @@ watch(choicesVisible, (visible, wasVisible) => {
         </div>
 
         <!-- ── Listen Again + Continue ── -->
-        <div v-if="showResponseActions" class="flex flex-row flex-wrap items-center gap-1.5">
+        <div v-if="showResponseActions && (voiceOverEnabled || showContinueButton)" class="flex flex-row flex-wrap items-center gap-1.5">
             <button
+                v-if="voiceOverEnabled"
                 type="button"
                 class="narration-action-pill listen-again-pill relative flex h-[50px] w-auto items-center gap-[5px] overflow-hidden rounded-[60px] p-[6px] pe-3.5"
                 :class="{ 'cursor-not-allowed opacity-55': listenDisabled }"

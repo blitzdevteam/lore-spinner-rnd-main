@@ -105,6 +105,7 @@ final class ProcessMultiplayerLobbyNextSessionAction
                 $openingHandoff,
                 $resolvedConsequencePath,
                 $boilerStateBeforeTransition,
+                $lobby->voiceOverEnabled(),
             );
         } catch (Throwable $exception) {
             Log::channel('narration')->error('multiplayer.arbiter.next_session_failed', [

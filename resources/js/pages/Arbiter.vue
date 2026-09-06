@@ -30,6 +30,7 @@ import type {
     PromptInterface,
 } from '@/types';
 import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { useConnectionStatus, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
@@ -86,6 +87,11 @@ type MultiplayerLobbyMembershipSignal = {
     };
 };
 
+type MultiplayerLobbyClosedSignal = {
+    lobby_id: string;
+    message: string;
+};
+
 type ArbiterTypingWhisper = {
     is_typing: boolean;
     user_id: number;
@@ -126,6 +132,7 @@ const currentMember = computed(() => members.value.find((member) => member.user.
 const currentArbiter = computed(() => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null);
 const currentChooser = computed(() => members.value.find((member) => member.id === props.arbiter.current_chooser_member_id) ?? null);
 const isRouletteMode = computed(() => props.lobby.mode === 'roulette');
+const voiceOverEnabled = computed(() => props.lobby.settings.voice_over_enabled ?? true);
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
 const isCurrentUserChooser = computed(() => props.arbiter.is_current_user_chooser);
@@ -137,9 +144,7 @@ const isSessionComplete = computed(() => turnStatus.value === 'session_complete'
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isGameplayPaused = computed(() => props.lobby.status === 'paused');
 const hasDecisionTimer = computed(() => isAwaitingArbiter.value || isAwaitingRouletteChoice.value);
-const decisionWindowSeconds = computed(
-    () => props.arbiter.decision_window_seconds ?? (isRouletteMode.value ? 120 : props.lobby.settings.decision_window_seconds),
-);
+const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
     const deadline = props.arbiter.decision_deadline_at;
@@ -271,6 +276,7 @@ const canChooseRouletteChoice = computed(
 );
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
+const isLobbyClosing = ref(false);
 const actionError = ref<string | null>(null);
 const typingMemberIds = ref(new Set<string>());
 const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
@@ -970,13 +976,19 @@ function lobbyEndpoint(suffix: string): string {
     return `${showMultiplayerLobby(props.lobby.room_code).url}${suffix}`;
 }
 
+function primeNarrationAudio(): void {
+    if (voiceOverEnabled.value) {
+        tts.primeAudio();
+    }
+}
+
 function submitProposal(proposal: string): void {
     if (!canSubmitProposal.value || isSubmittingProposal.value) {
         return;
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSubmittingProposal.value = true;
 
     router.post(
@@ -1000,7 +1012,7 @@ function submitRouletteCustomChoice(proposal: string): void {
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSubmittingProposal.value = true;
     const sourcePromptId = props.arbiter.source_prompt_id;
     const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
@@ -1043,7 +1055,7 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSelectingProposal.value = true;
     const sourcePromptId = props.arbiter.source_prompt_id;
     const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
@@ -1076,7 +1088,7 @@ function chooseRouletteChoice(choice: MultiplayerGeneratedChoiceInterface): void
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSelectingProposal.value = true;
     const sourcePromptId = props.arbiter.source_prompt_id;
     const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
@@ -1147,6 +1159,10 @@ function leaveRoom(): void {
 }
 
 function reloadArbiterState(): void {
+    if (isLobbyClosing.value) {
+        return;
+    }
+
     if (isReloadingArbiterState) {
         isArbiterStateReloadPending = true;
 
@@ -1180,7 +1196,7 @@ function csrfToken(): string {
 function sendLobbyHeartbeat(): void {
     const member = currentMember.value;
 
-    if (isSendingLobbyHeartbeat || isLeavingLobby.value || !member || member.left_at !== null) {
+    if (isSendingLobbyHeartbeat || isLeavingLobby.value || isLobbyClosing.value || !member || member.left_at !== null) {
         return;
     }
 
@@ -1196,6 +1212,15 @@ function sendLobbyHeartbeat(): void {
         },
     })
         .then((response) => {
+            if (response.status === 410 && !isLeavingLobby.value && !isLobbyClosing.value) {
+                handleLobbyClosed({
+                    lobby_id: props.lobby.id,
+                    message: 'This lobby has been closed. Rejoin with the room code to open it again.',
+                });
+
+                return;
+            }
+
             if (response.status === 409 && !isLeavingLobby.value) {
                 reloadArbiterState();
             }
@@ -1222,7 +1247,7 @@ function stopLobbyHeartbeat(): void {
 
 function handleDocumentVisibilityChange(): void {
     if (document.visibilityState === 'visible') {
-        reloadArbiterState();
+        sendLobbyHeartbeat();
     }
 }
 
@@ -1240,6 +1265,22 @@ function stopDecisionTimer(): void {
 
     window.clearInterval(decisionTimerInterval);
     decisionTimerInterval = null;
+}
+
+function handleLobbyClosed(signal: MultiplayerLobbyClosedSignal): void {
+    if (signal.lobby_id !== props.lobby.id || isLobbyClosing.value) {
+        return;
+    }
+
+    isLobbyClosing.value = true;
+    stopLobbyHeartbeat();
+    handleProposalTyping(false);
+    tts.dismiss();
+    window.alert(signal.message);
+
+    router.visit(multiplayerStoryRoute.url(props.lobby.story.slug), {
+        replace: true,
+    });
 }
 
 useEchoPresence<ArbiterStateSignal>(lobbyChannelName, '.multiplayer.arbiter.state.changed', (signal) => {
@@ -1265,6 +1306,8 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
 
     reloadArbiterState();
 });
+
+useEchoPresence<MultiplayerLobbyClosedSignal>(lobbyChannelName, '.multiplayer.lobby.closed', handleLobbyClosed);
 
 useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.narration.streamed', (signal) => {
     if (signal.lobby_id !== props.lobby.id) {
@@ -1357,7 +1400,7 @@ onUnmounted(() => {
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
-                <div v-if="tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
+                <div v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
                     <GameplayMediaPlayer />
                 </div>
 
@@ -1518,6 +1561,7 @@ onUnmounted(() => {
                                 :is-submitting="isNarrating"
                                 :is-streaming-response="prompt.id === streamingPromptId"
                                 :narration-only="true"
+                                :voice-over-enabled="voiceOverEnabled"
                             />
                         </div>
 
@@ -1700,12 +1744,12 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <footer v-if="shouldShowCustomInput || isGameplayPaused || (tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
+        <footer v-if="shouldShowCustomInput || isGameplayPaused || (voiceOverEnabled && tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
             <section v-if="isGameplayPaused" class="gameplay-paused-notice flex items-center backdrop-blur-[2px]" role="status" aria-live="polite">
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
             </section>
-            <div v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
+            <div v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
                 <GameplayMediaPlayer />
             </div>
             <GameplayInput

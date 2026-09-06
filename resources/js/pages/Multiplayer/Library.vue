@@ -39,6 +39,7 @@ useEcho<MultiplayerLobbyLibraryEventPayload>(
         '.multiplayer.lobby.member.left',
         '.multiplayer.lobby.started',
         '.multiplayer.lobby.deleted',
+        '.multiplayer.lobby.closed',
     ],
     () => {
         router.reload({

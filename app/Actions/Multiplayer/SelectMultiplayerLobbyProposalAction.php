@@ -95,6 +95,7 @@ final class SelectMultiplayerLobbyProposalAction
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Narrating,
                 'decision_deadline_at' => null,
                 'decision_remaining_seconds' => null,
+                'last_activity_at' => now(),
             ]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);

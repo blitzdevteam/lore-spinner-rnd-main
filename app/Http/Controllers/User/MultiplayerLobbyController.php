@@ -21,6 +21,7 @@ use App\Actions\Multiplayer\SendMultiplayerLobbyChatMessageAction;
 use App\Actions\Multiplayer\StartMultiplayerLobbyAction;
 use App\Actions\Multiplayer\SubmitMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\UpdateMultiplayerLobbyReadinessAction;
+use App\Actions\Multiplayer\UpdateMultiplayerLobbySettingsAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
@@ -34,6 +35,7 @@ use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyProposalRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRouletteChoiceRequest;
 use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbyReadinessRequest;
+use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbySettingsRequest;
 use App\Http\Resources\MultiplayerArbiterStateResource;
 use App\Http\Resources\MultiplayerLobbyChatMessageResource;
 use App\Models\MultiplayerLobby;
@@ -221,7 +223,6 @@ final class MultiplayerLobbyController extends Controller
 
         $lobby->load('story:id,slug');
         $storySlug = $lobby->story->slug;
-        $isHost = $lobby->host_user_id === $user->id;
 
         $isGameplayPaused = $leaveMultiplayerLobby->handle($user, $lobby);
 
@@ -232,7 +233,7 @@ final class MultiplayerLobbyController extends Controller
             'success',
             $isGameplayPaused
                 ? 'You left the story. It is paused until you rejoin the room.'
-                : ($isHost ? 'The lobby has been deleted.' : 'You have left the lobby.'),
+                : 'You have left the lobby.',
         );
     }
 
@@ -245,7 +246,13 @@ final class MultiplayerLobbyController extends Controller
         Gate::forUser($user)->authorize('view', $lobby);
 
         if ($recordMultiplayerLobbyHeartbeat->handle($user, $lobby)) {
-            return response()->noContent(HttpResponse::HTTP_CONFLICT);
+            $lobby->refresh();
+
+            return response()->noContent(
+                $lobby->status === MultiplayerLobbyStatusEnum::Closed
+                    ? HttpResponse::HTTP_GONE
+                    : HttpResponse::HTTP_CONFLICT,
+            );
         }
 
         $lobby->refresh();
@@ -289,6 +296,29 @@ final class MultiplayerLobbyController extends Controller
 
         try {
             $lobby = $updateMultiplayerLobbyReadiness->handle($user, $lobby, $request->boolean('is_ready'));
+        } catch (MultiplayerLobbyStateException $exception) {
+            throw ValidationException::withMessages([
+                'lobby' => $exception->getMessage(),
+            ]);
+        }
+
+        return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
+    }
+
+    public function updateSettings(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        UpdateMultiplayerLobbySettingsRequest $request,
+        UpdateMultiplayerLobbySettingsAction $updateMultiplayerLobbySettings,
+    ): RedirectResponse {
+        Gate::forUser($user)->authorize('updateSettings', $lobby);
+
+        try {
+            $lobby = $updateMultiplayerLobbySettings->handle(
+                $user,
+                $lobby,
+                $request->validated('settings'),
+            );
         } catch (MultiplayerLobbyStateException $exception) {
             throw ValidationException::withMessages([
                 'lobby' => $exception->getMessage(),

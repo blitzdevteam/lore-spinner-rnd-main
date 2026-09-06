@@ -35,7 +35,7 @@ final class ProcessMultiplayerLobbyOpeningAction
         }
 
         try {
-            $this->processGameOpening->handleBegin($lobby->game_id);
+            $this->processGameOpening->handleBegin($lobby->game_id, $lobby->voiceOverEnabled());
         } catch (Throwable $exception) {
             Log::channel('narration')->error('multiplayer.arbiter.opening_failed', [
                 'lobby_id' => $lobby->id,

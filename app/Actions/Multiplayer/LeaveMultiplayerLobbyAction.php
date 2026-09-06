@@ -6,7 +6,6 @@ namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
-use App\Events\MultiplayerLobbyDeleted;
 use App\Events\MultiplayerLobbyMemberLeft;
 use App\Models\MultiplayerLobby;
 use App\Models\User;
@@ -17,20 +16,18 @@ final class LeaveMultiplayerLobbyAction
 {
     public function handle(User $user, MultiplayerLobby $lobby): bool
     {
-        /** @var array<int, int> $deletedLobbyMemberUserIds */
-        $deletedLobbyMemberUserIds = [];
-
-        $remainingLobby = DB::transaction(function () use ($user, $lobby, &$deletedLobbyMemberUserIds): ?MultiplayerLobby {
+        $remainingLobby = DB::transaction(function () use ($user, $lobby): MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->findOrFail($lobby->getKey());
+            $leftAt = now();
 
             if (in_array($lockedLobby->status, [
                 MultiplayerLobbyStatusEnum::Started,
                 MultiplayerLobbyStatusEnum::Paused,
+                MultiplayerLobbyStatusEnum::Closed,
+                MultiplayerLobbyStatusEnum::Completed,
             ], true)) {
-                $leftAt = now();
-
                 $lockedLobby->members()
                     ->whereBelongsTo($user)
                     ->lockForUpdate()
@@ -39,40 +36,21 @@ final class LeaveMultiplayerLobbyAction
                         'left_at' => $leftAt,
                         'last_seen_at' => $leftAt,
                     ]);
+                $lockedLobby->update(['last_activity_at' => $leftAt]);
 
                 MultiplayerLobbyPauseState::apply($lockedLobby, $leftAt);
 
                 return $lockedLobby->load(['host', 'members.user']);
             }
 
-            if ($lockedLobby->host_user_id === $user->id) {
-                $deletedLobbyMemberUserIds = array_values(array_unique([
-                    ...$lockedLobby->members()
-                        ->pluck('user_id')
-                        ->map(static fn (mixed $memberUserId): int => (int) $memberUserId)
-                        ->all(),
-                    $lockedLobby->host_user_id,
-                ]));
-
-                $lockedLobby->members()->delete();
-                $lockedLobby->delete();
-
-                return null;
-            }
-
             $lockedLobby->members()
                 ->whereBelongsTo($user)
                 ->firstOrFail()
                 ->delete();
+            $lockedLobby->update(['last_activity_at' => $leftAt]);
 
             return $lockedLobby->load(['host', 'members.user']);
         });
-
-        if ($remainingLobby === null) {
-            MultiplayerLobbyDeleted::dispatch((string) $lobby->getKey(), $deletedLobbyMemberUserIds);
-
-            return false;
-        }
 
         MultiplayerLobbyMemberLeft::dispatch($remainingLobby);
 

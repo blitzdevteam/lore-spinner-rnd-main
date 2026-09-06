@@ -63,7 +63,7 @@ export interface StoryInterface {
 
 export type MultiplayerLobbyMode = 'arbiter' | 'roulette';
 
-export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'completed' | 'cancelled';
+export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'closed' | 'completed' | 'cancelled';
 
 export type MultiplayerLobbyMemberRole = 'host' | 'player';
 

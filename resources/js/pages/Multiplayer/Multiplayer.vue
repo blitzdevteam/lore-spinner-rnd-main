@@ -22,30 +22,47 @@ const props = defineProps<{
     inviteRoomCode?: string | null;
 }>();
 
+type LobbySettingKey = 'customInput' | 'voiceOver' | 'votingTime';
+
+type LobbySettingOption = {
+    key: LobbySettingKey;
+    label: string;
+    options: string[];
+};
+
 const showHostSetup = ref(false);
 const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     customInput: 'On',
-    voiceOver: 'Off',
-    powerUpsPerUser: '10',
+    voiceOver: 'On',
     votingTime: '20 Sec',
+});
+const lobbySettingOptions = computed<LobbySettingOption[]>(() => {
+    if (selectedModeName.value === 'Roulette') {
+        return [
+            { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
+            { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+            { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+        ];
+    }
+
+    return [
+        { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+        { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+    ];
 });
 const lobbyCreationForm = useForm<{
     mode: 'arbiter' | 'roulette';
     max_players: number;
     settings: {
-        custom_input_enabled: boolean;
-        voice_over_enabled: boolean;
-        power_ups_per_user: number;
         decision_window_seconds: number;
+        custom_input_enabled?: boolean;
+        voice_over_enabled?: boolean;
     };
 }>({
     mode: 'arbiter',
     max_players: 4,
     settings: {
-        custom_input_enabled: true,
-        voice_over_enabled: false,
-        power_ups_per_user: 10,
         decision_window_seconds: 20,
     },
 });
@@ -144,13 +161,14 @@ function chooseMode(mode: StoryMode): void {
 }
 
 function createLobby(): void {
-    lobbyCreationForm.mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
+    const mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
+
+    lobbyCreationForm.mode = mode;
     lobbyCreationForm.max_players = 4;
     lobbyCreationForm.settings = {
-        custom_input_enabled: lobbySettings.value.customInput === 'On',
         voice_over_enabled: lobbySettings.value.voiceOver === 'On',
-        power_ups_per_user: Number(lobbySettings.value.powerUpsPerUser),
         decision_window_seconds: Number.parseInt(lobbySettings.value.votingTime, 10),
+        ...(mode === 'roulette' ? { custom_input_enabled: lobbySettings.value.customInput === 'On' } : {}),
     };
 
     lobbyCreationForm.post(storeMultiplayerLobby(props.story.slug).url);
@@ -429,22 +447,17 @@ function joinRoom(): void {
                 <div class="h-px w-full bg-white/20" />
 
                 <div class="flex flex-col gap-2.5">
-                    <h2 class="text-base">2. Lobby Setting</h2>
+                    <h2 class="text-base">2. Lobby Settings</h2>
                     <div class="grid gap-3.5 sm:grid-cols-2">
                         <label
-                            v-for="setting in [
-                                { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
-                                { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-                                { key: 'powerUpsPerUser', label: 'Power-ups Per User', options: ['5', '10', '15'] },
-                                { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
-                            ]"
+                            v-for="setting in lobbySettingOptions"
                             :key="setting.key"
                             class="flex h-[50px] items-center justify-between gap-2 rounded-lg bg-[#191919] px-2 py-1.5"
                         >
                             <span class="text-sm tracking-wide text-[#838383]">{{ setting.label }}</span>
                             <span class="relative flex h-[38px] w-[8rem] items-center">
                                 <select
-                                    v-model="lobbySettings[setting.key as keyof typeof lobbySettings]"
+                                    v-model="lobbySettings[setting.key]"
                                     class="h-full w-full appearance-none rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-3 pr-8 text-center text-sm text-white outline-none focus:border-[#59c1ca]"
                                 >
                                     <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
