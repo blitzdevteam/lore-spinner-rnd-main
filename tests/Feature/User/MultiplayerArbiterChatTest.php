@@ -101,3 +101,28 @@ it('shares proposal typing state through the multiplayer presence channel', func
         ->toContain('typing: [isTyping: boolean];')
         ->toContain("emit('typing', text.trim().length > 0)");
 });
+
+it('uses dark liquid glass for gameplay navbar controls', function (): void {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('/* Header controls — dark liquid glass */')
+        ->toContain('linear-gradient(180deg, rgba(66, 66, 66, 0.48)')
+        ->toContain('backdrop-filter: blur(6px) saturate(115%);')
+        ->toContain('border: 1px solid rgba(255, 255, 255, 0.12);')
+        ->toContain('inset 0 1px 0 rgba(255, 255, 255, 0.18)')
+        ->not->toContain('background: #e6e6e6;');
+});
+
+it('centers the players and chat content using the figma dimensions', function (): void {
+    $arbiter = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($arbiter)
+        ->toContain('<img :src="playersIcon" alt="" class="size-[18px]"')
+        ->toContain('<img :src="chatIcon" alt="" class="size-[18px]"')
+        ->toContain('height: 2.1875rem !important;')
+        ->toContain('padding: 0 0.6875rem !important;')
+        ->toContain('font-size: 0.875rem;')
+        ->toContain('justify-content: center;')
+        ->toContain('gap: 0.375rem;');
+});
