@@ -40,6 +40,9 @@ defineEmits<{
 .gameplay-capsule {
     --capsule-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --capsule-duration: 0.45s;
+    --capsule-accent: var(--color-primary-300);
+    --capsule-active-icon-color: var(--color-secondary-300);
+    --capsule-icon-filter: brightness(0) saturate(100%) invert(83%) sepia(45%) saturate(515%) hue-rotate(334deg) brightness(102%) contrast(101%);
 
     display: grid;
     grid-template-columns: 45px 0fr;
@@ -79,7 +82,7 @@ defineEmits<{
     font-weight: 500;
     line-height: 1;
     letter-spacing: 0.02em;
-    color: var(--color-primary-300);
+    color: var(--capsule-accent);
     opacity: 0;
     transform: translateX(-10px);
     transition:
@@ -88,8 +91,16 @@ defineEmits<{
         padding 0.45s var(--capsule-ease);
 }
 
-.gameplay-capsule--label-secondary .gameplay-capsule__label {
-    color: var(--color-secondary-300);
+.gameplay-capsule--label-secondary {
+    --capsule-accent: var(--color-secondary-300);
+}
+
+.gameplay-capsule--active .gameplay-capsule__icon :deep(svg) {
+    color: var(--capsule-active-icon-color);
+}
+
+.gameplay-capsule--active .gameplay-capsule__icon :deep(img) {
+    filter: var(--capsule-icon-filter);
 }
 
 @media (min-width: 768px) and (hover: hover) {

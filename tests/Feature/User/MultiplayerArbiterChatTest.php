@@ -48,14 +48,29 @@ it('places responsive narration controls in the arbiter proposal dock', function
     $styles = $template;
 
     expect($template)
-        ->toContain('v-if="tts.isActive.value && !isMobile" class="arbiter-media-player"')
-        ->toContain('v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player"')
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
 
     expect($styles)
         ->toContain('gap: 0.75rem;')
         ->toContain('.arbiter-proposal-media-player {')
         ->toContain('width: min(100%, 38.5rem);')
         ->toContain('.arbiter-proposal-media-player :deep(.player-bar) {');
+});
+
+it('uses the lobby voice-over and custom-input settings in roulette gameplay', function () {
+    $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+    $chatCard = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
+
+    expect($template)
+        ->toContain("const voiceOverEnabled = computed(() => isRouletteMode.value && props.lobby.settings.voice_over_enabled)")
+        ->toContain('const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value)')
+        ->toContain(':voice-over-enabled="voiceOverEnabled"');
+
+    expect($chatCard)
+        ->toContain('voiceOverEnabled?: boolean;')
+        ->toContain('const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);')
+        ->toContain('v-if="voiceOverEnabled"');
 });
 
 it('uses header controls and bottom sheets for arbiter panels on mobile', function () {

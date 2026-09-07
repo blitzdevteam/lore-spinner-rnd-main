@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import backIcon from '@/assets/arbiter/back.svg';
 import billyAvatar from '@/assets/arbiter/billy-avatar.png';
-import chatIcon from '@/assets/arbiter/chat.svg';
 import copyIcon from '@/assets/arbiter/copy.svg';
+import headerChatIcon from '@/assets/arbiter/header-chat.svg';
+import headerJournalIcon from '@/assets/arbiter/header-journal.svg';
+import headerPlayersIcon from '@/assets/arbiter/header-players.svg';
+import headerRulesIcon from '@/assets/arbiter/header-rules.svg';
+import headerSettingsIcon from '@/assets/arbiter/header-settings.svg';
 import hourglassIcon from '@/assets/arbiter/hourglass.svg';
 import kevinAvatar from '@/assets/arbiter/kevin-avatar.png';
-import lightningIcon from '@/assets/arbiter/lightning.svg';
 import miraAvatar from '@/assets/arbiter/mira-avatar.png';
-import notesIcon from '@/assets/arbiter/notes.svg';
 import playersIcon from '@/assets/arbiter/players.svg';
-import questionIcon from '@/assets/arbiter/question.svg';
 import sendIcon from '@/assets/arbiter/send.svg';
-import settingsIcon from '@/assets/arbiter/settings.svg';
 import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
 import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
+import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
     GameInterface,
@@ -33,13 +35,15 @@ import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLob
 import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { useConnectionStatus, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
-import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
+import { LucideCrown, LucideStar, LucideUserRound } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
 type PlayerTone = 'cyan' | 'gold' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
+type LeftHeaderAction = 'rules' | 'settings' | 'players';
+type RightHeaderAction = 'chat' | 'journal';
 type MobilePanel = 'players' | 'chat' | null;
 
 type Player = {
@@ -122,6 +126,7 @@ const connectionStatus = useConnectionStatus();
 const hasEstablishedRealtimeConnection = ref(connectionStatus.value === 'connected');
 const page = usePage();
 const tts = useTextToSpeech();
+const { settings: gameplaySettings } = useGameplaySettings();
 const gameplayBackgroundImage = computed(
     () => props.game?.story?.banner || props.lobby.story.banner || props.game?.story?.cover || props.lobby.story.cover || null,
 );
@@ -133,6 +138,28 @@ const currentArbiter = computed(() => members.value.find((member) => member.id =
 const currentChooser = computed(() => members.value.find((member) => member.id === props.arbiter.current_chooser_member_id) ?? null);
 const isRouletteMode = computed(() => props.lobby.mode === 'roulette');
 const voiceOverEnabled = computed(() => props.lobby.settings.voice_over_enabled ?? true);
+const multiplayerRules = [
+    {
+        title: 'Votes are secret',
+        description: 'Everyone votes at the same time.The majority moves the story forward.',
+    },
+    {
+        title: 'Your choices matter',
+        description: 'Every decision shapes the world and your characters.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+];
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
 const isCurrentUserChooser = computed(() => props.arbiter.is_current_user_chooser);
@@ -258,8 +285,8 @@ const chatMessages = ref<MultiplayerLobbyChatMessageInterface[]>([...props.chatM
 const desktopChatWindow = ref<HTMLElement | null>(null);
 const mobileChatWindow = ref<HTMLElement | null>(null);
 const chatDraft = ref('');
-const isPlayersPanelOpen = ref(true);
-const isChatPanelOpen = ref(true);
+const activeLeftHeaderAction = ref<LeftHeaderAction>('players');
+const activeRightHeaderAction = ref<RightHeaderAction>('chat');
 const activeMobilePanel = ref<MobilePanel>(null);
 const isMobile = ref(false);
 const copiedRoomCode = ref(false);
@@ -293,28 +320,32 @@ function goBack(): void {
     window.history.back();
 }
 
-function togglePlayersPanel(): void {
-    if (isMobile.value) {
-        activeMobilePanel.value = activeMobilePanel.value === 'players' ? null : 'players';
-
+function selectLeftHeaderAction(action: LeftHeaderAction): void {
+    if (activeLeftHeaderAction.value === action) {
         return;
     }
 
-    isPlayersPanelOpen.value = !isPlayersPanelOpen.value;
+    activeLeftHeaderAction.value = action;
 }
 
-function toggleChatPanel(): void {
-    if (isMobile.value) {
-        activeMobilePanel.value = activeMobilePanel.value === 'chat' ? null : 'chat';
-
+function selectRightHeaderAction(action: RightHeaderAction): void {
+    if (activeRightHeaderAction.value === action) {
         return;
     }
 
-    isChatPanelOpen.value = !isChatPanelOpen.value;
+    activeRightHeaderAction.value = action;
 
-    if (isChatPanelOpen.value) {
+    if (action === 'chat') {
         scrollChatToBottom('auto');
     }
+}
+
+function selectMobilePanel(panel: Exclude<MobilePanel, null>): void {
+    if (activeMobilePanel.value === panel) {
+        return;
+    }
+
+    activeMobilePanel.value = panel;
 }
 
 function closeMobilePanel(): void {
@@ -845,8 +876,8 @@ watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
 });
 
 watch(pausedMembers, (departedMembers) => {
-    if (departedMembers.length > 0) {
-        isPlayersPanelOpen.value = true;
+    if (departedMembers.length > 0 && !isMobile.value) {
+        selectLeftHeaderAction('players');
     }
 });
 
@@ -1407,52 +1438,87 @@ onUnmounted(() => {
                 <div class="arbiter-mobile-panel-controls" role="group" aria-label="Room panels">
                     <GameplayCapsuleButton
                         label="Players"
+                        label-tone="secondary"
                         class="arbiter-mobile-panel-button"
                         :active="activeMobilePanel === 'players'"
-                        :title="activeMobilePanel === 'players' ? 'Close Players' : 'Open Players'"
+                        title="Players"
                         :aria-expanded="activeMobilePanel === 'players'"
                         aria-controls="arbiter-players-drawer"
-                        @click="togglePlayersPanel"
+                        @click="selectMobilePanel('players')"
                     >
-                        <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
+                        <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
                     </GameplayCapsuleButton>
                     <GameplayCapsuleButton
                         label="Chat"
+                        label-tone="secondary"
                         class="arbiter-mobile-panel-button"
                         :active="activeMobilePanel === 'chat'"
-                        :title="activeMobilePanel === 'chat' ? 'Close Chat' : 'Open Chat'"
+                        title="Chat"
                         :aria-expanded="activeMobilePanel === 'chat'"
                         aria-controls="arbiter-chat-drawer"
-                        @click="toggleChatPanel"
+                        @click="selectMobilePanel('chat')"
                     >
-                        <img :src="chatIcon" alt="" class="size-5" aria-hidden="true" />
+                        <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
                     </GameplayCapsuleButton>
                 </div>
             </header>
 
             <div class="arbiter-grid">
-                <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Players">
+                <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Room controls">
                     <div class="rail-tabs">
-                        <GameplayCapsuleButton label="Help" class="rail-header-button" title="Help">
-                            <img :src="questionIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
+                        <GameplayCapsuleButton
+                            label="Rules"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeLeftHeaderAction === 'rules'"
+                            title="Rules"
+                            :aria-expanded="activeLeftHeaderAction === 'rules'"
+                            aria-controls="arbiter-rules-panel"
+                            @click="selectLeftHeaderAction('rules')"
+                        >
+                            <img :src="headerRulesIcon" alt="" class="size-[15px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
-                        <GameplayCapsuleButton label="Settings" label-tone="secondary" class="rail-header-button" title="Settings">
-                            <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
+                        <GameplayCapsuleButton
+                            label="Settings"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeLeftHeaderAction === 'settings'"
+                            title="Settings"
+                            :aria-expanded="activeLeftHeaderAction === 'settings'"
+                            aria-controls="arbiter-settings-panel"
+                            @click="selectLeftHeaderAction('settings')"
+                        >
+                            <img :src="headerSettingsIcon" alt="" class="h-4 w-[15px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
                         <GameplayCapsuleButton
                             label="Players"
+                            label-tone="secondary"
                             class="rail-header-button"
-                            :active="isPlayersPanelOpen"
-                            :title="isPlayersPanelOpen ? 'Hide Players' : 'Show Players'"
-                            :aria-expanded="isPlayersPanelOpen"
+                            :active="activeLeftHeaderAction === 'players'"
+                            title="Players"
+                            :aria-expanded="activeLeftHeaderAction === 'players'"
                             aria-controls="arbiter-players-panel"
-                            @click="togglePlayersPanel"
+                            @click="selectLeftHeaderAction('players')"
                         >
-                            <img :src="playersIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                            <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
                     </div>
 
-                    <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
+                    <section v-show="activeLeftHeaderAction === 'rules'" id="arbiter-rules-panel" class="arbiter-panel arbiter-rules-panel">
+                        <div class="arbiter-rules-list">
+                            <article v-for="(rule, index) in multiplayerRules" :key="`${rule.title}-${index}`" class="arbiter-rule">
+                                <h2>{{ rule.title }}</h2>
+                                <p>{{ rule.description }}</p>
+                            </article>
+                            <button type="button" class="arbiter-rules-button">View Rules</button>
+                        </div>
+                    </section>
+
+                    <section v-show="activeLeftHeaderAction === 'settings'" id="arbiter-settings-panel" class="arbiter-panel arbiter-settings-panel">
+                        <GameplaySettingsPanel />
+                    </section>
+
+                    <section v-show="activeLeftHeaderAction === 'players'" id="arbiter-players-panel" class="arbiter-panel">
                         <div class="panel-title">
                             <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
                             <span v-if="pausedMembers.length" class="players-left-count">
@@ -1541,7 +1607,14 @@ onUnmounted(() => {
                         <GameplayOrnamentDivider :label="`EPISODE ${props.game?.current_session_number ?? 1}`" color="#59C1CA" />
                     </div>
 
-                    <div class="story-history" aria-live="polite">
+                    <div
+                        class="story-history"
+                        :style="{
+                            '--arbiter-narration-font-size': `${gameplaySettings.fontSize}px`,
+                            '--arbiter-narration-font-color': gameplaySettings.fontColor,
+                        }"
+                        aria-live="polite"
+                    >
                         <div
                             v-for="prompt in prompts"
                             :key="prompt.id"
@@ -1679,27 +1752,29 @@ onUnmounted(() => {
                     <div class="rail-tabs rail-tabs--right">
                         <GameplayCapsuleButton
                             label="Chat"
+                            label-tone="secondary"
                             class="rail-header-button"
-                            :active="isChatPanelOpen"
-                            :title="isChatPanelOpen ? 'Hide Chat' : 'Show Chat'"
-                            :aria-expanded="isChatPanelOpen"
+                            :active="activeRightHeaderAction === 'chat'"
+                            title="Chat"
+                            :aria-expanded="activeRightHeaderAction === 'chat'"
                             aria-controls="arbiter-chat-panel"
-                            @click="toggleChatPanel"
+                            @click="selectRightHeaderAction('chat')"
                         >
-                            <img :src="chatIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                            <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
-                        <GameplayCapsuleButton label="Power" class="rail-header-button" title="Power">
-                            <img :src="lightningIcon" alt="" class="size-[25px]" aria-hidden="true" />
-                        </GameplayCapsuleButton>
-                        <GameplayCapsuleButton label="Game order" class="rail-header-button" title="Game order">
-                            <LucideList class="size-[25.2px] text-gray-300" :stroke-width="1.75" />
-                        </GameplayCapsuleButton>
-                        <GameplayCapsuleButton label="Notes" label-tone="secondary" class="rail-header-button" title="Notes">
-                            <img :src="notesIcon" alt="" class="size-[22.68px]" aria-hidden="true" />
+                        <GameplayCapsuleButton
+                            label="Journal"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeRightHeaderAction === 'journal'"
+                            title="Journal"
+                            @click="selectRightHeaderAction('journal')"
+                        >
+                            <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
                     </div>
 
-                    <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
+                    <section v-show="activeRightHeaderAction === 'chat'" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
                         <div ref="desktopChatWindow" class="chat-window" aria-live="polite">
                             <div class="chat-window-content">
                                 <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
@@ -2059,6 +2134,70 @@ onUnmounted(() => {
     overflow-y: auto;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
+}
+
+.arbiter-rules-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.arbiter-rules-list {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding-inline: 0.875rem;
+    text-align: left;
+}
+
+.arbiter-rule {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.arbiter-rule h2,
+.arbiter-rule p {
+    margin: 0;
+}
+
+.arbiter-rule h2 {
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1rem;
+}
+
+.arbiter-rule p {
+    color: #838383;
+    font-size: 0.75rem;
+    font-weight: 300;
+    letter-spacing: 0.03125rem;
+    line-height: 1rem;
+}
+
+.arbiter-rules-button {
+    width: 100%;
+    height: 2rem;
+    border: 0.5px solid #5c5c5c;
+    border-radius: 0.3125rem;
+    color: #838383;
+    background: transparent;
+    font: inherit;
+    font-size: 0.8125rem;
+    line-height: 1;
+    transition:
+        border-color 160ms ease,
+        color 160ms ease,
+        background 160ms ease;
+}
+
+.arbiter-rules-button:hover {
+    border-color: #838383;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .panel-title {
@@ -2456,8 +2595,8 @@ onUnmounted(() => {
 }
 
 .story-history :deep(.narration-card) {
-    color: #f0f0f0;
-    font-size: 1rem;
+    color: var(--arbiter-narration-font-color, #f0f0f0);
+    font-size: var(--arbiter-narration-font-size, 1rem);
     line-height: normal;
 }
 
@@ -3154,7 +3293,7 @@ onUnmounted(() => {
     }
 
     .story-history :deep(.narration-card) {
-        font-size: 1rem;
+        font-size: var(--arbiter-narration-font-size, 1rem);
         line-height: 1.35;
     }
 

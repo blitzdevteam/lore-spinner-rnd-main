@@ -45,3 +45,15 @@ it('marks streamer mode as coming soon and unavailable', function () {
         ->toContain('Coming Soon')
         ->toContain('!mode.available');
 });
+
+it('offers mode-specific lobby settings before a room is created', function () {
+    $template = file_get_contents(resource_path('js/pages/Multiplayer/Multiplayer.vue'));
+
+    expect($template)
+        ->toContain('const lobbySettingOptions = computed<LobbySettingOption[]>(() => {')
+        ->toContain("if (selectedModeName.value === 'Roulette')")
+        ->toContain("{ key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] }")
+        ->toContain("{ key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] }")
+        ->toContain("return [{ key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] }]")
+        ->not->toContain('Power-ups Per User');
+});
