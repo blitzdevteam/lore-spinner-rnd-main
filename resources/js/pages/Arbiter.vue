@@ -86,9 +86,11 @@ type ArbiterNarrationSignal = {
 };
 
 type MultiplayerLobbyMembershipSignal = {
-    lobby: {
-        id: string;
-    };
+    lobby: Pick<MultiplayerLobbyInterface, 'id' | 'members'>;
+};
+
+type MultiplayerLobbyPresenceMember = {
+    id: string;
 };
 
 type MultiplayerLobbyClosedSignal = {
@@ -131,7 +133,8 @@ const gameplayBackgroundImage = computed(
     () => props.game?.story?.banner || props.lobby.story.banner || props.game?.story?.cover || props.lobby.story.cover || null,
 );
 const roomCode = computed(() => props.lobby.room_code);
-const members = computed(() => props.lobby.members);
+const liveMembers = ref<MultiplayerLobbyMemberInterface[]>([...props.lobby.members]);
+const members = computed(() => liveMembers.value);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
 const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value) ?? null);
 const currentArbiter = computed(() => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null);
@@ -401,6 +404,34 @@ function clearTypingIndicators(): void {
     typingMemberIds.value = new Set();
 }
 
+function synchronizeMembers(nextMembers: MultiplayerLobbyMemberInterface[]): void {
+    liveMembers.value = [...nextMembers];
+}
+
+function markMemberAsLeft(memberId: string): void {
+    const leftAt = new Date().toISOString();
+
+    liveMembers.value = liveMembers.value.map((member) => {
+        if (member.id !== memberId || member.left_at !== null) {
+            return member;
+        }
+
+        return {
+            ...member,
+            left_at: leftAt,
+            last_seen_at: leftAt,
+        };
+    });
+}
+
+function markMemberAsLeftByUserId(userId: string): void {
+    const member = members.value.find((candidate) => String(candidate.user.id) === userId);
+
+    if (member !== undefined) {
+        markMemberAsLeft(member.id);
+    }
+}
+
 function isMemberTyping(member: MultiplayerLobbyMemberInterface): boolean {
     return (
         !isGameplayPaused.value &&
@@ -501,6 +532,14 @@ watch(
         localPrompts.value = streamingPrompt
             ? [...mergedPrompts.filter((prompt) => prompt.id !== streamingPrompt.id), streamingPrompt]
             : mergedPrompts;
+    },
+    { deep: true },
+);
+
+watch(
+    () => props.lobby.members,
+    (nextMembers) => {
+        synchronizeMembers(nextMembers);
     },
     { deep: true },
 );
@@ -1200,13 +1239,22 @@ function leaveRoom(): void {
         return;
     }
 
+    const departingMember = currentMember.value;
+    const membersBeforeLeaving = [...members.value];
+
     actionError.value = null;
     isLeavingLobby.value = true;
+    if (departingMember !== null) {
+        markMemberAsLeft(departingMember.id);
+        pauseGameplayImmediately();
+    }
     handleProposalTyping(false);
     tts.dismiss();
 
     router.delete(showMultiplayerLobby(props.lobby.room_code).url, {
         onError: (errors) => {
+            synchronizeMembers(membersBeforeLeaving);
+            isDeparturePausePending.value = props.lobby.status === 'paused';
             actionError.value = errors.lobby ?? 'We could not leave the room.';
         },
         onFinish: () => {
@@ -1242,6 +1290,10 @@ function reloadArbiterState(): void {
 }
 
 multiplayerLobbyPresenceChannel.channel().joining(reloadArbiterState);
+multiplayerLobbyPresenceChannel.channel().leaving((member: MultiplayerLobbyPresenceMember) => {
+    markMemberAsLeftByUserId(member.id);
+    pauseGameplayImmediately();
+});
 
 function csrfToken(): string {
     const token = document.cookie
@@ -1366,6 +1418,7 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
         return;
     }
 
+    synchronizeMembers(signal.lobby.members);
     pauseGameplayImmediately();
     reloadArbiterState();
 });
@@ -1375,6 +1428,7 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
         return;
     }
 
+    synchronizeMembers(signal.lobby.members);
     reloadArbiterState();
 });
 
