@@ -1241,6 +1241,8 @@ function reloadArbiterState(): void {
     });
 }
 
+multiplayerLobbyPresenceChannel.channel().joining(reloadArbiterState);
+
 function csrfToken(): string {
     const token = document.cookie
         .split('; ')

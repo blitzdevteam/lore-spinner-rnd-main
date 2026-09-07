@@ -20,7 +20,7 @@ import {
     updateSettings as updateMultiplayerLobbySettings,
 } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
-import { useEcho, useEchoPresence } from '@laravel/echo-vue';
+import { useEcho, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { LucideCheck } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
@@ -134,6 +134,9 @@ const lobbySettingsError = ref<string | null>(null);
 const startError = ref<string | null>(null);
 let lobbyHeartbeatTimer: ReturnType<typeof window.setInterval> | null = null;
 let isSendingLobbyHeartbeat = false;
+let isReloadingLobby = false;
+let isLobbyReloadPending = false;
+const multiplayerLobbyPresenceChannel = usePresenceChannel(`multiplayer.lobby.${props.lobby.id}`);
 const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : 'Roulette'));
 const playersCountLabel = computed(() => `${members.value.length}/${liveLobby.value.max_players}`);
 const chaptersLabel = computed(() => `${story.value.chapters_count ?? 0} Chapters`);
@@ -192,6 +195,35 @@ const rules = computed(() => {
         },
     ];
 });
+
+function reloadLobbyState(): void {
+    if (redirectingAwayFromLobby.value) {
+        return;
+    }
+
+    if (isReloadingLobby) {
+        isLobbyReloadPending = true;
+
+        return;
+    }
+
+    isReloadingLobby = true;
+    router.reload({
+        only: ['lobby'],
+        preserveScroll: true,
+        onFinish: () => {
+            isReloadingLobby = false;
+
+            if (isLobbyReloadPending) {
+                isLobbyReloadPending = false;
+                reloadLobbyState();
+            }
+        },
+    });
+}
+
+multiplayerLobbyPresenceChannel.channel().here(reloadLobbyState);
+multiplayerLobbyPresenceChannel.channel().joining(reloadLobbyState);
 
 useEchoPresence<MultiplayerLobbyEventPayload>(
     `multiplayer.lobby.${props.lobby.id}`,
