@@ -27,7 +27,10 @@ final class ProcessMultiplayerLobbyOpeningAction
 
         if (
             $lobby === null
-            || $lobby->status !== MultiplayerLobbyStatusEnum::Started
+            || ! in_array($lobby->status, [
+                MultiplayerLobbyStatusEnum::Started,
+                MultiplayerLobbyStatusEnum::Paused,
+            ], true)
             || $lobby->turn_status !== MultiplayerArbiterTurnStatusEnum::Opening
             || $lobby->game_id === null
         ) {

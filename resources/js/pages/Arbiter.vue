@@ -169,14 +169,19 @@ const isAwaitingRouletteChoice = computed(() => turnStatus.value === 'awaiting_r
 const isNarrating = computed(() => turnStatus.value === 'narrating');
 const isSessionComplete = computed(() => turnStatus.value === 'session_complete');
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
-const isGameplayPaused = computed(() => props.lobby.status === 'paused');
-const hasDecisionTimer = computed(() => isAwaitingArbiter.value || isAwaitingRouletteChoice.value);
+const isDeparturePausePending = ref(false);
+const isGameplayPaused = computed(() => props.lobby.status === 'paused' || isDeparturePausePending.value);
+const hasDecisionTimer = computed(() => !isGameplayPaused.value && (isAwaitingArbiter.value || isAwaitingRouletteChoice.value));
 const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
+    if (!hasDecisionTimer.value) {
+        return 0;
+    }
+
     const deadline = props.arbiter.decision_deadline_at;
 
-    if (hasDecisionTimer.value && deadline) {
+    if (deadline) {
         const deadlineTimestamp = Date.parse(deadline);
 
         if (!Number.isNaN(deadlineTimestamp)) {
@@ -184,7 +189,7 @@ const decisionSecondsRemaining = computed(() => {
         }
     }
 
-    if (hasDecisionTimer.value && props.arbiter.decision_remaining_seconds !== null) {
+    if (props.arbiter.decision_remaining_seconds !== null) {
         return Math.max(0, props.arbiter.decision_remaining_seconds);
     }
 
@@ -547,6 +552,13 @@ watch(turnStatus, (status) => {
     streamingPromptId.value = null;
 });
 
+watch(
+    () => props.lobby.status,
+    (status) => {
+        isDeparturePausePending.value = status === 'paused';
+    },
+);
+
 function ensureStreamingPrompt(sourcePromptId: string): string {
     const promptId = `stream-${sourcePromptId}`;
 
@@ -874,6 +886,20 @@ watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
         clearTypingIndicators();
     }
 });
+
+watch(
+    [isGameplayPaused, hasDecisionTimer],
+    ([isPaused, hasTimer]) => {
+        if (isPaused || !hasTimer) {
+            stopDecisionTimer();
+
+            return;
+        }
+
+        startDecisionTimer();
+    },
+    { immediate: true },
+);
 
 watch(pausedMembers, (departedMembers) => {
     if (departedMembers.length > 0 && !isMobile.value) {
@@ -1283,6 +1309,10 @@ function handleDocumentVisibilityChange(): void {
 }
 
 function startDecisionTimer(): void {
+    if (typeof window === 'undefined' || decisionTimerInterval !== null) {
+        return;
+    }
+
     decisionTimerNow.value = Date.now();
     decisionTimerInterval = window.setInterval(() => {
         decisionTimerNow.value = Date.now();
@@ -1298,6 +1328,12 @@ function stopDecisionTimer(): void {
     decisionTimerInterval = null;
 }
 
+function pauseGameplayImmediately(): void {
+    isDeparturePausePending.value = true;
+    stopDecisionTimer();
+    handleProposalTyping(false);
+}
+
 function handleLobbyClosed(signal: MultiplayerLobbyClosedSignal): void {
     if (signal.lobby_id !== props.lobby.id || isLobbyClosing.value) {
         return;
@@ -1305,6 +1341,7 @@ function handleLobbyClosed(signal: MultiplayerLobbyClosedSignal): void {
 
     isLobbyClosing.value = true;
     stopLobbyHeartbeat();
+    stopDecisionTimer();
     handleProposalTyping(false);
     tts.dismiss();
     window.alert(signal.message);
@@ -1327,6 +1364,7 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
         return;
     }
 
+    pauseGameplayImmediately();
     reloadArbiterState();
 });
 
@@ -1394,7 +1432,6 @@ onMounted(() => {
     multiplayerLobbyPresenceChannel.channel().listenForWhisper(chatWhisperEvent, handleChatWhisper);
     scrollChatToBottom();
     startLobbyHeartbeat();
-    startDecisionTimer();
     document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
 
     if (isGameplayPaused.value && pausedMembers.value.length === 0) {
@@ -1657,7 +1694,7 @@ onUnmounted(() => {
                                 <p>{{ decisionDescription }}</p>
                             </div>
                             <span
-                                v-if="!isRouletteMode || hasDecisionTimer"
+                                v-if="hasDecisionTimer"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
                                 :aria-label="`${decisionSecondsRemaining} seconds decision window`"
                             >
