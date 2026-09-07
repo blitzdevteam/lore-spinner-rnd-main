@@ -12,13 +12,13 @@ import kevinAvatar from '@/assets/arbiter/kevin-avatar.png';
 import miraAvatar from '@/assets/arbiter/mira-avatar.png';
 import playersIcon from '@/assets/arbiter/players.svg';
 import sendIcon from '@/assets/arbiter/send.svg';
-import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
 import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
@@ -44,7 +44,7 @@ type PlayerTone = 'cyan' | 'gold' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
 type LeftHeaderAction = 'rules' | 'settings' | 'players';
 type RightHeaderAction = 'chat' | 'journal';
-type MobilePanel = 'players' | 'chat' | null;
+type MobileHeaderAction = LeftHeaderAction | RightHeaderAction;
 
 type Player = {
     id: string;
@@ -295,7 +295,8 @@ const mobileChatWindow = ref<HTMLElement | null>(null);
 const chatDraft = ref('');
 const activeLeftHeaderAction = ref<LeftHeaderAction>('players');
 const activeRightHeaderAction = ref<RightHeaderAction>('chat');
-const activeMobilePanel = ref<MobilePanel>(null);
+const activeMobileHeaderAction = ref<MobileHeaderAction | null>(null);
+const mobileTabSurface = ref<HTMLElement | null>(null);
 const isMobile = ref(false);
 const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
@@ -348,16 +349,30 @@ function selectRightHeaderAction(action: RightHeaderAction): void {
     }
 }
 
-function selectMobilePanel(panel: Exclude<MobilePanel, null>): void {
-    if (activeMobilePanel.value === panel) {
+function selectMobileHeaderAction(action: MobileHeaderAction): void {
+    if (activeMobileHeaderAction.value === action) {
         return;
     }
 
-    activeMobilePanel.value = panel;
+    activeMobileHeaderAction.value = action;
+
+    void nextTick(() => {
+        mobileTabSurface.value?.scrollTo({ top: 0, behavior: 'auto' });
+
+        if (action === 'chat') {
+            scrollChatToBottom('auto');
+        }
+    });
 }
 
-function closeMobilePanel(): void {
-    activeMobilePanel.value = null;
+function closeMobileHeaderAction(): void {
+    activeMobileHeaderAction.value = null;
+}
+
+function handleMobileHeaderKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && activeMobileHeaderAction.value !== null) {
+        closeMobileHeaderAction();
+    }
 }
 
 function syncMobile(): void {
@@ -946,9 +961,28 @@ watch(pausedMembers, (departedMembers) => {
     }
 });
 
-watch(isMobile, (mobile) => {
-    if (!mobile) {
-        closeMobilePanel();
+watch(activeMobileHeaderAction, (action, previousAction) => {
+    const wasOpen = previousAction !== null && isMobile.value;
+    const isOpen = action !== null && isMobile.value;
+
+    if (isOpen && !wasOpen) {
+        lockBodyScroll();
+
+        return;
+    }
+
+    if (!isOpen && wasOpen) {
+        unlockBodyScroll();
+    }
+});
+
+watch(isMobile, (mobile, wasMobile) => {
+    if (!mobile && activeMobileHeaderAction.value !== null) {
+        if (wasMobile) {
+            unlockBodyScroll();
+        }
+
+        closeMobileHeaderAction();
     }
 });
 
@@ -993,12 +1027,6 @@ function scrollChatToBottom(behavior: ScrollBehavior = 'smooth'): void {
         });
     });
 }
-
-watch(activeMobilePanel, (panel) => {
-    if (panel === 'chat') {
-        scrollChatToBottom();
-    }
-});
 
 function appendChatMessage(message: MultiplayerLobbyChatMessageInterface): void {
     if (chatMessages.value.some((existingMessage) => existingMessage.id === message.id)) {
@@ -1489,6 +1517,7 @@ onMounted(() => {
     scrollChatToBottom();
     startLobbyHeartbeat();
     document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
+    window.addEventListener('keydown', handleMobileHeaderKeydown);
 
     if (isGameplayPaused.value && pausedMembers.value.length === 0) {
         reloadArbiterState();
@@ -1503,6 +1532,10 @@ onUnmounted(() => {
     stopLobbyHeartbeat();
     stopDecisionTimer();
     document.removeEventListener('visibilitychange', handleDocumentVisibilityChange);
+    window.removeEventListener('keydown', handleMobileHeaderKeydown);
+    if (isMobile.value && activeMobileHeaderAction.value !== null) {
+        unlockBodyScroll();
+    }
     tts.dismiss();
 });
 </script>
@@ -1510,7 +1543,7 @@ onUnmounted(() => {
 <template>
     <Head :title="isRouletteMode ? 'Roulette' : 'Arbiter'" />
 
-    <main class="arbiter-page">
+    <main :class="['arbiter-page', { 'arbiter-page--mobile-tab-open': activeMobileHeaderAction !== null }]">
         <div
             v-if="gameplayBackgroundImage"
             class="arbiter-scene"
@@ -1528,35 +1561,240 @@ onUnmounted(() => {
                     <GameplayMediaPlayer />
                 </div>
 
-                <div class="arbiter-mobile-panel-controls" role="group" aria-label="Room panels">
-                    <GameplayCapsuleButton
-                        label="Players"
-                        label-tone="secondary"
-                        class="arbiter-mobile-panel-button"
-                        :active="activeMobilePanel === 'players'"
-                        title="Players"
-                        :aria-expanded="activeMobilePanel === 'players'"
-                        aria-controls="arbiter-players-drawer"
-                        @click="selectMobilePanel('players')"
+                <div class="arbiter-mobile-header-actions" role="group" aria-label="Gameplay actions">
+                    <button
+                        type="button"
+                        class="arbiter-mobile-back"
+                        :disabled="isLeavingLobby"
+                        aria-label="Leave game and return to multiplayer details"
+                        title="Leave game"
+                        @click="leaveRoom"
                     >
-                        <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
-                    </GameplayCapsuleButton>
-                    <GameplayCapsuleButton
-                        label="Chat"
-                        label-tone="secondary"
-                        class="arbiter-mobile-panel-button"
-                        :active="activeMobilePanel === 'chat'"
-                        title="Chat"
-                        :aria-expanded="activeMobilePanel === 'chat'"
-                        aria-controls="arbiter-chat-drawer"
-                        @click="selectMobilePanel('chat')"
-                    >
-                        <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
-                    </GameplayCapsuleButton>
+                        <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
+                    </button>
+                    <div class="arbiter-mobile-tab-list" role="tablist" aria-label="Gameplay panels">
+                        <GameplayCapsuleButton
+                            label="Rules"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-rules'"
+                            :active="activeMobileHeaderAction === 'rules'"
+                            title="Rules"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'rules'"
+                            aria-controls="arbiter-mobile-panel-rules"
+                            @click="selectMobileHeaderAction('rules')"
+                        >
+                            <img :src="headerRulesIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Settings"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-settings'"
+                            :active="activeMobileHeaderAction === 'settings'"
+                            title="Settings"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'settings'"
+                            aria-controls="arbiter-mobile-panel-settings"
+                            @click="selectMobileHeaderAction('settings')"
+                        >
+                            <img :src="headerSettingsIcon" alt="" class="h-4 w-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Players"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-players'"
+                            :active="activeMobileHeaderAction === 'players'"
+                            title="Players"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'players'"
+                            aria-controls="arbiter-mobile-panel-players"
+                            @click="selectMobileHeaderAction('players')"
+                        >
+                            <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Chat"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-chat'"
+                            :active="activeMobileHeaderAction === 'chat'"
+                            title="Chat"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'chat'"
+                            aria-controls="arbiter-mobile-panel-chat"
+                            @click="selectMobileHeaderAction('chat')"
+                        >
+                            <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Journal"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-journal'"
+                            :active="activeMobileHeaderAction === 'journal'"
+                            title="Journal"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'journal'"
+                            aria-controls="arbiter-mobile-panel-journal"
+                            @click="selectMobileHeaderAction('journal')"
+                        >
+                            <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                    </div>
                 </div>
             </header>
 
-            <div class="arbiter-grid">
+            <section
+                v-if="isMobile && activeMobileHeaderAction !== null"
+                :id="`arbiter-mobile-panel-${activeMobileHeaderAction}`"
+                :key="activeMobileHeaderAction"
+                ref="mobileTabSurface"
+                class="arbiter-mobile-tab-surface"
+                role="tabpanel"
+                :aria-labelledby="`arbiter-mobile-tab-${activeMobileHeaderAction}`"
+            >
+                <div class="arbiter-mobile-tab-content">
+                    <div v-if="activeMobileHeaderAction === 'rules'" class="arbiter-mobile-tab-panel arbiter-mobile-rules-tab">
+                        <div class="arbiter-rules-list">
+                            <article v-for="(rule, index) in multiplayerRules" :key="`${rule.title}-${index}`" class="arbiter-rule">
+                                <h2>{{ rule.title }}</h2>
+                                <p>{{ rule.description }}</p>
+                            </article>
+                            <button type="button" class="arbiter-rules-button">View Rules</button>
+                        </div>
+                    </div>
+
+                    <div v-else-if="activeMobileHeaderAction === 'settings'" class="arbiter-mobile-tab-panel arbiter-mobile-settings-tab">
+                        <GameplaySettingsPanel variant="sheet" />
+                    </div>
+
+                    <div v-else-if="activeMobileHeaderAction === 'players'" class="arbiter-mobile-tab-panel arbiter-mobile-players-tab">
+                        <div class="panel-title">
+                            <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
+                            <span v-if="pausedMembers.length" class="players-left-count">
+                                {{ pausedMembers.length }} {{ pausedMembers.length === 1 ? 'player left' : 'players left' }}
+                            </span>
+                        </div>
+                        <div class="player-list">
+                            <article
+                                v-for="player in players"
+                                :key="player.id"
+                                :class="[
+                                    'player-card',
+                                    {
+                                        'player-card--left': player.hasLeft,
+                                        'player-card--active': player.isActiveTurn,
+                                        'player-card--up-next': player.isUpNext,
+                                    },
+                                ]"
+                            >
+                                <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
+                                <div class="player-details">
+                                    <div class="player-name-row">
+                                        <span class="player-name">{{ player.name }}</span>
+                                        <span class="player-badges">
+                                            <span v-if="player.hasLeft" class="player-left-badge">Left game</span>
+                                            <span
+                                                v-if="player.isCurrentUser"
+                                                class="player-badge-icon player-badge-icon--you"
+                                                role="img"
+                                                aria-label="You"
+                                                title="You"
+                                            >
+                                                <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span
+                                                v-if="player.isArbiter"
+                                                class="player-badge-icon player-badge-icon--arbiter"
+                                                role="img"
+                                                :aria-label="turnRoleLabel"
+                                                :title="turnRoleLabel"
+                                            >
+                                                <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span v-if="player.host" class="player-host">
+                                                <LucideCrown class="size-3" :stroke-width="1.75" />
+                                                Host
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <span :class="['player-state', 'player-state--' + player.tone, { 'player-state--typing': player.isTyping }]">
+                                        <i />
+                                        <span v-if="player.isTyping" class="player-typing-label">
+                                            Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
+                                        </span>
+                                        <template v-else>{{ player.state }}</template>
+                                    </span>
+                                </div>
+                                <span class="player-score">{{ player.role }}</span>
+                            </article>
+                        </div>
+
+                        <div class="invite-card">
+                            <div class="invite-label">
+                                <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
+                                <span>Invite Players</span>
+                            </div>
+                            <div class="room-code-card">
+                                <div>
+                                    <span>Room Link</span><strong>{{ roomCode }}</strong>
+                                </div>
+                                <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
+                                    <img :src="copyIcon" alt="" aria-hidden="true" />
+                                </button>
+                            </div>
+                            <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
+                        </div>
+                        <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
+                            {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
+                        </button>
+                    </div>
+
+                    <div
+                        v-else-if="activeMobileHeaderAction === 'chat'"
+                        class="arbiter-panel chat-panel arbiter-mobile-tab-panel arbiter-mobile-chat-tab"
+                    >
+                        <div ref="mobileChatWindow" class="chat-window" aria-live="polite">
+                            <div class="chat-window-content">
+                                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                                <article v-for="message in messages" :key="message.id" class="chat-message">
+                                    <div class="chat-message-meta">
+                                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
+                                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
+                                    </div>
+                                    <p>{{ message.text }}</p>
+                                </article>
+                            </div>
+                        </div>
+                        <form class="chat-compose" @submit.prevent="submitChat">
+                            <label class="sr-only" for="arbiter-mobile-chat-message">Type a message</label>
+                            <input
+                                id="arbiter-mobile-chat-message"
+                                v-model="chatDraft"
+                                type="text"
+                                placeholder="Type a message..."
+                                autocomplete="off"
+                                maxlength="1000"
+                                :disabled="!currentMember || currentMember.left_at !== null"
+                            />
+                            <button
+                                type="submit"
+                                :disabled="!chatDraft.trim() || !currentMember || currentMember.left_at !== null"
+                                aria-label="Send message"
+                            >
+                                <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
+                            </button>
+                        </form>
+                    </div>
+
+                    <div v-else class="arbiter-mobile-tab-panel arbiter-mobile-journal-tab" aria-label="Journal" />
+                </div>
+            </section>
+
+            <div class="arbiter-grid" :inert="isMobile && activeMobileHeaderAction !== null">
                 <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Room controls">
                     <div class="rail-tabs">
                         <GameplayCapsuleButton
@@ -1904,7 +2142,13 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <footer v-if="shouldShowCustomInput || isGameplayPaused || (voiceOverEnabled && tts.isActive.value && isMobile)" class="arbiter-proposal-dock flex-col">
+        <footer
+            v-if="
+                activeMobileHeaderAction === null &&
+                (shouldShowCustomInput || isGameplayPaused || (voiceOverEnabled && tts.isActive.value && isMobile))
+            "
+            class="arbiter-proposal-dock flex-col"
+        >
             <section v-if="isGameplayPaused" class="gameplay-paused-notice flex items-center backdrop-blur-[2px]" role="status" aria-live="polite">
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
@@ -1922,122 +2166,6 @@ onUnmounted(() => {
             />
         </footer>
     </main>
-
-    <GameplayBottomSheet :open="isMobile && activeMobilePanel === 'players'" title="Players" @close="closeMobilePanel">
-        <section id="arbiter-players-drawer" class="arbiter-mobile-panel arbiter-mobile-players-panel">
-            <div class="panel-title">
-                <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
-                <span v-if="pausedMembers.length" class="players-left-count">
-                    {{ pausedMembers.length }} {{ pausedMembers.length === 1 ? 'player left' : 'players left' }}
-                </span>
-            </div>
-            <div class="player-list">
-                <article
-                    v-for="player in players"
-                    :key="player.id"
-                    :class="[
-                        'player-card',
-                        {
-                            'player-card--left': player.hasLeft,
-                            'player-card--active': player.isActiveTurn,
-                            'player-card--up-next': player.isUpNext,
-                        },
-                    ]"
-                >
-                    <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
-                    <div class="player-details">
-                        <div class="player-name-row">
-                            <span class="player-name">{{ player.name }}</span>
-                            <span class="player-badges">
-                                <span v-if="player.hasLeft" class="player-left-badge">Left game</span>
-                                <span
-                                    v-if="player.isCurrentUser"
-                                    class="player-badge-icon player-badge-icon--you"
-                                    role="img"
-                                    aria-label="You"
-                                    title="You"
-                                >
-                                    <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
-                                </span>
-                                <span
-                                    v-if="player.isArbiter"
-                                    class="player-badge-icon player-badge-icon--arbiter"
-                                    role="img"
-                                    :aria-label="turnRoleLabel"
-                                    :title="turnRoleLabel"
-                                >
-                                    <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
-                                </span>
-                                <span v-if="player.host" class="player-host">
-                                    <LucideCrown class="size-3" :stroke-width="1.75" />
-                                    Host
-                                </span>
-                            </span>
-                        </div>
-                        <span :class="['player-state', 'player-state--' + player.tone, { 'player-state--typing': player.isTyping }]">
-                            <i />
-                            <span v-if="player.isTyping" class="player-typing-label">
-                                Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
-                            </span>
-                            <template v-else>{{ player.state }}</template>
-                        </span>
-                    </div>
-                    <span class="player-score">{{ player.role }}</span>
-                </article>
-            </div>
-
-            <div class="invite-card">
-                <div class="invite-label">
-                    <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                    <span>Invite Players</span>
-                </div>
-                <div class="room-code-card">
-                    <div>
-                        <span>Room Link</span><strong>{{ roomCode }}</strong>
-                    </div>
-                    <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
-                        <img :src="copyIcon" alt="" aria-hidden="true" />
-                    </button>
-                </div>
-                <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
-            </div>
-            <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
-                {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
-            </button>
-        </section>
-    </GameplayBottomSheet>
-
-    <GameplayBottomSheet :open="isMobile && activeMobilePanel === 'chat'" title="Chat" @close="closeMobilePanel">
-        <section id="arbiter-chat-drawer" class="arbiter-mobile-panel arbiter-mobile-chat-panel">
-            <div ref="mobileChatWindow" class="chat-window" aria-live="polite">
-                <div class="chat-window-content">
-                    <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
-                    <article v-for="message in messages" :key="message.id" class="chat-message">
-                        <div class="chat-message-meta">
-                            <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                            <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
-                        </div>
-                        <p>{{ message.text }}</p>
-                    </article>
-                </div>
-            </div>
-            <form class="chat-compose" @submit.prevent="submitChat">
-                <label class="sr-only" for="arbiter-mobile-chat-message">Type a message</label>
-                <input
-                    id="arbiter-mobile-chat-message"
-                    v-model="chatDraft"
-                    type="text"
-                    placeholder="Type a message..."
-                    autocomplete="off"
-                    maxlength="1000"
-                    :disabled="!currentMember || currentMember.left_at !== null"
-                />
-                <button type="submit" :disabled="!chatDraft.trim() || !currentMember || currentMember.left_at !== null" aria-label="Send message">
-                    <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
-                </button>
-            </form>
-        </section>
-    </GameplayBottomSheet>
 </template>
 
 <style scoped>
@@ -2102,14 +2230,45 @@ onUnmounted(() => {
     pointer-events: auto;
 }
 
-.arbiter-mobile-panel-controls {
-    display: none;
+.arbiter-mobile-header-actions,
+.arbiter-mobile-tab-list {
     align-items: center;
     gap: 0.5rem;
 }
 
-.arbiter-mobile-panel-button {
+.arbiter-mobile-header-actions {
+    display: none;
+}
+
+.arbiter-mobile-tab-list {
+    display: flex;
     flex: 0 0 auto;
+}
+
+.arbiter-mobile-header-action {
+    flex: 0 0 auto;
+}
+
+.arbiter-mobile-back {
+    display: grid;
+    width: 2.25rem;
+    height: 2.8125rem;
+    place-items: center;
+    border: 0;
+    padding: 0;
+    color: #fff;
+    background: transparent;
+    cursor: pointer;
+}
+
+.arbiter-mobile-back:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.arbiter-mobile-back:focus-visible {
+    outline: 2px solid var(--color-secondary-300);
+    outline-offset: 0.25rem;
 }
 
 .arbiter-back {
@@ -2232,15 +2391,16 @@ onUnmounted(() => {
 .arbiter-rules-panel {
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 .arbiter-rules-list {
+    height: 100%;
     display: flex;
     width: 100%;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.875rem;
-    padding-inline: 0.875rem;
     text-align: left;
 }
 
@@ -2281,6 +2441,7 @@ onUnmounted(() => {
     font: inherit;
     font-size: 0.8125rem;
     line-height: 1;
+    margin-top: auto;
     transition:
         border-color 160ms ease,
         color 160ms ease,
@@ -3198,22 +3359,6 @@ onUnmounted(() => {
     font-size: 0.6875rem;
 }
 
-.arbiter-mobile-panel {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-}
-
-.arbiter-mobile-chat-panel {
-    height: min(31.75rem, calc(92svh - 7rem));
-    min-height: 20rem;
-}
-
-.arbiter-mobile-chat-panel .chat-window {
-    height: auto;
-    flex: 1;
-}
-
 .arbiter-proposal-dock {
     width: 100%;
     max-width: 38.5rem;
@@ -3446,30 +3591,140 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1120px) {
-    .arbiter-topbar {
-        display: grid;
-        min-height: 6rem;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: start;
-        justify-content: initial;
-        gap: 0.75rem;
+    .arbiter-page--mobile-tab-open {
+        height: 100svh;
+        overflow: hidden;
+        padding-bottom: 0;
     }
 
-    .arbiter-mobile-panel-controls {
+    .arbiter-topbar {
         display: flex;
-        grid-column: 2;
-        grid-row: 1;
+        min-height: 6rem;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .arbiter-back {
+        display: none;
+    }
+
+    .arbiter-mobile-header-actions {
+        display: flex;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        grid-template-columns: 45px minmax(0, 1fr);
+        padding-right: 0.875rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        padding-right: 0.125rem;
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .arbiter-mobile-tab-surface {
+        position: fixed;
+        z-index: 3;
+        inset: 0;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: max(7.5rem, calc(env(safe-area-inset-top) + 5.75rem)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+        background: #000;
+        overscroll-behavior: contain;
+        scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+        scrollbar-width: thin;
+    }
+
+    .arbiter-mobile-tab-content {
+        width: min(100%, 40rem);
+        min-height: calc(100svh - 9rem);
+        margin: 0 auto;
+    }
+
+    .arbiter-mobile-tab-panel {
+        min-width: 0;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rules-list {
+        gap: 1.25rem;
+        padding-inline: 0;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule {
+        gap: 0.5rem;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule h2 {
+        font-size: 1.125rem;
+        line-height: 1.2;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule p {
+        font-size: 0.875rem;
+        line-height: 1.45;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rules-button {
+        height: 2.75rem;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .arbiter-mobile-players-tab {
+        padding-bottom: 2rem;
+    }
+
+    .arbiter-mobile-chat-tab {
+        height: calc(100svh - 9rem);
+        min-height: 20rem;
+        overflow: hidden;
+    }
+
+    .arbiter-mobile-chat-tab .chat-window {
+        height: auto;
+        flex: 1;
     }
 
     .arbiter-media-player {
         width: min(31rem, 100%);
-        grid-column: 1 / -1;
-        grid-row: 2;
         margin-top: 0.75rem;
     }
 
     .arbiter-rail {
         display: none;
+    }
+}
+
+@media (max-width: 440px) {
+    .arbiter-mobile-header-actions,
+    .arbiter-mobile-tab-list {
+        gap: 0.25rem;
+    }
+
+    .arbiter-mobile-back {
+        width: 1.75rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        padding-right: 0.625rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        padding-left: 0.125rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        grid-template-columns: 45px 0fr;
+        padding-right: 0;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        opacity: 0;
+        transform: translateX(-10px);
     }
 }
 </style>
