@@ -18,6 +18,7 @@ import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import MultiplayerJournalTimeline from '@/components/MultiplayerJournalTimeline.vue';
 import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
@@ -279,6 +280,7 @@ const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const storyColumn = ref<HTMLElement | null>(null);
 const prompts = computed(() => localPrompts.value);
 const latestPromptId = computed(() => prompts.value[prompts.value.length - 1]?.id ?? null);
+const journalEpisodeNumber = computed(() => props.game?.currentEvent?.chapter?.position ?? props.game?.current_session_number ?? 1);
 const hasVisibleStreamedResponse = computed(() => {
     if (!streamingPromptId.value) {
         return false;
@@ -1790,7 +1792,13 @@ onUnmounted(() => {
                         </form>
                     </div>
 
-                    <div v-else class="arbiter-mobile-tab-panel arbiter-mobile-journal-tab" aria-label="Journal" />
+                    <MultiplayerJournalTimeline
+                        v-else
+                        class="arbiter-mobile-tab-panel"
+                        :prompts="prompts"
+                        :episode-number="journalEpisodeNumber"
+                        title-id="arbiter-mobile-journal-title"
+                    />
                 </div>
             </section>
 
@@ -2099,6 +2107,8 @@ onUnmounted(() => {
                             class="rail-header-button"
                             :active="activeRightHeaderAction === 'journal'"
                             title="Journal"
+                            :aria-expanded="activeRightHeaderAction === 'journal'"
+                            aria-controls="arbiter-journal-panel"
                             @click="selectRightHeaderAction('journal')"
                         >
                             <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
@@ -2138,6 +2148,16 @@ onUnmounted(() => {
                             </button>
                         </form>
                     </section>
+
+                    <MultiplayerJournalTimeline
+                        v-show="activeRightHeaderAction === 'journal'"
+                        id="arbiter-journal-panel"
+                        class="arbiter-desktop-journal-panel"
+                        compact
+                        :prompts="prompts"
+                        :episode-number="journalEpisodeNumber"
+                        title-id="arbiter-desktop-journal-title"
+                    />
                 </aside>
             </div>
         </div>
@@ -3215,6 +3235,14 @@ onUnmounted(() => {
 
 .waiting-status--error {
     color: #fd8b8b;
+}
+
+.arbiter-desktop-journal-panel {
+    height: min(32.6875rem, calc(100svh - 6.375rem));
+    min-height: 32.6875rem;
+    overflow-y: auto;
+    scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-width: thin;
 }
 
 .chat-panel {
