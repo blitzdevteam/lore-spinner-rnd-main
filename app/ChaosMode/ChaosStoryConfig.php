@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\ChaosMode;
 
+use App\Support\StoryPlayability;
 use App\Tts\TtsVoiceCatalog;
 
 /**
@@ -70,6 +71,7 @@ final class ChaosStoryConfig
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
                 'protagonist' => 'Utterson',
                 'tagline' => 'Stevenson — chase the other self through foggy London.',
+                'prefer_literal_opening' => true,
             ],
             [
                 'slug' => 'nocturne',
@@ -157,8 +159,10 @@ final class ChaosStoryConfig
      */
     public static function find(string $slug): ?array
     {
+        $canonical = StoryPlayability::canonicalSlug($slug);
+
         foreach (self::all() as $row) {
-            if ($row['slug'] === $slug) {
+            if ($row['slug'] === $slug || $row['slug'] === $canonical) {
                 return $row;
             }
         }

@@ -15,6 +15,18 @@ it('binds Dr Watson as the playable protagonist on every Baker Street title', fu
     }
 });
 
+it('binds Utterson for Jekyll and Hyde including legacy slug aliases', function (): void {
+    foreach ([
+        'dr-jekyll-and-mr-hyde',
+        'the-strange-case-of-dr-jekyll-and-mr-hyde',
+        'jekyll-and-hyde',
+    ] as $slug) {
+        expect(ChaosStoryConfig::find($slug)['protagonist'])->toBe('Utterson')
+            ->and(ChaosStoryConfig::find($slug)['prefer_literal_opening'] ?? false)->toBeTrue()
+            ->and(ChaosStoryConfig::protagonistFor($slug, 'Jekyll'))->toBe('Utterson');
+    }
+});
+
 it('falls back when a slug has no chaos config', function (): void {
     expect(ChaosStoryConfig::protagonistFor('unknown-title', 'Alice'))->toBe('Alice')
         ->and(ChaosStoryConfig::protagonistFor('unknown-title'))->toBe('the protagonist');
