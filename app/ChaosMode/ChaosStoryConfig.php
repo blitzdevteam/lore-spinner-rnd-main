@@ -69,9 +69,8 @@ final class ChaosStoryConfig
             [
                 'slug' => 'dr-jekyll-and-mr-hyde',
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
-                'protagonist' => 'Utterson',
-                'tagline' => 'Stevenson — chase the other self through foggy London.',
-                'prefer_literal_opening' => true,
+                'protagonist' => 'Jekyll',
+                'tagline' => 'Stevenson — hold the line between self and shadow.',
             ],
             [
                 'slug' => 'nocturne',
