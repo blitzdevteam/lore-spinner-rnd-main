@@ -61,7 +61,13 @@ final class ProcessGameTurnAction
     ) {}
 
     /**
+     * Runs the turn outside the player's HTTP request. When a delta callback is
+     * given the model is streamed so the prose can be relayed live (over a
+     * broadcast channel, never the request), while still pre-rendering audio
+     * and clearing the pending flag exactly like a plain deferred turn.
+     *
      * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
+     * @param  callable(string): void|null  $onResponseDelta
      */
     public function handle(
         string $gameId,
@@ -70,15 +76,16 @@ final class ProcessGameTurnAction
         string $playerAction,
         ?array $explicitBranch,
         int $userId,
-    ): void {
-        $this->process(
+        ?callable $onResponseDelta = null,
+    ): ?Prompt {
+        return $this->process(
             gameId: $gameId,
             sourcePromptId: $sourcePromptId,
             storedPromptValue: $storedPromptValue,
             playerAction: $playerAction,
             explicitBranch: $explicitBranch,
             userId: $userId,
-            onResponseDelta: null,
+            onResponseDelta: $onResponseDelta,
             deferred: true,
         );
     }

@@ -69,6 +69,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
                 ->creatable()
                 ->only(['store']);
 
+            Route::get('games/{game}/turn-status', User\Game\TurnStatusController::class)
+                ->name('games.turn-status');
+
             Route::post('games/transcribe', User\Game\TranscribeController::class)
                 ->name('games.transcribe');
 

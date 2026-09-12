@@ -275,6 +275,55 @@ export interface VisibleSuggestionInterface {
 
 export type PromptChoice = string | VisibleSuggestionInterface;
 
+/** The game fields the play page needs after a turn commits — see GameNarrationStreamed::gamePayload(). */
+export interface GameTurnStateInterface {
+    current_session_number: number | null;
+    current_session_complete: boolean;
+    uses_playable_moments: boolean;
+}
+
+/** Broadcast on `private-game.{id}` as `.game.narration.streamed` while a turn runs after the request returned. */
+export interface GameNarrationSignal {
+    game_id: string;
+    source_prompt_id: string;
+    phase: 'ready' | 'delta' | 'done' | 'error';
+    text?: string;
+    source_prompt_value?: string;
+    prompt?: PromptInterface;
+    game?: GameTurnStateInterface;
+    message?: string;
+}
+
+/** POST /user/games/{game}/prompt with Accept: application/json. */
+export interface TurnAcceptedResponse {
+    accepted: true;
+    game_id: string;
+    source_prompt_id: string;
+    source_prompt_value: string;
+    channel: string;
+}
+
+export interface TurnRejectedResponse {
+    accepted: false;
+    reason: 'in_progress' | 'out_of_turn' | 'already_answered' | 'invalid';
+    message: string;
+    source_prompt_id?: string;
+    source_prompt_value?: string;
+    prompt?: PromptInterface;
+    game?: GameTurnStateInterface;
+}
+
+/** GET /user/games/{game}/turn-status?source_prompt_id= */
+export interface TurnStatusResponse {
+    pending: boolean;
+    pending_source_prompt_id: string | null;
+    error: string | null;
+    source_prompt_id: string | null;
+    source_prompt_value: string | null;
+    prompt: PromptInterface | null;
+    game: GameTurnStateInterface;
+}
+
 export interface GameplayUsageTotals {
     turns: number;
     voice_duration_ms: number;
