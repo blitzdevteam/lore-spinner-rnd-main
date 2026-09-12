@@ -66,14 +66,18 @@ final class AddSingleStorySeeder extends Seeder
     /**
      * Seed launch titles from manifest.php one after another.
      *
-     * SEED_LAUNCH=all     — every manifest title (skips already in DB)
-     * SEED_LAUNCH=pending — only titles not yet in DB with a script on disk
-     * SEED_LAUNCH=blue-carbuncle,emma — comma-separated seed_keys
+     * SEED_LAUNCH=all     — launch roster only (config stories.launch_playable_slugs; skips already in DB)
+     * SEED_LAUNCH=pending — launch roster only, not yet in DB, with script or source PDF on disk
+     * SEED_LAUNCH=blue-carbuncle,emma — comma-separated seed_keys (any manifest title)
      */
     protected function runLaunchBatch(string $mode): void
     {
         $manifest = require database_path('stories/launch/manifest.php');
         $titles = $manifest['titles'];
+
+        if (in_array($mode, ['all', 'pending'], true)) {
+            $titles = $this->filterLaunchRosterTitles($titles);
+        }
 
         if (! in_array($mode, ['all', 'pending'], true)) {
             $keys = array_map(static fn (string $k): string => mb_strtolower(mb_trim($k)), explode(',', $mode));
@@ -129,6 +133,21 @@ final class AddSingleStorySeeder extends Seeder
         }
 
         $this->command->info('Launch batch complete.');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $titles
+     * @return list<array<string, mixed>>
+     */
+    protected function filterLaunchRosterTitles(array $titles): array
+    {
+        /** @var list<string> $launchSlugs */
+        $launchSlugs = config('stories.launch_playable_slugs', []);
+
+        return array_values(array_filter(
+            $titles,
+            static fn (array $entry): bool => in_array($entry['slug'] ?? '', $launchSlugs, true),
+        ));
     }
 
     protected function processStory(array $config): void

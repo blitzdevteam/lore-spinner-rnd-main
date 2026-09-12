@@ -26,7 +26,7 @@ That upserts world rows and attaches any already-seeded launch titles. Seeding a
 
 ## Seed all pending titles (one command)
 
-Runs every launch title that is **not** already in the DB and **has a TXT on disk**. Skips the 6 already-seeded/boiled titles automatically.
+Runs only titles on **`config/stories.php` → `launch_playable_slugs`** (your 18-title launch roster). Skips titles already in the DB, `pipeline_complete` entries, and RnD/manifest extras (Dream Police, Marvelous Oz, Olympus, etc.).
 
 ```bash
 SEED_LAUNCH=pending php artisan db:seed --class=AddSingleStorySeeder --force

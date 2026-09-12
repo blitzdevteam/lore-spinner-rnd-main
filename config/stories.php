@@ -31,7 +31,7 @@ return [
         'treasure-island',
     ],
 
-    /** Already boiled on Cloud — stay playable even though not on the 18-title launch roster. */
+    /** Already boiled on Cloud — playable but excluded from SEED_LAUNCH batch seeding. */
     'boiled_playable_slugs' => [
         'dr-jekyll-and-mr-hyde',
         'the-strange-case-of-dr-jekyll-and-mr-hyde',
