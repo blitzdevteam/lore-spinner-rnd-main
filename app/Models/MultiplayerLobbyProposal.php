@@ -16,6 +16,7 @@ use Override;
  * @property string $source_prompt_id
  * @property string $member_id
  * @property string $text
+ * @property int|null $choice_index
  * @property Carbon|null $selected_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -59,6 +60,7 @@ final class MultiplayerLobbyProposal extends Model
     protected function casts(): array
     {
         return [
+            'choice_index' => 'integer',
             'selected_at' => 'datetime',
         ];
     }

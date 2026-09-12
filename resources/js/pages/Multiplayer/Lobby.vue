@@ -17,18 +17,21 @@ import {
     show as showMultiplayerLobby,
     start as startMultiplayerLobby,
     updateReadiness as updateMultiplayerLobbyReadiness,
+    updateSettings as updateMultiplayerLobbySettings,
 } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
 import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
-import { useEcho, useEchoPresence } from '@laravel/echo-vue';
+import { useEcho, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { LucideCheck } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
 const props = defineProps<{
     lobby: MultiplayerLobbyInterface;
 }>();
+
+const lobbyHeartbeatInterval = 15_000;
 
 type MultiplayerLobbyRealtimePayload = {
     lobby: Pick<MultiplayerLobbyInterface, 'id' | 'room_code' | 'mode' | 'status' | 'max_players' | 'settings' | 'members'>;
@@ -38,14 +41,48 @@ type MultiplayerLobbyDeletedPayload = {
     lobby_id: string;
 };
 
-type MultiplayerLobbyEventPayload = MultiplayerLobbyRealtimePayload | MultiplayerLobbyDeletedPayload;
+type MultiplayerLobbyClosedPayload = {
+    lobby_id: string;
+    message: string;
+};
+
+type MultiplayerLobbyEventPayload = MultiplayerLobbyRealtimePayload | MultiplayerLobbyDeletedPayload | MultiplayerLobbyClosedPayload;
+
+type LobbySettingKey = 'customInput' | 'voiceOver' | 'votingTime';
+
+type LobbySettingOption = {
+    key: LobbySettingKey;
+    label: string;
+    options: string[];
+};
+
+type LobbySettingsForm = Record<LobbySettingKey, string>;
 
 const liveLobby = ref(props.lobby);
+const lobbySettingsForm = reactive<LobbySettingsForm>({
+    customInput: 'Off',
+    voiceOver: 'On',
+    votingTime: '20 Sec',
+});
+
+function syncLobbySettingsForm(): void {
+    lobbySettingsForm.customInput = liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off';
+    lobbySettingsForm.voiceOver = (liveLobby.value.settings.voice_over_enabled ?? true) ? 'On' : 'Off';
+    lobbySettingsForm.votingTime = `${liveLobby.value.settings.decision_window_seconds} Sec`;
+}
+
 watch(
     () => props.lobby,
     (lobby) => {
         liveLobby.value = lobby;
     },
+);
+watch(
+    () => liveLobby.value.settings,
+    () => {
+        syncLobbySettingsForm();
+    },
+    { immediate: true },
 );
 
 const story = computed(() => liveLobby.value.story);
@@ -72,6 +109,7 @@ const readyMemberCount = computed(() => members.value.filter((member) => member.
 const isLobbyWaiting = computed(() => liveLobby.value.status === 'waiting');
 const allMembersReady = computed(() => members.value.length >= 3 && members.value.every((member) => member.is_ready));
 const canStartStory = computed(() => liveLobby.value.is_host && isLobbyWaiting.value && allMembersReady.value);
+const canUpdateLobbySettings = computed(() => liveLobby.value.is_host && isLobbyWaiting.value);
 const readinessMessage = computed(() => {
     if (!isLobbyWaiting.value) {
         return 'The story has started.';
@@ -87,12 +125,19 @@ const readinessMessage = computed(() => {
 });
 const copiedRoomCode = ref(false);
 const leavingLobby = ref(false);
-const redirectingAfterLobbyDeletion = ref(false);
+const redirectingAwayFromLobby = ref(false);
 const updatingReadiness = ref(false);
+const updatingLobbySettings = ref(false);
 const startingStory = ref(false);
 const readinessError = ref<string | null>(null);
+const lobbySettingsError = ref<string | null>(null);
 const startError = ref<string | null>(null);
-const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : liveLobby.value.mode));
+let lobbyHeartbeatTimer: ReturnType<typeof window.setInterval> | null = null;
+let isSendingLobbyHeartbeat = false;
+let isReloadingLobby = false;
+let isLobbyReloadPending = false;
+const multiplayerLobbyPresenceChannel = usePresenceChannel(`multiplayer.lobby.${props.lobby.id}`);
+const currentModeName = computed(() => (liveLobby.value.mode === 'arbiter' ? 'Arbiter' : 'Roulette'));
 const playersCountLabel = computed(() => `${members.value.length}/${liveLobby.value.max_players}`);
 const chaptersLabel = computed(() => `${story.value.chapters_count ?? 0} Chapters`);
 const hostLabel = computed(() => {
@@ -102,26 +147,83 @@ const hostLabel = computed(() => {
 
     return `${firstName}${suffix}`;
 });
-const lobbySettings = computed(() => ({
-    customInput: liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off',
-    votingTime: `${liveLobby.value.settings.decision_window_seconds} Sec`,
-    powerUpsPerUser: String(liveLobby.value.settings.power_ups_per_user),
-}));
+const displayedLobbySettings = computed<LobbySettingOption[]>(() => {
+    if (liveLobby.value.mode === 'roulette') {
+        return [
+            { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
+            { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+            { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+        ];
+    }
 
-const rules = [
-    {
-        title: 'The Arbiter decides',
-        description: 'Everyone submits a choice. The current Arbiter selects the narration that becomes canon.',
-    },
-    {
-        title: 'Everyone contributes',
-        description: 'Choose a story point or write a custom action for each turn.',
-    },
-    {
-        title: 'The Arbiter rotates',
-        description: 'After a narration is chosen, the next player becomes the Arbiter.',
-    },
-];
+    return [
+        { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+        { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+    ];
+});
+
+const rules = computed(() => {
+    if (liveLobby.value.mode === 'roulette') {
+        return [
+            {
+                title: 'Xen presents the paths',
+                description: 'Each turn, Xen generates the choices for the current player.',
+            },
+            {
+                title: 'One player chooses',
+                description: 'Only the current player chooses which path becomes canon.',
+            },
+            {
+                title: 'The turn rotates',
+                description: 'After the narration, the next player takes the next choice.',
+            },
+        ];
+    }
+
+    return [
+        {
+            title: 'The Arbiter decides',
+            description: 'Everyone submits a choice. The current Arbiter selects the narration that becomes canon.',
+        },
+        {
+            title: 'Everyone contributes',
+            description: 'Choose a story point or write a custom action for each turn.',
+        },
+        {
+            title: 'The Arbiter rotates',
+            description: 'After a narration is chosen, the next player becomes the Arbiter.',
+        },
+    ];
+});
+
+function reloadLobbyState(): void {
+    if (redirectingAwayFromLobby.value) {
+        return;
+    }
+
+    if (isReloadingLobby) {
+        isLobbyReloadPending = true;
+
+        return;
+    }
+
+    isReloadingLobby = true;
+    router.reload({
+        only: ['lobby'],
+        preserveScroll: true,
+        onFinish: () => {
+            isReloadingLobby = false;
+
+            if (isLobbyReloadPending) {
+                isLobbyReloadPending = false;
+                reloadLobbyState();
+            }
+        },
+    });
+}
+
+multiplayerLobbyPresenceChannel.channel().here(reloadLobbyState);
+multiplayerLobbyPresenceChannel.channel().joining(reloadLobbyState);
 
 useEchoPresence<MultiplayerLobbyEventPayload>(
     `multiplayer.lobby.${props.lobby.id}`,
@@ -130,10 +232,17 @@ useEchoPresence<MultiplayerLobbyEventPayload>(
         '.multiplayer.lobby.member.joined',
         '.multiplayer.lobby.member.left',
         '.multiplayer.lobby.member.readiness.changed',
+        '.multiplayer.lobby.settings.updated',
         '.multiplayer.lobby.started',
         '.multiplayer.lobby.deleted',
+        '.multiplayer.lobby.closed',
     ],
     (payload) => {
+        if ('message' in payload) {
+            redirectAfterLobbyClosure(payload.lobby_id, payload.message);
+            return;
+        }
+
         if ('lobby_id' in payload) {
             redirectAfterLobbyDeletion(payload.lobby_id);
             return;
@@ -160,18 +269,103 @@ if (currentUserId.value !== null) {
             redirectAfterLobbyDeletion(payload.lobby_id);
         },
     );
+
+    useEcho<MultiplayerLobbyClosedPayload>(
+        `App.Models.User.${currentUserId.value}`,
+        '.multiplayer.lobby.closed',
+        (payload) => {
+            redirectAfterLobbyClosure(payload.lobby_id, payload.message);
+        },
+    );
 }
 
 function redirectAfterLobbyDeletion(lobbyId: string): void {
-    if (lobbyId !== liveLobby.value.id || redirectingAfterLobbyDeletion.value) {
+    if (lobbyId !== liveLobby.value.id || redirectingAwayFromLobby.value) {
         return;
     }
 
-    redirectingAfterLobbyDeletion.value = true;
+    redirectingAwayFromLobby.value = true;
 
     router.visit(multiplayerStoryRoute.url(story.value.slug), {
         replace: true,
     });
+}
+
+function redirectAfterLobbyClosure(lobbyId: string, message: string): void {
+    if (lobbyId !== liveLobby.value.id || redirectingAwayFromLobby.value) {
+        return;
+    }
+
+    redirectingAwayFromLobby.value = true;
+
+    window.alert(message);
+
+    router.visit(multiplayerStoryRoute.url(story.value.slug), {
+        replace: true,
+    });
+}
+
+function csrfToken(): string {
+    const token = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+    return token ? decodeURIComponent(token) : '';
+}
+
+function sendLobbyHeartbeat(): void {
+    const member = currentMember.value;
+
+    if (isSendingLobbyHeartbeat || redirectingAwayFromLobby.value || !member || member.left_at !== null) {
+        return;
+    }
+
+    isSendingLobbyHeartbeat = true;
+
+    void fetch(`${showMultiplayerLobby(liveLobby.value.room_code).url}/heartbeat`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-XSRF-TOKEN': csrfToken(),
+        },
+    })
+        .then((response) => {
+            if (response.status === 410) {
+                redirectAfterLobbyClosure(
+                    liveLobby.value.id,
+                    'This lobby has been closed. Rejoin with the room code to open it again.',
+                );
+
+                return;
+            }
+
+            if (response.status === 409 && !redirectingAwayFromLobby.value) {
+                router.visit(showMultiplayerLobby(liveLobby.value.room_code).url, {
+                    preserveScroll: true,
+                });
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            isSendingLobbyHeartbeat = false;
+        });
+}
+
+function startLobbyHeartbeat(): void {
+    sendLobbyHeartbeat();
+    lobbyHeartbeatTimer = window.setInterval(sendLobbyHeartbeat, lobbyHeartbeatInterval);
+}
+
+function stopLobbyHeartbeat(): void {
+    if (lobbyHeartbeatTimer === null) {
+        return;
+    }
+
+    window.clearInterval(lobbyHeartbeatTimer);
+    lobbyHeartbeatTimer = null;
 }
 
 function goBack(): void {
@@ -195,7 +389,7 @@ function leaveLobby(): void {
     if (leavingLobby.value) return;
 
     const confirmationMessage = liveLobby.value.is_host
-        ? 'Leave this lobby? This will delete the lobby for every player.'
+        ? 'Leave this lobby? The room will stay available for players to rejoin.'
         : 'Leave this lobby? You can rejoin while it is still accepting players.';
 
     if (!window.confirm(confirmationMessage)) return;
@@ -233,6 +427,47 @@ function toggleReadiness(): void {
     );
 }
 
+function updateLobbySettings(): void {
+    if (!canUpdateLobbySettings.value || updatingLobbySettings.value) {
+        syncLobbySettingsForm();
+
+        return;
+    }
+
+    lobbySettingsError.value = null;
+    updatingLobbySettings.value = true;
+
+    const settings = liveLobby.value.mode === 'roulette'
+        ? {
+            custom_input_enabled: lobbySettingsForm.customInput === 'On',
+            voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
+            decision_window_seconds: Number.parseInt(lobbySettingsForm.votingTime, 10),
+        }
+        : {
+            voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
+            decision_window_seconds: Number.parseInt(lobbySettingsForm.votingTime, 10),
+        };
+
+    router.patch(
+        updateMultiplayerLobbySettings(liveLobby.value.room_code).url,
+        { settings },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                lobbySettingsError.value = errors['settings.decision_window_seconds']
+                    ?? errors['settings.custom_input_enabled']
+                    ?? errors['settings.voice_over_enabled']
+                    ?? errors.lobby
+                    ?? 'We could not update the lobby settings.';
+                syncLobbySettingsForm();
+            },
+            onFinish: () => {
+                updatingLobbySettings.value = false;
+            },
+        },
+    );
+}
+
 function startStory(): void {
     if (!canStartStory.value || startingStory.value) {
         return;
@@ -255,6 +490,14 @@ function startStory(): void {
         },
     );
 }
+
+onMounted(() => {
+    startLobbyHeartbeat();
+});
+
+onUnmounted(() => {
+    stopLobbyHeartbeat();
+});
 </script>
 
 <template>
@@ -346,36 +589,34 @@ function startStory(): void {
                                 <p class="text-right text-sm leading-[33px] text-white">{{ playersCountLabel }}</p>
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Host</p>
                                 <p class="truncate text-right text-sm leading-[33px] text-white">{{ hostLabel }}</p>
-                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Custom Input</p>
-                                <div
-                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
-                                >
-                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
-                                        lobbySettings.customInput
-                                    }}</span>
-                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
-                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
-                                </div>
-                                <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Voting Time</p>
-                                <div
-                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
-                                >
-                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
-                                        lobbySettings.votingTime
-                                    }}</span>
-                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
-                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
-                                </div>
-                                <p class="self-start text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Power-ups Per User</p>
-                                <div
-                                    class="flex h-6 w-[100px] shrink-0 items-center justify-between self-start rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
-                                >
-                                    <span class="w-[69px] text-center text-sm leading-none text-white">{{
-                                        lobbySettings.powerUpsPerUser
-                                    }}</span>
-                                    <span class="h-[14px] w-px shrink-0 bg-[#303030]" />
-                                    <img :src="caretDownIcon" alt="" class="size-[18px] shrink-0" />
-                                </div>
+                                <template v-for="setting in displayedLobbySettings" :key="setting.label">
+                                    <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">{{ setting.label }}</p>
+                                    <div
+                                        v-if="canUpdateLobbySettings"
+                                        class="relative flex h-6 w-[100px] shrink-0 items-center"
+                                    >
+                                        <select
+                                            v-model="lobbySettingsForm[setting.key]"
+                                            class="h-full w-full appearance-none rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-1 pr-6 text-center text-sm leading-none text-white outline-none focus:border-[#59c1ca] disabled:cursor-wait disabled:opacity-60"
+                                            :aria-label="`Set ${setting.label}`"
+                                            :disabled="updatingLobbySettings"
+                                            @change="updateLobbySettings"
+                                        >
+                                            <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
+                                        </select>
+                                        <img :src="caretDownIcon" alt="" class="pointer-events-none absolute right-0.5 size-[18px] shrink-0" />
+                                    </div>
+                                    <div
+                                        v-else
+                                        class="flex h-6 w-[100px] shrink-0 items-center justify-between rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-0.5"
+                                    >
+                                        <span class="w-full text-center text-sm leading-none text-white">{{ lobbySettingsForm[setting.key] }}</span>
+                                    </div>
+                                </template>
+                                <p v-if="canUpdateLobbySettings" class="col-span-2 text-[11px] leading-4 text-[#838383]">
+                                    {{ updatingLobbySettings ? 'Saving lobby settings...' : 'Changes save immediately.' }}
+                                </p>
+                                <p v-if="lobbySettingsError" class="col-span-2 text-xs leading-4 text-[#fd6d6d]">{{ lobbySettingsError }}</p>
                             </div>
                             <button
                                 type="button"
@@ -383,7 +624,7 @@ function startStory(): void {
                                 :disabled="leavingLobby"
                                 @click="leaveLobby"
                             >
-                                {{ leavingLobby ? (liveLobby.is_host ? 'Deleting Lobby...' : 'Leaving Lobby...') : 'Leave Lobby' }}
+                                {{ leavingLobby ? 'Leaving Lobby...' : 'Leave Lobby' }}
                             </button>
                         </div>
                     </div>

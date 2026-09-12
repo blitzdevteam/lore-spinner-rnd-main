@@ -48,14 +48,29 @@ it('places responsive narration controls in the arbiter proposal dock', function
     $styles = $template;
 
     expect($template)
-        ->toContain('v-if="tts.isActive.value && !isMobile" class="arbiter-media-player"')
-        ->toContain('v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player"')
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
 
     expect($styles)
         ->toContain('gap: 0.75rem;')
         ->toContain('.arbiter-proposal-media-player {')
         ->toContain('width: min(100%, 38.5rem);')
         ->toContain('.arbiter-proposal-media-player :deep(.player-bar) {');
+});
+
+it('uses the lobby voice-over and custom-input settings in roulette gameplay', function () {
+    $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+    $chatCard = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
+
+    expect($template)
+        ->toContain("const voiceOverEnabled = computed(() => isRouletteMode.value && props.lobby.settings.voice_over_enabled)")
+        ->toContain('const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value)')
+        ->toContain(':voice-over-enabled="voiceOverEnabled"');
+
+    expect($chatCard)
+        ->toContain('voiceOverEnabled?: boolean;')
+        ->toContain('const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);')
+        ->toContain('v-if="voiceOverEnabled"');
 });
 
 it('uses header controls and bottom sheets for arbiter panels on mobile', function () {
@@ -100,4 +115,29 @@ it('shares proposal typing state through the multiplayer presence channel', func
     expect($inputTemplate)
         ->toContain('typing: [isTyping: boolean];')
         ->toContain("emit('typing', text.trim().length > 0)");
+});
+
+it('uses dark liquid glass for gameplay navbar controls', function (): void {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('/* Header controls — dark liquid glass */')
+        ->toContain('linear-gradient(180deg, rgba(66, 66, 66, 0.48)')
+        ->toContain('backdrop-filter: blur(6px) saturate(115%);')
+        ->toContain('border: 1px solid rgba(255, 255, 255, 0.12);')
+        ->toContain('inset 0 1px 0 rgba(255, 255, 255, 0.18)')
+        ->not->toContain('background: #e6e6e6;');
+});
+
+it('centers the players and chat content using the figma dimensions', function (): void {
+    $arbiter = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($arbiter)
+        ->toContain('<img :src="playersIcon" alt="" class="size-[18px]"')
+        ->toContain('<img :src="chatIcon" alt="" class="size-[18px]"')
+        ->toContain('height: 2.1875rem !important;')
+        ->toContain('padding: 0 0.6875rem !important;')
+        ->toContain('font-size: 0.875rem;')
+        ->toContain('justify-content: center;')
+        ->toContain('gap: 0.375rem;');
 });

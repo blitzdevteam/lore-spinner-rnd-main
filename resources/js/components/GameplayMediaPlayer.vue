@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
-import { LucideAudioLines, LucideLoader, LucidePause, LucidePlay, LucideRotateCcw, LucideRotateCw, LucideSettings, LucideVolume2, LucideVolumeX, LucideX } from 'lucide-vue-next';
+import {
+    LucideLoader,
+    LucidePause,
+    LucidePlay,
+    LucideRotateCcw,
+    LucideRotateCw,
+    LucideSettings,
+    LucideVolume2,
+    LucideVolumeX,
+    LucideX,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 
 const props = withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false });
@@ -40,121 +50,129 @@ const onVolumeInput = (event: Event) => {
             <span class="player-bar__backdrop" aria-hidden="true" />
             <div class="player-bar__controls relative z-[1] flex items-center justify-between gap-2 sm:gap-2.5">
                 <!-- Play / Pause -->
-            <button
-                class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
-                :title="tts.isLoading.value ? 'Loading…' : tts.isPlaying.value ? 'Pause' : 'Play'"
-                :disabled="tts.isLoading.value"
-                @click="tts.togglePause"
-            >
-                <LucideLoader v-if="tts.isLoading.value" class="player-btn-icon animate-spin" />
-                <LucidePause v-else-if="tts.isPlaying.value" class="player-btn-icon" fill="currentColor" />
-                <LucidePlay v-else class="player-btn-icon" fill="currentColor" />
-            </button>
-
-            <!-- Time -->
-            <span class="min-w-12 text-base font-medium text-primary-600 tabular-nums">
-                {{ tts.formattedCurrentTime.value }}
-            </span>
-
-            <!-- Mute (mobile) -->
-            <button
-                class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95 md:hidden"
-                :class="isVolumeMuted ? 'text-white' : 'opacity-80 hover:opacity-100'"
-                :aria-pressed="isVolumeMuted"
-                :title="isVolumeMuted ? 'Unmute' : 'Mute'"
-                aria-label="Toggle mute"
-                @click="tts.toggleMute"
-            >
-                <LucideVolumeX v-if="isVolumeMuted" class="player-btn-icon" :stroke-width="1.75" />
-                <LucideVolume2 v-else class="player-btn-icon" :stroke-width="1.75" />
-            </button>
-
-            <!-- Settings (mobile) -->
-            <button
-                class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:hidden"
-                title="Settings"
-                aria-label="Settings"
-                @click.stop="emit('open-audio-settings')"
-            >
-                <LucideSettings class="player-btn-icon" :stroke-width="1.75" />
-            </button>
-
-            <!-- Mute + volume slider (desktop) -->
-            <div class="volume-control hidden items-center gap-1.5 md:flex">
                 <button
-                    class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
+                    type="button"
+                    class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
+                    :title="tts.isLoading.value ? 'Loading…' : tts.isPlaying.value ? 'Pause' : 'Play'"
+                    :disabled="tts.isLoading.value"
+                    @click="tts.togglePause"
+                >
+                    <LucideLoader v-if="tts.isLoading.value" class="player-btn-icon animate-spin" />
+                    <LucidePause v-else-if="tts.isPlaying.value" class="player-btn-icon" fill="currentColor" />
+                    <LucidePlay v-else class="player-btn-icon" fill="currentColor" />
+                </button>
+
+                <!-- Time -->
+                <span class="min-w-12 text-base font-medium text-primary-600 tabular-nums">
+                    {{ tts.formattedCurrentTime.value }}
+                </span>
+
+                <!-- Mute (mobile) -->
+                <button
+                    type="button"
+                    class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95 md:hidden"
                     :class="isVolumeMuted ? 'text-white' : 'opacity-80 hover:opacity-100'"
                     :aria-pressed="isVolumeMuted"
                     :title="isVolumeMuted ? 'Unmute' : 'Mute'"
                     aria-label="Toggle mute"
                     @click="tts.toggleMute"
                 >
-                    <LucideVolumeX class="player-btn-icon" :stroke-width="1.75" />
+                    <LucideVolumeX v-if="isVolumeMuted" class="player-btn-icon" :stroke-width="1.75" />
+                    <LucideVolume2 v-else class="player-btn-icon" :stroke-width="1.75" />
                 </button>
-                <span
-                    class="player-btn grid shrink-0 place-items-center text-primary-600"
-                    :class="{ 'opacity-40': isVolumeMuted }"
-                    aria-hidden="true"
+
+                <!-- Settings (mobile) -->
+                <button
+                    type="button"
+                    class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:hidden"
+                    title="Settings"
+                    aria-label="Settings"
+                    @click.stop="emit('open-audio-settings')"
                 >
-                    <LucideVolume2 class="player-btn-icon" :stroke-width="1.75" />
-                </span>
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    :value="volumePercent"
-                    class="media-range w-20"
-                    :style="{ '--range-fill': `${volumePercent}%` }"
-                    aria-label="Volume"
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                    :aria-valuenow="volumePercent"
-                    :aria-valuetext="isVolumeMuted ? 'Muted' : `${volumePercent}%`"
-                    @input="onVolumeInput"
-                />
-            </div>
+                    <LucideSettings class="player-btn-icon" :stroke-width="1.75" />
+                </button>
 
-            <span class="hidden h-6 w-px bg-white/15 md:block" />
+                <!-- Mute + volume slider (desktop) -->
+                <div class="volume-control hidden items-center gap-1.5 md:flex">
+                    <button
+                        type="button"
+                        class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
+                        :class="isVolumeMuted ? 'text-white' : 'opacity-80 hover:opacity-100'"
+                        :aria-pressed="isVolumeMuted"
+                        :title="isVolumeMuted ? 'Unmute' : 'Mute'"
+                        aria-label="Toggle mute"
+                        @click="tts.toggleMute"
+                    >
+                        <LucideVolumeX class="player-btn-icon" :stroke-width="1.75" />
+                    </button>
+                    <span
+                        class="player-btn grid shrink-0 place-items-center text-primary-600"
+                        :class="{ 'opacity-40': isVolumeMuted }"
+                        aria-hidden="true"
+                    >
+                        <LucideVolume2 class="player-btn-icon" :stroke-width="1.75" />
+                    </span>
+                    <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        :value="volumePercent"
+                        class="media-range w-20"
+                        :style="{ '--range-fill': `${volumePercent}%` }"
+                        aria-label="Volume"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        :aria-valuenow="volumePercent"
+                        :aria-valuetext="isVolumeMuted ? 'Muted' : `${volumePercent}%`"
+                        @input="onVolumeInput"
+                    />
+                </div>
 
-            <!-- Skip back 15s (desktop) -->
-            <button
-                class="player-btn relative hidden shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:grid"
-                title="Skip back 15s"
-                @click="tts.seekBy(-15)"
-            >
-                <LucideRotateCcw class="player-btn-icon" :stroke-width="1.5" />
-                <span class="absolute text-[9px] font-semibold tabular-nums">15</span>
-            </button>
+                <span class="hidden h-6 w-px bg-white/15 md:block" />
 
-            <!-- Skip forward 15s (desktop) -->
-            <button
-                class="player-btn relative hidden shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:grid"
-                title="Skip forward 15s"
-                @click="tts.seekBy(15)"
-            >
-                <LucideRotateCw class="player-btn-icon" :stroke-width="1.5" />
-                <span class="absolute text-[9px] font-semibold tabular-nums">15</span>
-            </button>
+                <!-- Skip back 15s (desktop) -->
+                <button
+                    type="button"
+                    class="player-btn relative hidden shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:grid"
+                    title="Skip back 15s"
+                    @click="tts.seekBy(-15)"
+                >
+                    <LucideRotateCcw class="player-btn-icon" :stroke-width="1.5" />
+                    <span class="absolute text-[9px] font-semibold tabular-nums">15</span>
+                </button>
 
-            <!-- Speed -->
-            <button
-                class="player-btn player-speed-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95"
-                :class="{ 'text-primary-600': tts.playbackRate.value !== 1 }"
-                title="Playback speed"
-                aria-label="Playback speed"
-                @click="tts.cycleSpeed"
-            >
-                <span class="player-speed-label tabular-nums leading-none">{{ speedLabel }}</span>
-            </button>
+                <!-- Skip forward 15s (desktop) -->
+                <button
+                    type="button"
+                    class="player-btn relative hidden shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95 md:grid"
+                    title="Skip forward 15s"
+                    @click="tts.seekBy(15)"
+                >
+                    <LucideRotateCw class="player-btn-icon" :stroke-width="1.5" />
+                    <span class="absolute text-[9px] font-semibold tabular-nums">15</span>
+                </button>
 
-            <!-- Close -->
-            <button
-                class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95"
-                title="Close player"
-                @click="tts.dismiss"
-            >
-                <LucideX class="player-btn-icon" :stroke-width="1.75" />
-            </button>
+                <!-- Speed -->
+                <button
+                    type="button"
+                    class="player-btn player-speed-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95"
+                    :class="{ 'text-primary-600': tts.playbackRate.value !== 1 }"
+                    title="Playback speed"
+                    aria-label="Playback speed"
+                    @click="tts.cycleSpeed"
+                >
+                    <span class="player-speed-label leading-none tabular-nums">{{ speedLabel }}</span>
+                </button>
+
+                <!-- Close -->
+                <button
+                    type="button"
+                    class="player-btn grid shrink-0 place-items-center rounded-full bg-white/5 text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:bg-white/10 hover:text-primary-600 active:scale-95"
+                    title="Close player"
+                    @click="tts.dismiss"
+                >
+                    <LucideX class="player-btn-icon" :stroke-width="1.75" />
+                </button>
             </div>
         </div>
     </Transition>

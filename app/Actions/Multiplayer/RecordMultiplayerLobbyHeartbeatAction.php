@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\DB;
 
 final class RecordMultiplayerLobbyHeartbeatAction
 {
-    private const int STALE_AFTER_SECONDS = 12;
+    private const int STALE_AFTER_SECONDS = 45;
 
-    public function handle(User $user, MultiplayerLobby $lobby): void
+    public function handle(User $user, MultiplayerLobby $lobby): bool
     {
-        $departedLobby = DB::transaction(function () use ($user, $lobby): ?MultiplayerLobby {
+        $rejoinRequired = false;
+
+        $departedLobby = DB::transaction(function () use ($user, $lobby, &$rejoinRequired): ?MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->find($lobby->id);
@@ -30,22 +32,36 @@ final class RecordMultiplayerLobbyHeartbeatAction
                 return null;
             }
 
+            if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Closed) {
+                $rejoinRequired = true;
+
+                return null;
+            }
+
             $member = $lockedLobby->members()
                 ->whereBelongsTo($user)
                 ->lockForUpdate()
                 ->first();
 
-            if (! $member instanceof MultiplayerLobbyMember || $member->left_at !== null) {
+            if (! $member instanceof MultiplayerLobbyMember) {
+                return null;
+            }
+
+            if ($member->left_at !== null) {
+                $rejoinRequired = true;
+
                 return null;
             }
 
             $now = now();
             $member->update(['last_seen_at' => $now]);
 
-            return $this->markStaleMembersAsLeft($lockedLobby, $now);
+            return $this->removeStaleMembers($lockedLobby, $now);
         });
 
         $this->broadcastDeparture($departedLobby);
+
+        return $rejoinRequired;
     }
 
     public function detectDepartures(string $lobbyId): bool
@@ -59,7 +75,7 @@ final class RecordMultiplayerLobbyHeartbeatAction
                 return null;
             }
 
-            return $this->markStaleMembersAsLeft($lockedLobby, now());
+            return $this->removeStaleMembers($lockedLobby, now());
         });
 
         $this->broadcastDeparture($departedLobby);
@@ -67,7 +83,7 @@ final class RecordMultiplayerLobbyHeartbeatAction
         return $departedLobby !== null;
     }
 
-    private function markStaleMembersAsLeft(MultiplayerLobby $lobby, Carbon $now): ?MultiplayerLobby
+    private function removeStaleMembers(MultiplayerLobby $lobby, Carbon $now): ?MultiplayerLobby
     {
         if (! in_array($lobby->status, [
             MultiplayerLobbyStatusEnum::Started,

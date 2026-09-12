@@ -51,11 +51,17 @@ Route::middleware('auth:user')->group(function (): void {
     Route::patch('multiplayer/lobbies/{lobby:room_code}/readiness', [Controllers\User\MultiplayerLobbyController::class, 'updateReadiness'])
         ->name('multiplayer.lobbies.readiness.update');
 
+    Route::patch('multiplayer/lobbies/{lobby:room_code}/settings', [Controllers\User\MultiplayerLobbyController::class, 'updateSettings'])
+        ->name('multiplayer.lobbies.settings.update');
+
     Route::post('multiplayer/lobbies/{lobby:room_code}/start', [Controllers\User\MultiplayerLobbyController::class, 'start'])
         ->name('multiplayer.lobbies.start');
 
     Route::post('multiplayer/lobbies/{lobby:room_code}/proposals', [Controllers\User\MultiplayerLobbyController::class, 'submitProposal'])
         ->name('multiplayer.lobbies.proposals.store');
+
+    Route::post('multiplayer/lobbies/{lobby:room_code}/choices', [Controllers\User\MultiplayerLobbyController::class, 'chooseRouletteChoice'])
+        ->name('multiplayer.lobbies.choices.store');
 
     Route::post('multiplayer/lobbies/{lobby:room_code}/heartbeat', [Controllers\User\MultiplayerLobbyController::class, 'heartbeat'])
         ->name('multiplayer.lobbies.heartbeat');

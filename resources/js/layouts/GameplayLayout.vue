@@ -321,24 +321,26 @@ const handleInputSubmit = (prompt: string) => {
                         <div class="hidden shrink-0 items-center gap-2 sm:gap-3 md:flex">
                             <GameplayCapsuleButton
                                 label="Auto Play"
+                                label-tone="secondary"
                                 :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'"
                                 :active="settings.autoplay"
                                 @click="toggleAutoplay"
                             >
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-primary text-primary' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
                                 label="Audio"
+                                label-tone="secondary"
                                 :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
                                 :active="tts.isActive.value && !tts.mediaCollapsed.value"
                                 @click="toggleMedia"
                             >
                                 <LucideAudioLines
                                     class="size-5"
-                                    :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-primary' : 'text-gray-300'"
+                                    :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-secondary-300' : 'text-gray-300'"
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
@@ -367,7 +369,7 @@ const handleInputSubmit = (prompt: string) => {
                             <button class="mobile-pill__btn" :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'" @click="toggleAutoplay">
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-primary text-primary' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
                                 />
                             </button>
                             <button
@@ -376,7 +378,7 @@ const handleInputSubmit = (prompt: string) => {
                                 :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
                                 @click="toggleMedia"
                             >
-                                <LucideAudioLines class="size-5" :class="tts.isActive.value ? 'text-primary' : 'text-gray-300'" />
+                                <LucideAudioLines class="size-5" :class="tts.isActive.value ? 'text-secondary-300' : 'text-gray-300'" />
                             </button>
                             <button
                                 class="mobile-pill__btn"

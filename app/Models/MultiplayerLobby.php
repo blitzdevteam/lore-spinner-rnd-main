@@ -32,6 +32,10 @@ use Override;
  * @property int|null $decision_remaining_seconds
  * @property int $max_players
  * @property array{custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int} $settings
+ * @property Carbon|null $last_activity_at
+ * @property Carbon|null $closed_at
+ * @property string|null $closed_reason
+ * @property string|null $closed_status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Story $story
@@ -45,6 +49,8 @@ use Override;
  */
 final class MultiplayerLobby extends Model
 {
+    private const int DEFAULT_DECISION_WINDOW_SECONDS = 20;
+
     /** @use HasFactory<MultiplayerLobbyFactory> */
     use HasFactory;
 
@@ -125,6 +131,26 @@ final class MultiplayerLobby extends Model
             ->exists();
     }
 
+    public function decisionWindowSeconds(): int
+    {
+        $decisionWindowSeconds = (int) ($this->settings['decision_window_seconds'] ?? self::DEFAULT_DECISION_WINDOW_SECONDS);
+
+        return in_array($decisionWindowSeconds, [10, 20, 30], true)
+            ? $decisionWindowSeconds
+            : self::DEFAULT_DECISION_WINDOW_SECONDS;
+    }
+
+    public function customInputEnabled(): bool
+    {
+        return $this->mode === MultiplayerLobbyModeEnum::Roulette
+            && (bool) ($this->settings['custom_input_enabled'] ?? false);
+    }
+
+    public function voiceOverEnabled(): bool
+    {
+        return (bool) ($this->settings['voice_over_enabled'] ?? true);
+    }
+
     #[Override]
     public function getRouteKeyName(): string
     {
@@ -139,6 +165,8 @@ final class MultiplayerLobby extends Model
             'mode' => MultiplayerLobbyModeEnum::class,
             'status' => MultiplayerLobbyStatusEnum::class,
             'settings' => 'array',
+            'last_activity_at' => 'datetime',
+            'closed_at' => 'datetime',
             'decision_deadline_at' => 'datetime',
             'decision_remaining_seconds' => 'integer',
         ];

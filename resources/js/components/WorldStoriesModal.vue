@@ -90,87 +90,101 @@ onUnmounted(() => {
                 <Transition name="world-modal-panel" appear>
                     <div
                         v-if="world"
-                        class="world-modal relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0c0c0c] sm:rounded-2xl"
+                        class="world-modal relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-black sm:rounded-2xl"
                         @click.stop
                     >
-                        <div
-                            class="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
-                            aria-hidden="true"
-                        />
-
-                        <div class="world-modal__hero relative shrink-0 overflow-hidden">
+                        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                             <img
                                 v-if="world.background"
                                 :src="world.background"
-                                :alt="world.title"
-                                class="absolute inset-0 size-full object-cover"
+                                alt=""
+                                class="absolute inset-0 size-full object-cover object-center"
                             />
                             <div
                                 v-else
                                 class="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#0f0f1a] to-[#0c0c0c]"
                             />
-                            <div class="world-modal__hero-shade pointer-events-none absolute inset-0" aria-hidden="true" />
-
-                            <div
-                                class="pointer-events-none absolute inset-x-0 top-0 flex justify-center pt-2.5 sm:hidden"
-                                aria-hidden="true"
-                            >
-                                <div class="h-[0.25rem] w-9 rounded-full bg-white/30" />
-                            </div>
-
-                            <button
-                                type="button"
-                                class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/15 backdrop-blur-sm transition hover:bg-black/75"
-                                aria-label="Close"
-                                @click="close"
-                            >
-                                <X class="size-[1.0625rem]" :stroke-width="2.25" />
-                            </button>
-
-                            <div class="relative z-[1] flex h-full flex-col justify-end gap-2 px-5 pb-5 sm:px-7 sm:pb-6">
-                                <p class="text-[0.6875rem] font-medium tracking-[0.16em] text-white/70 uppercase">
-                                    {{ storyCountLabel }}
-                                </p>
-                                <h2
-                                    :id="`world-modal-title-${world.id}`"
-                                    class="font-marcellus-sc text-[1.75rem] leading-none text-white sm:text-[2.25rem]"
-                                >
-                                    {{ world.title }}
-                                </h2>
-                                <p v-if="world.tagline" class="max-w-xl text-[0.8125rem] font-light text-white/85">
-                                    {{ world.tagline }}
-                                </p>
-                            </div>
+                            <div class="world-modal__shade absolute inset-0" />
                         </div>
 
-                        <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7 sm:py-6">
-                            <p v-if="world.description" class="max-w-2xl text-sm leading-relaxed text-[#b8b8b8]">
-                                {{ world.description }}
-                            </p>
+                        <div
+                            class="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+                            aria-hidden="true"
+                        />
 
-                            <div v-if="world.tags.length" class="flex flex-wrap items-center gap-2">
-                                <span
-                                    v-for="tag in world.tags"
-                                    :key="tag"
-                                    class="flex h-[1.875rem] items-center rounded-[5px] border-[0.5px] border-[#373737] bg-black px-2 text-[0.8125rem] font-light text-[#8f8f8f]"
-                                >
-                                    {{ tag }}
-                                </span>
-                            </div>
+                        <div
+                            class="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center pt-2.5 sm:hidden"
+                            aria-hidden="true"
+                        >
+                            <div class="h-[0.25rem] w-9 rounded-full bg-white/30" />
+                        </div>
 
-                            <div class="flex min-w-0 flex-col gap-3">
-                                <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
+                        <button
+                            type="button"
+                            class="absolute top-3 right-3 z-20 flex size-8 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/15 backdrop-blur-sm transition hover:bg-black/75"
+                            aria-label="Close"
+                            @click="close"
+                        >
+                            <X class="size-[1.0625rem]" :stroke-width="2.25" />
+                        </button>
 
-                                <div v-if="stories.length" class="flex flex-wrap gap-2.5">
-                                    <WorldAvailableStoryCard
-                                        v-for="story in stories"
-                                        :key="story.id"
-                                        :story="story"
-                                        :playable="isPlayable(story.slug)"
-                                    />
+                        <div class="world-modal__scroll relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                            <div class="world-modal__hero flex flex-col justify-end gap-3 px-5 pb-2 sm:px-7 sm:pb-3">
+                                <div class="flex flex-col gap-2">
+                                    <p class="text-[0.6875rem] font-medium tracking-[0.16em] text-white/70 uppercase">
+                                        {{ storyCountLabel }}
+                                    </p>
+                                    <h2
+                                        :id="`world-modal-title-${world.id}`"
+                                        class="font-marcellus-sc text-[1.75rem] leading-none text-white sm:text-[2.25rem]"
+                                    >
+                                        {{ world.title }}
+                                    </h2>
+                                    <p v-if="world.tagline" class="max-w-xl text-[0.8125rem] font-light text-white/85">
+                                        {{ world.tagline }}
+                                    </p>
                                 </div>
-                                <p v-else class="text-sm text-[#8f8f8f]">This world has no published stories yet.</p>
+
+                                <div v-if="world.tags.length" class="flex flex-wrap items-center gap-2">
+                                    <span
+                                        v-for="tag in world.tags"
+                                        :key="tag"
+                                        class="flex h-[1.875rem] items-center rounded-[5px] border-[0.5px] border-[#373737] bg-black/80 px-2 text-[0.8125rem] font-light text-[#8f8f8f]"
+                                    >
+                                        {{ tag }}
+                                    </span>
+                                </div>
                             </div>
+
+                            <section class="world-modal__sheet">
+                                <div class="world-modal__veil" aria-hidden="true" />
+
+                                <div class="world-modal__sheet-body">
+                                    <p v-if="world.description" class="max-w-2xl text-sm leading-relaxed text-[#b8b8b8]">
+                                        {{ world.description }}
+                                    </p>
+
+                                    <div class="flex min-w-0 flex-col gap-3">
+                                        <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
+
+                                        <div
+                                            v-if="stories.length"
+                                            class="world-modal__stories-slider"
+                                            role="list"
+                                            aria-label="Available stories"
+                                        >
+                                            <WorldAvailableStoryCard
+                                                v-for="story in stories"
+                                                :key="story.id"
+                                                class="world-modal__story-slide"
+                                                :story="story"
+                                                :playable="isPlayable(story.slug)"
+                                            />
+                                        </div>
+                                        <p v-else class="text-sm text-[#8f8f8f]">This world has no published stories yet.</p>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </Transition>
@@ -181,29 +195,117 @@ onUnmounted(() => {
 
 <style scoped>
 .world-modal {
-    max-height: min(92svh, 820px);
+    height: min(92svh, 820px);
     box-shadow:
         0 -8px 60px rgba(0, 0, 0, 0.7),
         0 0 0 1px rgba(111, 175, 186, 0.1);
 }
 
 .world-modal__hero {
-    height: 13.5rem;
+    min-height: 48%;
 }
 
-.world-modal__hero-shade {
+.world-modal__hero p,
+.world-modal__hero h2 {
+    text-shadow: 0 1px 14px rgb(0 0 0 / 0.72);
+}
+
+.world-modal__shade {
     background-image:
-        linear-gradient(to top, #0c0c0c 0%, rgba(12, 12, 12, 0.55) 42%, rgba(0, 0, 0, 0.2) 100%),
-        linear-gradient(105deg, rgba(0, 0, 0, 0.55) 8%, rgba(0, 0, 0, 0) 52%);
+        linear-gradient(to top, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.03) 42%, rgba(0, 0, 0, 0.12) 100%),
+        linear-gradient(105deg, rgba(0, 0, 0, 0.2) 8%, rgba(0, 0, 0, 0) 48%);
+}
+
+.world-modal__scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.world-modal__sheet {
+    position: relative;
+    margin-top: -5.5rem;
+}
+
+.world-modal__veil {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    top: -20rem;
+    background: linear-gradient(
+        to bottom,
+        rgb(0 0 0 / 0) 0,
+        rgb(0 0 0 / 0) 29.5rem,
+        rgb(0 0 0 / 0.14) 31rem,
+        rgb(0 0 0 / 0.55) 32.5rem,
+        rgb(0 0 0 / 0.9) 34rem,
+        rgb(0 0 0 / 0.97) 100%
+    );
+}
+
+.world-modal__sheet-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 11.5rem 1.25rem 2.5rem;
+}
+
+.world-modal__stories-slider {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.625rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.world-modal__stories-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.world-modal__story-slide {
+    scroll-snap-align: start;
 }
 
 @media (min-width: 640px) {
     .world-modal {
-        max-height: min(90vh, 860px);
+        height: min(90vh, 860px);
     }
 
     .world-modal__hero {
-        height: 16.5rem;
+        min-height: 52%;
+    }
+
+    .world-modal__sheet {
+        margin-top: -6.5rem;
+    }
+
+    .world-modal__veil {
+        top: -22rem;
+        background: linear-gradient(
+            to bottom,
+            rgb(0 0 0 / 0) 0,
+            rgb(0 0 0 / 0) 33.25rem,
+            rgb(0 0 0 / 0.14) 34.75rem,
+            rgb(0 0 0 / 0.55) 36.5rem,
+            rgb(0 0 0 / 0.9) 38.25rem,
+            rgb(0 0 0 / 0.97) 100%
+        );
+    }
+
+    .world-modal__sheet-body {
+        padding: 13.5rem 1.75rem 2.75rem;
+    }
+
+    .world-modal__stories-slider {
+        margin-inline: -1.75rem;
+        padding-inline: 1.75rem;
     }
 }
 

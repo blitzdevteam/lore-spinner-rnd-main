@@ -1,44 +1,51 @@
 <script setup lang="ts">
 import backIcon from '@/assets/arbiter/back.svg';
 import billyAvatar from '@/assets/arbiter/billy-avatar.png';
-import chatIcon from '@/assets/arbiter/chat.svg';
 import copyIcon from '@/assets/arbiter/copy.svg';
+import headerChatIcon from '@/assets/arbiter/header-chat.svg';
+import headerJournalIcon from '@/assets/arbiter/header-journal.svg';
+import headerPlayersIcon from '@/assets/arbiter/header-players.svg';
+import headerRulesIcon from '@/assets/arbiter/header-rules.svg';
+import headerSettingsIcon from '@/assets/arbiter/header-settings.svg';
 import hourglassIcon from '@/assets/arbiter/hourglass.svg';
 import kevinAvatar from '@/assets/arbiter/kevin-avatar.png';
-import lightningIcon from '@/assets/arbiter/lightning.svg';
 import miraAvatar from '@/assets/arbiter/mira-avatar.png';
-import notesIcon from '@/assets/arbiter/notes.svg';
 import playersIcon from '@/assets/arbiter/players.svg';
-import questionIcon from '@/assets/arbiter/question.svg';
 import sendIcon from '@/assets/arbiter/send.svg';
-import settingsIcon from '@/assets/arbiter/settings.svg';
-import BaseButton from '@/components/BaseButton.vue';
-import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
+import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
+import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import MultiplayerJournalTimeline from '@/components/MultiplayerJournalTimeline.vue';
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock';
+import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import type {
     GameInterface,
     MultiplayerArbiterStateInterface,
+    MultiplayerGeneratedChoiceInterface,
     MultiplayerLobbyChatMessageInterface,
     MultiplayerLobbyInterface,
     MultiplayerLobbyMemberInterface,
     MultiplayerLobbyProposalInterface,
     PromptInterface,
 } from '@/types';
-import { show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
-import { LucideCrown, LucideList, LucideStar, LucideUserRound } from 'lucide-vue-next';
+import { useConnectionStatus, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
+import { LucideCrown, LucideStar, LucideUserRound } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
 
 type PlayerTone = 'cyan' | 'gold' | 'left';
 type ChatTone = 'cyan' | 'fantasy' | 'green';
-type MobilePanel = 'players' | 'chat' | null;
+type LeftHeaderAction = 'rules' | 'settings' | 'players';
+type RightHeaderAction = 'chat' | 'journal';
+type MobileHeaderAction = LeftHeaderAction | RightHeaderAction;
 
 type Player = {
     id: string;
@@ -49,6 +56,8 @@ type Player = {
     hasLeft: boolean;
     avatar: string;
     tone: PlayerTone;
+    isActiveTurn: boolean;
+    isUpNext: boolean;
     isCurrentUser: boolean;
     isArbiter: boolean;
     host?: boolean;
@@ -78,9 +87,16 @@ type ArbiterNarrationSignal = {
 };
 
 type MultiplayerLobbyMembershipSignal = {
-    lobby: {
-        id: string;
-    };
+    lobby: Pick<MultiplayerLobbyInterface, 'id' | 'members'>;
+};
+
+type MultiplayerLobbyPresenceMember = {
+    id: string;
+};
+
+type MultiplayerLobbyClosedSignal = {
+    lobby_id: string;
+    message: string;
 };
 
 type ArbiterTypingWhisper = {
@@ -109,24 +125,81 @@ const typingIndicatorTimeout = 2_500;
 const typingWhisperInterval = 750;
 const lobbyHeartbeatInterval = 3_000;
 const multiplayerLobbyPresenceChannel = usePresenceChannel(lobbyChannelName);
+const connectionStatus = useConnectionStatus();
+const hasEstablishedRealtimeConnection = ref(connectionStatus.value === 'connected');
 const page = usePage();
 const tts = useTextToSpeech();
+const { settings: gameplaySettings } = useGameplaySettings();
 const gameplayBackgroundImage = computed(
     () => props.game?.story?.banner || props.lobby.story.banner || props.game?.story?.cover || props.lobby.story.cover || null,
 );
 const roomCode = computed(() => props.lobby.room_code);
-const members = computed(() => props.lobby.members);
+const liveMembers = ref<MultiplayerLobbyMemberInterface[]>([...props.lobby.members]);
+const members = computed(() => liveMembers.value);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
 const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value) ?? null);
 const currentArbiter = computed(() => members.value.find((member) => member.id === props.arbiter.current_arbiter_member_id) ?? null);
+const currentChooser = computed(() => members.value.find((member) => member.id === props.arbiter.current_chooser_member_id) ?? null);
+const isRouletteMode = computed(() => props.lobby.mode === 'roulette');
+const voiceOverEnabled = computed(() => props.lobby.settings.voice_over_enabled ?? true);
+const multiplayerRules = [
+    {
+        title: 'Votes are secret',
+        description: 'Everyone votes at the same time.The majority moves the story forward.',
+    },
+    {
+        title: 'Your choices matter',
+        description: 'Every decision shapes the world and your characters.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+    {
+        title: 'One world,many paths',
+        description: 'Different choices,one shared storyline.',
+    },
+];
 const turnStatus = computed(() => props.arbiter.turn_status);
 const isCurrentUserArbiter = computed(() => props.arbiter.is_current_user_arbiter);
+const isCurrentUserChooser = computed(() => props.arbiter.is_current_user_chooser);
 const isCollectingProposals = computed(() => turnStatus.value === 'collecting_proposals');
 const isAwaitingArbiter = computed(() => turnStatus.value === 'awaiting_arbiter');
+const isAwaitingRouletteChoice = computed(() => turnStatus.value === 'awaiting_roulette_choice');
 const isNarrating = computed(() => turnStatus.value === 'narrating');
 const isSessionComplete = computed(() => turnStatus.value === 'session_complete');
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
-const isGameplayPaused = computed(() => props.lobby.status === 'paused');
+const isDeparturePausePending = ref(false);
+const isGameplayPaused = computed(() => props.lobby.status === 'paused' || isDeparturePausePending.value);
+const hasDecisionTimer = computed(() => !isGameplayPaused.value && (isAwaitingArbiter.value || isAwaitingRouletteChoice.value));
+const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
+const decisionTimerNow = ref(Date.now());
+const decisionSecondsRemaining = computed(() => {
+    if (!hasDecisionTimer.value) {
+        return 0;
+    }
+
+    const deadline = props.arbiter.decision_deadline_at;
+
+    if (deadline) {
+        const deadlineTimestamp = Date.parse(deadline);
+
+        if (!Number.isNaN(deadlineTimestamp)) {
+            return Math.max(0, Math.ceil((deadlineTimestamp - decisionTimerNow.value) / 1_000));
+        }
+    }
+
+    if (props.arbiter.decision_remaining_seconds !== null) {
+        return Math.max(0, props.arbiter.decision_remaining_seconds);
+    }
+
+    return decisionWindowSeconds.value;
+});
+const isDecisionTimerUrgent = computed(() => hasDecisionTimer.value && decisionSecondsRemaining.value <= 5);
 const pausedMembers = computed(() => members.value.filter((member) => member.left_at !== null));
 const pausedMemberLabel = computed(() => {
     const names = pausedMembers.value.map((member) => member.user.full_name);
@@ -139,7 +212,7 @@ const pausedMemberLabel = computed(() => {
         return `${names[0]} and ${names[1]}`;
     }
 
-    return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 });
 const isLastSession = computed(() => {
     const totalSessions = props.game?.total_sessions ?? 0;
@@ -156,39 +229,58 @@ const ownProposal = computed(() => {
 });
 const availableProposals = computed(() => props.arbiter.proposals.filter((proposal) => proposal.text !== null));
 const selectedProposal = computed(() => props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null);
+const generatedChoices = computed(() => props.arbiter.generated_choices);
+const turnRoleLabel = computed(() => (isRouletteMode.value ? 'Chooser' : 'Arbiter'));
+const customInputEnabled = computed(() => props.lobby.settings.custom_input_enabled);
 const canSubmitProposal = computed(() => {
-    return !!(currentMember.value && !isCurrentUserArbiter.value && !isGameplayPaused.value && isCollectingProposals.value && !ownProposal.value);
+    return !!(
+        !isRouletteMode.value
+        && currentMember.value
+        && !isCurrentUserArbiter.value
+        && !isGameplayPaused.value
+        && isCollectingProposals.value
+        && !ownProposal.value
+    );
+});
+const canSubmitRouletteCustomInput = computed(() => {
+    return !!(
+        isRouletteMode.value
+        && customInputEnabled.value
+        && currentMember.value
+        && !isGameplayPaused.value
+        && isAwaitingRouletteChoice.value
+        && isCurrentUserChooser.value
+        && decisionSecondsRemaining.value > 0
+    );
+});
+const canSubmitCustomInput = computed(() => (isRouletteMode.value ? canSubmitRouletteCustomInput.value : canSubmitProposal.value));
+const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value);
+const customInputPlaceholder = computed(() => {
+    if (isGameplayPaused.value) {
+        return 'Story paused';
+    }
+
+    if (canSubmitCustomInput.value) {
+        return isRouletteMode.value ? 'Write your own path...' : 'What Do You Do?';
+    }
+
+    if (isRouletteMode.value) {
+        return 'Wait for your turn...';
+    }
+
+    return ownProposal.value ? 'Choice submitted' : '';
 });
 const canChooseProposal = computed(
-    () => !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
+    () => !isRouletteMode.value && !isGameplayPaused.value && isAwaitingArbiter.value && isCurrentUserArbiter.value && availableProposals.value.length > 0,
 );
 const canAdvanceSession = computed(() => !isGameplayPaused.value && isSessionComplete.value && !isStoryComplete.value && props.lobby.is_host);
-const decisionWindowSeconds = computed(() => props.lobby.settings.decision_window_seconds);
-const decisionTimerNow = ref(Date.now());
-const decisionSecondsRemaining = computed(() => {
-    const deadline = props.arbiter.decision_deadline_at;
-
-    if (isAwaitingArbiter.value && deadline) {
-        const deadlineTimestamp = Date.parse(deadline);
-
-        if (!Number.isNaN(deadlineTimestamp)) {
-            return Math.max(0, Math.ceil((deadlineTimestamp - decisionTimerNow.value) / 1_000));
-        }
-    }
-
-    if (isAwaitingArbiter.value && props.arbiter.decision_remaining_seconds !== null) {
-        return Math.max(0, props.arbiter.decision_remaining_seconds);
-    }
-
-    return decisionWindowSeconds.value;
-});
-const isDecisionTimerUrgent = computed(() => isAwaitingArbiter.value && decisionSecondsRemaining.value <= 5);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const storyColumn = ref<HTMLElement | null>(null);
 const prompts = computed(() => localPrompts.value);
-const latestPromptId = computed(() => prompts.value.at(-1)?.id ?? null);
+const latestPromptId = computed(() => prompts.value[prompts.value.length - 1]?.id ?? null);
+const journalEpisodeNumber = computed(() => props.game?.currentEvent?.chapter?.position ?? props.game?.current_session_number ?? 1);
 const hasVisibleStreamedResponse = computed(() => {
     if (!streamingPromptId.value) {
         return false;
@@ -200,17 +292,29 @@ const hasVisibleStreamedResponse = computed(() => {
 });
 
 const chatMessages = ref<MultiplayerLobbyChatMessageInterface[]>([...props.chatMessages]);
-const chatWindow = ref<HTMLElement | null>(null);
+const desktopChatWindow = ref<HTMLElement | null>(null);
+const mobileChatWindow = ref<HTMLElement | null>(null);
 const chatDraft = ref('');
-const isPlayersPanelOpen = ref(true);
-const isChatPanelOpen = ref(true);
-const activeMobilePanel = ref<MobilePanel>(null);
+const activeLeftHeaderAction = ref<LeftHeaderAction>('players');
+const activeRightHeaderAction = ref<RightHeaderAction>('chat');
+const activeMobileHeaderAction = ref<MobileHeaderAction | null>(null);
+const mobileTabSurface = ref<HTMLElement | null>(null);
 const isMobile = ref(false);
 const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
+const canChooseRouletteChoice = computed(
+    () =>
+        !isGameplayPaused.value
+        && isRouletteMode.value
+        && isAwaitingRouletteChoice.value
+        && isCurrentUserChooser.value
+        && decisionSecondsRemaining.value > 0
+        && generatedChoices.value.length > 0,
+);
 const isAdvancingSession = ref(false);
 const isLeavingLobby = ref(false);
+const isLobbyClosing = ref(false);
 const actionError = ref<string | null>(null);
 const typingMemberIds = ref(new Set<string>());
 const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
@@ -227,28 +331,50 @@ function goBack(): void {
     window.history.back();
 }
 
-function togglePlayersPanel(): void {
-    if (isMobile.value) {
-        activeMobilePanel.value = activeMobilePanel.value === 'players' ? null : 'players';
-
+function selectLeftHeaderAction(action: LeftHeaderAction): void {
+    if (activeLeftHeaderAction.value === action) {
         return;
     }
 
-    isPlayersPanelOpen.value = !isPlayersPanelOpen.value;
+    activeLeftHeaderAction.value = action;
 }
 
-function toggleChatPanel(): void {
-    if (isMobile.value) {
-        activeMobilePanel.value = activeMobilePanel.value === 'chat' ? null : 'chat';
-
+function selectRightHeaderAction(action: RightHeaderAction): void {
+    if (activeRightHeaderAction.value === action) {
         return;
     }
 
-    isChatPanelOpen.value = !isChatPanelOpen.value;
+    activeRightHeaderAction.value = action;
+
+    if (action === 'chat') {
+        scrollChatToBottom('auto');
+    }
 }
 
-function closeMobilePanel(): void {
-    activeMobilePanel.value = null;
+function selectMobileHeaderAction(action: MobileHeaderAction): void {
+    if (activeMobileHeaderAction.value === action) {
+        return;
+    }
+
+    activeMobileHeaderAction.value = action;
+
+    void nextTick(() => {
+        mobileTabSurface.value?.scrollTo({ top: 0, behavior: 'auto' });
+
+        if (action === 'chat') {
+            scrollChatToBottom('auto');
+        }
+    });
+}
+
+function closeMobileHeaderAction(): void {
+    activeMobileHeaderAction.value = null;
+}
+
+function handleMobileHeaderKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && activeMobileHeaderAction.value !== null) {
+        closeMobileHeaderAction();
+    }
 }
 
 function syncMobile(): void {
@@ -293,6 +419,34 @@ function clearTypingIndicators(): void {
 
     typingTimeouts.clear();
     typingMemberIds.value = new Set();
+}
+
+function synchronizeMembers(nextMembers: MultiplayerLobbyMemberInterface[]): void {
+    liveMembers.value = [...nextMembers];
+}
+
+function markMemberAsLeft(memberId: string): void {
+    const leftAt = new Date().toISOString();
+
+    liveMembers.value = liveMembers.value.map((member) => {
+        if (member.id !== memberId || member.left_at !== null) {
+            return member;
+        }
+
+        return {
+            ...member,
+            left_at: leftAt,
+            last_seen_at: leftAt,
+        };
+    });
+}
+
+function markMemberAsLeftByUserId(userId: string): void {
+    const member = members.value.find((candidate) => String(candidate.user.id) === userId);
+
+    if (member !== undefined) {
+        markMemberAsLeft(member.id);
+    }
 }
 
 function isMemberTyping(member: MultiplayerLobbyMemberInterface): boolean {
@@ -378,7 +532,7 @@ function mergeServerPrompts(serverPrompts: PromptInterface[]): PromptInterface[]
 
         return localPrompt?.prompt && !prompt.prompt ? { ...prompt, prompt: localPrompt.prompt } : prompt;
     });
-    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts.at(-1)?.id ?? '') : '';
+    const newestServerId = serverPrompts.length > 0 ? String(serverPrompts[serverPrompts.length - 1]?.id ?? '') : '';
     const newerLocalPrompts = localPrompts.value.filter(
         (prompt) => prompt.id !== streamingPromptId.value && !serverIds.has(String(prompt.id)) && String(prompt.id) > newestServerId,
     );
@@ -395,6 +549,14 @@ watch(
         localPrompts.value = streamingPrompt
             ? [...mergedPrompts.filter((prompt) => prompt.id !== streamingPrompt.id), streamingPrompt]
             : mergedPrompts;
+    },
+    { deep: true },
+);
+
+watch(
+    () => props.lobby.members,
+    (nextMembers) => {
+        synchronizeMembers(nextMembers);
     },
     { deep: true },
 );
@@ -420,6 +582,22 @@ watch(
     { immediate: true },
 );
 
+watch(connectionStatus, (status) => {
+    if (status !== 'connected') {
+        return;
+    }
+
+    if (!hasEstablishedRealtimeConnection.value) {
+        hasEstablishedRealtimeConnection.value = true;
+
+        return;
+    }
+
+    if (!isLeavingLobby.value) {
+        reloadArbiterState();
+    }
+});
+
 watch(turnStatus, (status) => {
     if (status === 'narrating' || !streamingPromptId.value) {
         return;
@@ -429,6 +607,13 @@ watch(turnStatus, (status) => {
     localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
     streamingPromptId.value = null;
 });
+
+watch(
+    () => props.lobby.status,
+    (status) => {
+        isDeparturePausePending.value = status === 'paused';
+    },
+);
 
 function ensureStreamingPrompt(sourcePromptId: string): string {
     const promptId = `stream-${sourcePromptId}`;
@@ -525,11 +710,35 @@ function memberDisplayName(member: MultiplayerLobbyMemberInterface): string {
 
 function memberRole(member: MultiplayerLobbyMemberInterface): string {
     if (member.id === props.arbiter.current_arbiter_member_id) {
-        return 'Arbiter';
+        return turnRoleLabel.value;
     }
 
     return member.role === 'host' ? 'Host' : 'Player';
 }
+
+const activeTurnMemberId = computed(() => {
+    if (!isAwaitingArbiter.value && !isAwaitingRouletteChoice.value) {
+        return null;
+    }
+
+    return props.arbiter.current_arbiter_member_id;
+});
+
+const upNextTurnMemberId = computed(() => {
+    const activeMemberId = activeTurnMemberId.value;
+
+    if (activeMemberId === null || members.value.length < 2) {
+        return null;
+    }
+
+    const activeIndex = members.value.findIndex((member) => member.id === activeMemberId);
+
+    if (activeIndex === -1) {
+        return null;
+    }
+
+    return members.value[(activeIndex + 1) % members.value.length]?.id ?? null;
+});
 
 function memberState(member: MultiplayerLobbyMemberInterface): string {
     if (member.left_at !== null) {
@@ -549,11 +758,11 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
     }
 
     if (member.id === props.arbiter.current_arbiter_member_id) {
-        if (isAwaitingArbiter.value) {
-            return 'Choosing…';
+        if (isAwaitingArbiter.value || isAwaitingRouletteChoice.value) {
+            return isRouletteMode.value ? 'Choosing a path…' : 'Choosing…';
         }
 
-        return 'Arbiter';
+        return turnRoleLabel.value;
     }
 
     if (isMemberTyping(member)) {
@@ -568,19 +777,26 @@ function memberState(member: MultiplayerLobbyMemberInterface): string {
 }
 
 const players = computed<Player[]>(() =>
-    members.value.map((member, index) => ({
-        id: member.id,
-        name: memberDisplayName(member),
-        role: memberRole(member),
-        state: memberState(member),
-        isTyping: isMemberTyping(member),
-        hasLeft: member.left_at !== null,
-        avatar: memberAvatar(member, index),
-        tone: member.left_at !== null ? 'left' : member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
-        isCurrentUser: member.user.id === currentUserId.value,
-        isArbiter: member.id === props.arbiter.current_arbiter_member_id,
-        host: member.role === 'host',
-    })),
+    members.value.map((member, index) => {
+        const isActiveTurn = member.id === activeTurnMemberId.value;
+        const isUpNext = member.id === upNextTurnMemberId.value;
+
+        return {
+            id: member.id,
+            name: memberDisplayName(member),
+            role: memberRole(member),
+            state: memberState(member),
+            isTyping: isMemberTyping(member),
+            hasLeft: member.left_at !== null,
+            avatar: memberAvatar(member, index),
+            tone: member.left_at !== null ? 'left' : member.id === props.arbiter.current_arbiter_member_id ? 'gold' : 'cyan',
+            isActiveTurn,
+            isUpNext,
+            isCurrentUser: member.user.id === currentUserId.value,
+            isArbiter: member.id === props.arbiter.current_arbiter_member_id,
+            host: member.role === 'host',
+        };
+    }),
 );
 
 const messages = computed<ChatMessage[]>(() =>
@@ -607,6 +823,10 @@ const decisionTitle = computed(() => {
         return `It’s ${currentArbiter.value?.user.full_name ?? 'the Arbiter'}’s Turn!`;
     }
 
+    if (isAwaitingRouletteChoice.value) {
+        return `It’s ${currentChooser.value?.user.full_name ?? 'the current player'}’s Turn!`;
+    }
+
     if (isNarrating.value) {
         return 'The Story Is Moving Forward';
     }
@@ -615,7 +835,7 @@ const decisionTitle = computed(() => {
         return 'Episode Complete';
     }
 
-    return 'Everyone Gets a Say';
+    return isRouletteMode.value ? 'The Wheel Is Turning' : 'Everyone Gets a Say';
 });
 
 const decisionDescription = computed(() => {
@@ -631,6 +851,10 @@ const decisionDescription = computed(() => {
         return 'Everyone has contributed. The Arbiter is making the final choice.';
     }
 
+    if (isAwaitingRouletteChoice.value) {
+        return 'Xen has presented the paths. The current player chooses what becomes canon.';
+    }
+
     if (isNarrating.value) {
         return 'The selected choice is becoming the next moment in the story.';
     }
@@ -643,7 +867,9 @@ const decisionDescription = computed(() => {
         return 'Xen is preparing the opening narration.';
     }
 
-    return 'Write your choice. The Arbiter will make the final decision after everyone has contributed.';
+    return isRouletteMode.value
+        ? 'The next player receives Xen’s generated paths.'
+        : 'Write your choice. The Arbiter will make the final decision after everyone has contributed.';
 });
 
 const waitingStatus = computed(() => {
@@ -689,6 +915,12 @@ const waitingStatus = computed(() => {
             : `Waiting for ${currentArbiter.value?.user.full_name ?? 'the Arbiter'} to choose…`;
     }
 
+    if (isAwaitingRouletteChoice.value) {
+        return isCurrentUserChooser.value
+            ? 'Choose the path that becomes canon.'
+            : `Waiting for ${currentChooser.value?.user.full_name ?? 'the current player'} to choose…`;
+    }
+
     if (isCurrentUserArbiter.value) {
         return 'Waiting for players to write their choices…';
     }
@@ -711,15 +943,48 @@ watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
     }
 });
 
+watch(
+    [isGameplayPaused, hasDecisionTimer],
+    ([isPaused, hasTimer]) => {
+        if (isPaused || !hasTimer) {
+            stopDecisionTimer();
+
+            return;
+        }
+
+        startDecisionTimer();
+    },
+    { immediate: true },
+);
+
 watch(pausedMembers, (departedMembers) => {
-    if (departedMembers.length > 0) {
-        isPlayersPanelOpen.value = true;
+    if (departedMembers.length > 0 && !isMobile.value) {
+        selectLeftHeaderAction('players');
     }
 });
 
-watch(isMobile, (mobile) => {
-    if (!mobile) {
-        closeMobilePanel();
+watch(activeMobileHeaderAction, (action, previousAction) => {
+    const wasOpen = previousAction !== null && isMobile.value;
+    const isOpen = action !== null && isMobile.value;
+
+    if (isOpen && !wasOpen) {
+        lockBodyScroll();
+
+        return;
+    }
+
+    if (!isOpen && wasOpen) {
+        unlockBodyScroll();
+    }
+});
+
+watch(isMobile, (mobile, wasMobile) => {
+    if (!mobile && activeMobileHeaderAction.value !== null) {
+        if (wasMobile) {
+            unlockBodyScroll();
+        }
+
+        closeMobileHeaderAction();
     }
 });
 
@@ -748,26 +1013,22 @@ function formatChatMessageTime(value: string | null): string {
     }).format(timestamp);
 }
 
-function scrollChatToBottom(): void {
-    nextTick(() => {
-        const element = chatWindow.value;
+function scrollChatToBottom(behavior: ScrollBehavior = 'smooth'): void {
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            for (const element of [desktopChatWindow.value, mobileChatWindow.value]) {
+                if (element === null) {
+                    continue;
+                }
 
-        if (!element) {
-            return;
-        }
-
-        element.scrollTo({
-            top: element.scrollHeight,
-            behavior: 'smooth',
+                element.scrollTo({
+                    top: element.scrollHeight,
+                    behavior,
+                });
+            }
         });
     });
 }
-
-watch(activeMobilePanel, (panel) => {
-    if (panel === 'chat') {
-        scrollChatToBottom();
-    }
-});
 
 function appendChatMessage(message: MultiplayerLobbyChatMessageInterface): void {
     if (chatMessages.value.some((existingMessage) => existingMessage.id === message.id)) {
@@ -841,13 +1102,19 @@ function lobbyEndpoint(suffix: string): string {
     return `${showMultiplayerLobby(props.lobby.room_code).url}${suffix}`;
 }
 
+function primeNarrationAudio(): void {
+    if (voiceOverEnabled.value) {
+        tts.primeAudio();
+    }
+}
+
 function submitProposal(proposal: string): void {
     if (!canSubmitProposal.value || isSubmittingProposal.value) {
         return;
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSubmittingProposal.value = true;
 
     router.post(
@@ -865,13 +1132,56 @@ function submitProposal(proposal: string): void {
     );
 }
 
+function submitRouletteCustomChoice(proposal: string): void {
+    if (!canSubmitRouletteCustomInput.value || isSubmittingProposal.value) {
+        return;
+    }
+
+    actionError.value = null;
+    primeNarrationAudio();
+    isSubmittingProposal.value = true;
+    const sourcePromptId = props.arbiter.source_prompt_id;
+    const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
+
+    if (sourcePromptId) {
+        setSourcePromptValue(sourcePromptId, proposal);
+    }
+
+    router.post(
+        storeRouletteChoice(props.lobby.room_code).url,
+        { proposal },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (sourcePromptId) {
+                    setSourcePromptValue(sourcePromptId, previousPromptValue);
+                }
+                actionError.value = errors.lobby ?? errors.proposal ?? 'We could not submit that path.';
+            },
+            onFinish: () => {
+                isSubmittingProposal.value = false;
+            },
+        },
+    );
+}
+
+function submitCustomInput(proposal: string): void {
+    if (isRouletteMode.value) {
+        submitRouletteCustomChoice(proposal);
+
+        return;
+    }
+
+    submitProposal(proposal);
+}
+
 function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
     if (!canChooseProposal.value || !proposal.text || isSelectingProposal.value) {
         return;
     }
 
     actionError.value = null;
-    tts.primeAudio();
+    primeNarrationAudio();
     isSelectingProposal.value = true;
     const sourcePromptId = props.arbiter.source_prompt_id;
     const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
@@ -890,6 +1200,39 @@ function selectProposal(proposal: MultiplayerLobbyProposalInterface): void {
                     setSourcePromptValue(sourcePromptId, previousPromptValue);
                 }
                 actionError.value = errors.lobby ?? 'We could not select that proposal.';
+            },
+            onFinish: () => {
+                isSelectingProposal.value = false;
+            },
+        },
+    );
+}
+
+function chooseRouletteChoice(choice: MultiplayerGeneratedChoiceInterface): void {
+    if (!canChooseRouletteChoice.value || isSelectingProposal.value) {
+        return;
+    }
+
+    actionError.value = null;
+    primeNarrationAudio();
+    isSelectingProposal.value = true;
+    const sourcePromptId = props.arbiter.source_prompt_id;
+    const previousPromptValue = localPrompts.value.find((prompt) => sourcePromptId && String(prompt.id) === String(sourcePromptId))?.prompt ?? null;
+
+    if (sourcePromptId) {
+        setSourcePromptValue(sourcePromptId, choice.text);
+    }
+
+    router.post(
+        storeRouletteChoice(props.lobby.room_code).url,
+        { choice_index: choice.index },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                if (sourcePromptId) {
+                    setSourcePromptValue(sourcePromptId, previousPromptValue);
+                }
+                actionError.value = errors.lobby ?? 'We could not select that path.';
             },
             onFinish: () => {
                 isSelectingProposal.value = false;
@@ -926,13 +1269,22 @@ function leaveRoom(): void {
         return;
     }
 
+    const departingMember = currentMember.value;
+    const membersBeforeLeaving = [...members.value];
+
     actionError.value = null;
     isLeavingLobby.value = true;
+    if (departingMember !== null) {
+        markMemberAsLeft(departingMember.id);
+        pauseGameplayImmediately();
+    }
     handleProposalTyping(false);
     tts.dismiss();
 
     router.delete(showMultiplayerLobby(props.lobby.room_code).url, {
         onError: (errors) => {
+            synchronizeMembers(membersBeforeLeaving);
+            isDeparturePausePending.value = props.lobby.status === 'paused';
             actionError.value = errors.lobby ?? 'We could not leave the room.';
         },
         onFinish: () => {
@@ -942,6 +1294,10 @@ function leaveRoom(): void {
 }
 
 function reloadArbiterState(): void {
+    if (isLobbyClosing.value) {
+        return;
+    }
+
     if (isReloadingArbiterState) {
         isArbiterStateReloadPending = true;
 
@@ -963,6 +1319,12 @@ function reloadArbiterState(): void {
     });
 }
 
+multiplayerLobbyPresenceChannel.channel().joining(reloadArbiterState);
+multiplayerLobbyPresenceChannel.channel().leaving((member: MultiplayerLobbyPresenceMember) => {
+    markMemberAsLeftByUserId(member.id);
+    pauseGameplayImmediately();
+});
+
 function csrfToken(): string {
     const token = document.cookie
         .split('; ')
@@ -975,7 +1337,7 @@ function csrfToken(): string {
 function sendLobbyHeartbeat(): void {
     const member = currentMember.value;
 
-    if (isSendingLobbyHeartbeat || !member || member.left_at !== null) {
+    if (isSendingLobbyHeartbeat || isLeavingLobby.value || isLobbyClosing.value || !member || member.left_at !== null) {
         return;
     }
 
@@ -990,6 +1352,20 @@ function sendLobbyHeartbeat(): void {
             'X-XSRF-TOKEN': csrfToken(),
         },
     })
+        .then((response) => {
+            if (response.status === 410 && !isLeavingLobby.value && !isLobbyClosing.value) {
+                handleLobbyClosed({
+                    lobby_id: props.lobby.id,
+                    message: 'This lobby has been closed. Rejoin with the room code to open it again.',
+                });
+
+                return;
+            }
+
+            if (response.status === 409 && !isLeavingLobby.value) {
+                reloadArbiterState();
+            }
+        })
         .catch(() => {})
         .finally(() => {
             isSendingLobbyHeartbeat = false;
@@ -1017,6 +1393,10 @@ function handleDocumentVisibilityChange(): void {
 }
 
 function startDecisionTimer(): void {
+    if (typeof window === 'undefined' || decisionTimerInterval !== null) {
+        return;
+    }
+
     decisionTimerNow.value = Date.now();
     decisionTimerInterval = window.setInterval(() => {
         decisionTimerNow.value = Date.now();
@@ -1032,6 +1412,29 @@ function stopDecisionTimer(): void {
     decisionTimerInterval = null;
 }
 
+function pauseGameplayImmediately(): void {
+    isDeparturePausePending.value = true;
+    stopDecisionTimer();
+    handleProposalTyping(false);
+}
+
+function handleLobbyClosed(signal: MultiplayerLobbyClosedSignal): void {
+    if (signal.lobby_id !== props.lobby.id || isLobbyClosing.value) {
+        return;
+    }
+
+    isLobbyClosing.value = true;
+    stopLobbyHeartbeat();
+    stopDecisionTimer();
+    handleProposalTyping(false);
+    tts.dismiss();
+    window.alert(signal.message);
+
+    router.visit(multiplayerStoryRoute.url(props.lobby.story.slug), {
+        replace: true,
+    });
+}
+
 useEchoPresence<ArbiterStateSignal>(lobbyChannelName, '.multiplayer.arbiter.state.changed', (signal) => {
     if (signal.lobby_id !== props.lobby.id) {
         return;
@@ -1045,6 +1448,8 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
         return;
     }
 
+    synchronizeMembers(signal.lobby.members);
+    pauseGameplayImmediately();
     reloadArbiterState();
 });
 
@@ -1053,8 +1458,11 @@ useEchoPresence<MultiplayerLobbyMembershipSignal>(lobbyChannelName, '.multiplaye
         return;
     }
 
+    synchronizeMembers(signal.lobby.members);
     reloadArbiterState();
 });
+
+useEchoPresence<MultiplayerLobbyClosedSignal>(lobbyChannelName, '.multiplayer.lobby.closed', handleLobbyClosed);
 
 useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.narration.streamed', (signal) => {
     if (signal.lobby_id !== props.lobby.id) {
@@ -1110,8 +1518,8 @@ onMounted(() => {
     multiplayerLobbyPresenceChannel.channel().listenForWhisper(chatWhisperEvent, handleChatWhisper);
     scrollChatToBottom();
     startLobbyHeartbeat();
-    startDecisionTimer();
     document.addEventListener('visibilitychange', handleDocumentVisibilityChange);
+    window.addEventListener('keydown', handleMobileHeaderKeydown);
 
     if (isGameplayPaused.value && pausedMembers.value.length === 0) {
         reloadArbiterState();
@@ -1126,14 +1534,18 @@ onUnmounted(() => {
     stopLobbyHeartbeat();
     stopDecisionTimer();
     document.removeEventListener('visibilitychange', handleDocumentVisibilityChange);
+    window.removeEventListener('keydown', handleMobileHeaderKeydown);
+    if (isMobile.value && activeMobileHeaderAction.value !== null) {
+        unlockBodyScroll();
+    }
     tts.dismiss();
 });
 </script>
 
 <template>
-    <Head title="Arbiter" />
+    <Head :title="isRouletteMode ? 'Roulette' : 'Arbiter'" />
 
-    <main class="arbiter-page">
+    <main :class="['arbiter-page', { 'arbiter-page--mobile-tab-open': activeMobileHeaderAction !== null }]">
         <div
             v-if="gameplayBackgroundImage"
             class="arbiter-scene"
@@ -1141,70 +1553,127 @@ onUnmounted(() => {
             aria-hidden="true"
         />
 
-        <BaseButton severity="header-glass" :icon-only="true" class="arbiter-back" title="Go back" @click="goBack">
+        <GameplayCapsuleButton label="Back" class="arbiter-back" title="Go back" @click="goBack">
             <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
-        </BaseButton>
+        </GameplayCapsuleButton>
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
-                <div v-if="tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
+                <div v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
                     <GameplayMediaPlayer />
                 </div>
 
-                <div class="arbiter-mobile-panel-controls" role="group" aria-label="Room panels">
-                    <BaseButton
-                        severity="header-glass"
-                        :icon-only="true"
-                        class="arbiter-mobile-panel-button"
-                        :class="{ 'gameplay-header-glass--active': activeMobilePanel === 'players' }"
-                        :title="activeMobilePanel === 'players' ? 'Close Players' : 'Open Players'"
-                        :aria-expanded="activeMobilePanel === 'players'"
-                        aria-controls="arbiter-players-drawer"
-                        @click="togglePlayersPanel"
+                <div class="arbiter-mobile-header-actions" role="group" aria-label="Gameplay actions">
+                    <button
+                        type="button"
+                        class="arbiter-mobile-back"
+                        :disabled="isLeavingLobby"
+                        aria-label="Leave game and return to multiplayer details"
+                        title="Leave game"
+                        @click="leaveRoom"
                     >
-                        <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                    </BaseButton>
-                    <BaseButton
-                        severity="header-glass"
-                        :icon-only="true"
-                        class="arbiter-mobile-panel-button"
-                        :class="{ 'gameplay-header-glass--active': activeMobilePanel === 'chat' }"
-                        :title="activeMobilePanel === 'chat' ? 'Close Chat' : 'Open Chat'"
-                        :aria-expanded="activeMobilePanel === 'chat'"
-                        aria-controls="arbiter-chat-drawer"
-                        @click="toggleChatPanel"
-                    >
-                        <img :src="chatIcon" alt="" class="size-5" aria-hidden="true" />
-                    </BaseButton>
+                        <img :src="backIcon" alt="" class="h-6 w-[15px]" aria-hidden="true" />
+                    </button>
+                    <div class="arbiter-mobile-tab-list" role="tablist" aria-label="Gameplay panels">
+                        <GameplayCapsuleButton
+                            label="Rules"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-rules'"
+                            :active="activeMobileHeaderAction === 'rules'"
+                            title="Rules"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'rules'"
+                            aria-controls="arbiter-mobile-panel-rules"
+                            @click="selectMobileHeaderAction('rules')"
+                        >
+                            <img :src="headerRulesIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Settings"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-settings'"
+                            :active="activeMobileHeaderAction === 'settings'"
+                            title="Settings"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'settings'"
+                            aria-controls="arbiter-mobile-panel-settings"
+                            @click="selectMobileHeaderAction('settings')"
+                        >
+                            <img :src="headerSettingsIcon" alt="" class="h-4 w-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Players"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-players'"
+                            :active="activeMobileHeaderAction === 'players'"
+                            title="Players"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'players'"
+                            aria-controls="arbiter-mobile-panel-players"
+                            @click="selectMobileHeaderAction('players')"
+                        >
+                            <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Chat"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-chat'"
+                            :active="activeMobileHeaderAction === 'chat'"
+                            title="Chat"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'chat'"
+                            aria-controls="arbiter-mobile-panel-chat"
+                            @click="selectMobileHeaderAction('chat')"
+                        >
+                            <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Journal"
+                            label-tone="secondary"
+                            class="arbiter-mobile-header-action"
+                            :id="'arbiter-mobile-tab-journal'"
+                            :active="activeMobileHeaderAction === 'journal'"
+                            title="Journal"
+                            role="tab"
+                            :aria-selected="activeMobileHeaderAction === 'journal'"
+                            aria-controls="arbiter-mobile-panel-journal"
+                            @click="selectMobileHeaderAction('journal')"
+                        >
+                            <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                    </div>
                 </div>
             </header>
 
-            <div class="arbiter-grid">
-                <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Players">
-                    <div class="rail-tabs">
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Help">
-                            <img :src="questionIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Settings">
-                            <img :src="settingsIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton
-                            severity="header-glass"
-                            class="rail-tab"
-                            :class="{ 'gameplay-header-glass--active': isPlayersPanelOpen }"
-                            :title="isPlayersPanelOpen ? 'Hide Players' : 'Show Players'"
-                            :aria-expanded="isPlayersPanelOpen"
-                            aria-controls="arbiter-players-panel"
-                            @click="togglePlayersPanel"
-                        >
-                            <span class="rail-tab-content">
-                                <img :src="playersIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                                <span>Players</span>
-                            </span>
-                        </BaseButton>
+            <section
+                v-if="isMobile && activeMobileHeaderAction !== null"
+                :id="`arbiter-mobile-panel-${activeMobileHeaderAction}`"
+                :key="activeMobileHeaderAction"
+                ref="mobileTabSurface"
+                class="arbiter-mobile-tab-surface"
+                role="tabpanel"
+                :aria-labelledby="`arbiter-mobile-tab-${activeMobileHeaderAction}`"
+            >
+                <div class="arbiter-mobile-tab-content">
+                    <div v-if="activeMobileHeaderAction === 'rules'" class="arbiter-mobile-tab-panel arbiter-mobile-rules-tab">
+                        <div class="arbiter-rules-list">
+                            <article v-for="(rule, index) in multiplayerRules" :key="`${rule.title}-${index}`" class="arbiter-rule">
+                                <h2>{{ rule.title }}</h2>
+                                <p>{{ rule.description }}</p>
+                            </article>
+                            <button type="button" class="arbiter-rules-button">View Rules</button>
+                        </div>
                     </div>
 
-                    <section v-show="isPlayersPanelOpen" id="arbiter-players-panel" class="arbiter-panel">
+                    <div v-else-if="activeMobileHeaderAction === 'settings'" class="arbiter-mobile-tab-panel arbiter-mobile-settings-tab">
+                        <GameplaySettingsPanel variant="sheet" />
+                    </div>
+
+                    <div v-else-if="activeMobileHeaderAction === 'players'" class="arbiter-mobile-tab-panel arbiter-mobile-players-tab">
                         <div class="panel-title">
                             <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
                             <span v-if="pausedMembers.length" class="players-left-count">
@@ -1212,7 +1681,18 @@ onUnmounted(() => {
                             </span>
                         </div>
                         <div class="player-list">
-                            <article v-for="player in players" :key="player.id" :class="['player-card', { 'player-card--left': player.hasLeft }]">
+                            <article
+                                v-for="player in players"
+                                :key="player.id"
+                                :class="[
+                                    'player-card',
+                                    {
+                                        'player-card--left': player.hasLeft,
+                                        'player-card--active': player.isActiveTurn,
+                                        'player-card--up-next': player.isUpNext,
+                                    },
+                                ]"
+                            >
                                 <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
                                 <div class="player-details">
                                     <div class="player-name-row">
@@ -1232,8 +1712,192 @@ onUnmounted(() => {
                                                 v-if="player.isArbiter"
                                                 class="player-badge-icon player-badge-icon--arbiter"
                                                 role="img"
-                                                aria-label="Arbiter"
-                                                title="Arbiter"
+                                                :aria-label="turnRoleLabel"
+                                                :title="turnRoleLabel"
+                                            >
+                                                <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span v-if="player.host" class="player-host">
+                                                <LucideCrown class="size-3" :stroke-width="1.75" />
+                                                Host
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <span :class="['player-state', 'player-state--' + player.tone, { 'player-state--typing': player.isTyping }]">
+                                        <i />
+                                        <span v-if="player.isTyping" class="player-typing-label">
+                                            Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
+                                        </span>
+                                        <template v-else>{{ player.state }}</template>
+                                    </span>
+                                </div>
+                                <span class="player-score">{{ player.role }}</span>
+                            </article>
+                        </div>
+
+                        <div class="invite-card">
+                            <div class="invite-label">
+                                <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
+                                <span>Invite Players</span>
+                            </div>
+                            <div class="room-code-card">
+                                <div>
+                                    <span>Room Link</span><strong>{{ roomCode }}</strong>
+                                </div>
+                                <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
+                                    <img :src="copyIcon" alt="" aria-hidden="true" />
+                                </button>
+                            </div>
+                            <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
+                        </div>
+                        <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
+                            {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
+                        </button>
+                    </div>
+
+                    <div
+                        v-else-if="activeMobileHeaderAction === 'chat'"
+                        class="arbiter-panel chat-panel arbiter-mobile-tab-panel arbiter-mobile-chat-tab"
+                    >
+                        <div ref="mobileChatWindow" class="chat-window" aria-live="polite">
+                            <div class="chat-window-content">
+                                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                                <article v-for="message in messages" :key="message.id" class="chat-message">
+                                    <div class="chat-message-meta">
+                                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
+                                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
+                                    </div>
+                                    <p>{{ message.text }}</p>
+                                </article>
+                            </div>
+                        </div>
+                        <form class="chat-compose" @submit.prevent="submitChat">
+                            <label class="sr-only" for="arbiter-mobile-chat-message">Type a message</label>
+                            <input
+                                id="arbiter-mobile-chat-message"
+                                v-model="chatDraft"
+                                type="text"
+                                placeholder="Type a message..."
+                                autocomplete="off"
+                                maxlength="1000"
+                                :disabled="!currentMember || currentMember.left_at !== null"
+                            />
+                            <button
+                                type="submit"
+                                :disabled="!chatDraft.trim() || !currentMember || currentMember.left_at !== null"
+                                aria-label="Send message"
+                            >
+                                <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
+                            </button>
+                        </form>
+                    </div>
+
+                    <MultiplayerJournalTimeline
+                        v-else
+                        class="arbiter-mobile-tab-panel"
+                        :prompts="prompts"
+                        :episode-number="journalEpisodeNumber"
+                        title-id="arbiter-mobile-journal-title"
+                    />
+                </div>
+            </section>
+
+            <div class="arbiter-grid" :inert="isMobile && activeMobileHeaderAction !== null">
+                <aside v-if="!isMobile" class="arbiter-rail arbiter-left-rail" aria-label="Room controls">
+                    <div class="rail-tabs">
+                        <GameplayCapsuleButton
+                            label="Rules"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeLeftHeaderAction === 'rules'"
+                            title="Rules"
+                            :aria-expanded="activeLeftHeaderAction === 'rules'"
+                            aria-controls="arbiter-rules-panel"
+                            @click="selectLeftHeaderAction('rules')"
+                        >
+                            <img :src="headerRulesIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Settings"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeLeftHeaderAction === 'settings'"
+                            title="Settings"
+                            :aria-expanded="activeLeftHeaderAction === 'settings'"
+                            aria-controls="arbiter-settings-panel"
+                            @click="selectLeftHeaderAction('settings')"
+                        >
+                            <img :src="headerSettingsIcon" alt="" class="h-4 w-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Players"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeLeftHeaderAction === 'players'"
+                            title="Players"
+                            :aria-expanded="activeLeftHeaderAction === 'players'"
+                            aria-controls="arbiter-players-panel"
+                            @click="selectLeftHeaderAction('players')"
+                        >
+                            <img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                    </div>
+
+                    <section v-show="activeLeftHeaderAction === 'rules'" id="arbiter-rules-panel" class="arbiter-panel arbiter-rules-panel">
+                        <div class="arbiter-rules-list">
+                            <article v-for="(rule, index) in multiplayerRules" :key="`${rule.title}-${index}`" class="arbiter-rule">
+                                <h2>{{ rule.title }}</h2>
+                                <p>{{ rule.description }}</p>
+                            </article>
+                            <button type="button" class="arbiter-rules-button">View Rules</button>
+                        </div>
+                    </section>
+
+                    <section v-show="activeLeftHeaderAction === 'settings'" id="arbiter-settings-panel" class="arbiter-panel arbiter-settings-panel">
+                        <GameplaySettingsPanel />
+                    </section>
+
+                    <section v-show="activeLeftHeaderAction === 'players'" id="arbiter-players-panel" class="arbiter-panel">
+                        <div class="panel-title">
+                            <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
+                            <span v-if="pausedMembers.length" class="players-left-count">
+                                {{ pausedMembers.length }} {{ pausedMembers.length === 1 ? 'player left' : 'players left' }}
+                            </span>
+                        </div>
+                        <div class="player-list">
+                            <article
+                                v-for="player in players"
+                                :key="player.id"
+                                :class="[
+                                    'player-card',
+                                    {
+                                        'player-card--left': player.hasLeft,
+                                        'player-card--active': player.isActiveTurn,
+                                        'player-card--up-next': player.isUpNext,
+                                    },
+                                ]"
+                            >
+                                <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
+                                <div class="player-details">
+                                    <div class="player-name-row">
+                                        <span class="player-name">{{ player.name }}</span>
+                                        <span class="player-badges">
+                                            <span v-if="player.hasLeft" class="player-left-badge">Left game</span>
+                                            <span
+                                                v-if="player.isCurrentUser"
+                                                class="player-badge-icon player-badge-icon--you"
+                                                role="img"
+                                                aria-label="You"
+                                                title="You"
+                                            >
+                                                <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
+                                            </span>
+                                            <span
+                                                v-if="player.isArbiter"
+                                                class="player-badge-icon player-badge-icon--arbiter"
+                                                role="img"
+                                                :aria-label="turnRoleLabel"
+                                                :title="turnRoleLabel"
                                             >
                                                 <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
                                             </span>
@@ -1282,7 +1946,14 @@ onUnmounted(() => {
                         <GameplayOrnamentDivider :label="`EPISODE ${props.game?.current_session_number ?? 1}`" color="#59C1CA" />
                     </div>
 
-                    <div class="story-history" aria-live="polite">
+                    <div
+                        class="story-history"
+                        :style="{
+                            '--arbiter-narration-font-size': `${gameplaySettings.fontSize}px`,
+                            '--arbiter-narration-font-color': gameplaySettings.fontColor,
+                        }"
+                        aria-live="polite"
+                    >
                         <div
                             v-for="prompt in prompts"
                             :key="prompt.id"
@@ -1297,6 +1968,7 @@ onUnmounted(() => {
                                 :is-submitting="isNarrating"
                                 :is-streaming-response="prompt.id === streamingPromptId"
                                 :narration-only="true"
+                                :voice-over-enabled="voiceOverEnabled"
                             />
                         </div>
 
@@ -1324,6 +1996,7 @@ onUnmounted(() => {
                                 <p>{{ decisionDescription }}</p>
                             </div>
                             <span
+                                v-if="hasDecisionTimer"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
                                 :aria-label="`${decisionSecondsRemaining} seconds decision window`"
                             >
@@ -1331,7 +2004,21 @@ onUnmounted(() => {
                             </span>
                         </div>
 
-                        <div v-if="canChooseProposal" class="proposal-choice-list">
+                        <div v-if="isRouletteMode && isAwaitingRouletteChoice" class="proposal-choice-list">
+                            <button
+                                v-for="choice in generatedChoices"
+                                :key="choice.index"
+                                type="button"
+                                class="proposal-choice-card"
+                                :disabled="!canChooseRouletteChoice || isSelectingProposal"
+                                @click="chooseRouletteChoice(choice)"
+                            >
+                                <span class="proposal-choice-radio" aria-hidden="true" />
+                                <span>{{ choice.text }}</span>
+                            </button>
+                        </div>
+
+                        <div v-else-if="canChooseProposal" class="proposal-choice-list">
                             <button
                                 v-for="proposal in availableProposals"
                                 :key="proposal.id"
@@ -1346,7 +2033,7 @@ onUnmounted(() => {
                             </button>
                         </div>
 
-                        <div v-else-if="isCollectingProposals || isAwaitingArbiter" class="contributions">
+                        <div v-else-if="!isRouletteMode && (isCollectingProposals || isAwaitingArbiter)" class="contributions">
                             <article
                                 v-for="(member, index) in nonArbiterMembers"
                                 :key="member.id"
@@ -1402,41 +2089,44 @@ onUnmounted(() => {
 
                 <aside v-if="!isMobile" class="arbiter-rail arbiter-right-rail" aria-label="Chat">
                     <div class="rail-tabs rail-tabs--right">
-                        <BaseButton
-                            severity="header-glass"
-                            class="rail-tab"
-                            :class="{ 'gameplay-header-glass--active': isChatPanelOpen }"
-                            :title="isChatPanelOpen ? 'Hide Chat' : 'Show Chat'"
-                            :aria-expanded="isChatPanelOpen"
+                        <GameplayCapsuleButton
+                            label="Chat"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeRightHeaderAction === 'chat'"
+                            title="Chat"
+                            :aria-expanded="activeRightHeaderAction === 'chat'"
                             aria-controls="arbiter-chat-panel"
-                            @click="toggleChatPanel"
+                            @click="selectRightHeaderAction('chat')"
                         >
-                            <span class="rail-tab-content">
-                                <img :src="chatIcon" alt="" class="size-[25.2px]" aria-hidden="true" />
-                                <span>Chat</span>
-                            </span>
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Power">
-                            <img :src="lightningIcon" alt="" class="size-[25px]" aria-hidden="true" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Game order">
-                            <LucideList class="size-[25.2px] text-gray-300" :stroke-width="1.75" />
-                        </BaseButton>
-                        <BaseButton severity="header-glass" :icon-only="true" class="rail-icon-button" title="Notes">
-                            <img :src="notesIcon" alt="" class="size-[22.68px]" aria-hidden="true" />
-                        </BaseButton>
+                            <img :src="headerChatIcon" alt="" class="size-[15px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
+                        <GameplayCapsuleButton
+                            label="Journal"
+                            label-tone="secondary"
+                            class="rail-header-button"
+                            :active="activeRightHeaderAction === 'journal'"
+                            title="Journal"
+                            :aria-expanded="activeRightHeaderAction === 'journal'"
+                            aria-controls="arbiter-journal-panel"
+                            @click="selectRightHeaderAction('journal')"
+                        >
+                            <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
+                        </GameplayCapsuleButton>
                     </div>
 
-                    <section v-show="isChatPanelOpen" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
-                        <div ref="chatWindow" class="chat-window" aria-live="polite">
-                            <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
-                            <article v-for="message in messages" :key="message.id" class="chat-message">
-                                <div class="chat-message-meta">
-                                    <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                                    <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
-                                </div>
-                                <p>{{ message.text }}</p>
-                            </article>
+                    <section v-show="activeRightHeaderAction === 'chat'" id="arbiter-chat-panel" class="arbiter-panel chat-panel">
+                        <div ref="desktopChatWindow" class="chat-window" aria-live="polite">
+                            <div class="chat-window-content">
+                                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
+                                <article v-for="message in messages" :key="message.id" class="chat-message">
+                                    <div class="chat-message-meta">
+                                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
+                                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
+                                    </div>
+                                    <p>{{ message.text }}</p>
+                                </article>
+                            </div>
                         </div>
                         <form class="chat-compose" @submit.prevent="submitChat">
                             <label class="sr-only" for="arbiter-chat-message">Type a message</label>
@@ -1458,130 +2148,44 @@ onUnmounted(() => {
                             </button>
                         </form>
                     </section>
+
+                    <MultiplayerJournalTimeline
+                        v-show="activeRightHeaderAction === 'journal'"
+                        id="arbiter-journal-panel"
+                        class="arbiter-desktop-journal-panel"
+                        compact
+                        :prompts="prompts"
+                        :episode-number="journalEpisodeNumber"
+                        title-id="arbiter-desktop-journal-title"
+                    />
                 </aside>
             </div>
         </div>
 
-        <footer class="arbiter-proposal-dock flex-col">
+        <footer
+            v-if="
+                activeMobileHeaderAction === null &&
+                (shouldShowCustomInput || isGameplayPaused || (voiceOverEnabled && tts.isActive.value && isMobile))
+            "
+            class="arbiter-proposal-dock flex-col"
+        >
             <section v-if="isGameplayPaused" class="gameplay-paused-notice flex items-center backdrop-blur-[2px]" role="status" aria-live="polite">
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
             </section>
-            <div v-if="tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
+            <div v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
                 <GameplayMediaPlayer />
             </div>
             <GameplayInput
+                v-if="shouldShowCustomInput"
                 class="arbiter-proposal-input"
-                :disabled="!canSubmitProposal || isSubmittingProposal"
-                :placeholder="isGameplayPaused ? 'Story paused' : canSubmitProposal ? 'What Do You Do?' : ownProposal ? 'Choice submitted' : ''"
-                @submit="submitProposal"
+                :disabled="!canSubmitCustomInput || isSubmittingProposal"
+                :placeholder="customInputPlaceholder"
+                @submit="submitCustomInput"
                 @typing="handleProposalTyping"
             />
         </footer>
     </main>
-
-    <GameplayBottomSheet :open="isMobile && activeMobilePanel === 'players'" title="Players" @close="closeMobilePanel">
-        <section id="arbiter-players-drawer" class="arbiter-mobile-panel arbiter-mobile-players-panel">
-            <div class="panel-title">
-                <span>Players</span><small>{{ members.length }}/{{ props.lobby.max_players }}</small>
-                <span v-if="pausedMembers.length" class="players-left-count">
-                    {{ pausedMembers.length }} {{ pausedMembers.length === 1 ? 'player left' : 'players left' }}
-                </span>
-            </div>
-            <div class="player-list">
-                <article v-for="player in players" :key="player.id" :class="['player-card', { 'player-card--left': player.hasLeft }]">
-                    <img class="player-avatar" :src="player.avatar" :alt="player.name + ' avatar'" />
-                    <div class="player-details">
-                        <div class="player-name-row">
-                            <span class="player-name">{{ player.name }}</span>
-                            <span class="player-badges">
-                                <span v-if="player.hasLeft" class="player-left-badge">Left game</span>
-                                <span
-                                    v-if="player.isCurrentUser"
-                                    class="player-badge-icon player-badge-icon--you"
-                                    role="img"
-                                    aria-label="You"
-                                    title="You"
-                                >
-                                    <LucideUserRound class="size-3" :stroke-width="1.75" aria-hidden="true" />
-                                </span>
-                                <span
-                                    v-if="player.isArbiter"
-                                    class="player-badge-icon player-badge-icon--arbiter"
-                                    role="img"
-                                    aria-label="Arbiter"
-                                    title="Arbiter"
-                                >
-                                    <LucideStar class="size-3" :stroke-width="1.75" aria-hidden="true" />
-                                </span>
-                                <span v-if="player.host" class="player-host">
-                                    <LucideCrown class="size-3" :stroke-width="1.75" />
-                                    Host
-                                </span>
-                            </span>
-                        </div>
-                        <span :class="['player-state', 'player-state--' + player.tone, { 'player-state--typing': player.isTyping }]">
-                            <i />
-                            <span v-if="player.isTyping" class="player-typing-label">
-                                Typing<span class="typing-dots" aria-hidden="true"><span /><span /><span /></span>
-                            </span>
-                            <template v-else>{{ player.state }}</template>
-                        </span>
-                    </div>
-                    <span class="player-score">{{ player.role }}</span>
-                </article>
-            </div>
-
-            <div class="invite-card">
-                <div class="invite-label">
-                    <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                    <span>Invite Players</span>
-                </div>
-                <div class="room-code-card">
-                    <div>
-                        <span>Room Link</span><strong>{{ roomCode }}</strong>
-                    </div>
-                    <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
-                        <img :src="copyIcon" alt="" aria-hidden="true" />
-                    </button>
-                </div>
-                <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
-            </div>
-            <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
-                {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
-            </button>
-        </section>
-    </GameplayBottomSheet>
-
-    <GameplayBottomSheet :open="isMobile && activeMobilePanel === 'chat'" title="Chat" @close="closeMobilePanel">
-        <section id="arbiter-chat-drawer" class="arbiter-mobile-panel arbiter-mobile-chat-panel">
-            <div ref="chatWindow" class="chat-window" aria-live="polite">
-                <p v-if="messages.length === 0" class="chat-empty">No messages yet. Say hello to the room.</p>
-                <article v-for="message in messages" :key="message.id" class="chat-message">
-                    <div class="chat-message-meta">
-                        <strong :class="'chat-tone--' + message.tone">{{ message.name }}</strong>
-                        <time :datetime="message.createdAt ?? undefined">{{ message.time }}</time>
-                    </div>
-                    <p>{{ message.text }}</p>
-                </article>
-            </div>
-            <form class="chat-compose" @submit.prevent="submitChat">
-                <label class="sr-only" for="arbiter-mobile-chat-message">Type a message</label>
-                <input
-                    id="arbiter-mobile-chat-message"
-                    v-model="chatDraft"
-                    type="text"
-                    placeholder="Type a message..."
-                    autocomplete="off"
-                    maxlength="1000"
-                    :disabled="!currentMember || currentMember.left_at !== null"
-                />
-                <button type="submit" :disabled="!chatDraft.trim() || !currentMember || currentMember.left_at !== null" aria-label="Send message">
-                    <img :src="sendIcon" alt="" class="rotate-90" aria-hidden="true" />
-                </button>
-            </form>
-        </section>
-    </GameplayBottomSheet>
 </template>
 
 <style scoped>
@@ -1646,15 +2250,45 @@ onUnmounted(() => {
     pointer-events: auto;
 }
 
-.arbiter-mobile-panel-controls {
-    display: none;
+.arbiter-mobile-header-actions,
+.arbiter-mobile-tab-list {
     align-items: center;
     gap: 0.5rem;
 }
 
-.arbiter-mobile-panel-button {
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
+.arbiter-mobile-header-actions {
+    display: none;
+}
+
+.arbiter-mobile-tab-list {
+    display: flex;
+    flex: 0 0 auto;
+}
+
+.arbiter-mobile-header-action {
+    flex: 0 0 auto;
+}
+
+.arbiter-mobile-back {
+    display: grid;
+    width: 2.25rem;
+    height: 2.8125rem;
+    place-items: center;
+    border: 0;
+    padding: 0;
+    color: #fff;
+    background: transparent;
+    cursor: pointer;
+}
+
+.arbiter-mobile-back:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.arbiter-mobile-back:focus-visible {
+    outline: 2px solid var(--color-secondary-300);
+    outline-offset: 0.25rem;
 }
 
 .arbiter-back {
@@ -1662,8 +2296,6 @@ onUnmounted(() => {
     z-index: 5;
     top: 1.5625rem;
     left: 1.25rem;
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
 }
 
 .gameplay-paused-notice {
@@ -1752,32 +2384,8 @@ onUnmounted(() => {
     justify-content: flex-end;
 }
 
-.rail-icon-button {
-    width: 2.8125rem !important;
-    height: 2.8125rem !important;
+.rail-header-button {
     flex: 0 0 auto;
-}
-
-.rail-tab {
-    width: auto !important;
-    height: 2.8125rem !important;
-    flex: 0 0 auto;
-    border-radius: 9999px !important;
-    padding: 0 1rem 0 0.45rem !important;
-    color: #e4e4e4;
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.rail-tab.gameplay-header-glass--active {
-    color: #ffbe58;
-}
-
-.rail-tab-content {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    white-space: nowrap;
 }
 
 .arbiter-panel {
@@ -1798,6 +2406,72 @@ onUnmounted(() => {
     overflow-y: auto;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
+}
+
+.arbiter-rules-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.arbiter-rules-list {
+    height: 100%;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.875rem;
+    text-align: left;
+}
+
+.arbiter-rule {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.arbiter-rule h2,
+.arbiter-rule p {
+    margin: 0;
+}
+
+.arbiter-rule h2 {
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1rem;
+}
+
+.arbiter-rule p {
+    color: #838383;
+    font-size: 0.75rem;
+    font-weight: 300;
+    letter-spacing: 0.03125rem;
+    line-height: 1rem;
+}
+
+.arbiter-rules-button {
+    width: 100%;
+    height: 2rem;
+    border: 0.5px solid #5c5c5c;
+    border-radius: 0.3125rem;
+    color: #838383;
+    background: transparent;
+    font: inherit;
+    font-size: 0.8125rem;
+    line-height: 1;
+    margin-top: auto;
+    transition:
+        border-color 160ms ease,
+        color 160ms ease,
+        background 160ms ease;
+}
+
+.arbiter-rules-button:hover {
+    border-color: #838383;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .panel-title {
@@ -1842,6 +2516,14 @@ onUnmounted(() => {
     border-radius: 0.5rem;
     padding: 0.5rem;
     background: #191919;
+}
+
+.player-card--active {
+    box-shadow: inset 0 0 0 1px #ffbe58;
+}
+
+.player-card--up-next {
+    box-shadow: inset 0 0 0 1px #58d9a1;
 }
 
 .player-card--left {
@@ -2187,8 +2869,8 @@ onUnmounted(() => {
 }
 
 .story-history :deep(.narration-card) {
-    color: #f0f0f0;
-    font-size: 1rem;
+    color: var(--arbiter-narration-font-color, #f0f0f0);
+    font-size: var(--arbiter-narration-font-size, 1rem);
     line-height: normal;
 }
 
@@ -2555,6 +3237,14 @@ onUnmounted(() => {
     color: #fd8b8b;
 }
 
+.arbiter-desktop-journal-panel {
+    height: min(32.6875rem, calc(100svh - 6.375rem));
+    min-height: 32.6875rem;
+    overflow-y: auto;
+    scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-width: thin;
+}
+
 .chat-panel {
     display: flex;
     height: min(32.6875rem, calc(100svh - 6.375rem));
@@ -2565,19 +3255,25 @@ onUnmounted(() => {
 }
 
 .chat-window {
-    display: flex;
+    display: block;
     min-height: 0;
     flex: 1;
-    flex-direction: column;
-    justify-content: flex-end;
-    gap: 0.625rem;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid #262626;
     border-radius: 0.5rem;
     padding: 0.875rem;
     background: #131313;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
     scrollbar-width: thin;
+}
+
+.chat-window-content {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.625rem;
 }
 
 .chat-message {
@@ -2689,22 +3385,6 @@ onUnmounted(() => {
     margin: 0.5rem 0 0;
     color: #fd8b8b;
     font-size: 0.6875rem;
-}
-
-.arbiter-mobile-panel {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-}
-
-.arbiter-mobile-chat-panel {
-    height: min(31.75rem, calc(92svh - 7rem));
-    min-height: 20rem;
-}
-
-.arbiter-mobile-chat-panel .chat-window {
-    height: auto;
-    flex: 1;
 }
 
 .arbiter-proposal-dock {
@@ -2879,7 +3559,7 @@ onUnmounted(() => {
     }
 
     .story-history :deep(.narration-card) {
-        font-size: 1rem;
+        font-size: var(--arbiter-narration-font-size, 1rem);
         line-height: 1.35;
     }
 
@@ -2913,11 +3593,6 @@ onUnmounted(() => {
         gap: 0.35rem;
     }
 
-    .rail-tab {
-        padding-right: 0.75rem;
-        font-size: 1rem;
-    }
-
     .arbiter-panel {
         padding: 0.875rem;
     }
@@ -2944,30 +3619,140 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1120px) {
-    .arbiter-topbar {
-        display: grid;
-        min-height: 6rem;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: start;
-        justify-content: initial;
-        gap: 0.75rem;
+    .arbiter-page--mobile-tab-open {
+        height: 100svh;
+        overflow: hidden;
+        padding-bottom: 0;
     }
 
-    .arbiter-mobile-panel-controls {
+    .arbiter-topbar {
         display: flex;
-        grid-column: 2;
-        grid-row: 1;
+        min-height: 6rem;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .arbiter-back {
+        display: none;
+    }
+
+    .arbiter-mobile-header-actions {
+        display: flex;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        grid-template-columns: 45px minmax(0, 1fr);
+        padding-right: 0.875rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        padding-right: 0.125rem;
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .arbiter-mobile-tab-surface {
+        position: fixed;
+        z-index: 3;
+        inset: 0;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: max(7.5rem, calc(env(safe-area-inset-top) + 5.75rem)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+        background: #000;
+        overscroll-behavior: contain;
+        scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+        scrollbar-width: thin;
+    }
+
+    .arbiter-mobile-tab-content {
+        width: min(100%, 40rem);
+        min-height: calc(100svh - 9rem);
+        margin: 0 auto;
+    }
+
+    .arbiter-mobile-tab-panel {
+        min-width: 0;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rules-list {
+        gap: 1.25rem;
+        padding-inline: 0;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule {
+        gap: 0.5rem;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule h2 {
+        font-size: 1.125rem;
+        line-height: 1.2;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rule p {
+        font-size: 0.875rem;
+        line-height: 1.45;
+    }
+
+    .arbiter-mobile-rules-tab .arbiter-rules-button {
+        height: 2.75rem;
+        margin-top: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .arbiter-mobile-players-tab {
+        padding-bottom: 2rem;
+    }
+
+    .arbiter-mobile-chat-tab {
+        height: calc(100svh - 9rem);
+        min-height: 20rem;
+        overflow: hidden;
+    }
+
+    .arbiter-mobile-chat-tab .chat-window {
+        height: auto;
+        flex: 1;
     }
 
     .arbiter-media-player {
         width: min(31rem, 100%);
-        grid-column: 1 / -1;
-        grid-row: 2;
         margin-top: 0.75rem;
     }
 
     .arbiter-rail {
         display: none;
+    }
+}
+
+@media (max-width: 440px) {
+    .arbiter-mobile-header-actions,
+    .arbiter-mobile-tab-list {
+        gap: 0.25rem;
+    }
+
+    .arbiter-mobile-back {
+        width: 1.75rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        padding-right: 0.625rem;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        padding-left: 0.125rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active) {
+        grid-template-columns: 45px 0fr;
+        padding-right: 0;
+    }
+
+    .arbiter-mobile-header-actions :deep(.gameplay-capsule--active .gameplay-capsule__label) {
+        opacity: 0;
+        transform: translateX(-10px);
     }
 }
 </style>

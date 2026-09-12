@@ -80,14 +80,22 @@ final class TextToSpeechController extends Controller
 
     private function canAccessGameAudio(User $user, Game $game): bool
     {
+        $multiplayerLobby = MultiplayerLobby::query()
+            ->where('game_id', $game->id)
+            ->first();
+
+        if ($multiplayerLobby !== null) {
+            return $multiplayerLobby->voiceOverEnabled()
+                && $multiplayerLobby->members()
+                    ->where('user_id', $user->id)
+                    ->exists();
+        }
+
         if ($game->user_id === $user->id) {
             return true;
         }
 
-        return MultiplayerLobby::query()
-            ->where('game_id', $game->id)
-            ->whereHas('members', fn ($query) => $query->where('user_id', $user->id))
-            ->exists();
+        return false;
     }
 
     private function serve(Prompt $prompt, string $voiceId, string $recommendedVoiceId): BinaryFileResponse

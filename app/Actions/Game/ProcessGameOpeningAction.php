@@ -47,7 +47,7 @@ final class ProcessGameOpeningAction
         return "game-opening-error:{$gameId}";
     }
 
-    public function handleBegin(string $gameId): void
+    public function handleBegin(string $gameId, bool $renderNarrationAudio = true): void
     {
         $game = Game::query()->find($gameId);
         if ($game === null || $game->prompts()->exists()) {
@@ -243,7 +243,9 @@ final class ProcessGameOpeningAction
             Cache::forget($this->pendingKey($gameId));
         }
 
-        $this->renderNarrationAudio($game, $narration);
+        if ($renderNarrationAudio) {
+            $this->renderNarrationAudio($game, $narration);
+        }
     }
 
     /**
@@ -256,6 +258,7 @@ final class ProcessGameOpeningAction
         string $openingHandoff,
         ?array $resolvedConsequencePath,
         array $boilerStateBeforeTransition,
+        bool $renderNarrationAudio = true,
     ): void {
         $game = Game::query()->find($gameId);
         if ($game === null) {
@@ -482,7 +485,9 @@ final class ProcessGameOpeningAction
             Cache::forget($this->pendingKey($gameId));
         }
 
-        $this->renderNarrationAudio($game, $narration);
+        if ($renderNarrationAudio) {
+            $this->renderNarrationAudio($game, $narration);
+        }
     }
 
     /**

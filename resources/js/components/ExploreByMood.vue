@@ -296,16 +296,16 @@ onUnmounted(() => {
                                                     <Link
                                                         v-if="game.playable && game.slug"
                                                         :href="storyShow(game.slug).url"
-                                                        class="inline-flex h-9 w-full items-center justify-center rounded-lg bg-cta-fill text-sm font-semibold text-cta-text no-underline transition-colors hover:bg-cta-hover active:bg-cta-active"
+                                                        class="inline-flex h-[2.125rem] w-full items-center justify-center rounded-[0.3125rem] border-[0.5px] border-solid border-[#59c1ca] bg-[#0e1f22] px-2.5 font-['Inter',sans-serif] text-[0.9rem] leading-none font-normal text-[#f3f4ee] no-underline transition-[border-color,background-color,transform] duration-[180ms] ease-in-out hover:-translate-y-px hover:border-[#8fcbd3] hover:bg-[#163f46] active:translate-y-0 active:bg-cta-active"
                                                         @click="closeMood"
                                                     >
                                                         Play
                                                     </Link>
                                                     <div
                                                         v-else
-                                                        class="flex h-9 w-full items-center justify-center rounded-lg border border-white/15 bg-white/5 text-sm font-medium text-white/45"
+                                                        class="flex h-[2.125rem] w-full items-center justify-center rounded-[0.3125rem] border-[0.5px] border-solid border-[#8f8f8f] bg-transparent px-2.5 font-['Inter',sans-serif] text-[0.9rem] leading-none font-normal text-[#8f8f8f]"
                                                     >
-                                                        Coming soon
+                                                        Coming Soon
                                                     </div>
                                                 </div>
                                             </div>

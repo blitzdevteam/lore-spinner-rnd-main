@@ -3,16 +3,15 @@ import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
 import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
 import checkCircleSelectedIcon from '@/assets/multiplayer/check-circle-selected.svg';
-import copyIcon from '@/assets/multiplayer/copy.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
-import linkSimpleIcon from '@/assets/multiplayer/link-simple.svg';
 import plusIcon from '@/assets/multiplayer/plus.svg';
 import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { StoryInterface } from '@/types';
 import { join as joinMultiplayerLobby, store as storeMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import login from '@/wayfinder/routes/user/authentication/login';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { LucideCircleHelp, LucideGamepad2, LucideScale, LucideUsers, LucideVenetianMask } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -23,30 +22,47 @@ const props = defineProps<{
     inviteRoomCode?: string | null;
 }>();
 
+type LobbySettingKey = 'customInput' | 'voiceOver' | 'votingTime';
+
+type LobbySettingOption = {
+    key: LobbySettingKey;
+    label: string;
+    options: string[];
+};
+
 const showHostSetup = ref(false);
 const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     customInput: 'On',
-    voiceOver: 'Off',
-    powerUpsPerUser: '10',
+    voiceOver: 'On',
     votingTime: '20 Sec',
 });
+const lobbySettingOptions = computed<LobbySettingOption[]>(() => {
+    if (selectedModeName.value === 'Roulette') {
+        return [
+            { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
+            { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+            { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+        ];
+    }
+
+    return [
+        { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
+        { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+    ];
+});
 const lobbyCreationForm = useForm<{
-    mode: 'arbiter';
+    mode: 'arbiter' | 'roulette';
     max_players: number;
     settings: {
-        custom_input_enabled: boolean;
-        voice_over_enabled: boolean;
-        power_ups_per_user: number;
         decision_window_seconds: number;
+        custom_input_enabled?: boolean;
+        voice_over_enabled?: boolean;
     };
 }>({
     mode: 'arbiter',
     max_players: 4,
     settings: {
-        custom_input_enabled: true,
-        voice_over_enabled: false,
-        power_ups_per_user: 10,
         decision_window_seconds: 20,
     },
 });
@@ -101,8 +117,8 @@ const storyModes: StoryMode[] = [
         accent: '#59c1ca',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['2-4 Players', 'Turn Based', 'One player decides'],
-        available: false,
+        features: ['3-4 Players', 'Turn Based', 'One player decides'],
+        available: true,
     },
     {
         name: 'Streamer',
@@ -126,6 +142,12 @@ function goBack(): void {
 }
 
 function createRoom(): void {
+    if (page.props.auth === null) {
+        router.visit(login.create().url);
+
+        return;
+    }
+
     selectedModeName.value = 'Arbiter';
     showHostSetup.value = true;
 }
@@ -139,13 +161,14 @@ function chooseMode(mode: StoryMode): void {
 }
 
 function createLobby(): void {
-    lobbyCreationForm.mode = 'arbiter';
+    const mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
+
+    lobbyCreationForm.mode = mode;
     lobbyCreationForm.max_players = 4;
     lobbyCreationForm.settings = {
-        custom_input_enabled: lobbySettings.value.customInput === 'On',
         voice_over_enabled: lobbySettings.value.voiceOver === 'On',
-        power_ups_per_user: Number(lobbySettings.value.powerUpsPerUser),
         decision_window_seconds: Number.parseInt(lobbySettings.value.votingTime, 10),
+        ...(mode === 'roulette' ? { custom_input_enabled: lobbySettings.value.customInput === 'On' } : {}),
     };
 
     lobbyCreationForm.post(storeMultiplayerLobby(props.story.slug).url);
@@ -390,10 +413,11 @@ function joinRoom(): void {
                             class="relative flex h-[190px] flex-col items-center justify-end rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
                             :class="[
                                 selectedModeName === mode.name ? 'bg-[#141819]' : 'bg-black',
-                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed',
+                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-70',
                             ]"
                             :style="{ borderColor: selectedModeName === mode.name ? '#59c1ca' : '#373737' }"
                             :disabled="!mode.available"
+                            :aria-disabled="!mode.available"
                             @click="chooseMode(mode)"
                         >
                             <img
@@ -402,6 +426,12 @@ function joinRoom(): void {
                                 alt=""
                                 class="absolute top-1.5 right-1.5 size-6"
                             />
+                            <span
+                                v-else-if="!mode.available"
+                                class="absolute top-2 right-2 z-[1] flex h-6 items-center justify-center rounded-full border-[0.5px] border-[#8f8f8f] bg-black/80 px-2 font-['Inter',sans-serif] text-[0.6875rem] leading-none font-normal tracking-wide text-[#8f8f8f]"
+                            >
+                                Coming Soon
+                            </span>
                             <span
                                 class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
                                 :style="{ borderColor: mode.accent, color: mode.accent }"
@@ -417,22 +447,17 @@ function joinRoom(): void {
                 <div class="h-px w-full bg-white/20" />
 
                 <div class="flex flex-col gap-2.5">
-                    <h2 class="text-base">2. Lobby Setting</h2>
+                    <h2 class="text-base">2. Lobby Settings</h2>
                     <div class="grid gap-3.5 sm:grid-cols-2">
                         <label
-                            v-for="setting in [
-                                { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
-                                { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-                                { key: 'powerUpsPerUser', label: 'Power-ups Per User', options: ['5', '10', '15'] },
-                                { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
-                            ]"
+                            v-for="setting in lobbySettingOptions"
                             :key="setting.key"
                             class="flex h-[50px] items-center justify-between gap-2 rounded-lg bg-[#191919] px-2 py-1.5"
                         >
                             <span class="text-sm tracking-wide text-[#838383]">{{ setting.label }}</span>
                             <span class="relative flex h-[38px] w-[8rem] items-center">
                                 <select
-                                    v-model="lobbySettings[setting.key as keyof typeof lobbySettings]"
+                                    v-model="lobbySettings[setting.key]"
                                     class="h-full w-full appearance-none rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-3 pr-8 text-center text-sm text-white outline-none focus:border-[#59c1ca]"
                                 >
                                     <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
@@ -443,25 +468,6 @@ function joinRoom(): void {
                     </div>
                 </div>
 
-                <div class="h-px w-full bg-white/20" />
-
-                <div class="flex flex-col gap-2.5">
-                    <h2 class="text-base">3. Invite Your Friends</h2>
-                    <div class="grid gap-2.5 sm:grid-cols-2">
-                        <div
-                            class="flex h-[50px] items-center justify-between rounded-[5px] border-[0.5px] border-[#5c5c5c] bg-[#191919] px-2 py-1.5"
-                        >
-                            <p class="text-sm text-[#8f8f8f]">Room code after you open the lobby</p>
-                            <img :src="copyIcon" alt="" class="size-[38px]" />
-                        </div>
-                        <div
-                            class="flex h-[50px] items-center justify-center gap-2.5 rounded-[10px] border-[0.5px] border-[#59c1ca] bg-[#0e1f22] text-base"
-                        >
-                            <img :src="linkSimpleIcon" alt="" class="size-6" />
-                            Invite Via Link
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <button

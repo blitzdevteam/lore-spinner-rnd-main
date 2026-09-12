@@ -63,9 +63,9 @@ export interface StoryInterface {
     launch_world?: string | null;
 }
 
-export type MultiplayerLobbyMode = 'arbiter';
+export type MultiplayerLobbyMode = 'arbiter' | 'roulette';
 
-export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'completed' | 'cancelled';
+export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'closed' | 'completed' | 'cancelled';
 
 export type MultiplayerLobbyMemberRole = 'host' | 'player';
 
@@ -129,6 +129,7 @@ export type MultiplayerArbiterTurnStatus =
     | 'opening'
     | 'collecting_proposals'
     | 'awaiting_arbiter'
+    | 'awaiting_roulette_choice'
     | 'narrating'
     | 'session_complete'
     | null;
@@ -137,18 +138,31 @@ export interface MultiplayerLobbyProposalInterface {
     id: string;
     member_id: string;
     text: string | null;
+    choice_index: number | null;
     is_selected: boolean;
     selected_at: string | null;
 }
 
+export interface MultiplayerGeneratedChoiceInterface {
+    index: number;
+    text: string;
+    canonical_choice_id: string | null;
+    canonical_path_label: 'A' | 'B' | 'C' | null;
+}
+
 export interface MultiplayerArbiterStateInterface {
+    mode: MultiplayerLobbyMode;
     turn_status: MultiplayerArbiterTurnStatus;
     source_prompt_id: string | null;
     current_arbiter_member_id: string | null;
+    current_chooser_member_id: string | null;
     decision_deadline_at: string | null;
     decision_remaining_seconds: number | null;
+    decision_window_seconds: number;
     is_current_user_arbiter: boolean;
+    is_current_user_chooser: boolean;
     awaiting_member_ids: string[];
+    generated_choices: MultiplayerGeneratedChoiceInterface[];
     proposals: MultiplayerLobbyProposalInterface[];
     last_selected_proposal: MultiplayerLobbyProposalInterface | null;
 }

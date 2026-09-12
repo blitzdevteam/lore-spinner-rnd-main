@@ -7,7 +7,9 @@ import { send } from '@visual-tracer/core';
 import { LucideMessageSquare, Send, X } from 'lucide-vue-next';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 
-const tts = useTextToSpeech();
+// FeedbackWidget is mounted by AppLayout on nearly every page. It only reads
+// shared playback state here; gameplay components own Safari's gesture unlock.
+const tts = useTextToSpeech({ installAutoplayGestureListener: false });
 const { audioSheetOpen } = useFeedbackWidget();
 
 // Distance (px) from the viewport bottom to the top edge of the open voice

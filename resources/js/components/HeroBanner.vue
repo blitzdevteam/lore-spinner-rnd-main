@@ -317,6 +317,7 @@ function goNext() {
     width: 100%;
     height: auto;
     max-width: 970px;
+    margin-top: 40px;
     margin-inline: auto;
 }
 

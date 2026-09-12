@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Models\MultiplayerLobby;
@@ -24,10 +25,15 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
                 ->lockForUpdate()
                 ->find($lobbyId);
 
+            $isArbiterDecision = $lockedLobby?->mode === MultiplayerLobbyModeEnum::Arbiter
+                && $lockedLobby->turn_status === MultiplayerArbiterTurnStatusEnum::AwaitingArbiter;
+            $isRouletteDecision = $lockedLobby?->mode === MultiplayerLobbyModeEnum::Roulette
+                && $lockedLobby->turn_status === MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice;
+
             if (
                 $lockedLobby === null
                 || $lockedLobby->status !== MultiplayerLobbyStatusEnum::Started
-                || $lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingArbiter
+                || (! $isArbiterDecision && ! $isRouletteDecision)
                 || $lockedLobby->current_source_prompt_id !== $sourcePromptId
                 || $lockedLobby->current_arbiter_member_id === null
                 || $lockedLobby->decision_deadline_at === null
@@ -47,21 +53,26 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
                 return null;
             }
 
-            $proposal = MultiplayerLobbyProposal::query()
-                ->where('lobby_id', $lockedLobby->id)
-                ->where('source_prompt_id', $sourcePrompt->id)
-                ->where('member_id', '!=', $lockedLobby->current_arbiter_member_id)
-                ->whereNull('selected_at')
-                ->orderBy('created_at')
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->first();
+            $proposal = $isRouletteDecision
+                ? $this->selectRandomRouletteChoice($lockedLobby, $sourcePrompt)
+                : MultiplayerLobbyProposal::query()
+                    ->where('lobby_id', $lockedLobby->id)
+                    ->where('source_prompt_id', $sourcePrompt->id)
+                    ->where('member_id', '!=', $lockedLobby->current_arbiter_member_id)
+                    ->whereNull('selected_at')
+                    ->orderBy('created_at')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->first();
 
             if ($proposal === null) {
                 return null;
             }
 
-            $proposal->update(['selected_at' => now()]);
+            if ($isArbiterDecision) {
+                $proposal->update(['selected_at' => now()]);
+            }
+
             $lockedLobby->update([
                 'turn_status' => MultiplayerArbiterTurnStatusEnum::Narrating,
                 'decision_deadline_at' => null,
@@ -79,5 +90,57 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
         }
 
         return $resolvedSelection;
+    }
+
+    private function selectRandomRouletteChoice(MultiplayerLobby $lobby, Prompt $sourcePrompt): ?MultiplayerLobbyProposal
+    {
+        $choice = collect((array) $sourcePrompt->choices)
+            ->map(function (mixed $choice, mixed $index): ?array {
+                $text = match (true) {
+                    is_string($choice) => mb_trim($choice),
+                    is_array($choice) && is_string($choice['text'] ?? null) => mb_trim($choice['text']),
+                    default => '',
+                };
+
+                return $text === ''
+                    ? null
+                    : [
+                        'choice_index' => (int) $index,
+                        'text' => $text,
+                    ];
+            })
+            ->filter()
+            ->values();
+
+        if ($choice->isEmpty()) {
+            return null;
+        }
+
+        /** @var array{choice_index: int, text: string} $randomChoice */
+        $randomChoice = $choice->random();
+        $selection = MultiplayerLobbyProposal::query()
+            ->where('lobby_id', $lobby->id)
+            ->where('source_prompt_id', $sourcePrompt->id)
+            ->where('member_id', $lobby->current_arbiter_member_id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($selection === null) {
+            return $lobby->proposals()->create([
+                'source_prompt_id' => $sourcePrompt->id,
+                'member_id' => $lobby->current_arbiter_member_id,
+                'text' => $randomChoice['text'],
+                'choice_index' => $randomChoice['choice_index'],
+                'selected_at' => now(),
+            ]);
+        }
+
+        $selection->update([
+            'text' => $randomChoice['text'],
+            'choice_index' => $randomChoice['choice_index'],
+            'selected_at' => now(),
+        ]);
+
+        return $selection;
     }
 }

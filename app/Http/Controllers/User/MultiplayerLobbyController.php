@@ -5,20 +5,23 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User;
 
 use App\Actions\Multiplayer\AdvanceMultiplayerLobbySessionAction;
+use App\Actions\Multiplayer\ChooseMultiplayerLobbyRouletteChoiceAction;
 use App\Actions\Multiplayer\CreateMultiplayerLobbyAction;
 use App\Actions\Multiplayer\JoinMultiplayerLobbyAction;
 use App\Actions\Multiplayer\LeaveMultiplayerLobbyAction;
-use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyNextSessionAction;
+use App\Actions\Multiplayer\ProcessMultiplayerLobbyOpeningAction;
 use App\Actions\Multiplayer\ProcessMultiplayerLobbyTurnAction;
-use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
 use App\Actions\Multiplayer\ReconcileMultiplayerLobbyPauseAction;
+use App\Actions\Multiplayer\RecordMultiplayerLobbyHeartbeatAction;
+use App\Actions\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineAction;
 use App\Actions\Multiplayer\ResolveMultiplayerLobbyGuestAction;
 use App\Actions\Multiplayer\SelectMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\SendMultiplayerLobbyChatMessageAction;
 use App\Actions\Multiplayer\StartMultiplayerLobbyAction;
 use App\Actions\Multiplayer\SubmitMultiplayerLobbyProposalAction;
 use App\Actions\Multiplayer\UpdateMultiplayerLobbyReadinessAction;
+use App\Actions\Multiplayer\UpdateMultiplayerLobbySettingsAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
@@ -27,9 +30,11 @@ use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Multiplayer\JoinMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyChatMessageRequest;
-use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
 use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyProposalRequest;
+use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRequest;
+use App\Http\Requests\User\Multiplayer\StoreMultiplayerLobbyRouletteChoiceRequest;
 use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbyReadinessRequest;
+use App\Http\Requests\User\Multiplayer\UpdateMultiplayerLobbySettingsRequest;
 use App\Http\Resources\MultiplayerArbiterStateResource;
 use App\Http\Resources\MultiplayerLobbyChatMessageResource;
 use App\Models\MultiplayerLobby;
@@ -98,9 +103,12 @@ final class MultiplayerLobbyController extends Controller
     public function show(
         #[CurrentUser] User $user,
         MultiplayerLobby $lobby,
+        JoinMultiplayerLobbyAction $joinMultiplayerLobby,
         ReconcileMultiplayerLobbyPauseAction $reconcileMultiplayerLobbyPause,
     ): Response {
         Gate::forUser($user)->authorize('view', $lobby);
+
+        $lobby = $joinMultiplayerLobby->handle($user, $lobby);
 
         if ($reconcileMultiplayerLobbyPause->handle($lobby)) {
             $lobby->refresh();
@@ -215,7 +223,6 @@ final class MultiplayerLobbyController extends Controller
 
         $lobby->load('story:id,slug');
         $storySlug = $lobby->story->slug;
-        $isHost = $lobby->host_user_id === $user->id;
 
         $isGameplayPaused = $leaveMultiplayerLobby->handle($user, $lobby);
 
@@ -226,7 +233,7 @@ final class MultiplayerLobbyController extends Controller
             'success',
             $isGameplayPaused
                 ? 'You left the story. It is paused until you rejoin the room.'
-                : ($isHost ? 'The lobby has been deleted.' : 'You have left the lobby.'),
+                : 'You have left the lobby.',
         );
     }
 
@@ -234,10 +241,47 @@ final class MultiplayerLobbyController extends Controller
         #[CurrentUser] User $user,
         MultiplayerLobby $lobby,
         RecordMultiplayerLobbyHeartbeatAction $recordMultiplayerLobbyHeartbeat,
+        ResolveMultiplayerLobbyDecisionDeadlineAction $resolveMultiplayerLobbyDecisionDeadline,
     ): HttpResponse {
         Gate::forUser($user)->authorize('view', $lobby);
 
-        $recordMultiplayerLobbyHeartbeat->handle($user, $lobby);
+        if ($recordMultiplayerLobbyHeartbeat->handle($user, $lobby)) {
+            $lobby->refresh();
+
+            return response()->noContent(
+                $lobby->status === MultiplayerLobbyStatusEnum::Closed
+                    ? HttpResponse::HTTP_GONE
+                    : HttpResponse::HTTP_CONFLICT,
+            );
+        }
+
+        $lobby->refresh();
+
+        if (
+            $lobby->mode !== MultiplayerLobbyModeEnum::Roulette
+            || $lobby->status !== MultiplayerLobbyStatusEnum::Started
+            || $lobby->turn_status !== MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+            || $lobby->current_source_prompt_id === null
+            || $lobby->decision_deadline_at === null
+            || $lobby->decision_deadline_at->isAfter(now())
+        ) {
+            return response()->noContent();
+        }
+
+        $selection = $resolveMultiplayerLobbyDecisionDeadline->handle(
+            $lobby->id,
+            $lobby->current_source_prompt_id,
+            $lobby->decision_deadline_at->getTimestamp(),
+        );
+
+        if ($selection !== null) {
+            $lobbyId = $selection['lobby']->id;
+            $proposalId = $selection['proposal_id'];
+
+            dispatch(static function () use ($lobbyId, $proposalId): void {
+                app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $proposalId);
+            })->afterResponse();
+        }
 
         return response()->noContent();
     }
@@ -252,6 +296,29 @@ final class MultiplayerLobbyController extends Controller
 
         try {
             $lobby = $updateMultiplayerLobbyReadiness->handle($user, $lobby, $request->boolean('is_ready'));
+        } catch (MultiplayerLobbyStateException $exception) {
+            throw ValidationException::withMessages([
+                'lobby' => $exception->getMessage(),
+            ]);
+        }
+
+        return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
+    }
+
+    public function updateSettings(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        UpdateMultiplayerLobbySettingsRequest $request,
+        UpdateMultiplayerLobbySettingsAction $updateMultiplayerLobbySettings,
+    ): RedirectResponse {
+        Gate::forUser($user)->authorize('updateSettings', $lobby);
+
+        try {
+            $lobby = $updateMultiplayerLobbySettings->handle(
+                $user,
+                $lobby,
+                $request->validated('settings'),
+            );
         } catch (MultiplayerLobbyStateException $exception) {
             throw ValidationException::withMessages([
                 'lobby' => $exception->getMessage(),
@@ -304,6 +371,38 @@ final class MultiplayerLobbyController extends Controller
                 'lobby' => $exception->getMessage(),
             ]);
         }
+
+        return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
+    }
+
+    public function chooseRouletteChoice(
+        #[CurrentUser] User $user,
+        MultiplayerLobby $lobby,
+        StoreMultiplayerLobbyRouletteChoiceRequest $request,
+        ChooseMultiplayerLobbyRouletteChoiceAction $chooseMultiplayerLobbyRouletteChoice,
+    ): RedirectResponse {
+        Gate::forUser($user)->authorize('view', $lobby);
+
+        try {
+            $selection = $chooseMultiplayerLobbyRouletteChoice->handle(
+                $user,
+                $lobby,
+                $request->has('choice_index') ? $request->integer('choice_index') : null,
+                $request->has('proposal') ? $request->string('proposal')->toString() : null,
+            );
+        } catch (MultiplayerLobbyStateException $exception) {
+            throw ValidationException::withMessages([
+                'lobby' => $exception->getMessage(),
+            ]);
+        }
+
+        $lobby = $selection['lobby'];
+        $lobbyId = $lobby->id;
+        $selectionId = $selection['proposal_id'];
+
+        dispatch(static function () use ($lobbyId, $selectionId): void {
+            app(ProcessMultiplayerLobbyTurnAction::class)->handle($lobbyId, $selectionId);
+        })->afterResponse();
 
         return to_route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]);
     }

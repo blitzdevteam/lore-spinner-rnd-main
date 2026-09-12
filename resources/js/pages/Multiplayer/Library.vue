@@ -3,6 +3,7 @@ import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 unti
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { MultiplayerLobbyInterface } from '@/types';
 import { join as joinLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
+import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { useEcho } from '@laravel/echo-vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { LucideArrowLeft, LucidePlus, LucideUsers } from 'lucide-vue-next';
@@ -38,6 +39,7 @@ useEcho<MultiplayerLobbyLibraryEventPayload>(
         '.multiplayer.lobby.member.left',
         '.multiplayer.lobby.started',
         '.multiplayer.lobby.deleted',
+        '.multiplayer.lobby.closed',
     ],
     () => {
         router.reload({
@@ -61,11 +63,17 @@ function joinRoom(room: MultiplayerLobbyInterface): void {
 function switchLibraryTab(tab: 'all' | 'single' | 'multiplayer'): void {
     activeLibraryTab.value = tab;
 
-    if (tab === 'all') {
-        router.visit('/stories');
-    } else if (tab === 'single') {
-        router.visit('/stories');
+    if (tab === 'multiplayer') {
+        return;
     }
+
+    router.visit(
+        storiesIndex.url({
+            query: {
+                tab: tab === 'all' ? null : tab,
+            },
+        }),
+    );
 }
 
 function roomCover(room: MultiplayerLobbyInterface): string {
@@ -73,7 +81,7 @@ function roomCover(room: MultiplayerLobbyInterface): string {
 }
 
 function roomMode(room: MultiplayerLobbyInterface): string {
-    return room.mode === 'arbiter' ? 'Arbiter Mode' : room.mode;
+    return room.mode === 'arbiter' ? 'Arbiter Mode' : 'Roulette Mode';
 }
 
 function playersLabel(room: MultiplayerLobbyInterface): string {

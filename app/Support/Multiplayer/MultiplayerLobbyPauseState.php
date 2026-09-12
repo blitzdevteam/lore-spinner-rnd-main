@@ -22,7 +22,10 @@ final class MultiplayerLobbyPauseState
         ];
 
         if (
-            $lobby->turn_status === MultiplayerArbiterTurnStatusEnum::AwaitingArbiter
+            in_array($lobby->turn_status, [
+                MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
+                MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
+            ], true)
             && $lobby->decision_deadline_at !== null
         ) {
             $attributes['decision_deadline_at'] = null;

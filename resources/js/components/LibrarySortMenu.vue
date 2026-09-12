@@ -113,6 +113,12 @@ function optionClass(mode: LibrarySortMode): string {
         background-color 150ms ease;
 }
 
+@media (min-width: 768px) {
+    .library-sort-btn {
+        height: calc(22px * 1.1);
+    }
+}
+
 .library-sort-btn:hover {
     opacity: 0.85;
     background: rgba(255, 255, 255, 0.04);

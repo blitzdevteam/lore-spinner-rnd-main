@@ -6,6 +6,7 @@ namespace App\Actions\Multiplayer;
 
 use App\Actions\Game\ProcessGameTurnAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterNarrationStreamed;
 use App\Events\MultiplayerArbiterStateChanged;
@@ -15,6 +16,7 @@ use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyMember;
 use App\Models\MultiplayerLobbyProposal;
 use App\Models\Prompt;
+use App\Services\ChaosEngineService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +24,10 @@ use Throwable;
 
 final class ProcessMultiplayerLobbyTurnAction
 {
-    public function __construct(private readonly ProcessGameTurnAction $processGameTurn) {}
+    public function __construct(
+        private readonly ProcessGameTurnAction $processGameTurn,
+        private readonly ChaosEngineService $engine,
+    ) {}
 
     public function handle(string $lobbyId, string $proposalId): void
     {
@@ -30,7 +35,10 @@ final class ProcessMultiplayerLobbyTurnAction
 
         if (
             $lobby === null
-            || $lobby->status !== MultiplayerLobbyStatusEnum::Started
+            || ! in_array($lobby->status, [
+                MultiplayerLobbyStatusEnum::Started,
+                MultiplayerLobbyStatusEnum::Paused,
+            ], true)
             || $lobby->turn_status !== MultiplayerArbiterTurnStatusEnum::Narrating
             || $lobby->game_id === null
             || $lobby->current_source_prompt_id === null
@@ -53,6 +61,8 @@ final class ProcessMultiplayerLobbyTurnAction
             return;
         }
 
+        $explicitBranch = $this->explicitBranch($lobby, $sourcePrompt, $proposal);
+
         try {
             if ($sourcePrompt->prompt === null) {
                 MultiplayerArbiterNarrationStreamed::dispatch(
@@ -68,7 +78,7 @@ final class ProcessMultiplayerLobbyTurnAction
                     sourcePromptId: $sourcePrompt->id,
                     storedPromptValue: $proposal->text,
                     playerAction: $proposal->text,
-                    explicitBranch: null,
+                    explicitBranch: $explicitBranch,
                     userId: $lobby->host_user_id,
                     onResponseDelta: static function (string $delta) use ($lobby, $sourcePrompt): void {
                         MultiplayerArbiterNarrationStreamed::dispatch(
@@ -98,7 +108,7 @@ final class ProcessMultiplayerLobbyTurnAction
             ->first();
 
         if ($responsePrompt !== null) {
-            if ($responsePrompt->choices !== []) {
+            if ($lobby->mode === MultiplayerLobbyModeEnum::Arbiter && $responsePrompt->choices !== []) {
                 $responsePrompt->forceFill(['choices' => []])->save();
             }
 
@@ -122,9 +132,19 @@ final class ProcessMultiplayerLobbyTurnAction
             );
         }
 
-        $retryDecisionDeadlineAt = null;
+        $decisionDeadlineAt = null;
+        $decisionSourcePromptId = null;
+        $decisionDeadlineGraceSeconds = 3;
 
-        $updatedLobby = DB::transaction(function () use ($lobby, $proposal, $sourcePrompt, $responsePrompt, &$retryDecisionDeadlineAt): ?MultiplayerLobby {
+        $updatedLobby = DB::transaction(function () use (
+            $lobby,
+            $proposal,
+            $sourcePrompt,
+            $responsePrompt,
+            &$decisionDeadlineAt,
+            &$decisionSourcePromptId,
+            &$decisionDeadlineGraceSeconds,
+        ): ?MultiplayerLobby {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->find($lobby->id);
@@ -145,14 +165,18 @@ final class ProcessMultiplayerLobbyTurnAction
                 MultiplayerLobbyProposal::query()
                     ->whereKey($proposal->id)
                     ->update(['selected_at' => null]);
-                $decisionWindowSeconds = (int) $lockedLobby->settings['decision_window_seconds'];
                 $attributes = [
-                    'turn_status' => MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
+                    'turn_status' => $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette
+                        ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+                        : MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
                 ];
+                $decisionWindowSeconds = $lockedLobby->decisionWindowSeconds();
 
                 if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
-                    $retryDecisionDeadlineAt = now()->addSeconds($decisionWindowSeconds);
-                    $attributes['decision_deadline_at'] = $retryDecisionDeadlineAt;
+                    $decisionDeadlineAt = now()->addSeconds($decisionWindowSeconds);
+                    $decisionSourcePromptId = (string) $sourcePrompt->id;
+                    $decisionDeadlineGraceSeconds = $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette ? 1 : 3;
+                    $attributes['decision_deadline_at'] = $decisionDeadlineAt;
                     $attributes['decision_remaining_seconds'] = null;
                 } else {
                     $attributes['decision_deadline_at'] = null;
@@ -170,7 +194,7 @@ final class ProcessMultiplayerLobbyTurnAction
                 ->orderBy('joined_at')
                 ->orderBy('id')
                 ->get();
-            $nextArbiterMemberId = $this->nextArbiterMemberId(
+            $nextTurnMemberId = $this->nextTurnMemberId(
                 $members,
                 $lockedLobby->current_arbiter_member_id,
             );
@@ -178,7 +202,7 @@ final class ProcessMultiplayerLobbyTurnAction
             if ($game?->current_session_complete) {
                 $lockedLobby->update([
                     'current_source_prompt_id' => $responsePrompt->id,
-                    'current_arbiter_member_id' => $nextArbiterMemberId,
+                    'current_arbiter_member_id' => $nextTurnMemberId,
                     'turn_status' => MultiplayerArbiterTurnStatusEnum::SessionComplete,
                     'decision_deadline_at' => null,
                     'decision_remaining_seconds' => null,
@@ -187,12 +211,29 @@ final class ProcessMultiplayerLobbyTurnAction
                 return $lockedLobby;
             }
 
+            $isAwaitingRouletteChoice = $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette;
+            $nextDecisionDeadlineAt = null;
+            $nextDecisionRemainingSeconds = null;
+
+            if ($isAwaitingRouletteChoice) {
+                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
+                    $nextDecisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
+                    $decisionDeadlineAt = $nextDecisionDeadlineAt;
+                    $decisionSourcePromptId = (string) $responsePrompt->id;
+                    $decisionDeadlineGraceSeconds = 1;
+                } else {
+                    $nextDecisionRemainingSeconds = $lockedLobby->decisionWindowSeconds();
+                }
+            }
+
             $lockedLobby->update([
                 'current_source_prompt_id' => $responsePrompt->id,
-                'current_arbiter_member_id' => $nextArbiterMemberId,
-                'turn_status' => MultiplayerArbiterTurnStatusEnum::CollectingProposals,
-                'decision_deadline_at' => null,
-                'decision_remaining_seconds' => null,
+                'current_arbiter_member_id' => $nextTurnMemberId,
+                'turn_status' => $isAwaitingRouletteChoice
+                    ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
+                    : MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+                'decision_deadline_at' => $nextDecisionDeadlineAt,
+                'decision_remaining_seconds' => $nextDecisionRemainingSeconds,
             ]);
 
             return $lockedLobby;
@@ -202,26 +243,26 @@ final class ProcessMultiplayerLobbyTurnAction
             MultiplayerArbiterStateChanged::dispatch($updatedLobby);
         }
 
-        if ($retryDecisionDeadlineAt !== null) {
+        if ($updatedLobby !== null && $decisionDeadlineAt !== null && $decisionSourcePromptId !== null) {
             ResolveMultiplayerLobbyDecisionDeadlineJob::dispatch(
-                $lobby->id,
-                $sourcePrompt->id,
-                $retryDecisionDeadlineAt->getTimestamp(),
-            )->delay($retryDecisionDeadlineAt->copy()->addSeconds(3));
+                $updatedLobby->id,
+                $decisionSourcePromptId,
+                $decisionDeadlineAt->getTimestamp(),
+            )->delay($decisionDeadlineAt->copy()->addSeconds($decisionDeadlineGraceSeconds));
         }
     }
 
     /**
      * @param  Collection<int, MultiplayerLobbyMember>  $members
      */
-    private function nextArbiterMemberId(Collection $members, ?string $currentArbiterMemberId): ?string
+    private function nextTurnMemberId(Collection $members, ?string $currentTurnMemberId): ?string
     {
         if ($members->isEmpty()) {
             return null;
         }
 
         $currentIndex = $members->search(
-            static fn (MultiplayerLobbyMember $member): bool => $member->id === $currentArbiterMemberId,
+            static fn (MultiplayerLobbyMember $member): bool => $member->id === $currentTurnMemberId,
         );
 
         if ($currentIndex === false) {
@@ -229,5 +270,71 @@ final class ProcessMultiplayerLobbyTurnAction
         }
 
         return $members->get(($currentIndex + 1) % $members->count())?->id;
+    }
+
+    /**
+     * @return array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null
+     */
+    private function explicitBranch(
+        MultiplayerLobby $lobby,
+        Prompt $sourcePrompt,
+        MultiplayerLobbyProposal $proposal,
+    ): ?array {
+        if ($lobby->mode !== MultiplayerLobbyModeEnum::Roulette || $proposal->choice_index === null) {
+            return null;
+        }
+
+        $choice = $sourcePrompt->choices[$proposal->choice_index] ?? null;
+
+        if (! is_array($choice)) {
+            return null;
+        }
+
+        $choiceId = $choice['canonical_choice_id'] ?? null;
+        $pathLabel = $choice['canonical_path_label'] ?? null;
+
+        if (! is_string($choiceId) || $choiceId === '' || ! is_string($pathLabel)) {
+            return null;
+        }
+
+        $pathLabel = mb_strtoupper($pathLabel);
+
+        if (! in_array($pathLabel, ['A', 'B', 'C'], true)) {
+            return null;
+        }
+
+        $game = Game::query()
+            ->with(['story.adaptation.sessionAdaptations', 'currentPlayableMoment'])
+            ->find($lobby->game_id);
+        $momentChoiceIds = (array) data_get($game?->currentPlayableMoment?->scene_card, 'choice_ids', []);
+
+        if ($game === null || ! in_array($choiceId, $momentChoiceIds, true)) {
+            return null;
+        }
+
+        $choiceSession = $this->engine->extractSessionNumber($choiceId);
+        $session = $game->story?->adaptation?->sessionAdaptations?->firstWhere('session_number', $choiceSession);
+        $choiceDesign = (array) ($session?->session_choice_design ?? []);
+        $branchingChoice = collect((array) ($choiceDesign['branching_choices'] ?? []))
+            ->firstWhere('choice_id', $choiceId);
+
+        if (! is_array($branchingChoice)) {
+            return null;
+        }
+
+        $option = collect((array) ($branchingChoice['options'] ?? []))
+            ->first(fn (mixed $option): bool => mb_strtoupper((string) ($option['label'] ?? '')) === $pathLabel);
+
+        if (! is_array($option)) {
+            return null;
+        }
+
+        return [
+            'defining_choice_id' => $choiceId,
+            'defining_path_label' => $pathLabel,
+            'defining_choice_line' => ($option['defining_line'] ?? '') !== ''
+                ? (string) $option['defining_line']
+                : null,
+        ];
     }
 }

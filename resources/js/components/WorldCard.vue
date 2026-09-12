@@ -49,11 +49,12 @@ function storyHref(story: StoryInterface): string {
 
 <template>
     <article
-        class="world-card relative h-[18.125rem] w-full shrink-0"
+        class="world-card relative h-[18.125rem] w-full shrink-0 cursor-pointer"
         :class="{
             'world-card--expanded': expanded,
             'world-card--dimmed': dimmed,
         }"
+        @click="openWorldModal"
     >
         <div
             class="world-card__shell"
@@ -359,6 +360,8 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card__meta {
+    position: relative;
+    z-index: 3;
     display: flex;
     min-width: 0;
     align-items: center;
@@ -377,23 +380,24 @@ function storyHref(story: StoryInterface): string {
 .world-card__cta-fill {
     pointer-events: none;
     position: absolute;
-    inset-inline: 0;
+    right: 0;
     top: 50%;
     z-index: 1;
+    width: 6.875rem;
     height: 1.875rem;
     border-radius: 5px;
     background: var(--color-primary);
     opacity: 0;
     transform: translateY(-50%);
-    clip-path: inset(0 50% 0 50% round 5px);
+    transform-origin: right center;
     transition:
-        clip-path var(--world-duration) var(--world-ease),
+        width var(--world-duration) var(--world-ease),
         opacity 180ms ease;
 }
 
 .world-card--expanded .world-card__cta-fill {
     opacity: 1;
-    clip-path: inset(0 0 0 0 round 5px);
+    width: 100%;
 }
 
 .world-card__story-link {
@@ -435,10 +439,11 @@ function storyHref(story: StoryInterface): string {
 
 .world-card__cta {
     position: absolute;
-    inset-inline: 0;
+    right: 0;
     top: 50%;
     z-index: 2;
     display: flex;
+    width: 6.875rem;
     height: 1.875rem;
     align-items: center;
     overflow: hidden;
@@ -453,15 +458,17 @@ function storyHref(story: StoryInterface): string {
     color: #fff;
     text-decoration: none;
     transform: translateY(-50%);
+    transition: width var(--world-duration) var(--world-ease);
+}
+
+.world-card--expanded .world-card__cta {
+    width: 100%;
 }
 
 .world-card__cta::before {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 6.875rem;
+    inset: 0;
     border-radius: 5px;
     border: 0.5px solid var(--color-primary);
     background: #0e1f22;
@@ -473,21 +480,16 @@ function storyHref(story: StoryInterface): string {
 }
 
 .world-card__cta-label {
-    position: absolute;
-    left: calc(100% - 6.875rem);
+    position: relative;
     z-index: 1;
-    width: 6.875rem;
+    width: 100%;
     text-align: center;
     transition:
-        left var(--world-duration) var(--world-ease),
-        width var(--world-duration) var(--world-ease),
         color 280ms ease,
         font-weight 280ms ease;
 }
 
 .world-card--expanded .world-card__cta-label {
-    left: 0;
-    width: 100%;
     font-weight: 500;
     color: #000;
 }

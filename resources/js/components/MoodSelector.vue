@@ -10,6 +10,8 @@ import { ref } from 'vue';
 
 defineProps<{
     activeMood: MoodId;
+    /** Pull the following section up (Top Picks carousel). Off when the next block is the stories title. */
+    overlapNext?: boolean;
 }>();
 
 const moodScrollEl = ref<HTMLElement | null>(null);
@@ -19,7 +21,7 @@ const moodLinks = getMoodNavLinks(storiesIndex().url);
 </script>
 
 <template>
-    <section class="mood-selector" aria-label="Browse by mood">
+    <section class="mood-selector" :class="{ 'mood-selector--overlap': overlapNext }" aria-label="Browse by mood">
         <div class="container">
             <div class="container-content">
                 <div class="relative">
@@ -63,9 +65,12 @@ const moodLinks = getMoodNavLinks(storiesIndex().url);
 
 <style scoped>
 .mood-selector {
-    margin-bottom: -30px;
     position: relative;
     z-index: 10;
+}
+
+.mood-selector--overlap {
+    margin-bottom: -30px;
 }
 
 .mood-card--active {

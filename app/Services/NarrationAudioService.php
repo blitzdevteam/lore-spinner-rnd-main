@@ -135,6 +135,26 @@ final class NarrationAudioService
     }
 
     /**
+     * Atomically reserve a browser-triggered render. Only the request that
+     * creates the pending marker may schedule a post-response generation.
+     */
+    public function reserve(Prompt $prompt): bool
+    {
+        if ($this->isReady($prompt)) {
+            return false;
+        }
+
+        $promptId = (string) $prompt->id;
+        $reserved = Cache::add($this->pendingKey($promptId), true, self::PENDING_SECONDS);
+
+        if ($reserved) {
+            Cache::forget($this->errorKey($promptId));
+        }
+
+        return $reserved;
+    }
+
+    /**
      * Blocking render. Never call this from a request that a browser is
      * waiting on — the gateway will time out long before the provider answers.
      */
@@ -167,6 +187,10 @@ final class NarrationAudioService
         set_time_limit(self::LOCK_SECONDS);
 
         try {
+            if (Storage::disk('local')->exists($path)) {
+                return;
+            }
+
             $text = $this->engine->stripHtml((string) $prompt->response);
 
             if ($text === '') {

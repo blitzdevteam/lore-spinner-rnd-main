@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
+use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
@@ -36,7 +37,10 @@ final class SubmitMultiplayerLobbyProposalAction
                 throw MultiplayerLobbyStateException::isNotStarted();
             }
 
-            if ($lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::CollectingProposals) {
+            if (
+                $lockedLobby->mode !== MultiplayerLobbyModeEnum::Arbiter
+                || $lockedLobby->turn_status !== MultiplayerArbiterTurnStatusEnum::CollectingProposals
+            ) {
                 throw MultiplayerLobbyStateException::isNotCollectingProposals();
             }
 
@@ -93,7 +97,7 @@ final class SubmitMultiplayerLobbyProposalAction
                 ->all();
 
             if (array_diff($requiredMemberIds, $submittedMemberIds) === []) {
-                $decisionDeadlineAt = now()->addSeconds((int) $lockedLobby->settings['decision_window_seconds']);
+                $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
                 $decisionSourcePromptId = (string) $sourcePrompt->id;
 
                 $lockedLobby->update([
@@ -102,6 +106,8 @@ final class SubmitMultiplayerLobbyProposalAction
                     'decision_remaining_seconds' => null,
                 ]);
             }
+
+            $lockedLobby->update(['last_activity_at' => now()]);
 
             return $lockedLobby->load(['host', 'members.user', 'game']);
         });

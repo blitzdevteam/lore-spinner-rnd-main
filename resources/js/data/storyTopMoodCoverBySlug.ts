@@ -7,6 +7,7 @@ import janeEyreTopMood from '@/assets/top-moods/Jane eyre 16_9 untitled.png';
 import jekyllTopMood from '@/assets/top-moods/Jeckell Hyde 16_9 untitled.png';
 import redDeathTopMood from '@/assets/top-moods/Masque red death 16_9 untitled.png';
 import nocturneTopMood from '@/assets/top-moods/Nocturne 16_9 untitled.png';
+import lucyHomeLandscape from '@/assets/newStories/lucy-landscape-banner.jpeg';
 import ozHomeLandscape from '@/assets/newStories/Oz landscape titled.png';
 import sherlockHomeLandscape from '@/assets/newStories/sherlock-new.png';
 import tellTaleHomeLandscape from '@/assets/newStories/Tell Tale 5_3 landscape.png';
@@ -25,6 +26,7 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'anima-machina': animaTopMood,
     dracula: draculaTopMood,
     frankenstein: frankensteinTopMood,
+    'i-love-lucy-job-switching': lucyHomeLandscape,
     'jane-eyre': janeEyreTopMood,
     'jekyll-and-hyde': jekyllTopMood,
     'dr-jekyll-and-mr-hyde': jekyllTopMood,

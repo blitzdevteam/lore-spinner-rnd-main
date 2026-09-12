@@ -18,6 +18,11 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('Only the lobby host can start the story.');
     }
 
+    public static function onlyHostCanUpdateSettings(): self
+    {
+        return new self('Only the lobby host can update these settings.');
+    }
+
     public static function needsMorePlayers(): self
     {
         return new self('At least three players must be in the lobby before the story can start.');
@@ -66,6 +71,31 @@ final class MultiplayerLobbyStateException extends RuntimeException
     public static function proposalIsNotAvailable(): self
     {
         return new self('That proposal is not available for this turn.');
+    }
+
+    public static function onlyCurrentRoulettePlayerCanChoose(): self
+    {
+        return new self('Only the player whose turn it is can choose a path.');
+    }
+
+    public static function rouletteChoicesAreNotReady(): self
+    {
+        return new self('The Roulette choices are not ready yet.');
+    }
+
+    public static function rouletteChoiceIsNotAvailable(): self
+    {
+        return new self('That Roulette choice is no longer available.');
+    }
+
+    public static function rouletteChoiceWindowExpired(): self
+    {
+        return new self('Time is up. A random path is being selected.');
+    }
+
+    public static function rouletteCustomInputIsDisabled(): self
+    {
+        return new self('Custom input is disabled for this Roulette lobby.');
     }
 
     public static function onlyHostCanAdvanceSession(): self

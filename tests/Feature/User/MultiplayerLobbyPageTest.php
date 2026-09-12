@@ -81,11 +81,13 @@ it('uses a thin gray border for non-host player cards in the lobby template', fu
         ->toContain("member.role === 'host' ? 'border-[#ffbe58]' : 'border-[#303030]'");
 });
 
-it('sizes room settings dropdowns to the compact lobby design', function () {
+it('shows only the settings supported by the lobby mode', function () {
     $template = file_get_contents(resource_path('js/pages/Multiplayer/Lobby.vue'));
 
     expect($template)
-        ->not->toContain('flex h-[38px] w-[100px]')
-        ->and(substr_count($template, 'flex h-6 w-[100px] shrink-0 items-center justify-between'))
-        ->toBe(3);
+        ->toContain("if (liveLobby.value.mode === 'roulette')")
+        ->toContain("{ label: 'Custom Input', value: lobbySettings.value.customInput }")
+        ->toContain("{ label: 'Voice Over', value: lobbySettings.value.voiceOver }")
+        ->toContain("return [{ label: 'Voting Time', value: lobbySettings.value.votingTime }]")
+        ->not->toContain('Power-ups Per User');
 });
