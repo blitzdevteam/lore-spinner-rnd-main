@@ -42,7 +42,39 @@ it('resolves playable slug aliases', function (): void {
         ->toBe('dr-jekyll-and-mr-hyde');
 });
 
+it('binds each launch playable slug to a playable protagonist', function (): void {
+    $expected = [
+        'the-wonderful-wizard-of-oz' => 'Dorothy Gale',
+        'peter-pan' => 'Wendy Darling',
+        'the-adventure-of-the-speckled-band' => 'Dr. John Watson',
+        'a-scandal-in-bohemia' => 'Dr. John Watson',
+        'the-adventure-of-the-blue-carbuncle' => 'Dr. John Watson',
+        'dracula' => 'Mina Murray',
+        'frankenstein' => 'The Creature',
+        'dr-jekyll-and-mr-hyde' => 'Dr. Henry Jekyll',
+        'the-tell-tale-heart' => 'The Narrator',
+        'pride-and-prejudice' => 'Elizabeth Bennet',
+        'emma' => 'Emma Woodhouse',
+        'treasure-island' => 'Jim Hawkins',
+        'around-the-world-in-eighty-days' => 'Jean Passepartout',
+        'the-three-musketeers' => "D'Artagnan",
+        'robin-hood' => 'Robin Hood',
+        'journey-to-the-center-of-the-earth' => 'Axel',
+        'the-invisible-man' => 'Griffin',
+        'sir-gawain-and-the-green-knight' => 'Sir Gawain',
+    ];
+
+    foreach ($expected as $slug => $protagonist) {
+        expect(LaunchCatalog::protagonist($slug))->toBe($protagonist);
+    }
+});
+
 it('lists every launch world from the catalog', function (): void {
-    expect(LaunchCatalog::worlds())->toHaveCount(14)
-        ->and(collect(LaunchCatalog::worlds())->pluck('title')->all())->toContain('Oz', 'Baker Street', 'Arthurian Legends');
+    expect(LaunchCatalog::worlds())->toHaveCount(7)
+        ->and(collect(LaunchCatalog::worlds())->pluck('title')->all())->toContain(
+            'World of Oz',
+            'Baker Street',
+            'Gothic Horrors',
+            'Camelot',
+        );
 });

@@ -80,9 +80,26 @@ final class WorldSeeder extends Seeder
                 'description' => $definition['description'] ?? null,
                 'tags' => $definition['tags'] ?? [],
                 'position' => $definition['position'] ?? 0,
-                'is_active' => true,
+                'is_active' => $definition['is_active'] ?? true,
             ],
         );
+    }
+
+    public static function deactivateStaleWorlds(array $worlds): void
+    {
+        $activeSlugs = collect($worlds)
+            ->pluck('slug')
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($activeSlugs === []) {
+            return;
+        }
+
+        World::query()
+            ->whereNotIn('slug', $activeSlugs)
+            ->update(['is_active' => false]);
     }
 
     /**
@@ -177,5 +194,7 @@ final class WorldSeeder extends Seeder
                 count($entries),
             ));
         }
+
+        self::deactivateStaleWorlds($worlds);
     }
 }

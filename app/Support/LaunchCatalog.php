@@ -7,11 +7,11 @@ namespace App\Support;
 final class LaunchCatalog
 {
     /**
-     * @return array<string, array{title: string, world_slug: string, world: string}>
+     * @return array<string, array{title: string, protagonist?: string, world_slug?: string, world?: string}>
      */
     public static function titles(): array
     {
-        /** @var array<string, array{title: string, world_slug: string, world: string}> $titles */
+        /** @var array<string, array{title: string, protagonist?: string, world_slug?: string, world?: string}> $titles */
         $titles = config('stories.launch_catalog.titles', []);
 
         return $titles;
@@ -73,5 +73,14 @@ final class LaunchCatalog
 
         return array_key_exists($canonical, self::titles())
             || array_key_exists($slug, self::titles());
+    }
+
+    public static function protagonist(string $slug): ?string
+    {
+        $canonical = StoryPlayability::canonicalSlug($slug);
+
+        return self::titles()[$canonical]['protagonist']
+            ?? self::titles()[$slug]['protagonist']
+            ?? null;
     }
 }

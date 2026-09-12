@@ -10,8 +10,8 @@ it('binds Dr Watson as the playable protagonist on every Baker Street title', fu
         'the-adventure-of-the-blue-carbuncle',
         'a-scandal-in-bohemia',
     ] as $slug) {
-        expect(ChaosStoryConfig::find($slug)['protagonist'])->toBe('Watson')
-            ->and(ChaosStoryConfig::protagonistFor($slug, 'Holmes'))->toBe('Watson');
+        expect(ChaosStoryConfig::find($slug)['protagonist'])->toBe('Dr. John Watson')
+            ->and(ChaosStoryConfig::protagonistFor($slug, 'Holmes'))->toBe('Dr. John Watson');
     }
 });
 
@@ -21,10 +21,15 @@ it('binds Dr Jekyll as the playable protagonist including legacy slug aliases', 
         'the-strange-case-of-dr-jekyll-and-mr-hyde',
         'jekyll-and-hyde',
     ] as $slug) {
-        expect(ChaosStoryConfig::find($slug)['protagonist'])->toBe('Jekyll')
+        expect(ChaosStoryConfig::find($slug)['protagonist'])->toBe('Dr. Henry Jekyll')
             ->and(ChaosStoryConfig::find($slug)['prefer_literal_opening'] ?? false)->toBeFalse()
-            ->and(ChaosStoryConfig::protagonistFor($slug, 'Utterson'))->toBe('Jekyll');
+            ->and(ChaosStoryConfig::protagonistFor($slug, 'Utterson'))->toBe('Dr. Henry Jekyll');
     }
+});
+
+it('resolves launch-only titles from the launch catalog', function (): void {
+    expect(ChaosStoryConfig::find('dracula')['protagonist'])->toBe('Mina Murray')
+        ->and(ChaosStoryConfig::protagonistFor('peter-pan'))->toBe('Wendy Darling');
 });
 
 it('falls back when a slug has no chaos config', function (): void {

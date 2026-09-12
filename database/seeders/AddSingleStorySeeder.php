@@ -95,7 +95,8 @@ final class AddSingleStorySeeder extends Seeder
 
                 $config = $this->buildLaunchConfig($entry);
 
-                return $this->resolveScriptPath($config) !== null;
+                return $this->resolveScriptPath($config) !== null
+                    || $this->resolveSourcePdfPath($config) !== null;
             }));
         }
 
@@ -116,8 +117,8 @@ final class AddSingleStorySeeder extends Seeder
 
             $config = $this->buildLaunchConfig($entry);
 
-            if ($this->resolveScriptPath($config) === null) {
-                $this->command->error("Skipping — script not found: {$entry['script']}");
+            if ($this->resolveScriptPath($config) === null && $this->resolveSourcePdfPath($config) === null) {
+                $this->command->error("Skipping — no script or source PDF for: {$entry['script']}");
                 $this->command->newLine();
 
                 continue;

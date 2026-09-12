@@ -12,17 +12,17 @@ uses(RefreshDatabase::class);
 
 it('upserts launch worlds and attaches seeded titles', function () {
     $story = Story::factory()->create([
-        'slug' => 'the-unwritten-ones',
+        'slug' => 'the-adventure-of-the-speckled-band',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
     ]);
 
     $this->seed(WorldSeeder::class);
 
-    $world = World::query()->where('slug', 'lorespinner-originals')->first();
+    $world = World::query()->where('slug', 'baker-street')->first();
 
     expect($world)->not->toBeNull()
-        ->and($world->title)->toBe('LoreSpinner Originals')
+        ->and($world->title)->toBe('Baker Street')
         ->and($world->stories()->whereKey($story->id)->exists())->toBeTrue();
 
     expect(World::query()->where('slug', 'standalone')->exists())->toBeFalse();
@@ -37,10 +37,10 @@ it('attaches jekyll when the boiled story uses the legacy slug', function () {
 
     $this->seed(WorldSeeder::class);
 
-    $world = World::query()->where('slug', 'hydes-london')->first();
+    $world = World::query()->where('slug', 'gothic-horrors')->first();
 
     expect($world)->not->toBeNull()
-        ->and($world->title)->toBe('Jekyll and Hyde')
+        ->and($world->title)->toBe('Gothic Horrors')
         ->and($world->stories()->whereKey($story->id)->exists())->toBeTrue();
 });
 
@@ -64,7 +64,7 @@ it('retires renamed worlds and moves their stories to the canonical slug', funct
     $canonical = World::query()->where('slug', 'world-of-oz')->first();
 
     expect($canonical)->not->toBeNull()
-        ->and($canonical->title)->toBe('Oz')
+        ->and($canonical->title)->toBe('World of Oz')
         ->and($canonical->stories()->whereKey($story->id)->exists())->toBeTrue()
         ->and($legacy->fresh()->is_active)->toBeFalse()
         ->and($legacy->stories()->count())->toBe(0);

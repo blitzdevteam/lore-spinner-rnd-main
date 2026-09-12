@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * `launch_playable_slugs` gates reviewer playability (with published + boiler-complete).
  * `boiled_playable_slugs` keeps already-boiled RnD titles playable alongside the launch roster.
- * `launch_catalog` is the canonical world + marketing title roster.
+ * `launch_catalog` is the canonical world, marketing title, and playable protagonist roster.
  */
 return [
     'launch_playable_slugs' => [
@@ -47,112 +47,139 @@ return [
 
     'launch_catalog' => [
         'worlds' => [
-            ['slug' => 'world-of-oz', 'folder' => '02-world-of-oz', 'title' => 'Oz', 'legacy_slugs' => ['land-of-oz']],
-            ['slug' => 'neverland', 'folder' => 'neverland', 'title' => 'Neverland'],
+            ['slug' => 'world-of-oz', 'folder' => '02-world-of-oz', 'title' => 'World of Oz', 'legacy_slugs' => ['land-of-oz']],
             ['slug' => 'baker-street', 'folder' => '01-baker-street', 'title' => 'Baker Street'],
-            ['slug' => 'draculas-england', 'folder' => 'draculas-england', 'title' => 'Dracula'],
-            ['slug' => 'frankensteins-world', 'folder' => 'frankensteins-world', 'title' => 'Frankenstein'],
-            ['slug' => 'hydes-london', 'folder' => 'hydes-london', 'title' => 'Jekyll and Hyde'],
-            ['slug' => 'poes-gothic', 'folder' => 'poes-gothic', 'title' => 'Edgar Allan Poe'],
             ['slug' => 'jane-austen', 'folder' => '05-jane-austen', 'title' => 'Jane Austen', 'legacy_slugs' => ['regency-england']],
-            ['slug' => 'treasure-island', 'folder' => 'treasure-island', 'title' => 'Treasure Island'],
-            ['slug' => 'extraordinary-voyages', 'folder' => 'extraordinary-voyages', 'title' => 'Jules Verne'],
-            ['slug' => 'musketeer-france', 'folder' => 'musketeer-france', 'title' => 'The Three Musketeers'],
-            ['slug' => 'sherwood-forest', 'folder' => 'sherwood-forest', 'title' => 'Sherwood Forest'],
-            ['slug' => 'the-unseen-world', 'folder' => 'the-unseen-world', 'title' => 'The Invisible Man'],
-            ['slug' => 'arthurian-britain', 'folder' => 'arthurian-britain', 'title' => 'Arthurian Legends'],
+            [
+                'slug' => 'gothic-horrors',
+                'folder' => 'gothic-horrors',
+                'title' => 'Gothic Horrors',
+                'legacy_slugs' => ['draculas-england', 'frankensteins-world', 'hydes-london', 'poes-gothic'],
+            ],
+            [
+                'slug' => 'high-adventure',
+                'folder' => 'high-adventure',
+                'title' => 'High Adventure',
+                'legacy_slugs' => ['treasure-island', 'musketeer-france', 'sherwood-forest'],
+            ],
+            [
+                'slug' => 'extraordinary-voyages',
+                'folder' => 'extraordinary-voyages',
+                'title' => 'Extraordinary Voyages',
+                'legacy_slugs' => [],
+            ],
+            [
+                'slug' => 'camelot',
+                'folder' => 'camelot',
+                'title' => 'Camelot',
+                'legacy_slugs' => ['arthurian-britain'],
+            ],
         ],
 
         'titles' => [
             'the-wonderful-wizard-of-oz' => [
                 'title' => 'The Wonderful Wizard of Oz: The Road Home',
+                'protagonist' => 'Dorothy Gale',
                 'world_slug' => 'world-of-oz',
-                'world' => 'Oz',
+                'world' => 'World of Oz',
             ],
             'peter-pan' => [
                 'title' => "Peter Pan: Wendy's Neverland",
-                'world_slug' => 'neverland',
-                'world' => 'Neverland',
+                'protagonist' => 'Wendy Darling',
             ],
             'the-adventure-of-the-speckled-band' => [
                 'title' => 'Sherlock Holmes: The Speckled Band',
+                'protagonist' => 'Dr. John Watson',
                 'world_slug' => 'baker-street',
                 'world' => 'Baker Street',
             ],
             'a-scandal-in-bohemia' => [
                 'title' => 'Sherlock Holmes: A Scandal in Bohemia',
+                'protagonist' => 'Dr. John Watson',
                 'world_slug' => 'baker-street',
                 'world' => 'Baker Street',
             ],
             'the-adventure-of-the-blue-carbuncle' => [
                 'title' => 'Sherlock Holmes: The Blue Carbuncle',
+                'protagonist' => 'Dr. John Watson',
                 'world_slug' => 'baker-street',
                 'world' => 'Baker Street',
             ],
             'dracula' => [
                 'title' => 'Dracula: The First Invitation',
-                'world_slug' => 'draculas-england',
-                'world' => 'Dracula',
+                'protagonist' => 'Mina Murray',
+                'world_slug' => 'gothic-horrors',
+                'world' => 'Gothic Horrors',
             ],
             'frankenstein' => [
                 'title' => 'Frankenstein: The Creature Awakens',
-                'world_slug' => 'frankensteins-world',
-                'world' => 'Frankenstein',
+                'protagonist' => 'The Creature',
+                'world_slug' => 'gothic-horrors',
+                'world' => 'Gothic Horrors',
             ],
             'dr-jekyll-and-mr-hyde' => [
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
-                'world_slug' => 'hydes-london',
-                'world' => 'Jekyll and Hyde',
+                'protagonist' => 'Dr. Henry Jekyll',
+                'world_slug' => 'gothic-horrors',
+                'world' => 'Gothic Horrors',
             ],
             'the-tell-tale-heart' => [
                 'title' => 'The Tell-Tale Heart: Beneath the Floor',
-                'world_slug' => 'poes-gothic',
-                'world' => 'Edgar Allan Poe',
+                'protagonist' => 'The Narrator',
+                'world_slug' => 'gothic-horrors',
+                'world' => 'Gothic Horrors',
             ],
             'pride-and-prejudice' => [
                 'title' => 'Pride and Prejudice: First Impressions',
+                'protagonist' => 'Elizabeth Bennet',
                 'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'emma' => [
                 'title' => 'Emma: Hearts Misread',
+                'protagonist' => 'Emma Woodhouse',
                 'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'treasure-island' => [
                 'title' => 'Treasure Island: The Map and the Mutiny',
-                'world_slug' => 'treasure-island',
-                'world' => 'Treasure Island',
+                'protagonist' => 'Jim Hawkins',
+                'world_slug' => 'high-adventure',
+                'world' => 'High Adventure',
             ],
             'around-the-world-in-eighty-days' => [
                 'title' => 'Around the World in Eighty Days: Race the Clock',
+                'protagonist' => 'Jean Passepartout',
                 'world_slug' => 'extraordinary-voyages',
-                'world' => 'Jules Verne',
+                'world' => 'Extraordinary Voyages',
             ],
             'journey-to-the-center-of-the-earth' => [
                 'title' => 'Journey to the Center of the Earth: Descent',
+                'protagonist' => 'Axel',
                 'world_slug' => 'extraordinary-voyages',
-                'world' => 'Jules Verne',
+                'world' => 'Extraordinary Voyages',
             ],
             'the-three-musketeers' => [
                 'title' => 'The Three Musketeers: One for All',
-                'world_slug' => 'musketeer-france',
-                'world' => 'The Three Musketeers',
+                'protagonist' => "D'Artagnan",
+                'world_slug' => 'high-adventure',
+                'world' => 'High Adventure',
             ],
             'robin-hood' => [
                 'title' => 'Robin Hood: Outlaw of Sherwood',
-                'world_slug' => 'sherwood-forest',
-                'world' => 'Sherwood Forest',
+                'protagonist' => 'Robin Hood',
+                'world_slug' => 'high-adventure',
+                'world' => 'High Adventure',
             ],
             'the-invisible-man' => [
                 'title' => 'The Invisible Man: Unseen',
-                'world_slug' => 'the-unseen-world',
-                'world' => 'The Invisible Man',
+                'protagonist' => 'Griffin',
             ],
             'sir-gawain-and-the-green-knight' => [
                 'title' => 'Sir Gawain and the Green Knight: The Year of Honor',
-                'world_slug' => 'arthurian-britain',
-                'world' => 'Arthurian Legends',
+                'protagonist' => 'Sir Gawain',
+                'world_slug' => 'camelot',
+                'world' => 'Camelot',
             ],
         ],
     ],

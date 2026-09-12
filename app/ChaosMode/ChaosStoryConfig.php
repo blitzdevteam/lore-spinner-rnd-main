@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\ChaosMode;
 
+use App\Support\LaunchCatalog;
 use App\Support\StoryPlayability;
 use App\Tts\TtsVoiceCatalog;
 
@@ -45,31 +46,31 @@ final class ChaosStoryConfig
             [
                 'slug' => 'the-adventure-of-the-speckled-band',
                 'title' => 'Sherlock Holmes: The Speckled Band',
-                'protagonist' => 'Watson',
+                'protagonist' => 'Dr. John Watson',
                 'tagline' => 'Doyle — investigate beside Holmes.',
             ],
             [
                 'slug' => 'the-adventure-of-the-blue-carbuncle',
                 'title' => 'Sherlock Holmes: The Blue Carbuncle',
-                'protagonist' => 'Watson',
+                'protagonist' => 'Dr. John Watson',
                 'tagline' => 'Doyle — investigate beside Holmes.',
             ],
             [
                 'slug' => 'a-scandal-in-bohemia',
                 'title' => 'Sherlock Holmes: A Scandal in Bohemia',
-                'protagonist' => 'Watson',
+                'protagonist' => 'Dr. John Watson',
                 'tagline' => 'Doyle — investigate beside Holmes.',
             ],
             [
                 'slug' => 'the-tell-tale-heart',
                 'title' => 'The Tell-Tale Heart: Beneath the Floor',
-                'protagonist' => 'the Narrator',
+                'protagonist' => 'The Narrator',
                 'tagline' => 'Poe — descend into the cracked mind.',
             ],
             [
                 'slug' => 'dr-jekyll-and-mr-hyde',
                 'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
-                'protagonist' => 'Jekyll',
+                'protagonist' => 'Dr. Henry Jekyll',
                 'tagline' => 'Stevenson — hold the line between self and shadow.',
             ],
             [
@@ -113,7 +114,7 @@ final class ChaosStoryConfig
             [
                 'slug' => 'the-wonderful-wizard-of-oz',
                 'title' => 'The Wonderful Wizard of Oz: The Road Home',
-                'protagonist' => 'Dorothy',
+                'protagonist' => 'Dorothy Gale',
                 'tagline' => 'Baum — follow the yellow brick road to the Emerald City.',
             ],
             [
@@ -162,11 +163,24 @@ final class ChaosStoryConfig
 
         foreach (self::all() as $row) {
             if ($row['slug'] === $slug || $row['slug'] === $canonical) {
-                return $row;
+                return self::applyLaunchProtagonist($row, $canonical);
             }
         }
 
-        return null;
+        $launchProtagonist = LaunchCatalog::protagonist($slug);
+
+        if ($launchProtagonist === null) {
+            return null;
+        }
+
+        $launchTitle = LaunchCatalog::displayTitle($canonical, $canonical);
+
+        return [
+            'slug' => $canonical,
+            'title' => $launchTitle,
+            'protagonist' => $launchProtagonist,
+            'tagline' => '',
+        ];
     }
 
     /**
@@ -183,6 +197,24 @@ final class ChaosStoryConfig
      */
     public static function protagonistFor(string $slug, ?string $fallback = null): string
     {
-        return self::find($slug)['protagonist'] ?? $fallback ?? 'the protagonist';
+        return LaunchCatalog::protagonist($slug)
+            ?? self::find($slug)['protagonist']
+            ?? $fallback
+            ?? 'the protagonist';
+    }
+
+    /**
+     * @param  array{slug:string, title:string, protagonist:string, tagline:string, prefer_literal_opening?: bool}  $row
+     * @return array{slug:string, title:string, protagonist:string, tagline:string, prefer_literal_opening?: bool}
+     */
+    private static function applyLaunchProtagonist(array $row, string $canonicalSlug): array
+    {
+        $launchProtagonist = LaunchCatalog::protagonist($canonicalSlug);
+
+        if ($launchProtagonist !== null) {
+            $row['protagonist'] = $launchProtagonist;
+        }
+
+        return $row;
     }
 }

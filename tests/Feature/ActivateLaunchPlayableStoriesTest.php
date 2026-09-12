@@ -35,7 +35,7 @@ it('publishes and attaches a legacy jekyll slug after boiler completion', functi
         ->and($story->published_at)->not->toBeNull()
         ->and(StoryPlayability::isPlayable($story->load('adaptation')))->toBeTrue();
 
-    $world = World::query()->where('slug', 'hydes-london')->first();
+    $world = World::query()->where('slug', 'gothic-horrors')->first();
 
     expect($world)->not->toBeNull()
         ->and($world->stories()->whereKey($story->id)->exists())->toBeTrue();
@@ -62,7 +62,7 @@ it('activates completed launch titles via artisan command', function (): void {
 
     expect($story->status)->toBe(StoryStatusEnum::PUBLISHED);
 
-    $world = World::query()->where('slug', 'hydes-london')->first();
+    $world = World::query()->where('slug', 'gothic-horrors')->first();
 
     expect($world?->stories()->whereKey($story->id)->exists())->toBeTrue();
 });
