@@ -15,3 +15,9 @@ it('detects pride and prejudice roman chapter headers', function (): void {
 
     expect(ScriptChapterBoundaryDetector::detect($pride))->toHaveCount(61);
 });
+
+it('ignores inline table-of-contents headings and detects the actual musketeer chapters', function (): void {
+    $musketeers = file_get_contents(database_path('stories/The Three Musketeers_script.txt'));
+
+    expect(ScriptChapterBoundaryDetector::detect($musketeers))->toHaveCount(67);
+});

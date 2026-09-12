@@ -56,6 +56,14 @@ final class ScriptChapterBoundaryDetector
 
     /**
      * @param  list<string>  $lines
+     */
+    public static function extractPlainSegment(array $lines, int $startLine, int $endLine): string
+    {
+        return implode("\n", array_slice($lines, $startLine - 1, $endLine - $startLine + 1));
+    }
+
+    /**
+     * @param  list<string>  $lines
      * @return list<int>
      */
     private static function findMarkers(array $lines, string $pattern): array

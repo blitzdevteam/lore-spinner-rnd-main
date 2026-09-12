@@ -10,6 +10,7 @@ use App\Enums\Story\StoryStatusEnum;
 use App\Helpers\LineNumberFormatterHelper;
 use App\Helpers\NumberedLineExtractorHelper;
 use App\Models\Story;
+use App\Support\ScriptChapterBoundaryDetector;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -44,9 +45,35 @@ final class ChapterExtractorJob implements ShouldQueue
                 'status' => StoryStatusEnum::EXTRACTING_CHAPTERS,
             ]);
 
-            $linedContent = LineNumberFormatterHelper::handle(
-                file_get_contents($this->story->getFirstMediaPath('script'))
-            );
+            $rawScript = file_get_contents($this->story->getFirstMediaPath('script'));
+            $rawLines = explode("\n", str_replace("\r\n", "\n", $rawScript));
+            $structuredChapters = ScriptChapterBoundaryDetector::detect($rawScript);
+
+            if ($structuredChapters !== null) {
+                DB::transaction(function () use ($structuredChapters, $rawLines): void {
+                    foreach ($structuredChapters as $chapter) {
+                        $this->story->chapters()->create([
+                            'title' => $chapter['title'],
+                            'position' => $chapter['position'],
+                            'teaser' => $chapter['teaser'],
+                            'status' => ChapterStatusEnum::AWAITING_CREATOR_REVIEW,
+                            'content' => ScriptChapterBoundaryDetector::extractPlainSegment(
+                                $rawLines,
+                                $chapter['start_line'],
+                                $chapter['end_line'],
+                            ),
+                        ]);
+                    }
+
+                    $this->story->update([
+                        'status' => StoryStatusEnum::DRAFT,
+                    ]);
+                });
+
+                return;
+            }
+
+            $linedContent = LineNumberFormatterHelper::handle($rawScript);
 
             $response = new ChapterExtractorAgent()
                 ->prompt(
