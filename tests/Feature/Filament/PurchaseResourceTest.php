@@ -30,9 +30,9 @@ it('registers webhook-synced Cashier subscriptions as a read-only purchase track
         ->and(array_keys(PurchaseResource::getPages()))->toBe(['index', 'view'])
         ->and(PricingPlan::fromStripePriceId('price_explorer_monthly'))->toBe(PricingPlan::Explorer)
         ->and(PricingPlan::stripePriceOptions())->toBe([
-            'price_explorer_monthly' => 'Explorer',
-            'price_adventurer_monthly' => 'Adventurer',
-            'price_chronicle_monthly' => 'Chronicle',
+            'price_explorer_monthly' => 'Adventurer Pass',
+            'price_adventurer_monthly' => 'Hero Pass',
+            'price_chronicle_monthly' => 'Mythic Pass',
         ]);
 });
 
@@ -68,7 +68,7 @@ it('lets a manager track a locally synchronized purchased plan', function () {
         ->get(PurchaseResource::getUrl('index'))
         ->assertSuccessful()
         ->assertSee('ada@example.test')
-        ->assertSee('Explorer')
+        ->assertSee('Adventurer Pass')
         ->assertSee('Active');
 });
 
@@ -86,7 +86,7 @@ it('shows the purchased-plan details without invoice history', function () {
         ->get(PurchaseResource::getUrl('view', ['record' => $subscription]))
         ->assertSuccessful()
         ->assertSee('Purchased plan')
-        ->assertSee('Chronicle')
+        ->assertSee('Mythic Pass')
         ->assertSee('Stripe references')
         ->assertDontSee('Invoice history');
 });

@@ -40,9 +40,9 @@ enum PricingPlan: string
     public function label(): string
     {
         return match ($this) {
-            self::Explorer => 'Explorer',
-            self::Adventurer => 'Adventurer',
-            self::Chronicle => 'Chronicle',
+            self::Explorer => 'Adventurer Pass',
+            self::Adventurer => 'Hero Pass',
+            self::Chronicle => 'Mythic Pass',
         };
     }
 

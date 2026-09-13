@@ -59,8 +59,8 @@ const maskGlowStyle = computed(() => ({
             <span class="pricing-card__glow pricing-card__glow--br pricing-card__glow--mask" :style="maskGlowStyle" aria-hidden="true" />
         </template>
 
-        <div class="relative z-[1] flex h-full min-h-[40.3125rem] w-full flex-col">
-            <div class="flex flex-1 flex-col gap-5">
+        <div class="relative z-[1] flex w-full flex-col">
+            <div class="flex flex-col gap-5">
                 <div class="flex flex-col gap-[1.625rem]">
                     <div class="flex flex-col gap-4">
                         <div class="flex flex-col gap-5">
