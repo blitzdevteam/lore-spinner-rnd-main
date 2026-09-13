@@ -22,37 +22,56 @@ const props = withDefaults(
 
 const plans = [
     {
-        name: 'EXPLORER',
+        name: 'ADVENTURER PASS',
         slug: 'explorer',
         tagline: 'Start your Journey',
-        price: '$9.9',
-        description: 'Great for casual play. Get enough Spinners to jump into a story, with a steady daily recharge to keep you going.',
-        features: ['100 Spinners', '8 Daily Spinner Recharge', '120 Spinner Storage', 'Access to Stories'],
+        price: '$14.9',
+        description: 'Built for casual players stepping into interactive stories with standard Actions and multiplayer privileges.',
+        features: [
+            '225 Actions',
+            '135 Minutes of Voice Narration',
+            'Access to All Interactive Stories',
+            'Full Multiplayer Access',
+            '2-3 Full solo story experiences',
+        ],
         cta: 'Choose Plan',
         icon: footprints,
         accent: 'teal' as const,
         featured: false,
     },
     {
-        name: 'ADVENTURER',
+        name: 'HERO PASS',
         slug: 'adventurer',
         tagline: 'Go deeper',
-        price: '$19.9',
-        description: 'For regular players. More daily recharge and higher storage so you can play longer sessions whenever you have time.',
-        features: ['180 Spinners', '15 Daily Spinner Recharge', '200 Spinner Storage', 'Access to Stories'],
+        price: '$29.9',
+        description: 'Best for solo adventurers and duos wanting steady voice immersion and private lobby access.',
+        features: [
+            '450 Actions',
+            '270 Minutes of Voice Narration',
+            'Access to All Interactive Stories',
+            'Full Multiplayer Access',
+            '4-5 Full solo story experiences',
+        ],
         cta: 'Choose Plan',
         icon: mountains,
         accent: 'gold' as const,
         featured: false,
     },
     {
-        name: 'CHRONICLE',
+        name: 'MYTHIC PASS',
         slug: 'chronicle',
         tagline: 'Live the story',
-        price: '$29.9',
-        description: 'For dedicated players. Maximum storage and faster daily recharge so you can play when it suits you.',
-        features: ['300 Spinners', '20 Daily Spinner Recharge', '320 Spinner Storage', 'Access to Stories'],
-        cta: 'Join The Chronicle',
+        price: '$39.9',
+        description: 'Built for active role-players wanting deeper campaign arcs, frequent voice immersion, and lobby hosting.',
+        features: [
+            '600 Actions',
+            '360 Minutes of Voice Narration',
+            'Access to All Interactive Stories',
+            'Full Multiplayer Access',
+            '5-6 Full solo story experiences',
+            'Shared token pooling for hosted lobbies',
+        ],
+        cta: 'Join The Mythic Pass',
         icon: crown,
         accent: 'teal' as const,
         featured: true,
@@ -101,7 +120,7 @@ const plans = [
                         Checkout canceled. Choose a plan whenever you are ready.
                     </p>
 
-                    <div class="mt-12 grid w-full grid-cols-1 items-stretch gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
+                    <div class="mt-12 grid w-full grid-cols-1 items-start gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
                         <PricingPlanCard
                             v-for="plan in plans"
                             :key="plan.name"
