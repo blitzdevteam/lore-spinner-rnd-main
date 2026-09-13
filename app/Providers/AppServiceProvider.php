@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Services\SubscriptionEntitlementService;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -29,6 +30,13 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        $cashierPath = config('cashier.path', 'stripe');
+        $cashierWebhookPath = is_string($cashierPath) && $cashierPath !== ''
+            ? trim($cashierPath, '/').'/*'
+            : 'stripe/*';
+
+        ValidateCsrfToken::except([$cashierWebhookPath]);
 
         Event::listen(WebhookHandled::class, static function (WebhookHandled $event): void {
             app(SubscriptionEntitlementService::class)->syncFromWebhook($event->payload);

@@ -20,13 +20,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $cashierPath = config('cashier.path', 'stripe');
-        $cashierWebhookPath = is_string($cashierPath) && $cashierPath !== ''
-            ? trim($cashierPath, '/').'/*'
-            : 'stripe/*';
-
-        $middleware->validateCsrfTokens(except: [$cashierWebhookPath]);
-
         /**
          * Alias custom middleware
          */
