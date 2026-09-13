@@ -346,7 +346,7 @@ const handleSubmit = (prompt: string) => {
 
 const handleRetryTurn = () => {
     const attempt = lastAttempt.value;
-    if (isSubmitting.value || !attempt) return;
+    if (isSubmitting.value || !hasActionAllowance.value || !attempt) return;
     tts.primeAudio();
 
     // The source card may have been reissued by a refresh since the failure.
@@ -810,7 +810,7 @@ onUnmounted(() => {
             >
                 <p class="text-sm text-red-300/90">{{ streamError }}</p>
                 <button
-                    v-if="lastAttempt"
+                    v-if="lastAttempt && hasActionAllowance"
                     class="rounded-full border border-primary-400/60 bg-primary-400/10 px-6 py-2 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isSubmitting"
                     @click="handleRetryTurn"
@@ -818,6 +818,13 @@ onUnmounted(() => {
                     Retry that move
                 </button>
             </div>
+
+            <p
+                v-if="!hasActionAllowance"
+                class="mb-4 rounded-xl border border-primary-400/30 bg-primary-400/10 px-4 py-3 text-center text-sm text-primary-100"
+            >
+                Your action allowance has been reached for this billing period. Your allowance will renew at the end of the period.
+            </p>
 
             <div
                 v-for="(prompt, index) in prompts"
@@ -830,6 +837,7 @@ onUnmounted(() => {
                     :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
                     :pending-choice="pendingSelection[prompt.id]"
                     :is-submitting="isSubmitting"
+                    :actions-disabled="!hasActionAllowance"
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
                     :uses-playable-moments="game.uses_playable_moments"
