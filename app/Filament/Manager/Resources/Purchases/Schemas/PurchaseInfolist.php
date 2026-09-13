@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Purchases\Schemas;
 
-use App\Enums\PricingPlan;
+use App\Models\SubscriptionPlan;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -24,7 +24,7 @@ final class PurchaseInfolist
                             ->label('Plan')
                             ->badge()
                             ->formatStateUsing(static fn (?string $state): string => self::planLabel($state))
-                            ->color(static fn (?string $state): string => PricingPlan::fromStripePriceId($state) instanceof PricingPlan ? 'primary' : 'gray'),
+                            ->color(static fn (?string $state): string => self::planExists($state) ? 'primary' : 'gray'),
                         TextEntry::make('stripe_status')
                             ->label('Status')
                             ->badge()
@@ -90,7 +90,17 @@ final class PurchaseInfolist
             return 'No plan synchronized';
         }
 
-        return PricingPlan::fromStripePriceId($priceId)?->label() ?? 'Custom Stripe plan';
+        return SubscriptionPlan::query()
+            ->where('stripe_price_id', $priceId)
+            ->value('name') ?? 'Custom Stripe plan';
+    }
+
+    private static function planExists(?string $priceId): bool
+    {
+        return filled($priceId)
+            && SubscriptionPlan::query()
+                ->where('stripe_price_id', $priceId)
+                ->exists();
     }
 
     private static function statusColor(?string $status): string

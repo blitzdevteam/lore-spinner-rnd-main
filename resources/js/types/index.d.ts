@@ -283,6 +283,23 @@ export interface GameplayUsageSummary {
     total: GameplayUsageTotals;
 }
 
+export interface SubscriptionUsageSummary {
+    plan: {
+        name: string;
+    };
+    actions: {
+        limit: number;
+        used: number;
+        remaining: number;
+    };
+    voice: {
+        limit_minutes: number;
+        used_milliseconds: number;
+        remaining_milliseconds: number;
+    };
+    period_ends_at: string;
+}
+
 export interface GameInterface {
     id: string;
     story_id: number;

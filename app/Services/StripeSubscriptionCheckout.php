@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\PricingPlan;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Laravel\Cashier\Checkout;
 
 final class StripeSubscriptionCheckout
 {
-    public function redirect(User $user, PricingPlan $plan): RedirectResponse
+    public function redirect(User $user, SubscriptionPlan $plan): RedirectResponse
     {
         return $this->session($user, $plan)->redirect();
     }
 
-    public function session(User $user, PricingPlan $plan): Checkout
+    public function session(User $user, SubscriptionPlan $plan): Checkout
     {
-        $priceId = $plan->stripePriceId();
+        $priceId = $plan->stripe_price_id;
 
-        if ($priceId === '') {
+        if (! $plan->is_active || ! is_string($priceId) || $priceId === '') {
             abort(503, 'This plan is not available for checkout yet.');
         }
 

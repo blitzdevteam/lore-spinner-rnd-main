@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Purchases\Pages;
 
-use App\Enums\PricingPlan;
 use App\Filament\Manager\Resources\Purchases\PurchaseResource;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
@@ -39,11 +39,15 @@ final class ViewPurchase extends ViewRecord
     {
         $subscription = $this->subscription();
         $user = $subscription->user;
-        $plan = PricingPlan::fromStripePriceId($subscription->stripe_price);
+        $planLabel = is_string($subscription->stripe_price)
+            ? SubscriptionPlan::query()
+                ->where('stripe_price_id', $subscription->stripe_price)
+                ->value('name')
+            : null;
 
         return implode(' · ', [
             $user instanceof User ? $user->email : 'Unknown player',
-            $plan?->label() ?? 'Custom Stripe plan',
+            is_string($planLabel) ? $planLabel : 'Custom Stripe plan',
             $subscription->created_at?->format('M j, Y H:i') ?? 'Purchase date unavailable',
         ]);
     }

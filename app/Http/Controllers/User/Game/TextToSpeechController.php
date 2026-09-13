@@ -10,6 +10,7 @@ use App\Models\MultiplayerLobby;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\NarrationAudioService;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -26,13 +27,29 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class TextToSpeechController extends Controller
 {
-    public function __construct(private readonly NarrationAudioService $audio) {}
+    public function __construct(
+        private readonly NarrationAudioService $audio,
+        private readonly SubscriptionEntitlementService $entitlements,
+    ) {}
 
     public function __invoke(#[CurrentUser] User $user, Game $game, Prompt $prompt): Response
     {
         abort_unless($prompt->game_id === $game->id, 404);
         abort_unless(filled($prompt->response), 404);
-        abort_unless($this->canAccessGameAudio($user, $game), 403);
+
+        $multiplayerLobby = MultiplayerLobby::query()
+            ->where('game_id', $game->id)
+            ->first();
+
+        abort_unless($this->canAccessGameAudio($user, $game, $multiplayerLobby), 403);
+
+        if ($multiplayerLobby === null && ! $this->entitlements->hasPlayAccess($user)) {
+            return response()->json([
+                'message' => 'An active subscription is required to play.',
+                'reason' => 'subscription_required',
+                'pricing_url' => route('pricing'),
+            ], 403);
+        }
 
         if ($this->audio->isReady($prompt)) {
             return $this->serve($prompt);
@@ -67,12 +84,8 @@ final class TextToSpeechController extends Controller
         })->afterResponse();
     }
 
-    private function canAccessGameAudio(User $user, Game $game): bool
+    private function canAccessGameAudio(User $user, Game $game, ?MultiplayerLobby $multiplayerLobby): bool
     {
-        $multiplayerLobby = MultiplayerLobby::query()
-            ->where('game_id', $game->id)
-            ->first();
-
         if ($multiplayerLobby !== null) {
             return $multiplayerLobby->voiceOverEnabled()
                 && $multiplayerLobby->members()

@@ -428,7 +428,17 @@ async function downloadNarration(endpoint: string): Promise<Blob> {
         }
 
         if (!response.ok) {
-            throw new Error(`narration request failed (${response.status})`);
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+                reason?: string;
+                pricing_url?: string;
+            } | null;
+
+            if (response.status === 403 && payload?.reason === 'subscription_required' && payload.pricing_url) {
+                window.location.assign(payload.pricing_url);
+            }
+
+            throw new Error(payload?.message ?? `narration request failed (${response.status})`);
         }
 
         const blob = await response.blob();

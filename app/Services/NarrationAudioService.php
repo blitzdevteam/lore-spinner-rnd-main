@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\ChaosMode\ChaosStoryConfig;
+use App\Exceptions\Subscription\SubscriptionAccessRequiredException;
+use App\Exceptions\Subscription\SubscriptionUsageLimitExceededException;
 use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\Story;
+use App\Models\User;
 use App\Services\Runtime\Mp3DurationCalculator;
 use App\Services\Runtime\PlayerVoiceUsageRecorder;
 use Illuminate\Support\Facades\Cache;
@@ -39,6 +42,7 @@ final class NarrationAudioService
     public function __construct(
         private readonly PlayerVoiceUsageRecorder $voiceUsage,
         private readonly Mp3DurationCalculator $duration,
+        private readonly SubscriptionEntitlementService $subscriptionUsage,
     ) {}
 
     public function path(Prompt $prompt): string
@@ -126,6 +130,7 @@ final class NarrationAudioService
             return;
         }
 
+        $voiceReservationId = null;
         try {
             if (Storage::disk('local')->exists($path)) {
                 return;
@@ -142,6 +147,18 @@ final class NarrationAudioService
                 throw new RuntimeException('Narration has no speakable text.');
             }
 
+            if ($this->subscriptionUsage->shouldTrackUsageFor($game)) {
+                $game->loadMissing('user');
+                $user = $game->user;
+                if (! $user instanceof User) {
+                    throw new RuntimeException('Narration game has no player.');
+                }
+
+                $voiceReservationId = (string) $this->subscriptionUsage
+                    ->reserveVoice($user, $game, $prompt, $text)
+                    ->id;
+            }
+
             $provider = $this->provider();
             $usageOccurredAt = now()->toImmutable()->utc();
             $providerStartedAt = microtime(true);
@@ -152,6 +169,10 @@ final class NarrationAudioService
             };
             $latencyMs = (int) round((microtime(true) - $providerStartedAt) * 1_000);
             $audioDurationMs = $this->duration->milliseconds($rendered['audio']);
+
+            if ($voiceReservationId !== null) {
+                $this->subscriptionUsage->settleVoice($voiceReservationId, $audioDurationMs);
+            }
 
             try {
                 $this->voiceUsage->record(
@@ -185,8 +206,33 @@ final class NarrationAudioService
 
             Storage::disk('local')->put($path, $rendered['audio']);
             Cache::forget($this->errorKey($promptId));
+        } catch (SubscriptionUsageLimitExceededException|SubscriptionAccessRequiredException $e) {
+            if ($voiceReservationId !== null) {
+                $this->subscriptionUsage->releaseVoice($voiceReservationId);
+            }
+
+            Cache::put(
+                $this->errorKey($promptId),
+                $e->getMessage(),
+                self::ERROR_SECONDS,
+            );
+
+            Log::info('tts.subscription_usage_blocked', [
+                'prompt_id' => $promptId,
+                'game_id' => (string) $game->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
         } catch (Throwable $e) {
-            Cache::put($this->errorKey($promptId), self::FAILURE_MESSAGE, self::ERROR_SECONDS);
+            if ($voiceReservationId !== null) {
+                $this->subscriptionUsage->releaseVoice($voiceReservationId);
+            }
+
+            Cache::put(
+                $this->errorKey($promptId),
+                self::FAILURE_MESSAGE,
+                self::ERROR_SECONDS,
+            );
 
             Log::warning('tts.generate_failed', [
                 'prompt_id' => $promptId,

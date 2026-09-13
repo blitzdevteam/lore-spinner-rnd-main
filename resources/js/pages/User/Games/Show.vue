@@ -6,7 +6,7 @@ import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface } from '@/types';
+import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface, SubscriptionUsageSummary } from '@/types';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -26,6 +26,7 @@ type SubmitOptions = {
 const props = defineProps<{
     game: GameInterface;
     usage: GameplayUsageSummary;
+    subscriptionUsage?: SubscriptionUsageSummary | null;
 }>();
 
 const tts = useTextToSpeech();
@@ -236,8 +237,15 @@ const introStage = computed(() => {
 
 const freeformLocked = computed(() => introStage.value === 2);
 
+const hasActionAllowance = computed(() => {
+    if (!props.subscriptionUsage) return true;
+
+    return props.subscriptionUsage.actions.remaining > 0;
+});
+
 const canSubmitInput = computed(() => {
     if (isSubmitting.value) return false;
+    if (!hasActionAllowance.value) return false;
     if (sessionComplete.value) return false;
     if (freeformLocked.value) return false;
     const latest = prompts.value[prompts.value.length - 1];
@@ -255,6 +263,7 @@ const isFirstChoiceMoment = computed(() =>
 );
 
 const inputPlaceholder = computed(() => {
+    if (!hasActionAllowance.value) return 'Your action allowance has been reached for this billing period.';
     if (freeformLocked.value) return 'Pick one of the paths above for this move.';
     if (!isFirstChoiceMoment.value) return '';
     return props.game.first_input_hint ?? '';
@@ -306,7 +315,7 @@ const handleNextSession = () => {
 };
 
 const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice: PromptChoice) => {
-    if (isSubmitting.value) return;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const text = typeof choice === 'string' ? choice : choice.text;
     pendingSelection.value[promptId] = text;
@@ -319,7 +328,7 @@ const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice:
 };
 
 const handleContinue = () => {
-    if (isSubmitting.value) return;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
@@ -328,7 +337,7 @@ const handleContinue = () => {
 };
 
 const handleSubmit = (prompt: string) => {
-    if (isSubmitting.value) return;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
@@ -438,6 +447,32 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             }),
         });
 
+        if (response.status === 429 || response.status === 403) {
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+                reason?: string;
+                pricing_url?: string;
+            } | null;
+
+            if (response.status === 403 && payload?.reason === 'subscription_required' && payload.pricing_url) {
+                isSubmitting.value = false;
+                isStreamingTurn.value = false;
+                streamingPromptId.value = null;
+                pendingSelection.value = {};
+                localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+                router.visit(payload.pricing_url);
+
+                return;
+            }
+
+            throw new Error(
+                payload?.message
+                    ?? (response.status === 429
+                        ? 'Your action allowance has been reached for this billing period.'
+                        : 'An active subscription is required to keep playing.'),
+            );
+        }
+
         if (!response.ok || !response.body) {
             throw new Error(TURN_FAILED_MESSAGE);
         }
@@ -493,7 +528,7 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
                 // Do not flip shouldAnimate here. streamTo already revealed the text;
                 // setting animate remounts the committed card and restarts the typewriter
                 // from empty — the vanish-then-rerender glitch.
-                router.reload({ only: ['game', 'usage'] });
+                router.reload({ only: ['game', 'usage', 'subscriptionUsage'] });
             }
 
             if (event.event === 'error') {
@@ -533,7 +568,7 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
         // Say so. A turn that vanishes with no explanation reads as a broken game
         // rather than a failed request, and the player retypes instead of retrying.
         streamError.value = error instanceof Error && error.message ? error.message : TURN_FAILED_MESSAGE;
-        router.reload({ only: ['game'] });
+        router.reload({ only: ['game', 'subscriptionUsage'] });
     }
 }
 
@@ -738,6 +773,7 @@ onUnmounted(() => {
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
         :usage="usage"
+        :subscription-usage="props.subscriptionUsage"
         :latest-prompt-id="latestPromptId"
         :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"

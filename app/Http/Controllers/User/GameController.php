@@ -17,6 +17,7 @@ use App\Models\UserActivityDay;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -51,6 +52,7 @@ final class GameController extends Controller
         private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
         private readonly PlayerGameplayUsageSummary $gameplayUsageSummary,
+        private readonly SubscriptionEntitlementService $subscriptionUsage,
     ) {}
 
     public function index(): RedirectResponse
@@ -58,7 +60,7 @@ final class GameController extends Controller
         return to_route('index');
     }
 
-    public function show(Game $game): Response
+    public function show(Game $game, #[CurrentUser] User $user): Response
     {
         $game->load([
             'story' => fn ($q) => $q->with([
@@ -80,6 +82,7 @@ final class GameController extends Controller
         return inertia('User/Games/Show', [
             'game' => $game->toResource(),
             'usage' => fn (): array => $this->gameplayUsage($game),
+            'subscriptionUsage' => fn (): ?array => $this->subscriptionUsage->summary($user),
         ]);
     }
 

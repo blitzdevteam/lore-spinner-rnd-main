@@ -11,72 +11,37 @@ import PricingPlanCard from '@/components/PricingPlanCard.vue';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import { Head } from '@inertiajs/vue3';
 
+type Plan = {
+    name: string;
+    tagline: string;
+    price: string;
+    description: string;
+    features: string[];
+    cta: string;
+    checkoutUrl: string;
+    iconKey: string;
+    accent: 'teal' | 'gold';
+    featured: boolean;
+};
+
 const props = withDefaults(
     defineProps<{
         checkoutStatus?: 'success' | 'cancel' | null;
+        plans?: Plan[];
     }>(),
     {
         checkoutStatus: null,
+        plans: () => [],
     },
 );
 
-const plans = [
-    {
-        name: 'ADVENTURER PASS',
-        slug: 'explorer',
-        tagline: 'Start your Journey',
-        price: '$14.9',
-        description: 'Built for casual players stepping into interactive stories with standard Actions and multiplayer privileges.',
-        features: [
-            '225 Actions',
-            '135 Minutes of Voice Narration',
-            'Access to All Interactive Stories',
-            'Full Multiplayer Access',
-            '2-3 Full solo story experiences',
-        ],
-        cta: 'Choose Plan',
-        icon: footprints,
-        accent: 'teal' as const,
-        featured: false,
-    },
-    {
-        name: 'HERO PASS',
-        slug: 'adventurer',
-        tagline: 'Go deeper',
-        price: '$29.9',
-        description: 'Best for solo adventurers and duos wanting steady voice immersion and private lobby access.',
-        features: [
-            '450 Actions',
-            '270 Minutes of Voice Narration',
-            'Access to All Interactive Stories',
-            'Full Multiplayer Access',
-            '4-5 Full solo story experiences',
-        ],
-        cta: 'Choose Plan',
-        icon: mountains,
-        accent: 'gold' as const,
-        featured: false,
-    },
-    {
-        name: 'MYTHIC PASS',
-        slug: 'chronicle',
-        tagline: 'Live the story',
-        price: '$39.9',
-        description: 'Built for active role-players wanting deeper campaign arcs, frequent voice immersion, and lobby hosting.',
-        features: [
-            '600 Actions',
-            '360 Minutes of Voice Narration',
-            'Access to All Interactive Stories',
-            'Full Multiplayer Access',
-            '5-6 Full solo story experiences',
-            'Shared token pooling for hosted lobbies',
-        ],
-        cta: 'Join The Mythic Pass',
-        icon: crown,
-        accent: 'teal' as const,
-        featured: true,
-    },
-] as const;
+const planIcons: Record<string, string> = {
+    footprints,
+    mountains,
+    crown,
+};
+
+const iconFor = (iconKey: string) => planIcons[iconKey] ?? footprints;
 </script>
 
 <template>
@@ -120,22 +85,25 @@ const plans = [
                         Checkout canceled. Choose a plan whenever you are ready.
                     </p>
 
-                    <div class="mt-12 grid w-full grid-cols-1 items-start gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
+                    <div v-if="props.plans.length" class="mt-12 grid w-full grid-cols-1 items-start gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
                         <PricingPlanCard
-                            v-for="plan in plans"
-                            :key="plan.name"
+                            v-for="plan in props.plans"
+                            :key="plan.checkoutUrl"
                             :name="plan.name"
                             :tagline="plan.tagline"
                             :price="plan.price"
                             :description="plan.description"
                             :features="plan.features"
                             :cta="plan.cta"
-                            :href="`/user/checkout/${plan.slug}`"
-                            :icon="plan.icon"
+                            :href="plan.checkoutUrl"
+                            :icon="iconFor(plan.iconKey)"
                             :accent="plan.accent"
                             :featured="plan.featured"
                         />
                     </div>
+                    <p v-else class="mt-12 text-center text-base text-[#838383]">
+                        Subscription plans are being prepared. Please check back shortly.
+                    </p>
                 </div>
             </section>
 
