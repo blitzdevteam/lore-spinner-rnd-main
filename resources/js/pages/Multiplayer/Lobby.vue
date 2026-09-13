@@ -2,14 +2,13 @@
 import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
 import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
-import copyIcon from '@/assets/multiplayer/copy.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
 import dividerLineIcon from '@/assets/multiplayer/divider-line.svg';
 import plusCircleIcon from '@/assets/multiplayer/plus-circle.svg';
 import scalesIcon from '@/assets/multiplayer/scales.svg';
 import sparkleIcon from '@/assets/multiplayer/sparkle.svg';
-import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
+import MultiplayerInviteCard from '@/components/MultiplayerInviteCard.vue';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { MultiplayerLobbyInterface } from '@/types';
 import {
@@ -123,7 +122,6 @@ const readinessMessage = computed(() => {
 
     return `${readyMemberCount.value}/${members.value.length} players ready`;
 });
-const copiedRoomCode = ref(false);
 const leavingLobby = ref(false);
 const redirectingAwayFromLobby = ref(false);
 const updatingReadiness = ref(false);
@@ -376,19 +374,6 @@ function goBack(): void {
     window.history.back();
 }
 
-async function copyInviteLink(): Promise<void> {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
-        return;
-    }
-
-    await navigator.clipboard.writeText(inviteLink.value);
-    copiedRoomCode.value = true;
-
-    window.setTimeout(() => {
-        copiedRoomCode.value = false;
-    }, 1800);
-}
-
 function leaveLobby(): void {
     if (leavingLobby.value) return;
 
@@ -557,31 +542,7 @@ onUnmounted(() => {
 
                     <img :src="dividerLineIcon" alt="" class="h-px w-full" />
 
-                    <div
-                        class="flex w-full flex-col items-start gap-3 rounded-[5px] border-[0.5px] border-dashed border-[#5c5c5c] py-2 pr-2.5 pl-2"
-                    >
-                        <div class="flex h-[27px] items-center gap-1 pl-[5px] pr-2.5">
-                            <img :src="starFourIcon" alt="" class="size-5" />
-                            <p class="text-base leading-[33px] text-white">Invite Players</p>
-                        </div>
-                        <div
-                            class="flex w-full flex-col items-start justify-center rounded-[5px] border-[0.5px] border-solid border-[#5c5c5c] bg-[#191919] py-2 pr-2.5 pl-2"
-                        >
-                            <p class="text-sm leading-[33px] text-white">Room Link</p>
-                            <div class="flex w-full items-center justify-between">
-                                <p class="text-[13px] text-[#59c1ca]">{{ roomCode }}</p>
-                                <button
-                                    type="button"
-                                    class="flex size-[29px] shrink-0 items-center justify-center overflow-clip"
-                                    :aria-label="copiedRoomCode ? 'Invite link copied' : 'Copy invite link'"
-                                    @click="copyInviteLink"
-                                >
-                                    <LucideCheck v-if="copiedRoomCode" class="size-4 text-[#58d9a1]" :stroke-width="1.75" />
-                                    <img v-else :src="copyIcon" alt="" class="size-[29px]" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <MultiplayerInviteCard :invite-url="inviteLink" :room-code="roomCode" />
 
                     <img :src="dividerLineIcon" alt="" class="h-px w-full" />
 

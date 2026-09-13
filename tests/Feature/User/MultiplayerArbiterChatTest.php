@@ -143,8 +143,8 @@ it('centers the players and chat content using the figma dimensions', function (
     $arbiter = file_get_contents(resource_path('js/pages/Arbiter.vue'));
 
     expect($arbiter)
-        ->toContain('<img :src="playersIcon" alt="" class="size-[18px]"')
-        ->toContain('<img :src="chatIcon" alt="" class="size-[18px]"')
+        ->toContain('<img :src="headerPlayersIcon" alt="" class="h-3 w-[18px]"')
+        ->toContain('<img :src="headerChatIcon" alt="" class="size-[15px]"')
         ->toContain('height: 2.1875rem !important;')
         ->toContain('padding: 0 0.6875rem !important;')
         ->toContain('font-size: 0.875rem;')

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import backIcon from '@/assets/arbiter/back.svg';
 import billyAvatar from '@/assets/arbiter/billy-avatar.png';
-import copyIcon from '@/assets/arbiter/copy.svg';
 import headerChatIcon from '@/assets/arbiter/header-chat.svg';
 import headerJournalIcon from '@/assets/arbiter/header-journal.svg';
 import headerPlayersIcon from '@/assets/arbiter/header-players.svg';
@@ -10,7 +9,6 @@ import headerSettingsIcon from '@/assets/arbiter/header-settings.svg';
 import hourglassIcon from '@/assets/arbiter/hourglass.svg';
 import kevinAvatar from '@/assets/arbiter/kevin-avatar.png';
 import miraAvatar from '@/assets/arbiter/mira-avatar.png';
-import playersIcon from '@/assets/arbiter/players.svg';
 import sendIcon from '@/assets/arbiter/send.svg';
 import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
@@ -18,6 +16,7 @@ import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import MultiplayerInviteCard from '@/components/MultiplayerInviteCard.vue';
 import MultiplayerJournalTimeline from '@/components/MultiplayerJournalTimeline.vue';
 import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
@@ -134,6 +133,17 @@ const gameplayBackgroundImage = computed(
     () => props.game?.story?.banner || props.lobby.story.banner || props.game?.story?.cover || props.lobby.story.cover || null,
 );
 const roomCode = computed(() => props.lobby.room_code);
+const inviteLink = computed(() => {
+    if (props.lobby.invite_url) {
+        return props.lobby.invite_url;
+    }
+
+    const path = multiplayerStoryRoute.url(props.lobby.story.slug, {
+        query: { room: roomCode.value },
+    });
+
+    return typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
+});
 const liveMembers = ref<MultiplayerLobbyMemberInterface[]>([...props.lobby.members]);
 const members = computed(() => liveMembers.value);
 const currentUserId = computed(() => page.props.auth?.id ?? null);
@@ -314,7 +324,6 @@ const activeRightHeaderAction = ref<RightHeaderAction>('chat');
 const activeMobileHeaderAction = ref<MobileHeaderAction | null>(null);
 const mobileTabSurface = ref<HTMLElement | null>(null);
 const isMobile = ref(false);
-const copiedRoomCode = ref(false);
 const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const canChooseRouletteChoice = computed(
@@ -964,15 +973,6 @@ const waitingStatus = computed(() => {
 
     return ownProposal.value ? 'Choice submitted. Waiting for the other players…' : 'Waiting for you to submit your choice…';
 });
-
-async function copyRoomCode(): Promise<void> {
-    try {
-        await navigator.clipboard.writeText(roomCode.value);
-        copiedRoomCode.value = true;
-    } catch {
-        copiedRoomCode.value = false;
-    }
-}
 
 watch([isCollectingProposals, isGameplayPaused], ([isCollecting, isPaused]) => {
     if (!isCollecting || isPaused) {
@@ -1766,21 +1766,7 @@ onUnmounted(() => {
                             </article>
                         </div>
 
-                        <div class="invite-card">
-                            <div class="invite-label">
-                                <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                                <span>Invite Players</span>
-                            </div>
-                            <div class="room-code-card">
-                                <div>
-                                    <span>Room Link</span><strong>{{ roomCode }}</strong>
-                                </div>
-                                <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
-                                    <img :src="copyIcon" alt="" aria-hidden="true" />
-                                </button>
-                            </div>
-                            <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
-                        </div>
+                        <MultiplayerInviteCard :invite-url="inviteLink" :room-code="roomCode" class="mt-5" />
                         <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
                             {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
                         </button>
@@ -1950,21 +1936,7 @@ onUnmounted(() => {
                             </article>
                         </div>
 
-                        <div class="invite-card">
-                            <div class="invite-label">
-                                <img :src="playersIcon" alt="" class="size-5" aria-hidden="true" />
-                                <span>Invite Players</span>
-                            </div>
-                            <div class="room-code-card">
-                                <div>
-                                    <span>Room Link</span><strong>{{ roomCode }}</strong>
-                                </div>
-                                <button type="button" :aria-label="copiedRoomCode ? 'Room code copied' : 'Copy room code'" @click="copyRoomCode">
-                                    <img :src="copyIcon" alt="" aria-hidden="true" />
-                                </button>
-                            </div>
-                            <span v-if="copiedRoomCode" class="copy-confirmation" role="status">Room code copied</span>
-                        </div>
+                        <MultiplayerInviteCard :invite-url="inviteLink" :room-code="roomCode" class="mt-5" />
                         <button type="button" class="leave-room-button" :disabled="isLeavingLobby" @click="leaveRoom">
                             {{ isLeavingLobby ? 'Leaving…' : 'Leave Room' }}
                         </button>
@@ -2749,90 +2721,6 @@ onUnmounted(() => {
     border-top: 1px solid #2f2f2f;
     padding-top: 0.5rem;
     color: #8f8f8f;
-    font-size: 0.75rem;
-}
-
-.invite-card {
-    position: relative;
-    display: flex;
-    height: 7.0625rem;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 1.25rem;
-    border: 1px dashed #5c5c5c;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.625rem 0.5rem 0.5rem;
-}
-
-.invite-label {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: #e4e4e4;
-    min-height: 1.6875rem;
-    padding-left: 0.3125rem;
-    font-size: 1rem;
-}
-
-.room-code-card {
-    display: flex;
-    align-items: stretch;
-    justify-content: space-between;
-    overflow: hidden;
-    border: 1px solid #555;
-    border-radius: 0.5rem;
-    min-height: 3.375rem;
-    background: #191919;
-}
-
-.room-code-card > div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    justify-content: center;
-    padding: 0.375rem 0.5rem;
-}
-
-.room-code-card span,
-.room-code-card strong {
-    display: block;
-}
-
-.room-code-card span {
-    color: #c5c5c5;
-    font-size: 0.8125rem;
-}
-
-.room-code-card strong {
-    color: #59c1ca;
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-}
-
-.room-code-card button {
-    display: grid;
-    width: 3.375rem;
-    place-items: center;
-    border: 0;
-    border-left: 1px solid #373737;
-    background: transparent;
-}
-
-.room-code-card button:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.room-code-card img {
-    width: 2.61rem;
-    height: 2.61rem;
-}
-
-.copy-confirmation {
-    position: absolute;
-    right: 0.85rem;
-    bottom: -1.35rem;
-    color: #59c1ca;
     font-size: 0.75rem;
 }
 

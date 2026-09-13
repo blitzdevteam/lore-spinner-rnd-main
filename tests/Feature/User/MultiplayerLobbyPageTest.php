@@ -74,6 +74,34 @@ it('renders the waiting lobby sidebar props for the host', function () {
             ->where('lobby.members.1.role', 'player'));
 });
 
+it('renders the invite card with a room link and join code', function () {
+    $card = file_get_contents(resource_path('js/components/MultiplayerInviteCard.vue'));
+    $lobby = file_get_contents(resource_path('js/pages/Multiplayer/Lobby.vue'));
+    $arbiter = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($card)
+        ->toContain('Invite Players')
+        ->toContain('Room Link')
+        ->toContain('Join Code')
+        ->toContain('displayInviteUrl')
+        ->toContain("copyValue('link', inviteUrl)")
+        ->toContain("copyValue('code', roomCode)")
+        ->toContain('star-four.svg')
+        ->toContain('copy.svg')
+        ->toContain('size-5')
+        ->toContain('size-[29px]');
+
+    expect($lobby)
+        ->toContain('MultiplayerInviteCard')
+        ->toContain(':invite-url="inviteLink"')
+        ->toContain(':room-code="roomCode"');
+
+    expect($arbiter)
+        ->toContain('MultiplayerInviteCard')
+        ->toContain(':invite-url="inviteLink"')
+        ->toContain(':room-code="roomCode"');
+});
+
 it('uses a thin gray border for non-host player cards in the lobby template', function () {
     $template = file_get_contents(resource_path('js/pages/Multiplayer/Lobby.vue'));
 
@@ -86,8 +114,8 @@ it('shows only the settings supported by the lobby mode', function () {
 
     expect($template)
         ->toContain("if (liveLobby.value.mode === 'roulette')")
-        ->toContain("{ label: 'Custom Input', value: lobbySettings.value.customInput }")
-        ->toContain("{ label: 'Voice Over', value: lobbySettings.value.voiceOver }")
-        ->toContain("return [{ label: 'Voting Time', value: lobbySettings.value.votingTime }]")
+        ->toContain("{ key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] }")
+        ->toContain("{ key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] }")
+        ->toContain("{ key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] }")
         ->not->toContain('Power-ups Per User');
 });
