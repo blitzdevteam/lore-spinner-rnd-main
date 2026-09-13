@@ -13,7 +13,7 @@ use App\Models\SubscriptionEntitlement;
 use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionUsageEvent;
 use App\Models\User;
-use Illuminate\Support\CarbonImmutable;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Laravel\Cashier\Subscription;
 
@@ -238,16 +238,106 @@ final class SubscriptionEntitlementService
             return;
         }
 
-        $stripeSubscriptionId = $stripeSubscription['id'] ?? null;
-        if (! is_string($stripeSubscriptionId) || $stripeSubscriptionId === '') {
+        $userId = data_get($stripeSubscription, 'customer');
+        if (! is_string($userId) || $userId === '') {
             return;
         }
 
-        $subscription = Subscription::query()->where('stripe_id', $stripeSubscriptionId)->first();
-        if (! $subscription instanceof Subscription || $subscription->type !== 'default') {
+        $user = User::query()->where('stripe_id', $userId)->first();
+        if (! $user instanceof User) {
             return;
         }
 
+        $this->synchronizeStripeSubscription($user, $stripeSubscription);
+    }
+
+    /**
+     * Synchronize a verified Stripe subscription when the customer returns
+     * from Checkout, so access does not depend on webhook delivery timing.
+     *
+     * @param  array<string, mixed>  $stripeSubscription
+     */
+    public function synchronizeStripeSubscription(User $user, array $stripeSubscription): void
+    {
+        $stripeSubscriptionId = data_get($stripeSubscription, 'id');
+        $stripeCustomerId = data_get($stripeSubscription, 'customer');
+        $items = data_get($stripeSubscription, 'items.data');
+
+        if (
+            ! is_string($stripeSubscriptionId)
+            || $stripeSubscriptionId === ''
+            || ! is_string($stripeCustomerId)
+            || $stripeCustomerId !== $user->stripe_id
+            || ! is_array($items)
+            || $items === []
+        ) {
+            return;
+        }
+
+        $firstItem = $items[0] ?? null;
+        $firstPriceId = data_get($firstItem, 'price.id');
+        $status = data_get($stripeSubscription, 'status');
+
+        if (! is_array($firstItem) || ! is_string($firstPriceId) || $firstPriceId === '' || ! is_string($status)) {
+            return;
+        }
+
+        $isSinglePrice = count($items) === 1;
+        $trialEndsAt = $this->stripeTimestamp(data_get($stripeSubscription, 'trial_end'));
+        $subscription = $user->subscriptions()->updateOrCreate(
+            ['stripe_id' => $stripeSubscriptionId],
+            [
+                'type' => data_get($stripeSubscription, 'metadata.type')
+                    ?? data_get($stripeSubscription, 'metadata.name')
+                    ?? 'default',
+                'stripe_status' => $status,
+                'stripe_price' => $isSinglePrice ? $firstPriceId : null,
+                'quantity' => $isSinglePrice ? data_get($firstItem, 'quantity') : null,
+                'trial_ends_at' => $trialEndsAt,
+                'ends_at' => $this->subscriptionEndsAt($stripeSubscription),
+            ],
+        );
+
+        foreach ($items as $item) {
+            $itemId = data_get($item, 'id');
+            $itemPriceId = data_get($item, 'price.id');
+            $productId = data_get($item, 'price.product');
+
+            if (
+                ! is_array($item)
+                || ! is_string($itemId)
+                || ! is_string($itemPriceId)
+                || ! is_string($productId)
+            ) {
+                continue;
+            }
+
+            $subscription->items()->updateOrCreate(
+                ['stripe_id' => $itemId],
+                [
+                    'stripe_product' => $productId,
+                    'stripe_price' => $itemPriceId,
+                    'quantity' => data_get($item, 'quantity'),
+                ],
+            );
+        }
+
+        if ($user->trial_ends_at !== null) {
+            $user->forceFill(['trial_ends_at' => null])->save();
+        }
+
+        if ($subscription->type !== 'default') {
+            return;
+        }
+
+        $this->syncEntitlement($subscription, $stripeSubscription);
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeSubscription
+     */
+    private function syncEntitlement(Subscription $subscription, array $stripeSubscription): void
+    {
         $priceId = $this->priceIdFromStripeSubscription($stripeSubscription) ?? $this->priceIdFor($subscription);
         if ($priceId === null) {
             return;
@@ -280,6 +370,22 @@ final class SubscriptionEntitlementService
                 'action_limit' => $plan->action_limit,
                 'voice_milliseconds_limit' => $plan->voiceMillisecondsLimit(),
             ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $stripeSubscription
+     */
+    private function subscriptionEndsAt(array $stripeSubscription): ?CarbonImmutable
+    {
+        if (data_get($stripeSubscription, 'cancel_at_period_end') === true) {
+            return $this->stripeTimestamp(
+                $stripeSubscription['current_period_end'] ?? data_get($stripeSubscription, 'items.data.0.current_period_end'),
+            );
+        }
+
+        return $this->stripeTimestamp(
+            $stripeSubscription['cancel_at'] ?? data_get($stripeSubscription, 'canceled_at'),
         );
     }
 

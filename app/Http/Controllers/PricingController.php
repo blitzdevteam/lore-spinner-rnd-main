@@ -5,14 +5,23 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
+use App\Models\User;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Http\Request;
 use Inertia\Response;
 
 final class PricingController extends Controller
 {
-    public function __invoke(Request $request): Response
-    {
+    public function __invoke(
+        Request $request,
+        SubscriptionEntitlementService $entitlements,
+    ): Response {
         $status = $request->string('checkout')->toString();
+        $user = $request->user('user');
+
+        if ($status === 'success' && $user instanceof User) {
+            $this->synchronizeCompletedCheckout($request, $user, $entitlements);
+        }
 
         return inertia('Pricing', [
             'checkoutStatus' => in_array($status, ['success', 'cancel'], true) ? $status : null,
@@ -35,6 +44,36 @@ final class PricingController extends Controller
                 ])
                 ->all(),
         ]);
+    }
+
+    private function synchronizeCompletedCheckout(
+        Request $request,
+        User $user,
+        SubscriptionEntitlementService $entitlements,
+    ): void {
+        $checkoutSessionId = $request->string('session_id')->toString();
+
+        if ($checkoutSessionId === '') {
+            return;
+        }
+
+        $checkoutSession = $user->stripe()->checkout->sessions->retrieve($checkoutSessionId);
+        $subscriptionId = $checkoutSession->subscription;
+
+        if (
+            $checkoutSession->mode !== 'subscription'
+            || ! in_array($checkoutSession->payment_status, ['paid', 'no_payment_required'], true)
+            || $checkoutSession->customer !== $user->stripe_id
+            || ! is_string($subscriptionId)
+            || $subscriptionId === ''
+        ) {
+            abort(422, 'The completed checkout session could not be verified.');
+        }
+
+        $entitlements->synchronizeStripeSubscription(
+            $user,
+            $user->stripe()->subscriptions->retrieve($subscriptionId)->toArray(),
+        );
     }
 
     private function formattedPrice(SubscriptionPlan $plan): string

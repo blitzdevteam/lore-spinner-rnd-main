@@ -25,7 +25,7 @@ final class StripeSubscriptionCheckout
         }
 
         return $user->newSubscription('default', $priceId)->checkout([
-            'success_url' => route('pricing', ['checkout' => 'success']),
+            'success_url' => route('pricing', ['checkout' => 'success']).'&session_id={CHECKOUT_SESSION_ID}',
             'cancel_url' => route('pricing', ['checkout' => 'cancel']),
         ]);
     }
