@@ -69,6 +69,7 @@ it('uses the lobby voice-over and custom-input settings in roulette gameplay', f
 
     expect($chatCard)
         ->toContain('voiceOverEnabled?: boolean;')
+        ->toContain('voiceOverEnabled: true')
         ->toContain('const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);')
         ->toContain('v-if="voiceOverEnabled"');
 });

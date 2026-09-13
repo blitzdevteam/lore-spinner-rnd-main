@@ -16,7 +16,7 @@ const { settings: gameplaySettings } = useGameplaySettings();
 
 const panelGlassStyle = computed(() => glassTintVars(gameplaySettings.backgroundColor));
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     prompt: PromptInterface;
     gameId: string;
     coverUrl?: string | null;
@@ -36,7 +36,9 @@ const props = defineProps<{
      */
     choicesLocked?: boolean;
     freeformLocked?: boolean;
-}>();
+}>(), {
+    voiceOverEnabled: true,
+});
 
 const emit = defineEmits<{
     'choice-selected': [promptId: string, suggestionIndex: number, choice: PromptChoice];
