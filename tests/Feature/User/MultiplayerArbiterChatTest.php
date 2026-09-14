@@ -43,6 +43,15 @@ it('keeps the arbiter proposal input dock within the mobile viewport', function 
         ->toContain('        transform: none;');
 });
 
+it('fades the story beneath the multiplayer custom input dock', function (): void {
+    $styles = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($styles)
+        ->toContain('.arbiter-proposal-dock::after {')
+        ->toContain('top: calc(100% - 1px);')
+        ->toContain('background: linear-gradient(to bottom, #000 15%, rgba(0, 0, 0, 0.82) 58%, transparent);');
+});
+
 it('places responsive narration controls in the arbiter proposal dock', function () {
     $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
     $styles = $template;
@@ -63,7 +72,7 @@ it('uses the lobby voice-over and custom-input settings in roulette gameplay', f
     $chatCard = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
 
     expect($template)
-        ->toContain("const voiceOverEnabled = computed(() => isRouletteMode.value && props.lobby.settings.voice_over_enabled)")
+        ->toContain('const voiceOverEnabled = computed(() => isRouletteMode.value && props.lobby.settings.voice_over_enabled)')
         ->toContain('const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value)')
         ->toContain(':voice-over-enabled="voiceOverEnabled"');
 

@@ -3450,6 +3450,17 @@ onUnmounted(() => {
     background: linear-gradient(to top, #000 15%, rgba(0, 0, 0, 0.82) 58%, transparent);
 }
 
+.arbiter-proposal-dock::after {
+    position: absolute;
+    z-index: -1;
+    top: calc(100% - 1px);
+    right: 0;
+    left: 0;
+    height: 10rem;
+    content: '';
+    background: linear-gradient(to bottom, #000 15%, rgba(0, 0, 0, 0.82) 58%, transparent);
+}
+
 .arbiter-proposal-input {
     width: min(100%, 38.5rem) !important;
     align-self: center;
