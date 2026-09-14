@@ -14,7 +14,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const CONTINUE_MARKER = '__continue__';
 const TURN_FAILED_MESSAGE = 'Narration hiccuped — your move was not saved. Retry to send it again.';
-const TURN_REJECTED_MESSAGE = 'That move arrived out of turn — retry to send it again.';
 
 type SubmitOptions = {
     promptId: string;
@@ -403,6 +402,40 @@ function commitStreamedPrompt(
     localPrompts.value = [...localPrompts.value, responsePrompt];
 }
 
+function clearStreamingRequest(activeStreamingPromptId: string): void {
+    isSubmitting.value = false;
+    isStreamingTurn.value = false;
+    streamingPromptId.value = null;
+    pendingSelection.value = {};
+    localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+}
+
+async function resynchronizeTurn(activeStreamingPromptId: string): Promise<void> {
+    clearStreamingRequest(activeStreamingPromptId);
+    lastAttempt.value = null;
+    streamError.value = null;
+
+    await new Promise<void>((resolve) => {
+        router.reload({
+            only: ['game', 'usage', 'subscriptionUsage'],
+            onFinish: () => resolve(),
+        });
+    });
+
+    if (!props.game.turn_pending) {
+        return;
+    }
+
+    const awaiting = [...prompts.value].reverse().find((item) => !item.prompt);
+    if (!awaiting) {
+        return;
+    }
+
+    isSubmitting.value = true;
+    pendingSelection.value[awaiting.id] = '…';
+    void pollForTurnCompletion(awaiting.id);
+}
+
 async function streamPrompt(prompt: string, options: SubmitOptions) {
     isSubmitting.value = true;
     isStreamingTurn.value = true;
@@ -447,6 +480,12 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             }),
         });
 
+        if (response.status === 409) {
+            await resynchronizeTurn(activeStreamingPromptId);
+
+            return;
+        }
+
         if (response.status === 429 || response.status === 403) {
             const payload = (await response.json().catch(() => null)) as {
                 message?: string;
@@ -473,15 +512,20 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             );
         }
 
+        if (response.redirected) {
+            clearStreamingRequest(activeStreamingPromptId);
+            lastAttempt.value = null;
+            router.visit(response.url, { preserveState: false, replace: true });
+
+            return;
+        }
+
         if (!response.ok || !response.body) {
             throw new Error(TURN_FAILED_MESSAGE);
         }
 
-        // A rejected turn is answered with a redirect to the game page, which
-        // arrives as HTML. Reading it as NDJSON would throw on the first line and
-        // surface as a generic failure, so name it while we still can.
         if (!(response.headers.get('Content-Type') ?? '').includes('application/x-ndjson')) {
-            throw new Error(TURN_REJECTED_MESSAGE);
+            throw new Error(TURN_FAILED_MESSAGE);
         }
 
         const reader = response.body.getReader();
@@ -560,11 +604,7 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             throw new Error(TURN_FAILED_MESSAGE);
         }
     } catch (error) {
-        isSubmitting.value = false;
-        isStreamingTurn.value = false;
-        streamingPromptId.value = null;
-        pendingSelection.value = {};
-        localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+        clearStreamingRequest(activeStreamingPromptId);
         // Say so. A turn that vanishes with no explanation reads as a broken game
         // rather than a failed request, and the player retypes instead of retrying.
         streamError.value = error instanceof Error && error.message ? error.message : TURN_FAILED_MESSAGE;

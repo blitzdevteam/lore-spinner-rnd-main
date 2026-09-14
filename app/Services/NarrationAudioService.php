@@ -206,6 +206,14 @@ final class NarrationAudioService
 
             Storage::disk('local')->put($path, $rendered['audio']);
             Cache::forget($this->errorKey($promptId));
+
+            Log::channel('narration')->info('tts.generate_succeeded', [
+                'prompt_id' => $promptId,
+                'game_id' => (string) $game->id,
+                'provider' => $provider,
+                'audio_duration_ms' => $audioDurationMs,
+                'subscription_usage_event_id' => $voiceReservationId,
+            ]);
         } catch (SubscriptionUsageLimitExceededException|SubscriptionAccessRequiredException $e) {
             if ($voiceReservationId !== null) {
                 $this->subscriptionUsage->releaseVoice($voiceReservationId);

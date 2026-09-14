@@ -50,7 +50,7 @@ final class PromptController extends Controller
         $turnLock = Cache::lock($lockName, 180);
 
         if (! $turnLock->get()) {
-            return to_route('user.games.show', $game);
+            return $this->turnConflictResponse($request, $game, $sourcePromptId, 'turn_in_progress');
         }
 
         $playerAction = $promptText;
@@ -66,11 +66,13 @@ final class PromptController extends Controller
             // Newest by ULID, matching the order the play page renders. created_at
             // ties would let the two sides disagree about which turn is current and
             // reject a legitimate move as out of turn.
+            $latestPromptId = $game->prompts()->orderByDesc('id')->value('id');
+
             if ($sourcePrompt === null
-                || $game->prompts()->orderByDesc('id')->value('id') !== $sourcePrompt->id
+                || $latestPromptId !== $sourcePrompt->id
                 || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
             ) {
-                return to_route('user.games.show', $game);
+                return $this->turnConflictResponse($request, $game, $sourcePromptId, 'stale_turn');
             }
 
             [$storedPromptValue, $playerAction, $explicitBranch] = $this->validateSubmittedAction(
@@ -196,6 +198,31 @@ final class PromptController extends Controller
         }
 
         return back()->with('warning', $message);
+    }
+
+    private function turnConflictResponse(
+        StorePromptRequest $request,
+        Game $game,
+        string $sourcePromptId,
+        string $reason,
+    ): RedirectResponse|JsonResponse {
+        Log::channel('narration')->info('game.turn_conflict', [
+            'game_id' => (string) $game->id,
+            'source_prompt_id' => $sourcePromptId,
+            'latest_prompt_id' => $game->prompts()->orderByDesc('id')->value('id'),
+            'reason' => $reason,
+        ]);
+
+        if ($request->expectsJson() || $this->wantsStreamingTurn($request)) {
+            return response()->json([
+                'message' => $reason === 'turn_in_progress'
+                    ? 'Your previous move is still being processed.'
+                    : 'The story has already advanced past that move.',
+                'reason' => $reason,
+            ], 409);
+        }
+
+        return to_route('user.games.show', $game);
     }
 
     /**
