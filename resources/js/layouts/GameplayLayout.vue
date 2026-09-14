@@ -8,13 +8,14 @@ import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayJournalPanel, { type JournalMeta } from '@/components/GameplayJournalPanel.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import GameplaySubscriptionUsagePanel from '@/components/GameplaySubscriptionUsagePanel.vue';
 import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronLeft, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideAudioLines, LucideChevronLeft, LucideGauge, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -109,7 +110,7 @@ function onInputReadyToType() {
     }
 }
 
-type Panel = 'journal' | 'settings' | 'audio' | null;
+type Panel = 'journal' | 'settings' | 'usage' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
 const journalTab = ref<'journals' | 'characters'>('journals');
@@ -168,6 +169,15 @@ const toggleSettings = () => {
     }
 };
 
+const toggleUsage = () => {
+    const openingUsage = activePanel.value !== 'usage';
+    activePanel.value = openingUsage ? 'usage' : null;
+
+    if (openingUsage) {
+        refreshUsage();
+    }
+};
+
 watch(
     () => tts.isLoading.value,
     (isLoading, wasLoading) => {
@@ -210,7 +220,7 @@ const closeMobilePanel = () => {
     }
 };
 
-const showDesktopBackdrop = () => !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'settings');
+const showDesktopBackdrop = () => !isMobile.value && ['journal', 'settings', 'usage'].includes(activePanel.value ?? '');
 
 const emit = defineEmits<{
     submit: [prompt: string];
@@ -258,6 +268,17 @@ const handleInputSubmit = (prompt: string) => {
                                 >
                                     <LucideX v-if="activePanel === 'settings'" class="size-5 text-secondary-300" />
                                     <LucideSettings v-else class="size-5 text-secondary-300" />
+                                </GameplayCapsuleButton>
+                            </div>
+                            <div class="hidden md:inline-flex">
+                                <GameplayCapsuleButton
+                                    label="Usage"
+                                    :title="activePanel === 'usage' ? 'Close subscription usage' : 'Subscription usage'"
+                                    :active="activePanel === 'usage'"
+                                    @click="toggleUsage"
+                                >
+                                    <LucideX v-if="activePanel === 'usage'" class="size-5 text-secondary-300" />
+                                    <LucideGauge v-else class="size-5 text-primary" />
                                 </GameplayCapsuleButton>
                             </div>
                         </div>
@@ -315,6 +336,15 @@ const handleInputSubmit = (prompt: string) => {
                             >
                                 <LucideX v-if="activePanel === 'settings'" class="size-5 text-secondary-300" />
                                 <LucideSettings v-else class="size-5 text-gray-300" />
+                            </button>
+                            <button
+                                class="mobile-pill__btn"
+                                :class="{ 'mobile-pill__btn--active': activePanel === 'usage' }"
+                                :title="activePanel === 'usage' ? 'Close subscription usage' : 'Subscription usage'"
+                                @click="toggleUsage"
+                            >
+                                <LucideX v-if="activePanel === 'usage'" class="size-5 text-secondary-300" />
+                                <LucideGauge v-else class="size-5 text-gray-300" />
                             </button>
                             <button class="mobile-pill__btn" :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'" @click="toggleAutoplay">
                                 <LucideZap
@@ -443,6 +473,15 @@ const handleInputSubmit = (prompt: string) => {
                         />
                     </div>
                 </div>
+                <div
+                    v-else-if="!isMobile && activePanel === 'usage'"
+                    key="usage"
+                    class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
+                >
+                    <div class="flex h-full w-full flex-col px-6 pt-8">
+                        <GameplaySubscriptionUsagePanel :subscription-usage="props.subscriptionUsage" />
+                    </div>
+                </div>
             </Transition>
         </div>
 
@@ -466,6 +505,10 @@ const handleInputSubmit = (prompt: string) => {
                 :usage="props.usage"
                 :subscription-usage="props.subscriptionUsage"
             />
+        </GameplayBottomSheet>
+
+        <GameplayBottomSheet :open="isMobile && activePanel === 'usage'" title="Subscription usage" @close="closeMobilePanel">
+            <GameplaySubscriptionUsagePanel :subscription-usage="props.subscriptionUsage" />
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'audio'" title="Audio" @close="closeMobilePanel">
