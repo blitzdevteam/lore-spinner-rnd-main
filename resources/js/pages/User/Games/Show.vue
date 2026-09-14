@@ -49,8 +49,19 @@ function visitLeavesThisGame(url: string | { toString?: () => string; href?: str
               : typeof url?.toString === 'function'
                 ? url.toString()
                 : '';
-    const path = raw.split('?')[0] ?? '';
-    return !path.startsWith(`/user/games/${props.game.id}`);
+
+    if (!raw) {
+        return false;
+    }
+
+    try {
+        const pathname = new URL(raw, window.location.origin).pathname;
+        const gamePath = `/user/games/${props.game.id}`;
+
+        return pathname !== gamePath && !pathname.startsWith(`${gamePath}/`);
+    } catch {
+        return false;
+    }
 }
 
 let removeNavigationListener: (() => void) | undefined;
