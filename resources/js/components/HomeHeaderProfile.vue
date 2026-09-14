@@ -102,6 +102,11 @@ onClickOutside(profileWrap, closeDropdown);
             <button
                 type="button"
                 class="group inline-flex items-center rounded-[0.85rem] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                :class="
+                    planName && !props.compact
+                        ? 'lg:gap-2 lg:rounded-[0.75rem] lg:border lg:border-primary/25 lg:bg-primary/5 lg:px-2.5 lg:py-1 lg:shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] lg:transition-colors lg:hover:border-primary/40'
+                        : ''
+                "
                 :aria-expanded="dropdownOpen"
                 aria-haspopup="dialog"
                 :aria-label="dropdownOpen ? 'Close profile menu' : 'Open profile menu'"
@@ -110,20 +115,20 @@ onClickOutside(profileWrap, closeDropdown);
                 <span
                     v-if="planName && !props.compact"
                     :title="planName"
-                    class="hidden w-[11.5rem] flex-col gap-1.5 rounded-[0.75rem] border border-primary/20 bg-primary/5 py-2 pr-6 pl-3 shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] transition-colors group-hover:border-primary/40 lg:flex"
+                    class="hidden w-[9.5rem] flex-col gap-1 lg:flex"
                 >
                     <span class="flex min-w-0 items-center gap-1.5">
                         <Sparkles class="size-3 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
-                        <span class="truncate font-[Inter] text-[0.6875rem] font-medium tracking-[0.04em] text-primary-100">
+                        <span class="truncate font-[Inter] text-[0.625rem] leading-none font-medium tracking-[0.04em] text-primary-100">
                             {{ planName }}
                         </span>
                     </span>
 
-                    <span class="grid gap-1" aria-label="Remaining subscription allowances">
+                    <span class="grid gap-0.5" aria-label="Remaining subscription allowances">
                         <span class="flex items-center gap-1.5">
                             <Zap class="size-2.5 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
                             <span
-                                class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/20"
+                                class="h-1 flex-1 overflow-hidden rounded-full bg-primary/20"
                                 role="progressbar"
                                 aria-label="Actions remaining"
                                 :aria-valuenow="actionsProgress"
@@ -141,7 +146,7 @@ onClickOutside(profileWrap, closeDropdown);
                         <span class="flex items-center gap-1.5">
                             <Volume2 class="size-2.5 shrink-0 text-secondary-300" :stroke-width="2" aria-hidden="true" />
                             <span
-                                class="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary-300/20"
+                                class="h-1 flex-1 overflow-hidden rounded-full bg-secondary-300/20"
                                 role="progressbar"
                                 aria-label="Voice generation minutes remaining"
                                 :aria-valuenow="voiceProgress"
@@ -158,21 +163,24 @@ onClickOutside(profileWrap, closeDropdown);
                     </span>
                 </span>
 
-                <span
-                    class="relative z-10 shrink-0 rounded-full"
-                    :class="planName && !props.compact ? 'lg:-ml-4 lg:bg-[#020606] lg:p-1' : ''"
-                >
+                <span class="relative z-10 shrink-0 rounded-full">
                     <img
                         :src="avatarSrc"
                         :alt="`${profileName} profile`"
                         class="cursor-pointer rounded-full border-2 border-primary object-cover outline-2 outline-transparent transition group-hover:brightness-110"
-                        :class="props.compact ? 'size-11' : 'size-[2.8125rem]'"
+                        :class="
+                            props.compact
+                                ? 'size-11'
+                                : planName
+                                  ? 'size-[2.8125rem] lg:size-10'
+                                  : 'size-[2.8125rem]'
+                        "
                         @error="onAvatarError"
                     />
                 </span>
                 <ChevronDown
                     v-if="!props.compact"
-                    class="ml-1 size-3.5 text-[#a9b4b8] transition-transform group-hover:text-primary"
+                    class="ml-1 size-3.5 text-[#a9b4b8] transition-transform group-hover:text-primary lg:ml-0"
                     :class="dropdownOpen ? 'rotate-180' : ''"
                     :stroke-width="2"
                     aria-hidden="true"
