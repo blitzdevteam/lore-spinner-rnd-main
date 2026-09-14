@@ -127,6 +127,13 @@ function formatNumber(value: number): string {
                         <p class="mt-2 text-xs text-gray-500">of {{ formatNumber(voiceMinutesLimit) }} minutes this period</p>
                     </div>
                 </div>
+
+                <Link
+                    :href="pricing().url"
+                    class="mt-4 inline-flex h-9 w-full items-center justify-center rounded-lg border border-primary/50 bg-primary/10 px-3 text-xs font-semibold text-primary-100 transition-colors hover:border-primary hover:bg-primary/20"
+                >
+                    Purchase a new subscription
+                </Link>
             </section>
         </template>
 
@@ -139,7 +146,7 @@ function formatNumber(value: number): string {
                 :href="pricing().url"
                 class="mt-4 inline-flex h-9 items-center justify-center rounded-lg border border-primary/50 bg-primary/10 px-3 text-xs font-semibold text-primary-100 transition-colors hover:border-primary hover:bg-primary/20"
             >
-                Explore plans
+                Purchase a subscription
             </Link>
         </section>
     </div>

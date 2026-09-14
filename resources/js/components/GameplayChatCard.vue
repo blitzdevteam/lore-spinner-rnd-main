@@ -16,28 +16,33 @@ const { settings: gameplaySettings } = useGameplaySettings();
 
 const panelGlassStyle = computed(() => glassTintVars(gameplaySettings.backgroundColor));
 
-const props = defineProps<{
-    prompt: PromptInterface;
-    gameId: string;
-    coverUrl?: string | null;
-    isLatest?: boolean;
-    pendingChoice?: string;
-    isSubmitting?: boolean;
-    actionsDisabled?: boolean;
-    animate?: boolean;
-    isStreamingResponse?: boolean;
-    usesPlayableMoments?: boolean;
-    narrationOnly?: boolean;
-    voiceOverEnabled?: boolean;
-    /**
-     * Onboarding staging (first two turns of a game only).
-     * choicesLocked → turn 1: no buttons at all, the player must type or speak.
-     * freeformLocked → turn 2: buttons only, the chat bar is disabled.
-     * Both false from turn 3 on, which is the normal game.
-     */
-    choicesLocked?: boolean;
-    freeformLocked?: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        prompt: PromptInterface;
+        gameId: string;
+        coverUrl?: string | null;
+        isLatest?: boolean;
+        pendingChoice?: string;
+        isSubmitting?: boolean;
+        actionsDisabled?: boolean;
+        animate?: boolean;
+        isStreamingResponse?: boolean;
+        usesPlayableMoments?: boolean;
+        narrationOnly?: boolean;
+        voiceOverEnabled?: boolean;
+        /**
+         * Onboarding staging (first two turns of a game only).
+         * choicesLocked → turn 1: no buttons at all, the player must type or speak.
+         * freeformLocked → turn 2: buttons only, the chat bar is disabled.
+         * Both false from turn 3 on, which is the normal game.
+         */
+        choicesLocked?: boolean;
+        freeformLocked?: boolean;
+    }>(),
+    {
+        voiceOverEnabled: true,
+    },
+);
 
 const emit = defineEmits<{
     'choice-selected': [promptId: string, suggestionIndex: number, choice: PromptChoice];
@@ -48,7 +53,7 @@ const emit = defineEmits<{
 
 const tts = useTextToSpeech();
 const typewriter = useTypewriter();
-const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);
+const voiceOverEnabled = computed(() => props.voiceOverEnabled);
 
 const effectiveSelection = computed(() => {
     return props.prompt.prompt || props.pendingChoice || null;
