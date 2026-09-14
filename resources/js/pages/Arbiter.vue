@@ -1963,7 +1963,6 @@ onUnmounted(() => {
                             <GameplayChatCard
                                 :prompt="prompt"
                                 :game-id="props.game?.id ?? ''"
-                                :cover-url="props.lobby.story.cover"
                                 :is-latest="prompt.id === latestPromptId && !isSessionComplete"
                                 :is-submitting="isNarrating"
                                 :is-streaming-response="prompt.id === streamingPromptId"
