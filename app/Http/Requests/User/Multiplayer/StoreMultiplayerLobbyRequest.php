@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\User\Multiplayer;
 
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
+use App\Models\MultiplayerLobby;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,7 +37,7 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
                 'boolean',
             ],
             'settings.voice_over_enabled' => ['required', 'boolean'],
-            'settings.decision_window_seconds' => ['required', 'integer', 'in:10,20,30'],
+            'settings.decision_window_seconds' => ['required', 'integer', Rule::in(MultiplayerLobby::DECISION_WINDOW_SECONDS)],
         ];
     }
 

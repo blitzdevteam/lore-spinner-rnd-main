@@ -31,7 +31,10 @@ final class MultiplayerLobbyResource extends BaseResource
             'mode' => $this->mode->value,
             'status' => $this->status->value,
             'max_players' => $this->max_players,
-            'settings' => $this->settings,
+            'settings' => [
+                ...$this->settings,
+                'decision_window_seconds' => $this->decisionWindowSeconds(),
+            ],
             'created_at' => $this->created_at,
 
             'story' => StoryResource::make($this->whenLoaded('story')),

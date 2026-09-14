@@ -199,6 +199,12 @@ const decisionSecondsRemaining = computed(() => {
 
     return decisionWindowSeconds.value;
 });
+const decisionTimerLabel = computed(() => {
+    const minutes = Math.floor(decisionSecondsRemaining.value / 60);
+    const seconds = decisionSecondsRemaining.value % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+});
 const isDecisionTimerUrgent = computed(() => hasDecisionTimer.value && decisionSecondsRemaining.value <= 5);
 const pausedMembers = computed(() => members.value.filter((member) => member.left_at !== null));
 const pausedMemberLabel = computed(() => {
@@ -1998,9 +2004,9 @@ onUnmounted(() => {
                             <span
                                 v-if="hasDecisionTimer"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
-                                :aria-label="`${decisionSecondsRemaining} seconds decision window`"
+                                :aria-label="`${decisionTimerLabel} remaining in the decision window`"
                             >
-                                {{ decisionSecondsRemaining }}<small>s</small>
+                                {{ decisionTimerLabel }}
                             </span>
                         </div>
 
@@ -2958,7 +2964,7 @@ onUnmounted(() => {
 
 .decision-timer {
     display: grid;
-    width: 3rem;
+    min-width: 4.25rem;
     height: 3rem;
     place-items: center;
     border: 3px solid #59c1ca;
@@ -2966,12 +2972,7 @@ onUnmounted(() => {
     color: #59c1ca;
     font-size: 0.85rem;
     font-weight: 500;
-}
-
-.decision-timer small {
-    margin-left: -0.12rem;
-    color: #8f8f8f;
-    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .decision-timer--urgent {

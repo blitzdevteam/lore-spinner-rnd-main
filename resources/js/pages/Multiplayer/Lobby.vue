@@ -62,13 +62,13 @@ const liveLobby = ref(props.lobby);
 const lobbySettingsForm = reactive<LobbySettingsForm>({
     customInput: 'Off',
     voiceOver: 'On',
-    votingTime: '20 Sec',
+    votingTime: '3 Min',
 });
 
 function syncLobbySettingsForm(): void {
     lobbySettingsForm.customInput = liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off';
     lobbySettingsForm.voiceOver = (liveLobby.value.settings.voice_over_enabled ?? true) ? 'On' : 'Off';
-    lobbySettingsForm.votingTime = `${liveLobby.value.settings.decision_window_seconds} Sec`;
+    lobbySettingsForm.votingTime = `${liveLobby.value.settings.decision_window_seconds / 60} Min`;
 }
 
 watch(
@@ -152,13 +152,13 @@ const displayedLobbySettings = computed<LobbySettingOption[]>(() => {
         return [
             { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
             { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+            { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
         ];
     }
 
     return [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-        { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+        { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
 });
 
@@ -314,6 +314,10 @@ function csrfToken(): string {
     return token ? decodeURIComponent(token) : '';
 }
 
+function decisionWindowSeconds(value: string): number {
+    return Number.parseInt(value, 10) * 60;
+}
+
 function sendLobbyHeartbeat(): void {
     const member = currentMember.value;
 
@@ -441,11 +445,11 @@ function updateLobbySettings(): void {
         ? {
             custom_input_enabled: lobbySettingsForm.customInput === 'On',
             voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
-            decision_window_seconds: Number.parseInt(lobbySettingsForm.votingTime, 10),
+            decision_window_seconds: decisionWindowSeconds(lobbySettingsForm.votingTime),
         }
         : {
             voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
-            decision_window_seconds: Number.parseInt(lobbySettingsForm.votingTime, 10),
+            decision_window_seconds: decisionWindowSeconds(lobbySettingsForm.votingTime),
         };
 
     router.patch(
