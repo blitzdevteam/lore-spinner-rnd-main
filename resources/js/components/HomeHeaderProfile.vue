@@ -99,14 +99,56 @@ onClickOutside(profileWrap, closeDropdown);
     </template>
     <template v-else>
         <div ref="profileWrap" v-bind="$attrs" class="relative flex items-center gap-2">
-            <span
+            <div
                 v-if="planName && !props.compact"
                 :title="planName"
-                class="hidden max-w-[11.5rem] items-center gap-1.5 rounded-full border border-primary/35 bg-primary/10 px-3 py-1.5 font-[Inter] text-[0.6875rem] font-medium tracking-[0.04em] text-primary-100 shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] lg:inline-flex"
+                class="hidden w-[11.5rem] flex-col gap-1.5 rounded-[0.75rem] border border-primary/20 bg-primary/5 px-3 py-2 shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] lg:flex"
             >
-                <Sparkles class="size-3 shrink-0 text-primary" :stroke-width="2" />
-                <span class="truncate">{{ planName }}</span>
-            </span>
+                <div class="flex min-w-0 items-center gap-1.5">
+                    <Sparkles class="size-3 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
+                    <span class="truncate font-[Inter] text-[0.6875rem] font-medium tracking-[0.04em] text-primary-100">
+                        {{ planName }}
+                    </span>
+                </div>
+
+                <div class="grid gap-1" aria-label="Remaining subscription allowances">
+                    <div class="flex items-center gap-1.5">
+                        <Zap class="size-2.5 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
+                        <div
+                            class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/20"
+                            role="progressbar"
+                            aria-label="Actions remaining"
+                            :aria-valuenow="actionsProgress"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            :aria-valuetext="`${actionsRemaining} of ${actionsLimit} actions remaining`"
+                        >
+                            <div
+                                class="h-full rounded-full bg-primary transition-[width] duration-300"
+                                :style="{ width: `${actionsProgress}%` }"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <Volume2 class="size-2.5 shrink-0 text-secondary-300" :stroke-width="2" aria-hidden="true" />
+                        <div
+                            class="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary-300/20"
+                            role="progressbar"
+                            aria-label="Voice generation minutes remaining"
+                            :aria-valuenow="voiceProgress"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            :aria-valuetext="`${voiceMinutesRemaining} of ${voiceMinutesLimit} voice generation minutes remaining`"
+                        >
+                            <div
+                                class="h-full rounded-full bg-secondary-300 transition-[width] duration-300"
+                                :style="{ width: `${voiceProgress}%` }"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <button
                 type="button"
