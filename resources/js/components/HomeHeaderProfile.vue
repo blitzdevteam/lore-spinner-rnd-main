@@ -98,76 +98,81 @@ onClickOutside(profileWrap, closeDropdown);
         </Link>
     </template>
     <template v-else>
-        <div ref="profileWrap" v-bind="$attrs" class="relative flex items-center gap-2">
-            <div
-                v-if="planName && !props.compact"
-                :title="planName"
-                class="hidden w-[11.5rem] flex-col gap-1.5 rounded-[0.75rem] border border-primary/20 bg-primary/5 px-3 py-2 shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] lg:flex"
-            >
-                <div class="flex min-w-0 items-center gap-1.5">
-                    <Sparkles class="size-3 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
-                    <span class="truncate font-[Inter] text-[0.6875rem] font-medium tracking-[0.04em] text-primary-100">
-                        {{ planName }}
-                    </span>
-                </div>
-
-                <div class="grid gap-1" aria-label="Remaining subscription allowances">
-                    <div class="flex items-center gap-1.5">
-                        <Zap class="size-2.5 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
-                        <div
-                            class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/20"
-                            role="progressbar"
-                            aria-label="Actions remaining"
-                            :aria-valuenow="actionsProgress"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            :aria-valuetext="`${actionsRemaining} of ${actionsLimit} actions remaining`"
-                        >
-                            <div
-                                class="h-full rounded-full bg-primary transition-[width] duration-300"
-                                :style="{ width: `${actionsProgress}%` }"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-1.5">
-                        <Volume2 class="size-2.5 shrink-0 text-secondary-300" :stroke-width="2" aria-hidden="true" />
-                        <div
-                            class="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary-300/20"
-                            role="progressbar"
-                            aria-label="Voice generation minutes remaining"
-                            :aria-valuenow="voiceProgress"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            :aria-valuetext="`${voiceMinutesRemaining} of ${voiceMinutesLimit} voice generation minutes remaining`"
-                        >
-                            <div
-                                class="h-full rounded-full bg-secondary-300 transition-[width] duration-300"
-                                :style="{ width: `${voiceProgress}%` }"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <div ref="profileWrap" v-bind="$attrs" class="relative">
             <button
                 type="button"
-                class="group inline-flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                class="group inline-flex items-center rounded-[0.85rem] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 :aria-expanded="dropdownOpen"
                 aria-haspopup="dialog"
                 :aria-label="dropdownOpen ? 'Close profile menu' : 'Open profile menu'"
                 @click="dropdownOpen = !dropdownOpen"
             >
-                <img
-                    :src="avatarSrc"
-                    :alt="`${profileName} profile`"
-                    class="cursor-pointer rounded-full border-2 border-primary object-cover outline-2 outline-transparent transition group-hover:brightness-110"
-                    :class="props.compact ? 'size-11' : 'size-[2.8125rem]'"
-                    @error="onAvatarError"
-                />
+                <span
+                    v-if="planName && !props.compact"
+                    :title="planName"
+                    class="hidden w-[11.5rem] flex-col gap-1.5 rounded-[0.75rem] border border-primary/20 bg-primary/5 py-2 pr-6 pl-3 shadow-[0_0_1.5rem_rgba(101,216,232,0.08)] transition-colors group-hover:border-primary/40 lg:flex"
+                >
+                    <span class="flex min-w-0 items-center gap-1.5">
+                        <Sparkles class="size-3 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
+                        <span class="truncate font-[Inter] text-[0.6875rem] font-medium tracking-[0.04em] text-primary-100">
+                            {{ planName }}
+                        </span>
+                    </span>
+
+                    <span class="grid gap-1" aria-label="Remaining subscription allowances">
+                        <span class="flex items-center gap-1.5">
+                            <Zap class="size-2.5 shrink-0 text-primary" :stroke-width="2" aria-hidden="true" />
+                            <span
+                                class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/20"
+                                role="progressbar"
+                                aria-label="Actions remaining"
+                                :aria-valuenow="actionsProgress"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                                :aria-valuetext="`${actionsRemaining} of ${actionsLimit} actions remaining`"
+                            >
+                                <span
+                                    class="block h-full rounded-full bg-primary transition-[width] duration-300"
+                                    :style="{ width: `${actionsProgress}%` }"
+                                />
+                            </span>
+                        </span>
+
+                        <span class="flex items-center gap-1.5">
+                            <Volume2 class="size-2.5 shrink-0 text-secondary-300" :stroke-width="2" aria-hidden="true" />
+                            <span
+                                class="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary-300/20"
+                                role="progressbar"
+                                aria-label="Voice generation minutes remaining"
+                                :aria-valuenow="voiceProgress"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                                :aria-valuetext="`${voiceMinutesRemaining} of ${voiceMinutesLimit} voice generation minutes remaining`"
+                            >
+                                <span
+                                    class="block h-full rounded-full bg-secondary-300 transition-[width] duration-300"
+                                    :style="{ width: `${voiceProgress}%` }"
+                                />
+                            </span>
+                        </span>
+                    </span>
+                </span>
+
+                <span
+                    class="relative z-10 shrink-0 rounded-full"
+                    :class="planName && !props.compact ? 'lg:-ml-4 lg:bg-[#020606] lg:p-1' : ''"
+                >
+                    <img
+                        :src="avatarSrc"
+                        :alt="`${profileName} profile`"
+                        class="cursor-pointer rounded-full border-2 border-primary object-cover outline-2 outline-transparent transition group-hover:brightness-110"
+                        :class="props.compact ? 'size-11' : 'size-[2.8125rem]'"
+                        @error="onAvatarError"
+                    />
+                </span>
                 <ChevronDown
                     v-if="!props.compact"
-                    class="size-3.5 text-[#a9b4b8] transition-transform group-hover:text-primary"
+                    class="ml-1 size-3.5 text-[#a9b4b8] transition-transform group-hover:text-primary"
                     :class="dropdownOpen ? 'rotate-180' : ''"
                     :stroke-width="2"
                     aria-hidden="true"
