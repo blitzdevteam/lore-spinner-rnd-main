@@ -12,14 +12,11 @@ const props = defineProps<{
 const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => props.subscriptionUsage ?? null);
 const actionsRemaining = computed(() => subscriptionUsage.value?.actions.remaining ?? 0);
 const actionsLimit = computed(() => subscriptionUsage.value?.actions.limit ?? 0);
-const voiceMinutesRemaining = computed(() => {
-    const milliseconds = subscriptionUsage.value?.voice.remaining_milliseconds ?? 0;
-
-    return Math.max(0, Math.ceil(milliseconds / 60_000));
-});
+const voiceMillisecondsRemaining = computed(() => Math.max(0, subscriptionUsage.value?.voice.remaining_milliseconds ?? 0));
 const voiceMinutesLimit = computed(() => subscriptionUsage.value?.voice.limit_minutes ?? 0);
+const voiceMillisecondsLimit = computed(() => voiceMinutesLimit.value * 60_000);
 const actionsProgress = computed(() => allowancePercent(actionsRemaining.value, actionsLimit.value));
-const voiceProgress = computed(() => allowancePercent(voiceMinutesRemaining.value, voiceMinutesLimit.value));
+const voiceProgress = computed(() => allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value));
 const renewalLabel = computed(() => {
     const periodEndsAt = subscriptionUsage.value?.period_ends_at;
 
@@ -44,6 +41,14 @@ function allowancePercent(remaining: number, limit: number): number {
 
 function formatNumber(value: number): string {
     return Math.max(0, value).toLocaleString();
+}
+
+function formatVoiceDuration(milliseconds: number): string {
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1_000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return seconds === 0 ? `${minutes} min` : `${minutes} min ${seconds} sec`;
 }
 </script>
 
@@ -107,7 +112,7 @@ function formatNumber(value: number): string {
                                 Voice generation
                             </span>
                             <strong class="text-sm font-semibold tabular-nums text-secondary-200">
-                                {{ formatNumber(voiceMinutesRemaining) }} min left
+                                {{ formatVoiceDuration(voiceMillisecondsRemaining) }} left
                             </strong>
                         </div>
                         <div
@@ -117,7 +122,7 @@ function formatNumber(value: number): string {
                             :aria-valuenow="voiceProgress"
                             aria-valuemin="0"
                             aria-valuemax="100"
-                            :aria-valuetext="`${voiceMinutesRemaining} of ${voiceMinutesLimit} voice generation minutes remaining`"
+                            :aria-valuetext="`${formatVoiceDuration(voiceMillisecondsRemaining)} of ${voiceMinutesLimit} voice generation minutes remaining`"
                         >
                             <span
                                 class="block h-full rounded-full bg-secondary-300 transition-[width] duration-300"

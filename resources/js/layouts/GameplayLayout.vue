@@ -181,7 +181,7 @@ const toggleUsage = () => {
 watch(
     () => tts.isLoading.value,
     (isLoading, wasLoading) => {
-        if (!isLoading && wasLoading && activePanel.value === 'settings') {
+        if (!isLoading && wasLoading) {
             refreshUsage();
         }
     },

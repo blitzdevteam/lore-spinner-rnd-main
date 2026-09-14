@@ -49,7 +49,7 @@ const clampFontSize = (val: number) => Math.min(28, Math.max(12, val));
 const formatUsageCount = (value: number) => Math.max(0, value).toLocaleString();
 
 const formatVoiceDuration = (milliseconds: number) => {
-    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
 
