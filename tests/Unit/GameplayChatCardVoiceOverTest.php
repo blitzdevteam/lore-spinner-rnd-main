@@ -11,7 +11,9 @@ it('defaults the listen pill on so single-player gameplay keeps play narration',
         ->toContain('v-if="voiceOverEnabled"')
         ->toContain('Play Narration')
         ->toContain('handleListenAgain')
+        ->toContain('@error="hideCoverBackdrop"')
         ->and($show)
-        ->toContain(':cover-url="game.story?.cover ?? null"')
+        ->toContain(':cover-url="gameStoryCover"')
+        ->toContain('resolveStoryCover')
         ->toContain('<GameplayChatCard');
 });

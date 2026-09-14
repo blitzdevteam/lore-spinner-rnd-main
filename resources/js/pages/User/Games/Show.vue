@@ -16,6 +16,7 @@ import {
     TurnRejectedResponse,
     TurnStatusResponse,
 } from '@/types';
+import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -67,6 +68,17 @@ const props = defineProps<{
     game: GameInterface;
     usage: GameplayUsageSummary;
 }>();
+
+const gameStoryCover = computed(() => {
+    const slug = props.game.story?.slug;
+    const cover = props.game.story?.cover ?? null;
+
+    if (!slug) {
+        return cover;
+    }
+
+    return resolveStoryCover(slug, cover) || cover;
+});
 
 const tts = useTextToSpeech();
 const { settings: gameplaySettings } = useGameplaySettings();
@@ -978,7 +990,7 @@ onUnmounted(() => {
         :game-id="game.id"
         :usage="usage"
         :latest-prompt-id="latestPromptId"
-        :cover-url="game.story?.cover ?? null"
+        :cover-url="gameStoryCover"
         :story-slug="game.story?.slug ?? null"
         :journal-meta="journalMeta"
         :recap-text="recapText"
@@ -1034,7 +1046,7 @@ onUnmounted(() => {
                 <GameplayChatCard
                     :prompt="prompt"
                     :game-id="game.id"
-                    :cover-url="game.story?.cover ?? null"
+                    :cover-url="gameStoryCover"
                     :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
                     :pending-choice="pendingSelection[prompt.id]"
                     :is-submitting="isSubmitting"

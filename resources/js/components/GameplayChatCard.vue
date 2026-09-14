@@ -8,7 +8,7 @@ import { useTypewriter } from '@/composables/useTypewriter';
 import { PromptChoice, PromptInterface } from '@/types';
 import { glassTintVars } from '@/utils/color';
 import { LucideCheck, LucideLoader, LucidePause, LucidePlay } from 'lucide-vue-next';
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const CONTINUE_MARKER = '__continue__';
 
@@ -50,6 +50,18 @@ const emit = defineEmits<{
 const tts = useTextToSpeech();
 const typewriter = useTypewriter();
 const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);
+const coverBackdropVisible = ref(true);
+
+watch(
+    () => props.coverUrl,
+    () => {
+        coverBackdropVisible.value = true;
+    },
+);
+
+function hideCoverBackdrop(): void {
+    coverBackdropVisible.value = false;
+}
 
 const effectiveSelection = computed(() => {
     return props.prompt.prompt || props.pendingChoice || null;
@@ -289,26 +301,27 @@ watch(choicesVisible, (visible, wasVisible) => {
                 @click="handleListenAgain"
             >
                 <!-- Background layers -->
-                <span aria-hidden class="listen-again-backdrop pointer-events-none absolute inset-0">
+                <span aria-hidden class="listen-again-backdrop pointer-events-none absolute inset-0 z-0">
                     <span class="absolute inset-0 bg-[#33333330]" />
                     <img
-                        v-if="props.coverUrl"
+                        v-if="props.coverUrl && coverBackdropVisible"
                         class="absolute top-1/2 left-1/2 h-[58px] w-[195px] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
                         :src="props.coverUrl"
                         alt=""
+                        @error="hideCoverBackdrop"
                     />
                     <span class="absolute inset-0 bg-[rgba(51,51,51,0.3)] mix-blend-saturation backdrop-blur-[6px]" />
                 </span>
                 <!-- Inner shine overlay -->
-                <span aria-hidden class="listen-again-shine pointer-events-none absolute inset-0 rounded-[60px]" />
+                <span aria-hidden class="listen-again-shine pointer-events-none absolute inset-0 z-0 rounded-[60px]" />
                 <!-- Icon -->
-                <span class="relative grid size-[37px] shrink-0 place-items-center overflow-hidden rounded-full bg-primary-600 text-white">
+                <span class="relative z-[1] grid size-[37px] shrink-0 place-items-center overflow-hidden rounded-full bg-primary-600 text-white">
                     <LucideLoader v-if="isThisLoading" class="size-4 animate-spin" />
                     <LucidePause v-else-if="isThisPlaying" class="size-4" fill="currentColor" />
                     <LucidePlay v-else class="size-4" fill="currentColor" />
                 </span>
                 <!-- Label -->
-                <span class="relative flex min-w-0 flex-col items-start leading-tight tracking-[0.5px]">
+                <span class="relative z-[1] flex min-w-0 flex-col items-start leading-tight tracking-[0.5px]">
                     <span class="text-sm text-primary-600">{{ hasPlayedOnce ? 'Listen Again' : 'Listen' }}</span>
                     <span class="text-xs font-light text-[#7e7e7e]">{{ hasPlayedOnce ? 'Replay Narration' : 'Play Narration' }}</span>
                 </span>
