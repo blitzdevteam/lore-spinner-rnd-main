@@ -15,7 +15,7 @@ import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronLeft, LucideGauge, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideChevronLeft, LucideGauge, LucideLoader, LucideNotebookText, LucidePause, LucideSettings, LucideVolume2, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -192,14 +192,35 @@ const toggleAutoplay = () => {
     settings.autoplay = !settings.autoplay;
 };
 
-const toggleMedia = () => {
-    if (!tts.isActive.value && props.gameId && props.latestPromptId) {
-        tts.primeAudio();
-        tts.play(props.gameId, props.latestPromptId);
+const isNarratingLatest = computed(() => {
+    return !!props.gameId && !!props.latestPromptId && tts.activeKey.value === `${props.gameId}:${props.latestPromptId}`;
+});
+
+const isNarrationLoading = computed(() => isNarratingLatest.value && tts.isLoading.value);
+const isNarrationPlaying = computed(() => isNarratingLatest.value && tts.isPlaying.value);
+
+const narrationTitle = computed(() => {
+    if (!props.gameId || !props.latestPromptId) {
+        return 'Narration will be available when story text arrives';
+    }
+
+    if (isNarrationLoading.value) {
+        return 'Preparing narration';
+    }
+
+    if (isNarrationPlaying.value) {
+        return 'Pause narration';
+    }
+
+    return isNarratingLatest.value ? 'Narrate again' : 'Narrate latest story text';
+});
+
+const toggleNarration = () => {
+    if (!props.gameId || !props.latestPromptId) {
         return;
     }
 
-    tts.mediaCollapsed.value = !tts.mediaCollapsed.value;
+    tts.toggle(props.gameId, props.latestPromptId);
 };
 
 function openAudioSettings() {
@@ -303,16 +324,15 @@ const handleInputSubmit = (prompt: string) => {
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
-                                label="Audio"
+                                label="Narrate"
                                 label-tone="secondary"
-                                :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
-                                :active="tts.isActive.value && !tts.mediaCollapsed.value"
-                                @click="toggleMedia"
+                                :title="narrationTitle"
+                                :active="isNarratingLatest"
+                                @click="toggleNarration"
                             >
-                                <LucideAudioLines
-                                    class="size-5"
-                                    :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-secondary-300' : 'text-gray-300'"
-                                />
+                                <LucideLoader v-if="isNarrationLoading" class="size-5 animate-spin text-secondary-300" />
+                                <LucidePause v-else-if="isNarrationPlaying" class="size-5 text-secondary-300" fill="currentColor" />
+                                <LucideVolume2 v-else class="size-5" :class="isNarratingLatest ? 'text-secondary-300' : 'text-gray-300'" />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
                                 label="Notes"
@@ -354,11 +374,13 @@ const handleInputSubmit = (prompt: string) => {
                             </button>
                             <button
                                 class="mobile-pill__btn"
-                                :class="{ 'mobile-pill__btn--active': tts.isActive.value && !tts.mediaCollapsed.value }"
-                                :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
-                                @click="toggleMedia"
+                                :class="{ 'mobile-pill__btn--active': isNarratingLatest }"
+                                :title="narrationTitle"
+                                @click="toggleNarration"
                             >
-                                <LucideAudioLines class="size-5" :class="tts.isActive.value ? 'text-secondary-300' : 'text-gray-300'" />
+                                <LucideLoader v-if="isNarrationLoading" class="size-5 animate-spin text-secondary-300" />
+                                <LucidePause v-else-if="isNarrationPlaying" class="size-5 text-secondary-300" fill="currentColor" />
+                                <LucideVolume2 v-else class="size-5" :class="isNarratingLatest ? 'text-secondary-300' : 'text-gray-300'" />
                             </button>
                             <button
                                 class="mobile-pill__btn"
