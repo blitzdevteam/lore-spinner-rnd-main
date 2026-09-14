@@ -194,7 +194,7 @@ onMounted(() => {
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
         if (voiceOverEnabled.value && props.isLatest && gameplaySettings.autoplay) {
-            tts.play(props.gameId, props.prompt.id);
+            tts.autoplay(props.gameId, props.prompt.id);
         }
     }
 });
@@ -230,7 +230,7 @@ watch(
         if (isTyping || !wasTyping) return; // only on true → false transition
         if (!props.isLatest || !props.animate) return;
         if (!voiceOverEnabled.value || !gameplaySettings.autoplay) return;
-        tts.play(props.gameId, props.prompt.id);
+        tts.autoplay(props.gameId, props.prompt.id);
     },
 );
 

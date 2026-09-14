@@ -225,6 +225,8 @@ final class PromptController extends Controller
             $userId,
             $actionReservationId,
         ): void {
+            ignore_user_abort(true);
+
             $send = static function (string $event, array $payload = []): void {
                 echo json_encode(
                     ['event' => $event, ...$payload],

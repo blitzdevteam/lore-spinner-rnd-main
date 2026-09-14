@@ -210,7 +210,7 @@ watch(
         if (!first) return;
         cameFromCinematic.value = false;
         openingNarrationPlayed.value = true;
-        tts.play(String(props.game.id), String(first.id));
+        tts.autoplay(String(props.game.id), String(first.id));
     },
 );
 
