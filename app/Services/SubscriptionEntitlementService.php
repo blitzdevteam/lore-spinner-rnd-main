@@ -15,7 +15,9 @@ use App\Models\SubscriptionUsageEvent;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laravel\Cashier\Subscription;
+use Throwable;
 
 /**
  * Owns the application's allowance ledger. Cashier remains the source of truth
@@ -30,6 +32,12 @@ final class SubscriptionEntitlementService
 
     public function hasPlayAccess(User $user): bool
     {
+        if ($this->currentEntitlement($user) !== null) {
+            return true;
+        }
+
+        $this->reconcileStripeSubscriptions($user);
+
         return $this->currentEntitlement($user) !== null;
     }
 
@@ -229,7 +237,11 @@ final class SubscriptionEntitlementService
     public function syncFromWebhook(array $payload): void
     {
         $eventType = data_get($payload, 'type');
-        if (! in_array($eventType, ['customer.subscription.created', 'customer.subscription.updated'], true)) {
+        if (! in_array($eventType, [
+            'customer.subscription.created',
+            'customer.subscription.updated',
+            'customer.subscription.deleted',
+        ], true)) {
             return;
         }
 
@@ -249,6 +261,75 @@ final class SubscriptionEntitlementService
         }
 
         $this->synchronizeStripeSubscription($user, $stripeSubscription);
+    }
+
+    /**
+     * Handle a completed Checkout Session independently from Cashier's built-in
+     * subscription events. This gives the application a second authoritative
+     * path to record the purchase when Stripe delivers Checkout events first.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function syncCheckoutSessionFromWebhook(array $payload): void
+    {
+        $eventType = data_get($payload, 'type');
+        if (! in_array($eventType, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'], true)) {
+            return;
+        }
+
+        $checkoutSession = data_get($payload, 'data.object');
+        if (! is_array($checkoutSession)) {
+            return;
+        }
+
+        $stripeCustomerId = data_get($checkoutSession, 'customer');
+        if (! is_string($stripeCustomerId) || $stripeCustomerId === '') {
+            return;
+        }
+
+        $user = User::query()->where('stripe_id', $stripeCustomerId)->first();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $this->synchronizeCompletedCheckoutSession($user, $checkoutSession);
+    }
+
+    /**
+     * @param  array<string, mixed>  $checkoutSession
+     */
+    public function synchronizeCompletedCheckoutSession(User $user, array $checkoutSession): void
+    {
+        $stripeCustomerId = data_get($checkoutSession, 'customer');
+        $stripeSubscriptionId = data_get($checkoutSession, 'subscription');
+        $paymentStatus = data_get($checkoutSession, 'payment_status');
+
+        if (
+            data_get($checkoutSession, 'mode') !== 'subscription'
+            || ! in_array($paymentStatus, ['paid', 'no_payment_required'], true)
+            || ! is_string($stripeCustomerId)
+            || $stripeCustomerId !== $user->stripe_id
+            || ! is_string($stripeSubscriptionId)
+            || $stripeSubscriptionId === ''
+        ) {
+            return;
+        }
+
+        try {
+            $stripeSubscription = $user->stripe()->subscriptions->retrieve($stripeSubscriptionId)->toArray();
+
+            if (is_array($stripeSubscription)) {
+                $this->synchronizeStripeSubscription($user, $stripeSubscription);
+            }
+        } catch (Throwable $exception) {
+            Log::warning('subscriptions.checkout_synchronization_failed', [
+                'user_id' => $user->id,
+                'stripe_customer_id' => $stripeCustomerId,
+                'stripe_subscription_id' => $stripeSubscriptionId,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -327,10 +408,49 @@ final class SubscriptionEntitlementService
         }
 
         if ($subscription->type !== 'default') {
+            $user->unsetRelation('subscriptions');
+
             return;
         }
 
         $this->syncEntitlement($subscription, $stripeSubscription);
+        $user->unsetRelation('subscriptions');
+    }
+
+    private function reconcileStripeSubscriptions(User $user): void
+    {
+        $stripeCustomerId = $user->stripe_id;
+
+        if (! is_string($stripeCustomerId) || $stripeCustomerId === '') {
+            return;
+        }
+
+        try {
+            $stripeSubscriptions = $user->stripe()->subscriptions->all([
+                'customer' => $stripeCustomerId,
+                'status' => 'all',
+                'limit' => 100,
+            ]);
+
+            foreach ($stripeSubscriptions->data as $stripeSubscription) {
+                if (! is_object($stripeSubscription) || ! method_exists($stripeSubscription, 'toArray')) {
+                    continue;
+                }
+
+                $subscriptionPayload = $stripeSubscription->toArray();
+
+                if (is_array($subscriptionPayload)) {
+                    $this->synchronizeStripeSubscription($user, $subscriptionPayload);
+                }
+            }
+        } catch (Throwable $exception) {
+            Log::warning('subscriptions.stripe_reconciliation_failed', [
+                'user_id' => $user->id,
+                'stripe_customer_id' => $stripeCustomerId,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -424,13 +544,10 @@ final class SubscriptionEntitlementService
 
     private function activeSubscriptionFor(User $user): ?Subscription
     {
-        if (! $user->subscribed('default')) {
-            return null;
-        }
-
-        $subscription = $user->subscription('default');
-
-        return $subscription instanceof Subscription ? $subscription : null;
+        return $user->subscriptions()
+            ->where('type', 'default')
+            ->get()
+            ->first(static fn (Subscription $subscription): bool => $subscription->valid());
     }
 
     private function entitlementCovering(Subscription $subscription, CarbonImmutable $at): ?SubscriptionEntitlement

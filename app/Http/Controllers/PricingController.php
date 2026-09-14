@@ -70,10 +70,13 @@ final class PricingController extends Controller
             abort(422, 'The completed checkout session could not be verified.');
         }
 
-        $entitlements->synchronizeStripeSubscription(
-            $user,
-            $user->stripe()->subscriptions->retrieve($subscriptionId)->toArray(),
-        );
+        $checkoutSessionPayload = $checkoutSession->toArray();
+
+        if (! is_array($checkoutSessionPayload)) {
+            abort(422, 'The completed checkout session could not be verified.');
+        }
+
+        $entitlements->synchronizeCompletedCheckoutSession($user, $checkoutSessionPayload);
     }
 
     private function formattedPrice(SubscriptionPlan $plan): string

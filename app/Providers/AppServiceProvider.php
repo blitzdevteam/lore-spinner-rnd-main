@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Cashier\Events\WebhookHandled;
+use Laravel\Cashier\Events\WebhookReceived;
 use Override;
 
 final class AppServiceProvider extends ServiceProvider
@@ -40,6 +41,10 @@ final class AppServiceProvider extends ServiceProvider
 
         Event::listen(WebhookHandled::class, static function (WebhookHandled $event): void {
             app(SubscriptionEntitlementService::class)->syncFromWebhook($event->payload);
+        });
+
+        Event::listen(WebhookReceived::class, static function (WebhookReceived $event): void {
+            app(SubscriptionEntitlementService::class)->syncCheckoutSessionFromWebhook($event->payload);
         });
 
         if (! file_exists(public_path('storage'))) {
