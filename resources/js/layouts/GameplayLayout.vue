@@ -134,10 +134,14 @@ onMounted(() => {
     syncMobile();
     window.matchMedia(MOBILE_MQ).addEventListener('change', syncMobile);
     isIos.value = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    document.documentElement.classList.add('gameplay-scrollbar-theme');
+    document.body.classList.add('gameplay-scrollbar-theme');
 });
 
 onUnmounted(() => {
     window.matchMedia(MOBILE_MQ).removeEventListener('change', syncMobile);
+    document.documentElement.classList.remove('gameplay-scrollbar-theme');
+    document.body.classList.remove('gameplay-scrollbar-theme');
 });
 
 watch(isMobile, (mobile) => {
@@ -256,7 +260,7 @@ const handleInputSubmit = (prompt: string) => {
 </script>
 
 <template>
-    <div class="relative min-h-svh">
+    <div class="gameplay-layout relative min-h-svh">
         <div class="pointer-events-none fixed inset-0 z-0" :style="{ background: auroraProps.deep }" />
         <AuroraBackground
             class="pointer-events-none fixed inset-0 z-0"
@@ -540,6 +544,37 @@ const handleInputSubmit = (prompt: string) => {
 </template>
 
 <style scoped>
+.gameplay-layout {
+    overflow-anchor: none;
+}
+
+:global(html.gameplay-scrollbar-theme),
+:global(body.gameplay-scrollbar-theme) {
+    scrollbar-color: rgba(84, 244, 218, 0.3) transparent;
+    scrollbar-width: thin;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar) {
+    width: 4px;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-track),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-track) {
+    background: transparent;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-thumb),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-thumb) {
+    border-radius: 9999px;
+    background: rgba(84, 244, 218, 0.3);
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-thumb:hover),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-thumb:hover) {
+    background: rgba(84, 244, 218, 0.5);
+}
+
 .sidebar-slide-enter-active,
 .sidebar-slide-leave-active {
     transition: all 0.3s ease;

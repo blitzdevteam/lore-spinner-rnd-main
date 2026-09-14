@@ -284,6 +284,7 @@ const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const storyColumn = ref<HTMLElement | null>(null);
+const autoScrolledNarrationPromptIds = new Set<string>();
 const prompts = computed(() => localPrompts.value);
 const latestPromptId = computed(() => prompts.value[prompts.value.length - 1]?.id ?? null);
 const journalEpisodeNumber = computed(() => props.game?.currentEvent?.chapter?.position ?? props.game?.current_session_number ?? 1);
@@ -682,11 +683,11 @@ function setPromptCardElement(promptId: string, element: unknown): void {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string, topOffset = 112): void {
+function scrollToPromptStart(promptId: string, topOffset = 112): boolean {
     const element = promptCardElements.value[promptId];
 
     if (!element) {
-        return;
+        return false;
     }
 
     const column = storyColumn.value;
@@ -696,14 +697,37 @@ function scrollToPromptStart(promptId: string, topOffset = 112): void {
         const elementRect = element.getBoundingClientRect();
         const top = Math.max(0, column.scrollTop + elementRect.top - columnRect.top - topOffset);
 
-        column.scrollTo({ top, behavior: 'smooth' });
+        column.scrollTo({ top, behavior: 'auto' });
 
-        return;
+        return true;
     }
 
     const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
 
-    window.scrollTo({ top, behavior: 'smooth' });
+    window.scrollTo({ top, behavior: 'auto' });
+
+    return true;
+}
+
+function scrollToNarrationStartOnce(sourcePromptId: string): void {
+    const promptId = `stream-${sourcePromptId}`;
+
+    if (typeof window === 'undefined' || autoScrolledNarrationPromptIds.has(promptId)) {
+        return;
+    }
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            if (
+                autoScrolledNarrationPromptIds.has(promptId)
+                || !scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38))
+            ) {
+                return;
+            }
+
+            autoScrolledNarrationPromptIds.add(promptId);
+        });
+    });
 }
 
 function memberAvatar(member: MultiplayerLobbyMemberInterface, index: number): string {
@@ -1481,21 +1505,14 @@ useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.
             setSourcePromptValue(signal.source_prompt_id, signal.source_prompt_value);
         }
         ensureStreamingPrompt(signal.source_prompt_id);
+        scrollToNarrationStartOnce(signal.source_prompt_id);
 
         return;
     }
 
     if (signal.phase === 'delta' && signal.text) {
-        const isFirstVisibleDelta = !hasVisibleStreamedResponse.value;
-        const promptId = `stream-${signal.source_prompt_id}`;
-
         appendNarrationDelta(signal.source_prompt_id, signal.text);
-
-        if (isFirstVisibleDelta) {
-            nextTick(() => {
-                scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38));
-            });
-        }
+        scrollToNarrationStartOnce(signal.source_prompt_id);
 
         return;
     }
@@ -1510,6 +1527,7 @@ useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.
         const transientPromptId = `stream-${signal.source_prompt_id}`;
 
         localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
+        autoScrolledNarrationPromptIds.delete(transientPromptId);
         if (streamingPromptId.value === transientPromptId) {
             streamingPromptId.value = null;
         }
@@ -2841,9 +2859,28 @@ onUnmounted(() => {
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
+    overflow-anchor: none;
     padding: 24.8125rem 1.25rem 10rem;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
+}
+
+.arbiter-story-column::-webkit-scrollbar {
+    width: 4px;
+}
+
+.arbiter-story-column::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.arbiter-story-column::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(89, 193, 202, 0.35);
+}
+
+.arbiter-story-column::-webkit-scrollbar-thumb:hover {
+    background: rgba(89, 193, 202, 0.55);
 }
 
 .story-heading {

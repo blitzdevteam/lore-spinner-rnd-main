@@ -18,6 +18,7 @@ interface WorldState {
 }
 
 interface Turn {
+    id: string;
     role: 'narrator' | 'player';
     html?: string;
     text: string;
@@ -86,6 +87,9 @@ const choicesBuffer = ref<string[]>([]);
 const worldState = ref<WorldState>(emptyWorldState());
 const errorMessage = ref('');
 const scrollEl = ref<HTMLElement | null>(null);
+const narrationTurnElements = ref<Record<string, HTMLElement | null>>({});
+const autoScrolledNarrationTurnIds = new Set<string>();
+let turnSequence = 0;
 
 const selectedStory = computed(() => props.stories.find((s) => s.slug === selectedStorySlug.value));
 
@@ -170,11 +174,39 @@ function stripHtml(html: string): string {
     return div.textContent ?? '';
 }
 
-async function scrollToBottom(): Promise<void> {
-    await nextTick();
-    if (scrollEl.value) {
-        scrollEl.value.scrollTo({ top: scrollEl.value.scrollHeight, behavior: 'smooth' });
+function createTurnId(): string {
+    turnSequence += 1;
+
+    return `turn-${turnSequence}`;
+}
+
+function setNarrationTurnElement(turnId: string, element: unknown): void {
+    narrationTurnElements.value[turnId] = element instanceof HTMLElement ? element : null;
+}
+
+function scrollToNarrationStartOnce(turnId: string): void {
+    if (typeof window === 'undefined' || autoScrolledNarrationTurnIds.has(turnId)) {
+        return;
     }
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            const container = scrollEl.value;
+            const element = narrationTurnElements.value[turnId];
+
+            if (!container || !element || autoScrolledNarrationTurnIds.has(turnId)) {
+                return;
+            }
+
+            autoScrolledNarrationTurnIds.add(turnId);
+
+            const containerRect = container.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            const top = Math.max(0, container.scrollTop + elementRect.top - containerRect.top);
+
+            container.scrollTo({ top, behavior: 'auto' });
+        });
+    });
 }
 
 function applyResponse(data: any): void {
@@ -186,8 +218,16 @@ function applyResponse(data: any): void {
     if (typeof data.has_next_session === 'boolean') hasNextSession.value = data.has_next_session;
     if (data.protagonist) protagonist.value = data.protagonist;
     if (data.story_title) storyTitle.value = data.story_title;
-    turns.value.push({ role: 'narrator', html: data.response, text: stripHtml(data.response) });
+    const narrationTurn: Turn = {
+        id: createTurnId(),
+        role: 'narrator',
+        html: data.response,
+        text: stripHtml(data.response),
+    };
+
+    turns.value.push(narrationTurn);
     choicesBuffer.value = data.choices ?? [];
+    scrollToNarrationStartOnce(narrationTurn.id);
 }
 
 async function startWithChoices(): Promise<void> {
@@ -204,7 +244,6 @@ async function startWithChoices(): Promise<void> {
         turns.value = [];
         applyResponse(data);
         started.value = true;
-        await scrollToBottom();
     } catch {
         errorMessage.value = 'The narration engine is currently unavailable. Please try again.';
     } finally {
@@ -217,9 +256,8 @@ async function takeTurn(action: string): Promise<void> {
     if (!trimmed || loading.value || sessionComplete.value || !sessionId.value) return;
     loading.value = true;
     errorMessage.value = '';
-    turns.value.push({ role: 'player', text: trimmed });
+    turns.value.push({ id: createTurnId(), role: 'player', text: trimmed });
     choicesBuffer.value = [];
-    await scrollToBottom();
     try {
         const data = await apiFetch('/chaos-mode/turn', {
             session_id: sessionId.value,
@@ -228,7 +266,6 @@ async function takeTurn(action: string): Promise<void> {
             temperature: selectedTemperature.value,
         });
         applyResponse(data);
-        await scrollToBottom();
     } catch {
         turns.value.pop();
         errorMessage.value = 'The narration hiccuped — please try again.';
@@ -252,7 +289,6 @@ async function continueToNextSession(): Promise<void> {
         sessionComplete.value = false;
         choicesBuffer.value = [];
         applyResponse(data);
-        await scrollToBottom();
     } catch {
         errorMessage.value = 'Could not open the next session. Please try again.';
     } finally {
@@ -605,9 +641,13 @@ function resetAdventure(): void {
                 >
                     <div class="chaos-reading-panel mx-auto flex max-w-3xl flex-col divide-y divide-gray-100/10 px-4 pb-8 sm:px-8">
 
-                        <template v-for="(turn, idx) in turns" :key="idx">
+                        <template v-for="(turn, idx) in turns" :key="turn.id">
                             <!-- Narrator turn -->
-                            <div v-if="turn.role === 'narrator'" class="chaos-prose py-8">
+                            <div
+                                v-if="turn.role === 'narrator'"
+                                :ref="(element) => setNarrationTurnElement(turn.id, element)"
+                                class="chaos-prose py-8"
+                            >
                                 <div class="mb-3 flex items-center gap-3">
                                     <span class="text-[10px] uppercase tracking-widest text-[rgba(229,173,83,0.55)]">Narrator</span>
                                     <button
@@ -1194,6 +1234,13 @@ function resetAdventure(): void {
 }
 
 /* ── Scrollbar ── */
+.chaos-scroll {
+    overflow-anchor: none;
+    scrollbar-color: rgba(var(--chaos-brand-rgb), 0.2) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+}
+
 .chaos-scroll::-webkit-scrollbar { width: 4px; }
 .chaos-scroll::-webkit-scrollbar-track { background: transparent; }
 .chaos-scroll::-webkit-scrollbar-thumb { background: rgba(var(--chaos-brand-rgb), 0.2); border-radius: 2px; }

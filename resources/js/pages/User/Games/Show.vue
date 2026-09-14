@@ -76,6 +76,7 @@ const isStreamingTurn = ref(false);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
+const autoScrolledNarrationPromptIds = new Set<string>();
 const streamError = ref<string | null>(null);
 const lastAttempt = ref<{ prompt: string; options: SubmitOptions } | null>(null);
 
@@ -390,14 +391,34 @@ function setPromptCardElement(promptId: string, element: unknown) {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string) {
+function scrollToPromptStart(promptId: string): boolean {
     const element = promptCardElements.value[promptId];
-    if (!element) return;
+    if (!element) {
+        return false;
+    }
 
     const stickyHeaderOffset = 112;
     const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
 
-    window.scrollTo({ top, behavior: 'smooth' });
+    window.scrollTo({ top, behavior: 'auto' });
+
+    return true;
+}
+
+function scrollToNarrationStartOnce(promptId: string): void {
+    if (typeof window === 'undefined' || autoScrolledNarrationPromptIds.has(promptId)) {
+        return;
+    }
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            if (autoScrolledNarrationPromptIds.has(promptId) || !scrollToPromptStart(promptId)) {
+                return;
+            }
+
+            autoScrolledNarrationPromptIds.add(promptId);
+        });
+    });
 }
 
 function commitStreamedPrompt(
@@ -418,6 +439,7 @@ function clearStreamingRequest(activeStreamingPromptId: string): void {
     isStreamingTurn.value = false;
     streamingPromptId.value = null;
     pendingSelection.value = {};
+    autoScrolledNarrationPromptIds.delete(activeStreamingPromptId);
     localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
 }
 
@@ -543,7 +565,6 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
         const decoder = new TextDecoder();
         let buffer = '';
         let completed = false;
-        let anchoredToStreamStart = false;
 
         const handleStreamEvent = (line: string) => {
             if (!line.trim()) return;
@@ -557,14 +578,13 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
                 prompt?: PromptInterface;
             };
 
+            if (event.event === 'ready') {
+                scrollToNarrationStartOnce(activeStreamingPromptId);
+            }
+
             if (event.event === 'delta' && event.text) {
                 appendToStreamingPrompt(activeStreamingPromptId, event.text);
-                if (!anchoredToStreamStart) {
-                    anchoredToStreamStart = true;
-                    nextTick(() => {
-                        scrollToPromptStart(activeStreamingPromptId);
-                    });
-                }
+                scrollToNarrationStartOnce(activeStreamingPromptId);
             }
 
             if (event.event === 'done' && event.prompt) {
@@ -654,9 +674,9 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
             beginSettled.value = true;
             isRetryingBegin.value = false;
             shouldAnimate.value = true;
-            nextTick(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
             return;
         }
 
@@ -667,9 +687,9 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         ) {
             isStartingNextSession.value = false;
             shouldAnimate.value = true;
-            nextTick(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
             return;
         }
 
@@ -716,9 +736,9 @@ async function pollForTurnCompletion(sourcePromptId: string) {
             isSubmitting.value = false;
             pendingSelection.value = {};
             shouldAnimate.value = true;
-            nextTick(() => {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            });
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
             return;
         }
     }
@@ -740,9 +760,9 @@ onMounted(() => {
 
     if (hasPrompts.value) {
         showCinematic.value = false;
-        nextTick(() => {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        });
+        if (latestPromptId.value) {
+            scrollToNarrationStartOnce(latestPromptId.value);
+        }
     }
 
     // Resume polling after refresh if a deferred turn/opening is still running.
@@ -776,6 +796,9 @@ const handleRetryBegin = () => {
 
 const handleCinematicDone = () => {
     showCinematic.value = false;
+    if (latestPromptId.value) {
+        scrollToNarrationStartOnce(latestPromptId.value);
+    }
 };
 
 onUnmounted(() => {
