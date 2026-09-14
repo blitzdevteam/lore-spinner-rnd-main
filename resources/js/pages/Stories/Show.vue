@@ -210,8 +210,14 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
     >
         <StoryPlayAmbientGlows class="hidden lg:block" />
 
+        <div class="absolute top-4 left-4 z-30 md:top-6 md:left-6 lg:top-8 lg:left-[3.25rem]">
+            <StoryPlayGlassRoundButton aria-label="Go back" @click="handleBack">
+                <img :src="backChevronIcon" alt="" class="h-8 w-5 shrink-0" width="20" height="32" aria-hidden="true" />
+            </StoryPlayGlassRoundButton>
+        </div>
+
         <div
-            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 md:px-[3.25rem] md:pt-20 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
             :class="isPlayable ? 'pb-40' : 'pb-28'"
         >
             <!-- Left: Poster column -->
@@ -234,12 +240,6 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
 
                 <StoryPlayCoverColumn :src="coverImageUrl" :title="displayTitle" :headline="coverHeadline" :footer-credit="coverFooterCredit">
                     <template #overlay>
-                        <!-- Back button — Figma 45×45 glass circle -->
-                        <div class="pointer-events-auto absolute top-4 left-4">
-                            <StoryPlayGlassRoundButton aria-label="Go back" @click="handleBack">
-                                <img :src="backChevronIcon" alt="" class="h-8 w-5 shrink-0" width="20" height="32" aria-hidden="true" />
-                            </StoryPlayGlassRoundButton>
-                        </div>
                         <div v-if="!coverImageUrl" class="pointer-events-none absolute inset-0 z-[2] grid place-items-center" aria-hidden="true">
                             <span class="font-['Marcellus_SC','Marcellus SC',serif] text-4xl tracking-wider text-white/55 uppercase">
                                 {{ displayTitle.charAt(0)?.toUpperCase() }}
