@@ -15,6 +15,7 @@ export interface UserInterface {
     email: string;
     avatar: string;
     bio: string | null;
+    subscription_usage?: SubscriptionUsageSummary | null;
 }
 
 export interface CreatorInterface {
