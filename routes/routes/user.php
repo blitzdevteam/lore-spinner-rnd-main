@@ -40,6 +40,28 @@ Route::prefix('user')->name('user.')->group(function (): void {
         ->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
         ->name('games.tts');
 
+    Route::middleware([
+        'auth:user',
+        'guard.user-owns-game',
+        'guard.profile-is-completed',
+        'guard.subscription-is-active',
+    ])->group(function (): void {
+        Route::get('games/{game}', [User\GameController::class, 'show'])->name('games.show');
+
+        Route::post('games/{game}/begin', [User\GameController::class, 'begin'])
+            ->name('games.begin');
+
+        Route::post('games/{game}/reset', [User\GameController::class, 'reset'])
+            ->name('games.reset');
+
+        Route::post('games/{game}/next-session', [User\GameController::class, 'nextSession'])
+            ->name('games.next-session');
+
+        Route::singleton('games.prompt', User\Game\PromptController::class)
+            ->creatable()
+            ->only(['store']);
+    });
+
     // Dashboard
     Route::middleware([
         'auth:user',
@@ -53,20 +75,7 @@ Route::prefix('user')->name('user.')->group(function (): void {
 
             Route::middleware('guard.subscription-is-active')->group(function (): void {
                 Route::resource('games', User\GameController::class)
-                    ->only(['index', 'show', 'store']);
-
-                Route::post('games/{game}/begin', [User\GameController::class, 'begin'])
-                    ->name('games.begin');
-
-                Route::post('games/{game}/reset', [User\GameController::class, 'reset'])
-                    ->name('games.reset');
-
-                Route::post('games/{game}/next-session', [User\GameController::class, 'nextSession'])
-                    ->name('games.next-session');
-
-                Route::singleton('games.prompt', User\Game\PromptController::class)
-                    ->creatable()
-                    ->only(['store']);
+                    ->only(['index', 'store']);
 
                 Route::post('games/transcribe', User\Game\TranscribeController::class)
                     ->name('games.transcribe');

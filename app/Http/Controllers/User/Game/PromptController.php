@@ -21,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -41,6 +42,8 @@ final class PromptController extends Controller
         Game $game,
         StorePromptRequest $request,
     ): RedirectResponse|StreamedResponse|JsonResponse {
+        Gate::forUser($user)->authorize('view', $game);
+
         $promptText = $request->string('prompt')->toString();
         $sourcePromptId = $request->string('prompt_id')->toString();
         $lockName = "game-turn:{$game->id}:{$sourcePromptId}";

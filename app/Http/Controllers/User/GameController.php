@@ -21,6 +21,7 @@ use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Response;
 
 final class GameController extends Controller
@@ -62,6 +63,8 @@ final class GameController extends Controller
 
     public function show(Game $game, #[CurrentUser] User $user): Response
     {
+        $this->authorizeGameView($user, $game);
+
         $game->load([
             'story' => fn ($q) => $q->with([
                 'adaptation' => fn ($a) => $a
@@ -115,8 +118,10 @@ final class GameController extends Controller
      * Returns immediately; Sonnet runs after the response so proxies never
      * 504 on a silent TTFB (same pattern as player turns).
      */
-    public function begin(Game $game): RedirectResponse
+    public function begin(Game $game, #[CurrentUser] User $user): RedirectResponse
     {
+        $this->authorizeGameView($user, $game);
+
         if ($game->prompts()->exists()) {
             return to_route('user.games.show', $game);
         }
@@ -153,8 +158,10 @@ final class GameController extends Controller
      * Advance to the next story session when the current session is complete.
      * Carries world_state, symbolic_memory, and alignment_scaffold forward.
      */
-    public function nextSession(Game $game): RedirectResponse
+    public function nextSession(Game $game, #[CurrentUser] User $user): RedirectResponse
     {
+        $this->authorizeGameView($user, $game);
+
         if (! $game->current_session_complete) {
             return to_route('user.games.show', $game);
         }
@@ -260,8 +267,10 @@ final class GameController extends Controller
         return to_route('user.games.show', $game);
     }
 
-    public function reset(Game $game): RedirectResponse
+    public function reset(Game $game, #[CurrentUser] User $user): RedirectResponse
     {
+        $this->authorizeGameView($user, $game);
+
         $this->gameResetService->reset($game);
 
         UserActivityDay::record($game->user_id);
@@ -284,6 +293,11 @@ final class GameController extends Controller
             'game' => $gameUsage,
             'total' => $totalUsage,
         ];
+    }
+
+    private function authorizeGameView(User $user, Game $game): void
+    {
+        Gate::forUser($user)->authorize('view', $game);
     }
 
     /**

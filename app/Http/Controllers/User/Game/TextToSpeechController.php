@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\NarrationAudioService;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,7 +42,11 @@ final class TextToSpeechController extends Controller
             ->where('game_id', $game->id)
             ->first();
 
-        abort_unless($this->canAccessGameAudio($user, $game, $multiplayerLobby), 403);
+        if ($multiplayerLobby === null) {
+            Gate::forUser($user)->authorize('view', $game);
+        } else {
+            abort_unless($this->canAccessMultiplayerGameAudio($user, $multiplayerLobby), 404);
+        }
 
         if ($multiplayerLobby === null && ! $this->entitlements->hasPlayAccess($user)) {
             return response()->json([
@@ -84,20 +89,12 @@ final class TextToSpeechController extends Controller
         })->afterResponse();
     }
 
-    private function canAccessGameAudio(User $user, Game $game, ?MultiplayerLobby $multiplayerLobby): bool
+    private function canAccessMultiplayerGameAudio(User $user, MultiplayerLobby $multiplayerLobby): bool
     {
-        if ($multiplayerLobby !== null) {
-            return $multiplayerLobby->voiceOverEnabled()
-                && $multiplayerLobby->members()
-                    ->where('user_id', $user->id)
-                    ->exists();
-        }
-
-        if ($game->user_id === $user->id) {
-            return true;
-        }
-
-        return false;
+        return $multiplayerLobby->voiceOverEnabled()
+            && $multiplayerLobby->members()
+                ->where('user_id', $user->id)
+                ->exists();
     }
 
     private function serve(Prompt $prompt): BinaryFileResponse
