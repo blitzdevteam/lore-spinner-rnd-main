@@ -78,3 +78,23 @@ it('lists every launch world from the catalog', function (): void {
             'Camelot',
         );
 });
+
+it('keeps the frontend playable allowlist in sync with config', function (): void {
+    $source = file_get_contents(resource_path('js/data/playableStorySlugs.ts'));
+
+    expect($source)->toContain('export const PLAYABLE_ALLOWLIST_SLUGS')
+        ->and($source)->toContain('export function canonicalPlayableSlug')
+        ->and($source)->toContain('export function compareStoriesByPlayableOrder')
+        ->and($source)->toContain('export function compareWorldsByPlayableOrder');
+
+    $slugs = [
+        ...config('stories.launch_playable_slugs', []),
+        ...config('stories.boiled_playable_slugs', []),
+        ...array_keys(config('stories.playable_slug_aliases', [])),
+        ...array_values(config('stories.playable_slug_aliases', [])),
+    ];
+
+    foreach (array_unique($slugs) as $slug) {
+        expect($source)->toContain("'{$slug}'");
+    }
+});

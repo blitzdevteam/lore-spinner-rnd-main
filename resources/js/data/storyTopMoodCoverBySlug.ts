@@ -40,7 +40,6 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'the-adventure-of-the-blue-carbuncle': sherlockHomeLandscape,
     'a-scandal-in-bohemia': sherlockHomeLandscape,
     'the-marvelous-land-of-oz': ozHomeLandscape,
-    'pride-and-prejudice': prideTopMood,
     emma: prideTopMood,
     'momotaro-the-peach-boy': momotaroFeatured,
     'the-unwritten-ones': tellTaleHomeLandscape,
