@@ -14,6 +14,10 @@ Route::middleware(['auth:manager'])
     ->get('manager/writers/{writer}/login-as', Controllers\Manager\LoginAsWriterController::class)
     ->name('manager.login-as-writer');
 
+Route::middleware(['auth:manager,creator'])
+    ->get('filament/media/{media:uuid}', Controllers\Filament\MediaPreviewController::class)
+    ->name('filament.media.preview');
+
 // ─── Public marketing surfaces — page views tracked for Visits metric ────────
 Route::middleware(RecordPageView::class)->group(function (): void {
     Route::get('/', Controllers\IndexController::class)->name('index');

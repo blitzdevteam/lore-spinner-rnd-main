@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
 
     /*
@@ -65,8 +67,8 @@ return [
 
     'temporary_file_upload' => [
         // Keep Filament uploads on a local disk so the browser never PUTs
-        // directly to Laravel Cloud / R2 (that path fails CORS on host).
-        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', 'private'),
+        // or GETs Laravel Cloud / R2 (that path fails CORS on host).
+        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', 'livewire-tmp'),
         'rules' => null,       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'

@@ -7,6 +7,7 @@ use App\Filament\Manager\Resources\Worlds\Pages\CreateWorld;
 use App\Filament\Manager\Resources\Worlds\Pages\EditWorld;
 use App\Filament\Manager\Resources\Worlds\Pages\ListWorlds;
 use App\Filament\Manager\Resources\Worlds\WorldResource;
+use App\Filament\Support\SameOriginMediaPreview;
 use App\Models\Manager;
 use App\Models\Story;
 use App\Models\World;
@@ -21,7 +22,7 @@ uses(RefreshDatabase::class);
 it('does not send filament uploads to s3 from the browser', function () {
     config(['filesystems.default' => 's3']);
 
-    expect(config('livewire.temporary_file_upload.disk'))->toBe('private')
+    expect(config('livewire.temporary_file_upload.disk'))->toBe('livewire-tmp')
         ->and(FileUploadConfiguration::isUsingS3())->toBeFalse();
 });
 
@@ -94,4 +95,33 @@ it('lets a manager edit an existing world', function () {
 
     expect(EditWorld::class)->toBeString()
         ->and(ListWorlds::class)->toBeString();
+});
+
+it('previews an existing world background from the app origin instead of object storage', function () {
+    Storage::fake('public');
+
+    $manager = Manager::factory()->create();
+    $world = World::factory()->create([
+        'title' => 'World of Oz',
+        'slug' => 'world-of-oz',
+    ]);
+    $world->addMedia(UploadedFile::fake()->image('oz.png'))
+        ->toMediaCollection('background');
+
+    $media = $world->getFirstMedia('background');
+
+    expect($media)->not->toBeNull();
+
+    $previewUrl = SameOriginMediaPreview::url($media);
+
+    expect($previewUrl)->toContain('/filament/media/'.$media->uuid)
+        ->and($previewUrl)->not->toContain('cloudflarestorage');
+
+    $this->actingAs($manager, 'manager')
+        ->get($previewUrl)
+        ->assertSuccessful();
+
+    Livewire::actingAs($manager, 'manager')
+        ->test(EditWorld::class, ['record' => $world->getKey()])
+        ->assertSuccessful();
 });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Ai\AnthropicThinkingPolicy;
+use App\Filament\Support\EnsureLocalLivewireUploads;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -12,9 +13,9 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
-use Override;
 use Laravel\Cashier\Events\WebhookHandled;
 use Laravel\Cashier\Events\WebhookReceived;
+use Override;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -38,7 +39,7 @@ final class AppServiceProvider extends ServiceProvider
 
         $cashierPath = config('cashier.path', 'stripe');
         $cashierWebhookPath = is_string($cashierPath) && $cashierPath !== ''
-            ? trim($cashierPath, '/').'/*'
+            ? mb_trim($cashierPath, '/').'/*'
             : 'stripe/*';
 
         ValidateCsrfToken::except([$cashierWebhookPath]);
@@ -54,5 +55,9 @@ final class AppServiceProvider extends ServiceProvider
         if (! file_exists(public_path('storage'))) {
             Artisan::call('storage:link');
         }
+
+        $this->app->booted(static function (): void {
+            EnsureLocalLivewireUploads::configure();
+        });
     }
 }

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Creator\Resources\Stories\Schemas;
 
 use App\Enums\Story\StoryRatingEnum;
+use App\Filament\Forms\Components\MediaFileUpload;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Fieldset;
@@ -67,14 +67,14 @@ final class StoryForm
                             ->columnSpan(2),
                         Fieldset::make('Images')
                             ->schema([
-                                SpatieMediaLibraryFileUpload::make('cover')
+                                MediaFileUpload::make('cover')
                                     ->label('Cover Image')
                                     ->imageEditor()
                                     ->collection('cover')
                                     ->image()
                                     ->required()
                                     ->columnSpanFull(),
-                                SpatieMediaLibraryFileUpload::make('gallery')
+                                MediaFileUpload::make('gallery')
                                     ->label('Gallery Images')
                                     ->collection('gallery')
                                     ->image()
@@ -99,7 +99,7 @@ final class StoryForm
                                     ->default(false)
                                     ->visibleOn('create')
                                     ->columnSpanFull(),
-                                SpatieMediaLibraryFileUpload::make('script')
+                                MediaFileUpload::make('script')
                                     ->label('Story Script')
                                     ->helperText('Upload the story script file here and chapterizing will be done automatically.')
                                     ->placeholder('Only `.txt` file are allowed')

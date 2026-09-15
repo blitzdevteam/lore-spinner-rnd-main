@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Worlds\Schemas;
 
+use App\Filament\Forms\Components\MediaFileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -74,7 +74,7 @@ final class WorldForm
                             ->placeholder('Destiny')
                             ->helperText('Atmosphere words shown on the world card, such as Destiny, Courage, Control.')
                             ->columnSpanFull(),
-                        SpatieMediaLibraryFileUpload::make('background')
+                        MediaFileUpload::make('background')
                             ->label('Background image')
                             ->collection('background')
                             ->image()

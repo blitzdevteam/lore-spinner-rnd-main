@@ -40,6 +40,19 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Dedicated Livewire temp disk. Laravel Cloud can remap a bucket onto
+         * a disk named "private" or "public"; this name stays local so Filament
+         * never asks the browser to fetch R2 URLs during upload.
+         */
+        'livewire-tmp' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Manager\Resources\ComingSoonStories\Schemas;
 
 use App\Enums\ComingSoonStory\ComingSoonStorySectionEnum;
+use App\Filament\Forms\Components\MediaFileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -72,7 +72,7 @@ final class ComingSoonStoryForm
                                     ->helperText('Tailwind object-position classes for the hero image alignment.'),
                             ])
                             ->columnSpanFull(),
-                        SpatieMediaLibraryFileUpload::make('cover')
+                        MediaFileUpload::make('cover')
                             ->label('Card / Hero image')
                             ->collection('cover')
                             ->image()
