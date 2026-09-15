@@ -15,7 +15,7 @@ use Stringable;
 use Throwable;
 
 #[Provider('anthropic')]
-#[Model('claude-opus-4-8')]
+#[Model('claude-opus-5')]
 #[Timeout(300)]
 final class BoilerFinalizeAgent implements Agent, HasStructuredOutput
 {

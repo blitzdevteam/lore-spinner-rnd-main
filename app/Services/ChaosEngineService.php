@@ -51,6 +51,7 @@ final class ChaosEngineService
         'gpt-5.2' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'gpt-4.1' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'chat-latest' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'claude-opus-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-opus-4-8' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
         'claude-opus-4-7' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
         'claude-sonnet-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
@@ -2311,6 +2312,7 @@ TEXT;
     {
         return ! in_array($model, [
             'claude-sonnet-5',
+            'claude-opus-5',
             'claude-opus-4-8',
             'claude-opus-4-7',
         ], true);
