@@ -29,7 +29,7 @@ final class BoilerDraftJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 720;
+    public int $timeout = 900;
 
     public int $backoff = 60;
 
