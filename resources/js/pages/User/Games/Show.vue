@@ -254,27 +254,12 @@ const showCinematic = ref(!hasPrompts.value && !showOutro.value);
 const cameFromCinematic = ref(!hasPrompts.value);
 const openingNarrationPlayed = ref(false);
 
-// Start the sonic-ident as soon as the cinematic mounts. Autoplay policy is
-// handled inside the composable (retries on the first user gesture, which the
-// cinematic already captures for narration audio priming).
-if (showCinematic.value) {
-    openingMusic.start();
-}
-
 // Narration-ready: the opening narration has landed and is about to display.
 // This is the actual readiness event — not a timer — so the fade tracks the
 // real narration start whether the cinematic completed normally or was skipped.
 watch(shouldAnimate, (ready) => {
-    if (ready && cameFromCinematic.value) {
+    if (ready) {
         openingMusic.fadeOut();
-    }
-});
-
-// If the cinematic is dismissed without narration (opening error / nav away),
-// stop the music cleanly instead of leaving a loop playing over the retry screen.
-watch(showCinematic, (visible) => {
-    if (!visible && !shouldAnimate.value) {
-        openingMusic.stop();
     }
 });
 
@@ -751,6 +736,7 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         const stillPending = props.game.opening_pending === true;
 
         if (openingError) {
+            openingMusic.stop();
             showCinematic.value = false;
             beginSettled.value = true;
             isRetryingBegin.value = false;
@@ -836,10 +822,17 @@ async function pollForTurnCompletion(sourcePromptId: string) {
 }
 
 onMounted(() => {
+    // Start after mount so browser audio APIs are available. If autoplay is
+    // blocked, the composable retries on the first cinematic gesture.
+    if (showCinematic.value) {
+        openingMusic.start();
+    }
+
     removeNavigationListener = router.on('before', (event) => {
         try {
             if (visitLeavesThisGame(event.detail?.visit?.url)) {
                 tts.dismiss();
+                openingMusic.stop();
             }
         } catch {
             // Never break Inertia navigation.
