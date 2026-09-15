@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import backChevronIcon from '@/assets/story-play/back-chevron.svg';
+import FirstStoryTutorialModal from '@/components/FirstStoryTutorialModal.vue';
 import StoryChapterCard from '@/components/StoryChapterCard.vue';
 import StoryCommentCard from '@/components/StoryCommentCard.vue';
 import StoryPlayAmbientGlows from '@/components/story-play/StoryPlayAmbientGlows.vue';
@@ -28,12 +29,16 @@ const props = defineProps<{
     story: StoryInterface;
     existingGameId?: string | null;
     isPlayable?: boolean;
+    showFirstStoryTutorial?: boolean;
 }>();
 
 type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
 const isRestarting = ref(false);
+const isTutorialOpen = ref(false);
+const hasDismissedTutorial = ref(false);
+const isStartingStory = ref(false);
 const hasExistingGame = computed(() => !!props.existingGameId);
 const { isBookmarked, toggleBookmark } = useBookmark(props.story.id, props.story.is_bookmarked ?? false);
 const { share } = useShare();
@@ -63,15 +68,52 @@ const handleShare = async (): Promise<void> => {
     }
 };
 
-const handleStartStory = (): void => {
-    if (!props.isPlayable) return;
+const startStory = (): void => {
+    if (isStartingStory.value) return;
+
+    isStartingStory.value = true;
+
     if (props.existingGameId) {
-        router.visit(showGame.url(props.existingGameId));
-    } else {
-        router.post(store(), {
-            story_id: props.story.id,
+        router.visit(showGame.url(props.existingGameId), {
+            onFinish: () => {
+                isStartingStory.value = false;
+            },
         });
+
+        return;
     }
+
+    router.post(
+        store(),
+        {
+            story_id: props.story.id,
+        },
+        {
+            onFinish: () => {
+                isStartingStory.value = false;
+            },
+        },
+    );
+};
+
+const handleStartStory = (): void => {
+    if (!props.isPlayable || isStartingStory.value) return;
+
+    if (props.showFirstStoryTutorial && !props.existingGameId && !hasDismissedTutorial.value) {
+        isTutorialOpen.value = true;
+
+        return;
+    }
+
+    startStory();
+};
+
+const handleTutorialSkip = (): void => {
+    if (hasDismissedTutorial.value) return;
+
+    hasDismissedTutorial.value = true;
+    isTutorialOpen.value = false;
+    startStory();
 };
 
 const handleRestartStory = (): void => {
@@ -373,6 +415,12 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                 </div>
             </div>
         </div>
+
+        <FirstStoryTutorialModal
+            :open="isTutorialOpen"
+            video-src="/videos/lorespinner-website-guide.mp4"
+            @skip="handleTutorialSkip"
+        />
     </div>
 </template>
 
