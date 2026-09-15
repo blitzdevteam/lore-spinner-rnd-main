@@ -12,6 +12,7 @@ export const PLAYABLE_STORY_SLUGS = [
     'i-love-lucy-job-switching',
     'the-matrix',
     'momotaro-the-peach-boy',
+    'test-the-last-signal',
 ] as const;
 
 export type PlayableStorySlug = (typeof PLAYABLE_STORY_SLUGS)[number];

@@ -44,6 +44,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $comments_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read Collection<int, CompletionReceipt> $completionReceipts
+ * @property-read int|null $completion_receipts_count
  * @property-read Collection<int, MultiplayerLobby> $hostedMultiplayerLobbies
  * @property-read Collection<int, MultiplayerLobbyMember> $multiplayerLobbyMemberships
  * @property-read Collection<int, Story> $bookmarkedStories
@@ -121,6 +123,14 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     public function games(): HasMany
     {
         return $this->hasMany(Game::class);
+    }
+
+    /**
+     * @return HasMany<CompletionReceipt, $this>
+     */
+    public function completionReceipts(): HasMany
+    {
+        return $this->hasMany(CompletionReceipt::class);
     }
 
     /**

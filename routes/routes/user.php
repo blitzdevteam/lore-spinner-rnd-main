@@ -73,6 +73,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
             Route::post('bookmarks/{story}', [User\BookmarkController::class, 'toggle'])
                 ->name('bookmarks.toggle');
 
+            Route::get('achievements', User\AchievementController::class)
+                ->name('achievements.index');
+
             Route::middleware('guard.subscription-is-active')->group(function (): void {
                 Route::resource('games', User\GameController::class)
                     ->only(['index', 'store']);

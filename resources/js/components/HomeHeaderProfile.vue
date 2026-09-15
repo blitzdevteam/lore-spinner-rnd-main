@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { SubscriptionUsageSummary } from '@/types';
+import AchievementsModal from '@/components/AchievementsModal.vue';
 import { pricing } from '@/wayfinder/routes';
 import { logout } from '@/wayfinder/routes/user/authentication';
 import login from '@/wayfinder/routes/user/authentication/login';
 import { DEFAULT_PROFILE_AVATAR, resolvePublicStorageUrl } from '@/utils/publicStorageUrl';
 import { Link, usePage } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
-import { ArrowRight, ChevronDown, Sparkles, Volume2, Zap } from 'lucide-vue-next';
+import { ArrowRight, ChevronDown, Sparkles, Trophy, Volume2, Zap } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 defineOptions({ inheritAttrs: false });
@@ -55,6 +56,7 @@ const renewalLabel = computed(() => {
 
 const profileWrap = ref<HTMLElement | null>(null);
 const dropdownOpen = ref(false);
+const achievementsOpen = ref(false);
 
 function allowancePercent(remaining: number, limit: number): number {
     if (limit <= 0) {
@@ -87,6 +89,11 @@ function onAvatarError(event: Event): void {
 
 function closeDropdown(): void {
     dropdownOpen.value = false;
+}
+
+function openAchievements(): void {
+    closeDropdown();
+    achievementsOpen.value = true;
 }
 
 onClickOutside(profileWrap, closeDropdown);
@@ -277,6 +284,14 @@ onClickOutside(profileWrap, closeDropdown);
                     </div>
 
                     <div class="mt-4 border-t border-white/10 pt-2">
+                        <button
+                            type="button"
+                            class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-normal text-[#f1f4f2] transition-colors hover:bg-white/5"
+                            @click="openAchievements"
+                        >
+                            <Trophy class="size-4 text-primary-200" :stroke-width="2" />
+                            Achievements
+                        </button>
                         <Link
                             :method="logout().method"
                             :href="logout().url"
@@ -289,6 +304,7 @@ onClickOutside(profileWrap, closeDropdown);
                 </section>
             </Transition>
         </div>
+        <AchievementsModal :open="achievementsOpen" @close="achievementsOpen = false" />
     </template>
 </template>
 

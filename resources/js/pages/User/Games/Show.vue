@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import GameCinematicOpening from '@/components/GameCinematicOpening.vue';
 import GameCinematicOutro from '@/components/GameCinematicOutro.vue';
+import GameCompletionCeremony from '@/components/GameCompletionCeremony.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
 import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface, SubscriptionUsageSummary } from '@/types';
+import { nextSession, reset as resetGame } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
@@ -14,6 +16,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const CONTINUE_MARKER = '__continue__';
 const TURN_FAILED_MESSAGE = 'Narration hiccuped — your move was not saved. Retry to send it again.';
+
+type OutroDestination = 'library' | 'replay';
+let pendingOutroDestination: OutroDestination = 'library';
 
 type SubmitOptions = {
     promptId: string;
@@ -153,12 +158,22 @@ const isLastSession = computed(() => {
     const current = props.game.current_session_number ?? 1;
     return total > 0 && current >= total;
 });
+const completionReceipt = computed(() => props.game.completion_receipt ?? null);
+const ceremonyReady = ref(false);
 
 const episodePosition = computed(() => props.game.currentEvent?.chapter?.position);
 
+const headerEpisodeLabel = computed(() => {
+    if (episodePosition.value != null) {
+        return `Episode ${episodePosition.value}`;
+    }
+
+    return props.game.current_session_number != null ? `Episode ${props.game.current_session_number}` : null;
+});
+
 const journalMeta = computed(() => ({
     storyTitle: props.game.story?.title,
-    episodeLabel: episodePosition.value != null ? `Episode ${episodePosition.value}` : null,
+    episodeLabel: headerEpisodeLabel.value,
     sessionNumber: props.game.current_session_number,
     turnCount: prompts.value.length,
     sessionComplete: sessionComplete.value,
@@ -192,8 +207,40 @@ const page = usePage();
 const showOutro = computed(() => (page.props.flash as Record<string, unknown>)?.story_complete === true);
 const handleOutroDone = () => {
     tts.dismiss();
+    const destination = pendingOutroDestination;
+    pendingOutroDestination = 'library';
+    if (destination === 'replay') {
+        router.post(resetGame.url(props.game.id), {}, { replace: true });
+        return;
+    }
+
     router.visit(storiesIndex().url, { replace: true });
 };
+
+watch(
+    [sessionComplete, shouldAnimate, () => prompts.value[prompts.value.length - 1]?.response],
+    () => {
+        if (!sessionComplete.value || !completionReceipt.value) {
+            ceremonyReady.value = false;
+            return;
+        }
+
+        const last = prompts.value[prompts.value.length - 1];
+        if (!shouldAnimate.value || !last?.response) {
+            ceremonyReady.value = true;
+            return;
+        }
+
+        ceremonyReady.value = false;
+    },
+    { immediate: true },
+);
+
+function handleNarrationFinished() {
+    if (sessionComplete.value) {
+        ceremonyReady.value = true;
+    }
+}
 
 // Cinematic opening: shown on first visit (no prompts yet); hidden once begin fires
 const showCinematic = ref(!hasPrompts.value && !showOutro.value);
@@ -311,7 +358,7 @@ const handleNextSession = () => {
     const priorSession = props.game.current_session_number ?? 1;
 
     router.post(
-        `/user/games/${props.game.id}/next-session`,
+        nextSession.url(props.game.id),
         {},
         {
             preserveScroll: false,
@@ -323,6 +370,16 @@ const handleNextSession = () => {
             },
         },
     );
+};
+
+const handleStoryLibrary = () => {
+    pendingOutroDestination = 'library';
+    handleNextSession();
+};
+
+const handleBeginAgain = () => {
+    pendingOutroDestination = 'replay';
+    handleNextSession();
 };
 
 const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice: PromptChoice) => {
@@ -842,6 +899,7 @@ onUnmounted(() => {
     <GameplayLayout
         v-else
         :input-disabled="!canSubmitInput"
+        :hide-input="sessionComplete"
         :input-locked-by-design="freeformLocked"
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
@@ -856,18 +914,15 @@ onUnmounted(() => {
         @back="handleBack"
     >
         <template #header>
-            <div class="flex flex-col items-center gap-3 pt-2 pb-4">
+            <div v-if="!(sessionComplete && ceremonyReady)" class="flex flex-col items-center gap-3 pt-2 pb-4">
                 <h1 class="text-center text-2xl font-semibold text-white md:text-[28px]">
                     {{ game.story?.title ?? 'Adventure' }}
                 </h1>
                 <GameplayOrnamentDivider
-                    v-if="journalMeta.episodeLabel"
-                    :label="journalMeta.episodeLabel"
+                    v-if="headerEpisodeLabel"
+                    :label="headerEpisodeLabel"
                     color="#ffffff"
                 />
-                <span v-if="game.current_session_number" class="rounded-full bg-gray-800 px-2 py-1 text-sm text-gray-300">
-                    Session {{ game.current_session_number }}
-                </span>
             </div>
         </template>
 
@@ -902,6 +957,7 @@ onUnmounted(() => {
 
             <div
                 v-for="(prompt, index) in prompts"
+                v-show="!(sessionComplete && ceremonyReady)"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
@@ -921,22 +977,36 @@ onUnmounted(() => {
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"
+                    @narration-finished="handleNarrationFinished"
                 />
             </div>
 
-            <!-- Session complete — next chapter or end story -->
-            <div v-if="sessionComplete && !isStartingNextSession" class="flex flex-col items-center gap-6 py-12 text-center">
+            <!-- Episode / story completion ceremony -->
+            <GameCompletionCeremony
+                v-if="sessionComplete && !isStartingNextSession && ceremonyReady && completionReceipt"
+                :receipt="completionReceipt"
+                @continue="handleNextSession"
+                @begin-again="handleBeginAgain"
+                @library="handleStoryLibrary"
+            />
+
+            <div
+                v-else-if="sessionComplete && !isStartingNextSession && ceremonyReady && !completionReceipt"
+                class="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 rounded-2xl border border-[#d4b483]/40 bg-black/25 px-6 py-10 text-center"
+            >
                 <div class="flex flex-col gap-2">
-                    <p class="text-lg font-light text-gray-200">Session complete.</p>
+                    <p class="text-lg font-light text-gray-200">
+                        {{ isLastSession ? 'Story complete.' : 'Episode complete.' }}
+                    </p>
                     <p v-if="!isLastSession" class="text-sm text-gray-500">
-                        The story continues in the next chapter.
+                        The story continues in the next episode.
                     </p>
                 </div>
                 <button
                     class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200"
                     @click="handleNextSession"
                 >
-                    {{ isLastSession ? 'Click to end story' : 'Continue to next chapter' }}
+                    {{ isLastSession ? 'Click to end story' : 'Continue to next episode' }}
                 </button>
             </div>
 
@@ -944,7 +1014,7 @@ onUnmounted(() => {
             <div v-if="isStartingNextSession" class="flex flex-col items-center gap-4 py-12">
                 <div class="size-8 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
                 <p class="text-sm text-gray-400">
-                    {{ isLastSession ? 'Ending story…' : 'Opening the next chapter…' }}
+                    {{ isLastSession ? 'Ending story…' : 'Opening the next episode…' }}
                 </p>
             </div>
 
@@ -960,15 +1030,15 @@ onUnmounted(() => {
         </template>
 
         <template #journals>
-            <!-- Desktop sidebar: classic session progress -->
+            <!-- Desktop sidebar: classic episode progress -->
             <div class="hidden flex-col gap-3 md:flex">
-                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Session Progress</p>
+                <p class="text-xs font-semibold tracking-wider text-gray-500 uppercase">Episode Progress</p>
                 <div class="rounded-xl border border-gray-700/50 bg-gray-800/40 p-4">
                     <p class="text-sm text-gray-300">
-                        Session <span class="font-medium text-primary-300">{{ game.current_session_number ?? 1 }}</span>
+                        Episode <span class="font-medium text-primary-300">{{ game.current_session_number ?? 1 }}</span>
                     </p>
-                    <p class="mt-1 text-xs text-gray-500">{{ prompts.length }} turn{{ prompts.length === 1 ? '' : 's' }} played this session</p>
-                    <p v-if="sessionComplete" class="mt-2 text-xs text-primary-400">✓ Session complete</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ prompts.length }} turn{{ prompts.length === 1 ? '' : 's' }} played this episode</p>
+                    <p v-if="sessionComplete" class="mt-2 text-xs text-primary-400">✓ Episode complete</p>
                 </div>
             </div>
 

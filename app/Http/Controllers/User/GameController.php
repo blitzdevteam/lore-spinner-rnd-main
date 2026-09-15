@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\UserActivityDay;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
+use App\Services\Runtime\CompletionReceiptRecorder;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
@@ -46,6 +47,7 @@ final class GameController extends Controller
         'i-love-lucy-job-switching',
         'the-matrix',
         'momotaro-the-peach-boy',
+        'test-the-last-signal',
     ];
 
     public function __construct(
@@ -54,6 +56,7 @@ final class GameController extends Controller
         private readonly StoryGameResetService $gameResetService,
         private readonly PlayerGameplayUsageSummary $gameplayUsageSummary,
         private readonly SubscriptionEntitlementService $subscriptionUsage,
+        private readonly CompletionReceiptRecorder $receiptRecorder,
     ) {}
 
     public function index(): RedirectResponse
@@ -64,14 +67,21 @@ final class GameController extends Controller
     public function show(Game $game, #[CurrentUser] User $user): Response
     {
         $this->authorizeGameView($user, $game);
-
+        $currentSessionNumber = (int) ($game->current_session_number ?? 1);
         $game->load([
             'story' => fn ($q) => $q->with([
                 'adaptation' => fn ($a) => $a
                     ->withCount('sessionAdaptations')
                     ->with(['sessionAdaptations' => fn ($sa) => $sa
-                        ->where('session_number', 1)
-                        ->select(['id', 'story_adaptation_id', 'session_number', 'entry_point_diagnosis']),
+                        ->whereIn('session_number', array_values(array_unique([1, $currentSessionNumber])))
+                        ->select([
+                            'id',
+                            'story_adaptation_id',
+                            'session_number',
+                            'entry_point_diagnosis',
+                            'session_close_design',
+                            'session_choice_design',
+                        ]),
                     ]),
             ]),
             // Ordered by the ULID primary key, not created_at: turns committed within
@@ -166,11 +176,13 @@ final class GameController extends Controller
             return to_route('user.games.show', $game);
         }
 
+        $this->receiptRecorder->snapshot($game);
+
         $story = $game->story()->with(['adaptation', 'adaptation.sessionAdaptations'])->first();
 
         $currentSessionNumber = (int) $game->current_session_number;
-        $nextSessionNumber    = $currentSessionNumber + 1;
-        $totalSessions        = (int) ($story->adaptation?->sessionAdaptations?->count() ?? 0);
+        $nextSessionNumber = $currentSessionNumber + 1;
+        $totalSessions = (int) ($story->adaptation?->sessionAdaptations?->count() ?? 0);
 
         if ($nextSessionNumber > $totalSessions) {
             $now = now();
@@ -184,12 +196,12 @@ final class GameController extends Controller
 
             GameCompletion::updateOrCreate(
                 [
-                    'game_id'            => $game->id,
+                    'game_id' => $game->id,
                     'story_cycle_number' => $game->current_story_cycle_number,
                 ],
                 [
-                    'user_id'      => $game->user_id,
-                    'story_id'     => $game->story_id,
+                    'user_id' => $game->user_id,
+                    'story_id' => $game->story_id,
                     'completed_at' => $now,
                 ],
             );
@@ -200,7 +212,7 @@ final class GameController extends Controller
                 ->with('story_complete', true);
         }
 
-        $arcRow         = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
+        $arcRow = $this->findArcProgressionRow($story->adaptation, $nextSessionNumber);
         $openingHandoff = (string) ($arcRow['opens_with'] ?? '');
 
         // Resolve consequence path from the player's last defining choice.
