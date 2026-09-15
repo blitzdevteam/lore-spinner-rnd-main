@@ -87,12 +87,22 @@ it('leaves malformed bodies alone', function () {
     expect((string) AnthropicThinkingPolicy::disableOpusThinking($request)->getBody())->toBe('not-json');
 });
 
-it('pins every Anthropic pipeline agent to Opus 5', function (string $agent) {
-    $reflection = new ReflectionClass($agent);
+it('pins IP Trimming to Opus 5', function () {
+    $reflection = new ReflectionClass(IpTrimmingChapterAgent::class);
 
     expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
         ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5');
-})->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class, IpTrimmingChapterAgent::class]);
+});
+
+// Opus 5 with thinking disabled returned schema-noncompliant Boiler drafts, so
+// drafting and finalizing stay on the model that produced valid cuts across the
+// launch titles. The thinking policy above is scoped by model name, so it simply
+// stops applying to these two agents.
+it('keeps the Boiler agents off Opus 5 until it is proven on a full session', function (string $agent) {
+    $reflection = new ReflectionClass($agent);
+
+    expect($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-4-8');
+})->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
 
 it('prices Opus 5 at the standard Opus rate', function () {
     $pricing = config('player-token-usage.models.claude-opus-5');

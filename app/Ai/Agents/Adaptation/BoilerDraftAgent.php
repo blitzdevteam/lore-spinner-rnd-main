@@ -15,7 +15,7 @@ use Stringable;
 use Throwable;
 
 #[Provider('anthropic')]
-#[Model('claude-opus-5')]
+#[Model('claude-opus-4-8')]
 #[Timeout(600)]
 final class BoilerDraftAgent implements Agent, HasStructuredOutput
 {

@@ -19,12 +19,16 @@ it('uses the six-state Boiler lifecycle', function () {
         ->toBe(['pending', 'drafting', 'drafted', 'finalizing', 'finalized', 'failed']);
 });
 
-it('pins both Boiler agents to the IP Trimming Opus tier', function () {
+// Opus 5 with thinking disabled returned schema-noncompliant drafts on Dracula
+// session 2 (wrong session_number type, then a missing session_budget_decision),
+// while Opus 4.8 produced valid drafts across the preceding launch titles. The
+// Boiler agents stay pinned until Opus 5 is proven on a full session.
+it('pins both Boiler agents to the Opus tier proven on launch titles', function () {
     foreach ([BoilerDraftAgent::class, BoilerFinalizeAgent::class] as $agent) {
         $reflection = new ReflectionClass($agent);
 
         expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
-            ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5')
+            ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-4-8')
             ->and($reflection->getAttributes(Timeout::class)[0]->getArguments()[0])->toBe(600);
     }
 });
