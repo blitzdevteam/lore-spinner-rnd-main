@@ -40,7 +40,7 @@ final class GameController extends Controller
         return to_route('index');
     }
 
-    public function show(Game $game): Response
+    public function show(Game $game, #[CurrentUser] User $user): Response
     {
         $game->load([
             'story' => fn ($q) => $q->with([
