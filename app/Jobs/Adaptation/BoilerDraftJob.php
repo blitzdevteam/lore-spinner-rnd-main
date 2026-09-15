@@ -162,7 +162,7 @@ final class BoilerDraftJob implements ShouldQueue
             artifact: 'draft',
             originalPrompt: $originalPrompt,
             generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new BoilerDraftAgent)->prompt($prompt)->toArray(),
+                $this->generateDraft($prompt),
                 $session->session_number,
             ),
             validate: fn (array $result) => $validator->validate($result, $session, $storyMap, $events),
@@ -179,5 +179,31 @@ final class BoilerDraftJob implements ShouldQueue
                 'session_number' => $this->sessionNumber,
             ],
         );
+    }
+
+    /**
+     * A draft rejected for a missing required object cannot be told apart from a
+     * response the provider truncated: both arrive as an array with keys absent.
+     * Recording the returned keys and the completion token count separates the two
+     * before another full generation is spent guessing.
+     *
+     * @return array<string, mixed>
+     */
+    private function generateDraft(string $prompt): array
+    {
+        $response = (new BoilerDraftAgent)->prompt($prompt);
+        $draft = $response->toArray();
+
+        Log::info('boiler.draft_generated', [
+            'story_id' => $this->story->id,
+            'session_number' => $this->sessionNumber,
+            'returned_keys' => array_keys($draft),
+            'completion_tokens' => $response->usage->completionTokens,
+            'reasoning_tokens' => $response->usage->reasoningTokens,
+            'moment_drafts' => count((array) ($draft['moment_drafts'] ?? [])),
+            'event_role_map' => count((array) ($draft['event_role_map'] ?? [])),
+        ]);
+
+        return $draft;
     }
 }
