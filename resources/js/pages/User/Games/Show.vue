@@ -1,42 +1,24 @@
 <script setup lang="ts">
 import GameCinematicOpening from '@/components/GameCinematicOpening.vue';
 import GameCinematicOutro from '@/components/GameCinematicOutro.vue';
+import GameCompletionCeremony from '@/components/GameCompletionCeremony.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
-import {
-    GameInterface,
-    GameNarrationSignal,
-    GameTurnStateInterface,
-    GameplayUsageSummary,
-    PromptChoice,
-    PromptInterface,
-    TurnRejectedResponse,
-    TurnStatusResponse,
-} from '@/types';
-import { resolveStoryCover } from '@/data/storyCoverBySlug';
+import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface, SubscriptionUsageSummary } from '@/types';
+import { nextSession, reset as resetGame } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
 import { store as storePrompt } from '@/wayfinder/actions/App/Http/Controllers/User/Game/PromptController';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { router, usePage } from '@inertiajs/vue3';
-import { useEcho } from '@laravel/echo-vue';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const CONTINUE_MARKER = '__continue__';
 const TURN_FAILED_MESSAGE = 'Narration hiccuped — your move was not saved. Retry to send it again.';
-const TURN_REJECTED_MESSAGE = 'That move arrived out of turn — retry to send it again.';
 
-// The submit request returns as soon as the move is accepted; the narration then
-// arrives over the private game channel, and this poll is the authoritative
-// fallback that confirms the commit from the database when the socket is quiet.
-const TURN_STATUS_POLL_MS = 2000;
-const TURN_STATUS_FIRST_POLL_MS = 1200;
-const TURN_MAX_WAIT_MS = 240_000;
-// Consecutive status polls that see neither a pending turn nor a committed row
-// before the move is declared lost. Two, so a single poll landing in the gap
-// between "accepted" and "pending flag visible" cannot fail a healthy turn.
-const TURN_EMPTY_POLLS_BEFORE_FAILURE = 2;
+type OutroDestination = 'library' | 'replay';
+let pendingOutroDestination: OutroDestination = 'library';
 
 type SubmitOptions = {
     promptId: string;
@@ -45,40 +27,11 @@ type SubmitOptions = {
     canonicalPathLabel?: 'A' | 'B' | 'C' | null;
 };
 
-/**
- * One in-flight move. Exactly one of these exists between submit and settle, and
- * every path that can finish the turn (socket done/error, status poll, rejection)
- * routes through commitTurn/failTurn so a turn settles once, whichever arrives first.
- */
-type ActiveTurn = {
-    sourcePromptId: string;
-    streamingPromptId: string;
-    prompt: string;
-    committed: boolean;
-    settled: boolean;
-    /** The submit request itself failed, so whether the server saw it is unknown. */
-    uncertain: boolean;
-    startedAt: number;
-    emptyStatusPolls: number;
-    anchoredToStreamStart: boolean;
-    pollTimer: ReturnType<typeof setTimeout> | null;
-};
-
 const props = defineProps<{
     game: GameInterface;
     usage: GameplayUsageSummary;
+    subscriptionUsage?: SubscriptionUsageSummary | null;
 }>();
-
-const gameStoryCover = computed(() => {
-    const slug = props.game.story?.slug;
-    const cover = props.game.story?.cover ?? null;
-
-    if (!slug) {
-        return cover;
-    }
-
-    return resolveStoryCover(slug, cover) || cover;
-});
 
 const tts = useTextToSpeech();
 const { settings: gameplaySettings } = useGameplaySettings();
@@ -101,8 +54,19 @@ function visitLeavesThisGame(url: string | { toString?: () => string; href?: str
               : typeof url?.toString === 'function'
                 ? url.toString()
                 : '';
-    const path = raw.split('?')[0] ?? '';
-    return !path.startsWith(`/user/games/${props.game.id}`);
+
+    if (!raw) {
+        return false;
+    }
+
+    try {
+        const pathname = new URL(raw, window.location.origin).pathname;
+        const gamePath = `/user/games/${props.game.id}`;
+
+        return pathname !== gamePath && !pathname.startsWith(`${gamePath}/`);
+    } catch {
+        return false;
+    }
 }
 
 let removeNavigationListener: (() => void) | undefined;
@@ -117,37 +81,9 @@ const isStreamingTurn = ref(false);
 const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
+const autoScrolledNarrationPromptIds = new Set<string>();
 const streamError = ref<string | null>(null);
 const lastAttempt = ref<{ prompt: string; options: SubmitOptions } | null>(null);
-const recapText = ref<string | null>(null);
-const recapError = ref<string | null>(null);
-const recapLoading = ref(false);
-
-let activeTurn: ActiveTurn | null = null;
-
-/**
- * The slice of game state a turn can change. Owned locally and updated from the
- * turn's own completion payload, so finishing a move never requires a page
- * refresh — the refresh whose stale response used to roll the board back.
- * Props remain authoritative whenever no move is in flight.
- */
-function gameStateFromProps(): GameTurnStateInterface {
-    return {
-        current_session_number: props.game.current_session_number ?? null,
-        current_session_complete: props.game.current_session_complete === true,
-        uses_playable_moments: props.game.uses_playable_moments === true,
-    };
-}
-
-const gameState = ref<GameTurnStateInterface>(gameStateFromProps());
-
-watch(
-    () => [props.game.current_session_number, props.game.current_session_complete, props.game.uses_playable_moments],
-    () => {
-        if (activeTurn) return;
-        gameState.value = gameStateFromProps();
-    },
-);
 
 /**
  * A game refresh is fire-and-forget, so its response can land after a later turn
@@ -184,44 +120,12 @@ watch(
     () => props.game.prompts,
     (nextPrompts) => {
         if (isStreamingTurn.value) return;
-        recapText.value = null;
-        recapError.value = null;
         localPrompts.value = mergeServerPrompts([...(nextPrompts ?? [])]);
     },
     { deep: true },
 );
 
 const prompts = computed(() => localPrompts.value);
-
-async function loadRecap(): Promise<void> {
-    if (recapText.value || recapLoading.value) return;
-
-    recapLoading.value = true;
-    recapError.value = null;
-
-    try {
-        const response = await fetch(`/user/games/${props.game.id}/recap`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-XSRF-TOKEN': csrfToken(),
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error('The recap could not be generated. Try again.');
-        }
-
-        const payload = (await response.json()) as { recap?: string };
-        recapText.value = payload.recap ?? null;
-    } catch {
-        recapError.value = 'The recap could not be generated. Try again.';
-    } finally {
-        recapLoading.value = false;
-    }
-}
 
 /**
  * The card the player is answering: the newest turn with no committed action yet.
@@ -248,20 +152,29 @@ const latestPromptId = computed(() => {
     return latestPrompt ? String(latestPrompt.id) : null;
 });
 const hasPrompts = computed(() => prompts.value.length > 0);
-const currentSessionNumber = computed(() => gameState.value.current_session_number);
-const sessionComplete = computed(() => gameState.value.current_session_complete);
+const sessionComplete = computed(() => props.game.current_session_complete === true);
 const isLastSession = computed(() => {
     const total = props.game.total_sessions ?? 0;
-    const current = currentSessionNumber.value ?? 1;
+    const current = props.game.current_session_number ?? 1;
     return total > 0 && current >= total;
 });
+const completionReceipt = computed(() => props.game.completion_receipt ?? null);
+const ceremonyReady = ref(false);
 
 const episodePosition = computed(() => props.game.currentEvent?.chapter?.position);
 
+const headerEpisodeLabel = computed(() => {
+    if (episodePosition.value != null) {
+        return `Episode ${episodePosition.value}`;
+    }
+
+    return props.game.current_session_number != null ? `Episode ${props.game.current_session_number}` : null;
+});
+
 const journalMeta = computed(() => ({
     storyTitle: props.game.story?.title,
-    episodeLabel: episodePosition.value != null ? `Episode ${episodePosition.value}` : null,
-    sessionNumber: currentSessionNumber.value,
+    episodeLabel: headerEpisodeLabel.value,
+    sessionNumber: props.game.current_session_number,
     turnCount: prompts.value.length,
     sessionComplete: sessionComplete.value,
 }));
@@ -294,8 +207,40 @@ const page = usePage();
 const showOutro = computed(() => (page.props.flash as Record<string, unknown>)?.story_complete === true);
 const handleOutroDone = () => {
     tts.dismiss();
+    const destination = pendingOutroDestination;
+    pendingOutroDestination = 'library';
+    if (destination === 'replay') {
+        router.post(resetGame.url(props.game.id), {}, { replace: true });
+        return;
+    }
+
     router.visit(storiesIndex().url, { replace: true });
 };
+
+watch(
+    [sessionComplete, shouldAnimate, () => prompts.value[prompts.value.length - 1]?.response],
+    () => {
+        if (!sessionComplete.value || !completionReceipt.value) {
+            ceremonyReady.value = false;
+            return;
+        }
+
+        const last = prompts.value[prompts.value.length - 1];
+        if (!shouldAnimate.value || !last?.response) {
+            ceremonyReady.value = true;
+            return;
+        }
+
+        ceremonyReady.value = false;
+    },
+    { immediate: true },
+);
+
+function handleNarrationFinished() {
+    if (sessionComplete.value) {
+        ceremonyReady.value = true;
+    }
+}
 
 // Cinematic opening: shown on first visit (no prompts yet); hidden once begin fires
 const showCinematic = ref(!hasPrompts.value && !showOutro.value);
@@ -323,7 +268,7 @@ watch(
         if (!first) return;
         cameFromCinematic.value = false;
         openingNarrationPlayed.value = true;
-        tts.play(String(props.game.id), String(first.id));
+        tts.autoplay(String(props.game.id), String(first.id));
     },
 );
 
@@ -350,8 +295,15 @@ const introStage = computed(() => {
 
 const freeformLocked = computed(() => introStage.value === 2);
 
+const hasActionAllowance = computed(() => {
+    if (!props.subscriptionUsage) return true;
+
+    return props.subscriptionUsage.actions.remaining > 0;
+});
+
 const canSubmitInput = computed(() => {
     if (isSubmitting.value) return false;
+    if (!hasActionAllowance.value) return false;
     if (sessionComplete.value) return false;
     if (freeformLocked.value) return false;
     const latest = prompts.value[prompts.value.length - 1];
@@ -365,10 +317,11 @@ const hasPlayerActed = computed(() => prompts.value.some((p) => !!p.prompt));
 const isFirstChoiceMoment = computed(() =>
     !hasPlayerActed.value &&
     canSubmitInput.value &&
-    (currentSessionNumber.value ?? 1) === 1,
+    (props.game.current_session_number ?? 1) === 1,
 );
 
 const inputPlaceholder = computed(() => {
+    if (!hasActionAllowance.value) return 'Your action allowance has been reached for this billing period.';
     if (freeformLocked.value) return 'Pick one of the paths above for this move.';
     if (!isFirstChoiceMoment.value) return '';
     return props.game.first_input_hint ?? '';
@@ -382,15 +335,7 @@ function handleChoicesReady() {
     nudgeTrigger.value++;
 }
 
-// The opening narration is the long pole, so it is kicked off as early as the page
-// mounts rather than when the showcard appears. Guarded because both the mount hook
-// and the cinematic's prepare event race to call it.
-let beginRequested = false;
-
 const handleBegin = () => {
-    if (beginRequested) return;
-    beginRequested = true;
-
     router.post(
         `/user/games/${props.game.id}/begin`,
         {},
@@ -408,14 +353,12 @@ const handleBegin = () => {
 
 const handleNextSession = () => {
     if (isStartingNextSession.value) return;
-    recapText.value = null;
-    recapError.value = null;
     tts.primeAudio();
     isStartingNextSession.value = true;
-    const priorSession = currentSessionNumber.value ?? 1;
+    const priorSession = props.game.current_session_number ?? 1;
 
     router.post(
-        `/user/games/${props.game.id}/next-session`,
+        nextSession.url(props.game.id),
         {},
         {
             preserveScroll: false,
@@ -429,8 +372,18 @@ const handleNextSession = () => {
     );
 };
 
+const handleStoryLibrary = () => {
+    pendingOutroDestination = 'library';
+    handleNextSession();
+};
+
+const handleBeginAgain = () => {
+    pendingOutroDestination = 'replay';
+    handleNextSession();
+};
+
 const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice: PromptChoice) => {
-    if (isSubmitting.value) return;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const text = typeof choice === 'string' ? choice : choice.text;
     pendingSelection.value[promptId] = text;
@@ -443,7 +396,7 @@ const handleChoiceSelected = (promptId: string, suggestionIndex: number, choice:
 };
 
 const handleContinue = () => {
-    if (isSubmitting.value) return;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
@@ -452,33 +405,28 @@ const handleContinue = () => {
 };
 
 const handleSubmit = (prompt: string) => {
-    if (isSubmitting.value) return;
-    recapText.value = null;
+    if (isSubmitting.value || !hasActionAllowance.value) return;
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
-    pendingSelection.value[source.id] = prompt;
     submitPrompt(prompt, { promptId: source.id });
 };
 
 const handleRetryTurn = () => {
     const attempt = lastAttempt.value;
-    if (isSubmitting.value || !attempt) return;
-    recapText.value = null;
+    if (isSubmitting.value || !hasActionAllowance.value || !attempt) return;
     tts.primeAudio();
 
     // The source card may have been reissued by a refresh since the failure.
     const source = awaitingPrompt.value;
-    const promptId = source ? source.id : attempt.options.promptId;
-    pendingSelection.value[promptId] = attempt.prompt;
     submitPrompt(attempt.prompt, {
         ...attempt.options,
-        promptId,
+        promptId: source ? source.id : attempt.options.promptId,
     });
 };
 
 const submitPrompt = (prompt: string, options: SubmitOptions) => {
-    void submitTurn(prompt, options);
+    void streamPrompt(prompt, options);
 };
 
 function csrfToken(): string {
@@ -500,14 +448,34 @@ function setPromptCardElement(promptId: string, element: unknown) {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string) {
+function scrollToPromptStart(promptId: string): boolean {
     const element = promptCardElements.value[promptId];
-    if (!element) return;
+    if (!element) {
+        return false;
+    }
 
     const stickyHeaderOffset = 112;
     const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
 
-    window.scrollTo({ top, behavior: 'smooth' });
+    window.scrollTo({ top, behavior: 'auto' });
+
+    return true;
+}
+
+function scrollToNarrationStartOnce(promptId: string): void {
+    if (typeof window === 'undefined' || autoScrolledNarrationPromptIds.has(promptId)) {
+        return;
+    }
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            if (autoScrolledNarrationPromptIds.has(promptId) || !scrollToPromptStart(promptId)) {
+                return;
+            }
+
+            autoScrolledNarrationPromptIds.add(promptId);
+        });
+    });
 }
 
 function commitStreamedPrompt(
@@ -518,44 +486,61 @@ function commitStreamedPrompt(
 ) {
     localPrompts.value = localPrompts.value
         .map((item) => (item.id === sourcePromptId ? { ...item, prompt: sourcePromptValue } : item))
-        .filter((item) => item.id !== streamingPromptId && item.id !== responsePrompt.id);
+        .filter((item) => item.id !== streamingPromptId);
 
     localPrompts.value = [...localPrompts.value, responsePrompt];
 }
 
-function stopTurnPolling(turn: ActiveTurn) {
-    if (turn.pollTimer) {
-        clearTimeout(turn.pollTimer);
-        turn.pollTimer = null;
-    }
+function clearStreamingRequest(activeStreamingPromptId: string): void {
+    isSubmitting.value = false;
+    isStreamingTurn.value = false;
+    streamingPromptId.value = null;
+    pendingSelection.value = {};
+    autoScrolledNarrationPromptIds.delete(activeStreamingPromptId);
+    localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
 }
 
-function beginTurn(sourcePromptId: string, prompt: string, uncertain = false): ActiveTurn {
-    const turn: ActiveTurn = {
-        sourcePromptId,
-        streamingPromptId: `stream-${sourcePromptId}`,
-        prompt,
-        committed: false,
-        settled: false,
-        uncertain,
-        startedAt: Date.now(),
-        emptyStatusPolls: 0,
-        anchoredToStreamStart: false,
-        pollTimer: null,
-    };
-    activeTurn = turn;
+async function resynchronizeTurn(activeStreamingPromptId: string): Promise<void> {
+    clearStreamingRequest(activeStreamingPromptId);
+    lastAttempt.value = null;
+    streamError.value = null;
 
+    await new Promise<void>((resolve) => {
+        router.reload({
+            only: ['game', 'usage', 'subscriptionUsage'],
+            onFinish: () => resolve(),
+        });
+    });
+
+    if (!props.game.turn_pending) {
+        return;
+    }
+
+    const awaiting = [...prompts.value].reverse().find((item) => !item.prompt);
+    if (!awaiting) {
+        return;
+    }
+
+    isSubmitting.value = true;
+    pendingSelection.value[awaiting.id] = '…';
+    void pollForTurnCompletion(awaiting.id);
+}
+
+async function streamPrompt(prompt: string, options: SubmitOptions) {
     isSubmitting.value = true;
     isStreamingTurn.value = true;
     shouldAnimate.value = false;
     streamError.value = null;
-    streamingPromptId.value = turn.streamingPromptId;
+    lastAttempt.value = { prompt, options };
+
+    const activeStreamingPromptId = `stream-${options.promptId}`;
+    streamingPromptId.value = activeStreamingPromptId;
     localPrompts.value = [
-        ...localPrompts.value.filter((item) => item.id !== turn.streamingPromptId),
+        ...localPrompts.value.filter((item) => item.id !== activeStreamingPromptId),
         {
-            id: turn.streamingPromptId,
+            id: activeStreamingPromptId,
             game_id: props.game.id,
-            session_number: currentSessionNumber.value,
+            session_number: props.game.current_session_number ?? null,
             prompt: null,
             response: '',
             choices: [],
@@ -564,192 +549,13 @@ function beginTurn(sourcePromptId: string, prompt: string, uncertain = false): A
         },
     ];
 
-    return turn;
-}
-
-/**
- * The turn is in the database. Whatever brought the news — socket, status poll,
- * or the server saying it was already answered — the outcome is identical, and
- * the text the player has been reading is never removed and re-rendered.
- */
-function commitTurn(
-    turn: ActiveTurn,
-    sourcePromptValue: string,
-    responsePrompt: PromptInterface,
-    nextGameState?: GameTurnStateInterface | null,
-) {
-    if (turn.settled) return;
-    turn.settled = true;
-    turn.committed = true;
-    stopTurnPolling(turn);
-
-    const streamed = localPrompts.value.find((item) => item.id === turn.streamingPromptId);
-    const hadLiveText = hasVisibleStreamedText(streamed?.response ?? '');
-
-    commitStreamedPrompt(turn.streamingPromptId, turn.sourcePromptId, sourcePromptValue, responsePrompt);
-    if (nextGameState) {
-        gameState.value = { ...nextGameState };
-    }
-
-    isSubmitting.value = false;
-    isStreamingTurn.value = false;
-    streamingPromptId.value = null;
-    pendingSelection.value = {};
-    lastAttempt.value = null;
-    streamError.value = null;
-    activeTurn = null;
-
-    // Text that already streamed in stays exactly as it is: animating the committed
-    // card would remount it and retype from empty. Only when nothing arrived live
-    // (socket unavailable, or a resumed turn) does the card type itself out.
-    shouldAnimate.value = !hadLiveText;
-    if (!hadLiveText) {
-        nextTick(() => {
-            scrollToPromptStart(responsePrompt.id);
-        });
-    }
-}
-
-/**
- * The turn will not commit. Only reached on evidence — a server-side error, an
- * out-of-turn rejection, or the status poll seeing neither a pending turn nor a
- * committed row — never because a connection went quiet.
- */
-function failTurn(turn: ActiveTurn, message: string) {
-    if (turn.settled) return;
-    turn.settled = true;
-    stopTurnPolling(turn);
-
-    isSubmitting.value = false;
-    isStreamingTurn.value = false;
-    streamingPromptId.value = null;
-    pendingSelection.value = {};
-    localPrompts.value = localPrompts.value.filter((item) => item.id !== turn.streamingPromptId);
-    // Say so. A turn that vanishes with no explanation reads as a broken game
-    // rather than a failed request, and the player retypes instead of retrying.
-    streamError.value = message;
-    activeTurn = null;
-}
-
-function handleNarrationSignal(signal: GameNarrationSignal) {
-    if (String(signal.game_id) !== String(props.game.id)) return;
-
-    const turn = activeTurn;
-    if (!turn || turn.settled || turn.sourcePromptId !== String(signal.source_prompt_id)) return;
-
-    if (signal.phase === 'delta' && signal.text) {
-        appendToStreamingPrompt(turn.streamingPromptId, signal.text);
-        if (!turn.anchoredToStreamStart) {
-            turn.anchoredToStreamStart = true;
-            nextTick(() => {
-                scrollToPromptStart(turn.streamingPromptId);
-            });
-        }
-        return;
-    }
-
-    if (signal.phase === 'done' && signal.prompt) {
-        commitTurn(turn, signal.source_prompt_value ?? turn.prompt, signal.prompt, signal.game);
-        return;
-    }
-
-    if (signal.phase === 'error') {
-        failTurn(turn, signal.message ?? TURN_FAILED_MESSAGE);
-    }
-}
-
-// Live prose for the player's own turns. Subscribed for the page's lifetime and
-// routed by source prompt id, so a move started before a socket reconnect still
-// finds its deltas. If Echo cannot be set up at all, the status poll alone
-// carries every turn: slower to reveal, never lost.
-try {
-    useEcho<GameNarrationSignal>(`game.${props.game.id}`, '.game.narration.streamed', handleNarrationSignal);
-} catch {
-    // Polling fallback only.
-}
-
-/**
- * Asks the server whether the move landed. The narration row is the source of
- * truth; the pending flag only tells the poll to keep waiting.
- */
-function startTurnPolling(turn: ActiveTurn) {
-    const tick = async () => {
-        if (turn.settled) return;
-
-        if (Date.now() - turn.startedAt > TURN_MAX_WAIT_MS) {
-            failTurn(turn, TURN_FAILED_MESSAGE);
-            return;
-        }
-
-        try {
-            const response = await fetch(
-                `/user/games/${props.game.id}/turn-status?source_prompt_id=${encodeURIComponent(turn.sourcePromptId)}`,
-                {
-                    method: 'GET',
-                    credentials: 'same-origin',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                },
-            );
-
-            if (response.ok) {
-                const status = (await response.json()) as TurnStatusResponse;
-                if (turn.settled) return;
-
-                if (status.prompt) {
-                    commitTurn(turn, status.source_prompt_value ?? turn.prompt, status.prompt, status.game);
-                    return;
-                }
-
-                const pendingThisTurn =
-                    status.pending
-                    && (status.pending_source_prompt_id === null || status.pending_source_prompt_id === turn.sourcePromptId);
-
-                if (pendingThisTurn) {
-                    turn.emptyStatusPolls = 0;
-                } else if (status.error) {
-                    failTurn(turn, status.error);
-                    return;
-                } else {
-                    turn.emptyStatusPolls++;
-                    if (turn.emptyStatusPolls >= TURN_EMPTY_POLLS_BEFORE_FAILURE) {
-                        failTurn(turn, TURN_FAILED_MESSAGE);
-                        return;
-                    }
-                }
-            }
-        } catch {
-            // Transient network trouble — the next tick asks again.
-        }
-
-        if (!turn.settled) {
-            turn.pollTimer = setTimeout(tick, TURN_STATUS_POLL_MS);
-        }
-    };
-
-    turn.pollTimer = setTimeout(tick, turn.uncertain ? TURN_STATUS_FIRST_POLL_MS : TURN_STATUS_POLL_MS);
-}
-
-/**
- * Submit a move. The request only registers it — a 202 means the narrator is
- * running after the response, and from here the turn is finished by the socket
- * or the status poll, never by this request's connection staying alive.
- */
-async function submitTurn(prompt: string, options: SubmitOptions) {
-    if (activeTurn) return;
-
-    lastAttempt.value = { prompt, options };
-    const turn = beginTurn(options.promptId, prompt);
-
     try {
         const route = storePrompt(props.game.id);
         const response = await fetch(typeof route === 'string' ? route : route.url, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-                Accept: 'application/json',
+                Accept: 'application/x-ndjson',
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-XSRF-TOKEN': csrfToken(),
@@ -760,69 +566,138 @@ async function submitTurn(prompt: string, options: SubmitOptions) {
                 suggestion_index: options.suggestionIndex,
                 canonical_choice_id: options.canonicalChoiceId ?? null,
                 canonical_path_label: options.canonicalPathLabel ?? null,
+                stream: true,
             }),
         });
 
-        if (turn.settled) return;
-
-        if (response.status === 202) {
-            startTurnPolling(turn);
-            return;
-        }
-
         if (response.status === 409) {
-            const rejection = (await response.json()) as TurnRejectedResponse;
+            await resynchronizeTurn(activeStreamingPromptId);
 
-            // The server already has this turn — the earlier submit landed even if
-            // the player never saw it. Show the committed narration; do not fail.
-            if (rejection.reason === 'already_answered' && rejection.prompt) {
-                commitTurn(turn, rejection.source_prompt_value ?? prompt, rejection.prompt, rejection.game);
+            return;
+        }
+
+        if (response.status === 429 || response.status === 403) {
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+                reason?: string;
+                pricing_url?: string;
+            } | null;
+
+            if (response.status === 403 && payload?.reason === 'subscription_required' && payload.pricing_url) {
+                isSubmitting.value = false;
+                isStreamingTurn.value = false;
+                streamingPromptId.value = null;
+                pendingSelection.value = {};
+                localPrompts.value = localPrompts.value.filter((item) => item.id !== activeStreamingPromptId);
+                router.visit(payload.pricing_url);
+
                 return;
             }
 
-            // Another request is narrating this exact move; follow it to completion.
-            if (rejection.reason === 'in_progress') {
-                startTurnPolling(turn);
-                return;
+            throw new Error(
+                payload?.message
+                    ?? (response.status === 429
+                        ? 'Your action allowance has been reached for this billing period.'
+                        : 'An active subscription is required to keep playing.'),
+            );
+        }
+
+        if (response.redirected) {
+            clearStreamingRequest(activeStreamingPromptId);
+            lastAttempt.value = null;
+            router.visit(response.url, { preserveState: false, replace: true });
+
+            return;
+        }
+
+        if (!response.ok || !response.body) {
+            throw new Error(TURN_FAILED_MESSAGE);
+        }
+
+        if (!(response.headers.get('Content-Type') ?? '').includes('application/x-ndjson')) {
+            throw new Error(TURN_FAILED_MESSAGE);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let completed = false;
+
+        const handleStreamEvent = (line: string) => {
+            if (!line.trim()) return;
+
+            const event = JSON.parse(line) as {
+                event: 'ready' | 'delta' | 'done' | 'error';
+                text?: string;
+                message?: string;
+                source_prompt_id?: string;
+                source_prompt_value?: string;
+                prompt?: PromptInterface;
+            };
+
+            if (event.event === 'ready') {
+                scrollToNarrationStartOnce(activeStreamingPromptId);
             }
 
-            failTurn(turn, rejection.message || TURN_REJECTED_MESSAGE);
-            // The board and the server disagree about which turn is current.
-            router.reload({ only: ['game'] });
-            return;
+            if (event.event === 'delta' && event.text) {
+                appendToStreamingPrompt(activeStreamingPromptId, event.text);
+                scrollToNarrationStartOnce(activeStreamingPromptId);
+            }
+
+            if (event.event === 'done' && event.prompt) {
+                commitStreamedPrompt(
+                    activeStreamingPromptId,
+                    event.source_prompt_id ?? options.promptId,
+                    event.source_prompt_value ?? prompt,
+                    event.prompt,
+                );
+                completed = true;
+                isSubmitting.value = false;
+                isStreamingTurn.value = false;
+                streamingPromptId.value = null;
+                pendingSelection.value = {};
+                lastAttempt.value = null;
+                // Do not flip shouldAnimate here. streamTo already revealed the text;
+                // setting animate remounts the committed card and restarts the typewriter
+                // from empty — the vanish-then-rerender glitch.
+                router.reload({ only: ['game', 'usage', 'subscriptionUsage'] });
+            }
+
+            if (event.event === 'error') {
+                throw new Error(event.message ?? TURN_FAILED_MESSAGE);
+            }
+        };
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+                buffer += decoder.decode();
+                break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                handleStreamEvent(line);
+            }
         }
 
-        if (response.status === 422) {
-            const payload = (await response.json().catch(() => null)) as TurnRejectedResponse | null;
-            failTurn(turn, payload?.message || TURN_FAILED_MESSAGE);
-            return;
+        if (buffer.trim()) {
+            handleStreamEvent(buffer);
         }
 
-        if (response.status === 401 || response.status === 403 || response.status === 419) {
-            failTurn(turn, 'Your session has expired — reload the page to keep playing.');
-            return;
+        if (!completed) {
+            throw new Error(TURN_FAILED_MESSAGE);
         }
-
-        throw new Error(TURN_FAILED_MESSAGE);
-    } catch {
-        if (turn.settled) return;
-        // The request failed on the way out or back, so the server may or may not
-        // have the move. Let the status poll decide rather than guessing wrong.
-        turn.uncertain = true;
-        startTurnPolling(turn);
+    } catch (error) {
+        clearStreamingRequest(activeStreamingPromptId);
+        // Say so. A turn that vanishes with no explanation reads as a broken game
+        // rather than a failed request, and the player retypes instead of retrying.
+        streamError.value = error instanceof Error && error.message ? error.message : TURN_FAILED_MESSAGE;
+        router.reload({ only: ['game', 'subscriptionUsage'] });
     }
-}
-
-/**
- * The page loaded with a turn still running (refresh mid-narration). Adopt it:
- * show the pending state, catch any deltas still being broadcast, and confirm
- * the commit from the database exactly like a freshly submitted move.
- */
-function resumeTurn(sourcePromptId: string) {
-    pendingSelection.value[sourcePromptId] = pendingSelection.value[sourcePromptId] ?? '…';
-    lastAttempt.value = null;
-    const turn = beginTurn(sourcePromptId, '', true);
-    startTurnPolling(turn);
 }
 
 async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: number) {
@@ -856,9 +731,9 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
             beginSettled.value = true;
             isRetryingBegin.value = false;
             shouldAnimate.value = true;
-            nextTick(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
             return;
         }
 
@@ -869,9 +744,9 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         ) {
             isStartingNextSession.value = false;
             shouldAnimate.value = true;
-            nextTick(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
             return;
         }
 
@@ -887,6 +762,48 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
     isStartingNextSession.value = false;
 }
 
+async function pollForTurnCompletion(sourcePromptId: string) {
+    const started = Date.now();
+    const maxMs = 180_000;
+    let delayMs = 400;
+
+    while (Date.now() - started < maxMs) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        // Start quick so a finished turn doesn't sit for 1.5s; ease up slightly to spare the server.
+        delayMs = Math.min(800, delayMs + 100);
+
+        await new Promise<void>((resolve) => {
+            router.reload({
+                only: ['game'],
+                onFinish: () => resolve(),
+            });
+        });
+
+        const source = prompts.value.find((p) => p.id === sourcePromptId);
+        const turnError = props.game.turn_error;
+        const stillPending = props.game.turn_pending === true;
+
+        if (turnError) {
+            isSubmitting.value = false;
+            pendingSelection.value = {};
+            return;
+        }
+
+        if (source?.prompt && !stillPending) {
+            isSubmitting.value = false;
+            pendingSelection.value = {};
+            shouldAnimate.value = true;
+            if (latestPromptId.value) {
+                scrollToNarrationStartOnce(latestPromptId.value);
+            }
+            return;
+        }
+    }
+
+    isSubmitting.value = false;
+    pendingSelection.value = {};
+}
+
 onMounted(() => {
     removeNavigationListener = router.on('before', (event) => {
         try {
@@ -900,27 +817,26 @@ onMounted(() => {
 
     if (hasPrompts.value) {
         showCinematic.value = false;
-        nextTick(() => {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        });
+        if (latestPromptId.value) {
+            scrollToNarrationStartOnce(latestPromptId.value);
+        }
     }
 
-    // Resume after a refresh if a deferred turn/opening is still running.
+    // Resume polling after refresh if a deferred turn/opening is still running.
     if (props.game.turn_pending) {
         const awaiting = [...prompts.value].reverse().find((p) => !p.prompt);
         if (awaiting) {
-            resumeTurn(awaiting.id);
+            isSubmitting.value = true;
+            pendingSelection.value[awaiting.id] = pendingSelection.value[awaiting.id] ?? '…';
+            void pollForTurnCompletion(awaiting.id);
         }
     } else if (props.game.opening_pending) {
         if (!hasPrompts.value) {
-            beginRequested = true;
             void pollForOpeningCompletion('begin');
         } else {
             isStartingNextSession.value = true;
-            void pollForOpeningCompletion('next', Math.max(0, (currentSessionNumber.value ?? 1) - 1));
+            void pollForOpeningCompletion('next', Math.max(0, (props.game.current_session_number ?? 1) - 1));
         }
-    } else if (showCinematic.value) {
-        handleBegin();
     }
 });
 
@@ -932,19 +848,18 @@ const handleRetryBegin = () => {
     tts.primeAudio();
     beginSettled.value = false;
     isRetryingBegin.value = true;
-    beginRequested = false;
     handleBegin();
 };
 
 const handleCinematicDone = () => {
     showCinematic.value = false;
+    if (latestPromptId.value) {
+        scrollToNarrationStartOnce(latestPromptId.value);
+    }
 };
 
 onUnmounted(() => {
     removeNavigationListener?.();
-    if (activeTurn) {
-        stopTurnPolling(activeTurn);
-    }
 });
 </script>
 
@@ -984,35 +899,30 @@ onUnmounted(() => {
     <GameplayLayout
         v-else
         :input-disabled="!canSubmitInput"
+        :hide-input="sessionComplete"
         :input-locked-by-design="freeformLocked"
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
         :usage="usage"
+        :subscription-usage="props.subscriptionUsage"
         :latest-prompt-id="latestPromptId"
-        :cover-url="gameStoryCover"
+        :cover-url="game.story?.cover ?? null"
         :story-slug="game.story?.slug ?? null"
         :journal-meta="journalMeta"
-        :recap-text="recapText"
-        :recap-loading="recapLoading"
-        :recap-error="recapError"
         @submit="handleSubmit"
         @back="handleBack"
-        @recap="loadRecap"
     >
         <template #header>
-            <div class="flex flex-col items-center gap-3 pt-2 pb-4">
+            <div v-if="!(sessionComplete && ceremonyReady)" class="flex flex-col items-center gap-3 pt-2 pb-4">
                 <h1 class="text-center text-2xl font-semibold text-white md:text-[28px]">
                     {{ game.story?.title ?? 'Adventure' }}
                 </h1>
                 <GameplayOrnamentDivider
-                    v-if="journalMeta.episodeLabel"
-                    :label="journalMeta.episodeLabel"
+                    v-if="headerEpisodeLabel"
+                    :label="headerEpisodeLabel"
                     color="#ffffff"
                 />
-                <span v-if="currentSessionNumber" class="rounded-full bg-gray-800 px-2 py-1 text-sm text-gray-300">
-                    Session {{ currentSessionNumber }}
-                </span>
             </div>
         </template>
 
@@ -1029,7 +939,7 @@ onUnmounted(() => {
             >
                 <p class="text-sm text-red-300/90">{{ streamError }}</p>
                 <button
-                    v-if="lastAttempt"
+                    v-if="lastAttempt && hasActionAllowance"
                     class="rounded-full border border-primary-400/60 bg-primary-400/10 px-6 py-2 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isSubmitting"
                     @click="handleRetryTurn"
@@ -1038,41 +948,65 @@ onUnmounted(() => {
                 </button>
             </div>
 
+            <p
+                v-if="!hasActionAllowance"
+                class="mb-4 rounded-xl border border-primary-400/30 bg-primary-400/10 px-4 py-3 text-center text-sm text-primary-100"
+            >
+                Your action allowance has been reached for this billing period. Your allowance will renew at the end of the period.
+            </p>
+
             <div
                 v-for="(prompt, index) in prompts"
+                v-show="!(sessionComplete && ceremonyReady)"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
                 <GameplayChatCard
                     :prompt="prompt"
                     :game-id="game.id"
+                    :cover-url="game.story?.cover ?? null"
                     :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
                     :pending-choice="pendingSelection[prompt.id]"
                     :is-submitting="isSubmitting"
+                    :actions-disabled="!hasActionAllowance"
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
-                    :uses-playable-moments="gameState.uses_playable_moments"
+                    :uses-playable-moments="game.uses_playable_moments"
                     :choices-locked="index === 0"
                     :freeform-locked="index === 1"
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"
+                    @narration-finished="handleNarrationFinished"
                 />
             </div>
 
-            <!-- Session complete — next chapter or end story -->
-            <div v-if="sessionComplete && !isStartingNextSession" class="flex flex-col items-center gap-6 py-12 text-center">
+            <!-- Episode / story completion ceremony -->
+            <GameCompletionCeremony
+                v-if="sessionComplete && !isStartingNextSession && ceremonyReady && completionReceipt"
+                :receipt="completionReceipt"
+                @continue="handleNextSession"
+                @begin-again="handleBeginAgain"
+                @library="handleStoryLibrary"
+            />
+
+            <div
+                v-else-if="sessionComplete && !isStartingNextSession && ceremonyReady && !completionReceipt"
+                class="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 rounded-2xl border border-[#d4b483]/40 bg-black/25 px-6 py-10 text-center"
+            >
                 <div class="flex flex-col gap-2">
-                    <p class="text-lg font-light text-gray-200">Session complete.</p>
+                    <p class="text-lg font-light text-gray-200">
+                        {{ isLastSession ? 'Story complete.' : 'Episode complete.' }}
+                    </p>
                     <p v-if="!isLastSession" class="text-sm text-gray-500">
-                        The story continues in the next chapter.
+                        The story continues in the next episode.
                     </p>
                 </div>
                 <button
                     class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200"
                     @click="handleNextSession"
                 >
-                    {{ isLastSession ? 'Click to end story' : 'Continue to next chapter' }}
+                    {{ isLastSession ? 'Click to end story' : 'Continue to next episode' }}
                 </button>
             </div>
 
@@ -1080,7 +1014,7 @@ onUnmounted(() => {
             <div v-if="isStartingNextSession" class="flex flex-col items-center gap-4 py-12">
                 <div class="size-8 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
                 <p class="text-sm text-gray-400">
-                    {{ isLastSession ? 'Ending story…' : 'Opening the next chapter…' }}
+                    {{ isLastSession ? 'Ending story…' : 'Opening the next episode…' }}
                 </p>
             </div>
 
@@ -1096,15 +1030,15 @@ onUnmounted(() => {
         </template>
 
         <template #journals>
-            <!-- Desktop sidebar: classic session progress -->
+            <!-- Desktop sidebar: classic episode progress -->
             <div class="hidden flex-col gap-3 md:flex">
-                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Session Progress</p>
+                <p class="text-xs font-semibold tracking-wider text-gray-500 uppercase">Episode Progress</p>
                 <div class="rounded-xl border border-gray-700/50 bg-gray-800/40 p-4">
                     <p class="text-sm text-gray-300">
-                        Session <span class="font-medium text-primary-300">{{ currentSessionNumber ?? 1 }}</span>
+                        Episode <span class="font-medium text-primary-300">{{ game.current_session_number ?? 1 }}</span>
                     </p>
-                    <p class="mt-1 text-xs text-gray-500">{{ prompts.length }} turn{{ prompts.length === 1 ? '' : 's' }} played this session</p>
-                    <p v-if="sessionComplete" class="mt-2 text-xs text-primary-400">✓ Session complete</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ prompts.length }} turn{{ prompts.length === 1 ? '' : 's' }} played this episode</p>
+                    <p v-if="sessionComplete" class="mt-2 text-xs text-primary-400">✓ Episode complete</p>
                 </div>
             </div>
 

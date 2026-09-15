@@ -3,7 +3,7 @@ import BaseButton from '@/components/BaseButton.vue';
 import GameplayVoicePicker from '@/components/GameplayVoicePicker.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
-import { GameplayUsageSummary } from '@/types';
+import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { glassTintVars } from '@/utils/color';
 import { router } from '@inertiajs/vue3';
 import { LucideExternalLink, LucideMinus, LucidePlus, LucideRefreshCw, LucideRotateCcw, LucideZap } from 'lucide-vue-next';
@@ -14,6 +14,7 @@ const props = withDefaults(
         gameId?: string;
         promptId?: string | null;
         usage?: GameplayUsageSummary;
+        subscriptionUsage?: SubscriptionUsageSummary | null;
         variant?: 'sidebar' | 'sheet';
     }>(),
     { variant: 'sidebar' },
@@ -36,6 +37,8 @@ const usage = computed<GameplayUsageSummary>(
         },
 );
 
+const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => props.subscriptionUsage ?? null);
+
 const glassPreviewStyle = computed(() => glassTintVars(settings.backgroundColor));
 
 const toggleAutoplay = () => {
@@ -48,11 +51,19 @@ const clampFontSize = (val: number) => Math.min(28, Math.max(12, val));
 const formatUsageCount = (value: number) => Math.max(0, value).toLocaleString();
 
 const formatVoiceDuration = (milliseconds: number) => {
-    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
 
     return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+};
+
+const formatRenewalDate = (value: string) => {
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+        ? 'Resets at the end of your billing period'
+        : `Resets ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 };
 
 const isResetting = ref(false);
@@ -213,6 +224,30 @@ const onVolumeInput = (event: Event) => {
         </div>
 
         <div v-if="gameId" class="flex flex-col gap-3 border-t border-gray-700/40 pt-6">
+            <div v-if="subscriptionUsage" class="rounded-xl border border-primary-400/20 bg-primary-400/5 p-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <label class="text-xs font-medium uppercase tracking-wider text-primary-200">Plan allowance</label>
+                        <p class="mt-1 text-sm font-medium text-gray-100">{{ subscriptionUsage.plan.name }}</p>
+                    </div>
+                    <span class="text-right text-xs leading-relaxed text-gray-400">{{ formatRenewalDate(subscriptionUsage.period_ends_at) }}</span>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-2.5">
+                    <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
+                        <span class="block text-xs text-gray-400">Actions left</span>
+                        <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
+                            {{ formatUsageCount(subscriptionUsage.actions.remaining) }} / {{ formatUsageCount(subscriptionUsage.actions.limit) }}
+                        </strong>
+                    </div>
+                    <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
+                        <span class="block text-xs text-gray-400">Voice left</span>
+                        <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
+                            {{ formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
+                        </strong>
+                        <span class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
+                    </div>
+                </div>
+            </div>
             <div>
                 <label class="text-xs font-medium uppercase tracking-wider text-gray-400">Usage</label>
                 <p class="mt-1 text-xs text-gray-500">This game</p>
@@ -384,6 +419,30 @@ const onVolumeInput = (event: Event) => {
         </section>
 
         <section v-if="gameId" class="gp-settings-section">
+            <div v-if="subscriptionUsage" class="rounded-xl border border-primary-400/20 bg-primary-400/5 p-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="gp-field-label text-primary-200">Plan allowance</p>
+                        <p class="mt-1 text-sm font-medium text-gray-100">{{ subscriptionUsage.plan.name }}</p>
+                    </div>
+                    <span class="text-right text-xs leading-relaxed text-gray-400">{{ formatRenewalDate(subscriptionUsage.period_ends_at) }}</span>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
+                        <span class="block text-xs text-gray-400">Actions left</span>
+                        <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
+                            {{ formatUsageCount(subscriptionUsage.actions.remaining) }} / {{ formatUsageCount(subscriptionUsage.actions.limit) }}
+                        </strong>
+                    </div>
+                    <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
+                        <span class="block text-xs text-gray-400">Voice left</span>
+                        <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
+                            {{ formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
+                        </strong>
+                        <span class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
+                    </div>
+                </div>
+            </div>
             <div>
                 <h3 class="gp-section-title">Usage</h3>
                 <p class="mt-1 text-xs text-gray-500">This game</p>

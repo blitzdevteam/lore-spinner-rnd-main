@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Inertia\Middleware;
@@ -11,6 +13,8 @@ use Override;
 
 final class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly SubscriptionEntitlementService $subscriptionEntitlements) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -50,29 +54,26 @@ final class HandleInertiaRequests extends Middleware
                 'story_complete' => (bool) $request->session()->get('story_complete', false),
             ],
             'auth' => function () use ($request) {
-                $auth = null;
+                $user = $request->user('user');
 
-                if ($request->user('user')) {
-                    $auth = $request
-                        ->user('user')
-                        ->only([
-                            'id',
-                            'first_name',
-                            'last_name',
-                            'full_name',
-                            'gender',
-                            'username',
-                            'email',
-                            'avatar',
-                            'bio',
-                        ]);
-
-                    /**
-                     * We can load auth relations using `$auth->load(...)` here whenever we want
-                     */
+                if (! $user instanceof User) {
+                    return null;
                 }
 
-                return $auth;
+                return [
+                    ...$user->only([
+                        'id',
+                        'first_name',
+                        'last_name',
+                        'full_name',
+                        'gender',
+                        'username',
+                        'email',
+                        'avatar',
+                        'bio',
+                    ]),
+                    'subscription_usage' => $this->subscriptionEntitlements->summary($user),
+                ];
             },
             // Lightweight writer-auth flag for nav — avoids full model query on every page.
             'writerLoggedIn' => fn () => (bool) $request->user('writer'),

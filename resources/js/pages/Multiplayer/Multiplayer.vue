@@ -35,20 +35,20 @@ const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     customInput: 'On',
     voiceOver: 'On',
-    votingTime: '20 Sec',
+    votingTime: '3 Min',
 });
 const lobbySettingOptions = computed<LobbySettingOption[]>(() => {
     if (selectedModeName.value === 'Roulette') {
         return [
             { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
             { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+            { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
         ];
     }
 
     return [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-        { key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] },
+        { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
 });
 const lobbyCreationForm = useForm<{
@@ -63,7 +63,7 @@ const lobbyCreationForm = useForm<{
     mode: 'arbiter',
     max_players: 4,
     settings: {
-        decision_window_seconds: 20,
+        decision_window_seconds: 180,
     },
 });
 const joinLobbyForm = useForm<{
@@ -160,6 +160,10 @@ function chooseMode(mode: StoryMode): void {
     selectedModeName.value = mode.name;
 }
 
+function decisionWindowSeconds(value: string): number {
+    return Number.parseInt(value, 10) * 60;
+}
+
 function createLobby(): void {
     const mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
 
@@ -167,7 +171,7 @@ function createLobby(): void {
     lobbyCreationForm.max_players = 4;
     lobbyCreationForm.settings = {
         voice_over_enabled: lobbySettings.value.voiceOver === 'On',
-        decision_window_seconds: Number.parseInt(lobbySettings.value.votingTime, 10),
+        decision_window_seconds: decisionWindowSeconds(lobbySettings.value.votingTime),
         ...(mode === 'roulette' ? { custom_input_enabled: lobbySettings.value.customInput === 'On' } : {}),
     };
 

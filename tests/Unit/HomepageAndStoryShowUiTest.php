@@ -72,6 +72,15 @@ it('renders story stats as separate boxes on mobile', function (): void {
         ->toContain('hidden w-full overflow-hidden rounded-xl bg-white/[0.04] lg:block');
 });
 
+it('places the story details back button in the page left corner instead of on the poster', function (): void {
+    $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
+
+    expect($storyShow)
+        ->toContain('aria-label="Go back"')
+        ->toContain('absolute top-4 left-4 z-30')
+        ->not->toContain('pointer-events-auto absolute top-4 left-4');
+});
+
 it('exposes restart story on the story details page when a game already exists', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
 

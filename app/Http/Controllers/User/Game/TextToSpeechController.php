@@ -10,9 +10,9 @@ use App\Models\MultiplayerLobby;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\NarrationAudioService;
-use App\Tts\TtsVoiceCatalog;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Container\Attributes\CurrentUser;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,35 +28,46 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class TextToSpeechController extends Controller
 {
-    public function __construct(private readonly NarrationAudioService $audio) {}
+    public function __construct(
+        private readonly NarrationAudioService $audio,
+        private readonly SubscriptionEntitlementService $entitlements,
+    ) {}
 
-    public function __invoke(
-        Request $request,
-        #[CurrentUser] User $user,
-        Game $game,
-        Prompt $prompt,
-    ): Response {
+    public function __invoke(#[CurrentUser] User $user, Game $game, Prompt $prompt): Response
+    {
         abort_unless($prompt->game_id === $game->id, 404);
         abort_unless(filled($prompt->response), 404);
-        abort_unless($this->canAccessGameAudio($user, $game), 403);
 
-        $game->loadMissing('story');
-        $recommendedVoiceId = TtsVoiceCatalog::recommendedForGame($game);
-        $voiceId = TtsVoiceCatalog::resolveForGame($request->query('voice'), $game);
+        $multiplayerLobby = MultiplayerLobby::query()
+            ->where('game_id', $game->id)
+            ->first();
 
-        if ($this->audio->isReady($prompt, $voiceId, $recommendedVoiceId)) {
-            return $this->serve($prompt, $voiceId, $recommendedVoiceId);
+        if ($multiplayerLobby === null) {
+            Gate::forUser($user)->authorize('view', $game);
+        } else {
+            abort_unless($this->canAccessMultiplayerGameAudio($user, $multiplayerLobby), 404);
         }
 
-        $failure = $this->audio->failure($prompt, $voiceId, $recommendedVoiceId);
+        if ($multiplayerLobby === null && ! $this->entitlements->hasPlayAccess($user)) {
+            return response()->json([
+                'message' => 'An active subscription is required to play.',
+                'reason' => 'subscription_required',
+                'pricing_url' => route('pricing'),
+            ], 403);
+        }
+
+        if ($this->audio->isReady($prompt)) {
+            return $this->serve($prompt);
+        }
+
+        $failure = $this->audio->failure($prompt);
 
         if ($failure !== null) {
             return response()->json(['status' => 'failed', 'message' => $failure], 503);
         }
 
-        if (! $this->audio->isGenerating($prompt, $voiceId, $recommendedVoiceId)) {
-            $this->audio->markPending($prompt, $voiceId, $recommendedVoiceId);
-            $this->renderAfterResponse((string) $game->id, (string) $prompt->id, $voiceId);
+        if ($this->audio->reserve($prompt)) {
+            $this->renderAfterResponse((string) $game->id, (string) $prompt->id);
         }
 
         return response()->json(['status' => 'generating'], 202)
@@ -64,9 +75,9 @@ final class TextToSpeechController extends Controller
             ->header('Cache-Control', 'no-store');
     }
 
-    private function renderAfterResponse(string $gameId, string $promptId, string $voiceId): void
+    private function renderAfterResponse(string $gameId, string $promptId): void
     {
-        dispatch(function () use ($gameId, $promptId, $voiceId): void {
+        dispatch(function () use ($gameId, $promptId): void {
             $game = Game::query()->find($gameId);
             $prompt = Prompt::query()->whereKey($promptId)->first();
 
@@ -74,36 +85,22 @@ final class TextToSpeechController extends Controller
                 return;
             }
 
-            app(NarrationAudioService::class)->generate($game, $prompt, $voiceId);
+            app(NarrationAudioService::class)->generate($game, $prompt);
         })->afterResponse();
     }
 
-    private function canAccessGameAudio(User $user, Game $game): bool
+    private function canAccessMultiplayerGameAudio(User $user, MultiplayerLobby $multiplayerLobby): bool
     {
-        $multiplayerLobby = MultiplayerLobby::query()
-            ->where('game_id', $game->id)
-            ->first();
-
-        if ($multiplayerLobby !== null) {
-            return $multiplayerLobby->voiceOverEnabled()
-                && $multiplayerLobby->members()
-                    ->where('user_id', $user->id)
-                    ->exists();
-        }
-
-        if ($game->user_id === $user->id) {
-            return true;
-        }
-
-        return false;
+        return $multiplayerLobby->voiceOverEnabled()
+            && $multiplayerLobby->members()
+                ->where('user_id', $user->id)
+                ->exists();
     }
 
-    private function serve(Prompt $prompt, string $voiceId, string $recommendedVoiceId): BinaryFileResponse
+    private function serve(Prompt $prompt): BinaryFileResponse
     {
         $response = new BinaryFileResponse(
-            Storage::disk('local')->path(
-                $this->audio->resolveStoragePath($prompt, $voiceId, $recommendedVoiceId),
-            ),
+            Storage::disk('local')->path($this->audio->path($prompt)),
             200,
             [
                 'Content-Type' => 'audio/mpeg',

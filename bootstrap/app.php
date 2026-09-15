@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'guard.profile-is-completed' => App\Http\Middleware\Guard\EnsureProfileIsCompleted::class,
             'guard.profile-is-incompleted' => App\Http\Middleware\Guard\EnsureProfileIsIncompleted::class,
+            'guard.subscription-is-active' => App\Http\Middleware\Guard\EnsureActiveSubscription::class,
+            'guard.user-owns-game' => App\Http\Middleware\Guard\EnsureUserOwnsGame::class,
         ]);
 
         /**

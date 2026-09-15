@@ -15,6 +15,7 @@ export interface UserInterface {
     email: string;
     avatar: string;
     bio: string | null;
+    subscription_usage?: SubscriptionUsageSummary | null;
 }
 
 export interface CreatorInterface {
@@ -334,6 +335,71 @@ export interface GameplayUsageSummary {
     total: GameplayUsageTotals;
 }
 
+export interface SubscriptionUsageSummary {
+    plan: {
+        name: string;
+    };
+    actions: {
+        limit: number;
+        used: number;
+        remaining: number;
+    };
+    voice: {
+        limit_minutes: number;
+        used_milliseconds: number;
+        remaining_milliseconds: number;
+    };
+    period_ends_at: string;
+}
+
+export interface CompletionIdentity {
+    identity: string;
+    style_line: string | null;
+}
+
+export interface CompletionWhatWaits {
+    next_opens: string;
+    unresolved_promise: string | null;
+}
+
+export interface CompletionReceipt {
+    mode: 'session' | 'story';
+    story_title: string;
+    session_number: number;
+    final_line?: string;
+    world_remembers?: string[];
+    becoming?: CompletionIdentity;
+    commitment?: string;
+    what_waits?: CompletionWhatWaits;
+    what_settled?: string[];
+    record?: string[];
+    became?: CompletionIdentity;
+    leaves_behind?: string;
+    share_line?: string;
+}
+
+export interface AchievementCard {
+    id: number;
+    mode: 'session' | 'story';
+    session_number: number;
+    label: string;
+    preview: string | null;
+    earned_at: string | null;
+    receipt: CompletionReceipt;
+}
+
+export interface AchievementStory {
+    id: number;
+    title: string;
+    slug: string;
+    cover: string;
+    total_sessions: number;
+    episode_count: number;
+    story_complete: boolean;
+    episodes: AchievementCard[];
+    story_card: AchievementCard | null;
+}
+
 export interface GameInterface {
     id: string;
     story_id: number;
@@ -364,4 +430,5 @@ export interface GameInterface {
     turn_error?: string | null;
     opening_pending?: boolean;
     opening_error?: string | null;
+    completion_receipt?: CompletionReceipt | null;
 }

@@ -35,7 +35,7 @@ final class UpdateMultiplayerLobbySettingsRequest extends FormRequest
             'settings' => ['required', 'array:custom_input_enabled,voice_over_enabled,decision_window_seconds'],
             'settings.custom_input_enabled' => [Rule::requiredIf($isRoulette), 'nullable', 'boolean'],
             'settings.voice_over_enabled' => ['required', 'boolean'],
-            'settings.decision_window_seconds' => ['required', 'integer', 'in:10,20,30'],
+            'settings.decision_window_seconds' => ['required', 'integer', Rule::in(MultiplayerLobby::DECISION_WINDOW_SECONDS)],
         ];
     }
 
@@ -47,7 +47,7 @@ final class UpdateMultiplayerLobbySettingsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'settings.decision_window_seconds.in' => 'Choose a voting time of 10, 20, or 30 seconds.',
+            'settings.decision_window_seconds.in' => 'Choose a countdown of 3, 4, 5, or 6 minutes.',
         ];
     }
 }

@@ -22,7 +22,10 @@ final class MultiplayerLobbyBroadcastPayload
             'mode' => $lobby->mode->value,
             'status' => $lobby->status->value,
             'max_players' => $lobby->max_players,
-            'settings' => $lobby->settings,
+            'settings' => [
+                ...$lobby->settings,
+                'decision_window_seconds' => $lobby->decisionWindowSeconds(),
+            ],
             'members' => $lobby->members
                 ->sortBy('joined_at')
                 ->values()

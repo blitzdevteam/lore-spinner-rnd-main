@@ -95,6 +95,8 @@ defineEmits<{
     --capsule-accent: var(--color-secondary-300);
 }
 
+.gameplay-capsule:hover .gameplay-capsule__icon :deep(svg),
+.gameplay-capsule:focus-visible .gameplay-capsule__icon :deep(svg),
 .gameplay-capsule--active .gameplay-capsule__icon :deep(svg) {
     color: var(--capsule-active-icon-color);
 }

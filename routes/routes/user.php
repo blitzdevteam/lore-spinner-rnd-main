@@ -33,11 +33,34 @@ Route::prefix('user')->name('user.')->group(function (): void {
         });
     });
 
-    Route::middleware('auth:user')->get('checkout/{plan}', User\CheckoutController::class)
+    Route::middleware('auth:user')->get('checkout/{plan:slug}', User\CheckoutController::class)
         ->name('checkout');
 
-    Route::middleware('auth:user')->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
+    Route::middleware('auth:user')
+        ->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
         ->name('games.tts');
+
+    Route::middleware([
+        'auth:user',
+        'guard.user-owns-game',
+        'guard.profile-is-completed',
+        'guard.subscription-is-active',
+    ])->group(function (): void {
+        Route::get('games/{game}', [User\GameController::class, 'show'])->name('games.show');
+
+        Route::post('games/{game}/begin', [User\GameController::class, 'begin'])
+            ->name('games.begin');
+
+        Route::post('games/{game}/reset', [User\GameController::class, 'reset'])
+            ->name('games.reset');
+
+        Route::post('games/{game}/next-session', [User\GameController::class, 'nextSession'])
+            ->name('games.next-session');
+
+        Route::singleton('games.prompt', User\Game\PromptController::class)
+            ->creatable()
+            ->only(['store']);
+    });
 
     // Dashboard
     Route::middleware([
@@ -50,30 +73,16 @@ Route::prefix('user')->name('user.')->group(function (): void {
             Route::post('bookmarks/{story}', [User\BookmarkController::class, 'toggle'])
                 ->name('bookmarks.toggle');
 
-            Route::resource('games', User\GameController::class)
-                ->only(['index', 'show', 'store']);
+            Route::get('achievements', User\AchievementController::class)
+                ->name('achievements.index');
 
-            Route::post('games/{game}/begin', [User\GameController::class, 'begin'])
-                ->name('games.begin');
+            Route::middleware('guard.subscription-is-active')->group(function (): void {
+                Route::resource('games', User\GameController::class)
+                    ->only(['index', 'store']);
 
-            Route::post('games/{game}/reset', [User\GameController::class, 'reset'])
-                ->name('games.reset');
-
-            Route::post('games/{game}/next-session', [User\GameController::class, 'nextSession'])
-                ->name('games.next-session');
-
-            Route::post('games/{game}/recap', User\Game\RecapController::class)
-                ->name('games.recap');
-
-            Route::singleton('games.prompt', User\Game\PromptController::class)
-                ->creatable()
-                ->only(['store']);
-
-            Route::get('games/{game}/turn-status', User\Game\TurnStatusController::class)
-                ->name('games.turn-status');
-
-            Route::post('games/transcribe', User\Game\TranscribeController::class)
-                ->name('games.transcribe');
+                Route::post('games/transcribe', User\Game\TranscribeController::class)
+                    ->name('games.transcribe');
+            });
 
             require __DIR__.'/voice-lab.php';
         });

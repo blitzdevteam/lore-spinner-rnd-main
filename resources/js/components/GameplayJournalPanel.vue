@@ -34,10 +34,10 @@ const tab = defineModel<'timeline' | 'characters'>('tab', { default: 'timeline' 
                     {{ meta.episodeLabel }}
                 </span>
                 <span
-                    v-if="meta.sessionNumber"
+                    v-else-if="meta.sessionNumber"
                     class="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary-300"
                 >
-                    Session {{ meta.sessionNumber }}
+                    Episode {{ meta.sessionNumber }}
                 </span>
                 <span
                     v-if="meta.sessionComplete"
@@ -57,7 +57,7 @@ const tab = defineModel<'timeline' | 'characters'>('tab', { default: 'timeline' 
                 </p>
             </div>
             <div class="gp-journal-stat rounded-xl border border-white/8 bg-white/[0.03] p-3.5">
-                <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Session</p>
+                <p class="text-[10px] font-semibold tracking-wider text-gray-500 uppercase">Episode</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-100">
                     {{ meta?.sessionNumber ?? 1 }}
                 </p>

@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Ai\AnthropicThinkingPolicy;
+use App\Services\SubscriptionEntitlementService;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use Laravel\Cashier\Events\WebhookHandled;
+use Laravel\Cashier\Events\WebhookReceived;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -30,6 +35,21 @@ final class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         Http::globalRequestMiddleware(AnthropicThinkingPolicy::disableOpusThinking(...));
+
+        $cashierPath = config('cashier.path', 'stripe');
+        $cashierWebhookPath = is_string($cashierPath) && $cashierPath !== ''
+            ? trim($cashierPath, '/').'/*'
+            : 'stripe/*';
+
+        ValidateCsrfToken::except([$cashierWebhookPath]);
+
+        Event::listen(WebhookHandled::class, static function (WebhookHandled $event): void {
+            app(SubscriptionEntitlementService::class)->syncFromWebhook($event->payload);
+        });
+
+        Event::listen(WebhookReceived::class, static function (WebhookReceived $event): void {
+            app(SubscriptionEntitlementService::class)->syncCheckoutSessionFromWebhook($event->payload);
+        });
 
         if (! file_exists(public_path('storage'))) {
             Artisan::call('storage:link');

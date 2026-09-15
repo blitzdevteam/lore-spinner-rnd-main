@@ -17,6 +17,7 @@ use App\Models\UserActivityDay;
 use App\Services\Adaptation\StoryGameResetService;
 use App\Services\ChaosEngineService;
 use App\Services\Runtime\PlayerGameplayUsageSummary;
+use App\Services\SubscriptionEntitlementService;
 use App\Support\StoryPlayability;
 use App\Tts\TtsVoiceCatalog;
 use Illuminate\Container\Attributes\CurrentUser;
@@ -31,6 +32,7 @@ final class GameController extends Controller
         private readonly ProcessGameOpeningAction $openingAction,
         private readonly StoryGameResetService $gameResetService,
         private readonly PlayerGameplayUsageSummary $gameplayUsageSummary,
+        private readonly SubscriptionEntitlementService $subscriptionUsage,
     ) {}
 
     public function index(): RedirectResponse
@@ -62,6 +64,7 @@ final class GameController extends Controller
             'ttsVoices' => TtsVoiceCatalog::options(),
             'recommendedVoiceId' => TtsVoiceCatalog::recommendedForGame($game),
             'usage' => fn (): array => $this->gameplayUsage($game),
+            'subscriptionUsage' => fn (): ?array => $this->subscriptionUsage->summary($user),
         ]);
     }
 

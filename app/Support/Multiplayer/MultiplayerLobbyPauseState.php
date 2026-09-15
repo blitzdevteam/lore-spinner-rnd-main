@@ -23,6 +23,7 @@ final class MultiplayerLobbyPauseState
 
         if (
             in_array($lobby->turn_status, [
+                MultiplayerArbiterTurnStatusEnum::CollectingProposals,
                 MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
                 MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
             ], true)

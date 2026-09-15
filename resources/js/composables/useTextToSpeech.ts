@@ -1,32 +1,4 @@
 import { computed, onUnmounted, ref } from 'vue';
-import { useGameplaySettings } from '@/composables/useGameplaySettings';
-import { useTtsVoices } from '@/composables/useTtsVoices';
-
-function resolveVoiceId(): string {
-    const { settings } = useGameplaySettings();
-    const { recommendedVoiceId } = useTtsVoices();
-
-    if (settings.voiceId) {
-        return settings.voiceId;
-    }
-
-    return recommendedVoiceId.value;
-}
-
-function cacheKey(gameId: string, promptId: string): string {
-    return `${gameId}:${promptId}:${resolveVoiceId()}`;
-}
-
-function ttsEndpoint(gameId: string, promptId: string): string {
-    const { settings } = useGameplaySettings();
-    const base = `/user/games/${gameId}/tts/${promptId}`;
-
-    if (!settings.voiceId) {
-        return base;
-    }
-
-    return `${base}?voice=${encodeURIComponent(settings.voiceId)}`;
-}
 
 const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
 
@@ -71,7 +43,6 @@ let currentKey: string | null = null;
 let rafId: number | null = null;
 let unlockAudio: HTMLAudioElement | null = null;
 let audioUnlocked = false;
-let pendingAutoplay: { gameId: string; promptId: string } | null = null;
 
 // iOS Safari only allows HTMLAudioElement.play() on elements that were previously
 // activated during a user gesture. We pre-claim an element so the subsequent async
@@ -135,33 +106,6 @@ function silenceOthers(keep: HTMLAudioElement | null) {
     if (currentAudio && currentAudio !== keep) rewind(currentAudio);
 }
 
-function queuePendingAutoplay(gameId: string, promptId: string): void {
-    // The UI is about to point at this turn, so nothing from an earlier one may
-    // keep playing underneath it. A retry of the current turn keeps its position.
-    // Ordered before the queue is recorded because stop() clears the queue.
-    const key = cacheKey(gameId, promptId);
-    if (currentKey !== key) {
-        stop();
-        currentAudio = null;
-        currentKey = null;
-    }
-
-    pendingAutoplay = { gameId, promptId };
-
-    // Show a pending-play indicator on the relevant card while we wait for the
-    // browser media policy to be unlocked via a user gesture.
-    revealMediaPlayer();
-    activeKey.value = key;
-    isLoading.value = true;
-}
-
-function flushPendingAutoplay(): void {
-    if (!pendingAutoplay || !audioUnlocked) return;
-    const { gameId, promptId } = pendingAutoplay;
-    pendingAutoplay = null;
-    play(gameId, promptId);
-}
-
 /** Call synchronously from a user-gesture handler (tap/click) to unlock mobile audio. */
 function primeAudio() {
     if (typeof window === 'undefined') return;
@@ -196,9 +140,6 @@ function primeAudio() {
             if (primedAudio === primed) primedAudio = null;
         });
     }
-
-    // Flush any queued play() synchronously while still inside gesture scope.
-    flushPendingAutoplay();
 }
 
 /**
@@ -258,25 +199,25 @@ function installAutoplayGestureListener(): () => void {
     };
 }
 
-function handlePlayRejected(audio: HTMLAudioElement, key: string, token: number, err: unknown, gameId: string, promptId: string): void {
+function handlePlayRejected(audio: HTMLAudioElement, key: string, token: number, err: unknown): void {
     // A play() promise can settle after pause, close, or a newer narration has
     // taken over. Those callbacks must not resurrect the old request.
     if (!isCurrentRequest(audio, key, token)) return;
 
-    console.warn('[TTS] play() rejected', key, err);
     isPlaying.value = false;
     if (isAutoplayBlocked(err)) {
-        // Queue the play — queuePendingAutoplay keeps isLoading = true so the
-        // spinner stays visible while we wait for a user gesture to unlock audio.
-        queuePendingAutoplay(gameId, promptId);
-    } else {
-        isLoading.value = false;
+        // Autoplay may be disallowed after a reload. Leave the narration ready
+        // for the player to start with Listen instead of holding the turn in a
+        // fake loading state until some unrelated click happens.
+        console.debug('[TTS] autoplay needs a player gesture', key);
     }
+
+    isLoading.value = false;
 }
 
-function playAudio(audio: HTMLAudioElement, key: string, token: number, gameId: string, promptId: string): void {
+function playAudio(audio: HTMLAudioElement, key: string, token: number): void {
     void audio.play().catch((err) => {
-        handlePlayRejected(audio, key, token, err, gameId, promptId);
+        handlePlayRejected(audio, key, token, err);
     });
 }
 
@@ -456,7 +397,17 @@ async function downloadNarration(endpoint: string): Promise<Blob> {
         }
 
         if (!response.ok) {
-            throw new Error(`narration request failed (${response.status})`);
+            const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+                reason?: string;
+                pricing_url?: string;
+            } | null;
+
+            if (response.status === 403 && payload?.reason === 'subscription_required' && payload.pricing_url) {
+                window.location.assign(payload.pricing_url);
+            }
+
+            throw new Error(payload?.message ?? `narration request failed (${response.status})`);
         }
 
         const blob = await response.blob();
@@ -473,14 +424,14 @@ async function downloadNarration(endpoint: string): Promise<Blob> {
 }
 
 function narrationUrl(gameId: string, promptId: string): Promise<string> {
-    const key = cacheKey(gameId, promptId);
+    const key = `${gameId}:${promptId}`;
     const ready = objectUrls.get(key);
     if (ready) return Promise.resolve(ready);
 
     const pending = inFlightUrls.get(key);
     if (pending) return pending;
 
-    const request = downloadNarration(ttsEndpoint(gameId, promptId))
+    const request = downloadNarration(`/user/games/${gameId}/tts/${promptId}`)
         .then((blob) => {
             const url = URL.createObjectURL(blob);
             objectUrls.set(key, url);
@@ -511,7 +462,7 @@ function applyAudioSettings(audio: HTMLAudioElement) {
 }
 
 function play(gameId: string, promptId: string) {
-    const key = cacheKey(gameId, promptId);
+    const key = `${gameId}:${promptId}`;
 
     if (currentAudio && currentKey === key && !currentAudio.ended) {
         if (awaitingSourceKey === key) return; // download in flight, spinner already up
@@ -519,7 +470,7 @@ function play(gameId: string, promptId: string) {
             silenceOthers(currentAudio);
             isLoading.value = true;
             revealMediaPlayer();
-            playAudio(currentAudio, key, playToken, gameId, promptId);
+            playAudio(currentAudio, key, playToken);
         }
         return;
     }
@@ -540,7 +491,7 @@ function play(gameId: string, promptId: string) {
         applyAudioSettings(currentAudio);
         duration.value = finiteDuration(currentAudio.duration) ?? 0;
         isLoading.value = true;
-        playAudio(currentAudio, key, playToken, gameId, promptId);
+        playAudio(currentAudio, key, playToken);
         return;
     }
 
@@ -591,7 +542,7 @@ function play(gameId: string, promptId: string) {
             // point while the new one downloaded.
             silenceOthers(audio);
 
-            playAudio(audio, key, token, gameId, promptId);
+            playAudio(audio, key, token);
         })
         .catch((err) => {
             console.warn('[TTS] unavailable', key, err);
@@ -607,10 +558,17 @@ function play(gameId: string, promptId: string) {
         });
 }
 
+function autoplay(gameId: string, promptId: string): void {
+    // Browsers prohibit audio started during a page load. Do not fetch or charge
+    // for narration until the player has interacted with this document.
+    if (!audioUnlocked) {
+        return;
+    }
+
+    play(gameId, promptId);
+}
+
 function stop() {
-    // A queued turn left behind here would be replayed by the next unrelated
-    // gesture, since every gesture primes audio and primeAudio() flushes.
-    pendingAutoplay = null;
     playToken++;
     pendingSeek = null;
     silenceOthers(null); // rewinds every element, current one included
@@ -625,7 +583,6 @@ function dismiss() {
     const audio = currentAudio;
     const key = currentKey;
 
-    pendingAutoplay = null;
     awaitingSourceAudio = null;
     awaitingSourceKey = null;
     pendingSeek = null;
@@ -650,8 +607,11 @@ function dismiss() {
     }
 }
 
-/** Drop cached narration blobs (e.g. after the player changes voice). */
-function invalidateCache() {
+/** Stop playback and discard cached narrations (e.g. after resetting the story). */
+function resetForNewStory() {
+    dismiss();
+    currentAudio = null;
+    currentKey = null;
     for (const audio of audioCache.values()) {
         audio.pause();
         try {
@@ -669,28 +629,11 @@ function invalidateCache() {
     objectUrls.clear();
     inFlightUrls.clear();
     playedKeys.clear();
-    awaitingSourceKey = null;
-    currentAudio = null;
-    currentKey = null;
-    activeKey.value = null;
-    isPlaying.value = false;
-    isLoading.value = false;
-    currentTime.value = 0;
     duration.value = 0;
-    stopTimeUpdates();
-}
-
-/** Stop playback and discard cached narrations (e.g. after resetting the story). */
-function resetForNewStory() {
-    dismiss();
-    invalidateCache();
     mediaCollapsed.value = false;
 }
 
 function pause() {
-    // Pausing means silence: drop any queued turn and cancel a download that
-    // would otherwise start playing the moment it lands.
-    pendingAutoplay = null;
     playToken++;
     isLoading.value = false;
 
@@ -709,8 +652,7 @@ function resume() {
         isLoading.value = true;
         const key = currentKey ?? activeKey.value;
         if (!key) return;
-        const [gameId = '', promptId = ''] = key.split(':');
-        playAudio(currentAudio, key, playToken, gameId, promptId);
+        playAudio(currentAudio, key, playToken);
     }
 }
 
@@ -727,7 +669,7 @@ function togglePause() {
 
 function toggle(gameId: string, promptId: string) {
     primeAudio();
-    const key = cacheKey(gameId, promptId);
+    const key = `${gameId}:${promptId}`;
     if (currentKey === key && isPlaying.value) {
         pause();
     } else if (currentKey === key && currentAudio && !currentAudio.ended) {
@@ -851,6 +793,7 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
         revealMediaPlayer,
         collapseMediaPlayer,
         play,
+        autoplay,
         prefetch,
         stop,
         dismiss,
@@ -867,7 +810,6 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
         seekTo,
         seekBy,
         primeAudio,
-        hasPlayed: (gameId: string, promptId: string) => playedKeys.has(cacheKey(gameId, promptId)),
-        invalidateCache,
+        hasPlayed: (gameId: string, promptId: string) => playedKeys.has(`${gameId}:${promptId}`),
     };
 }

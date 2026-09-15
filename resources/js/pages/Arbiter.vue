@@ -175,7 +175,13 @@ const isSessionComplete = computed(() => turnStatus.value === 'session_complete'
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isDeparturePausePending = ref(false);
 const isGameplayPaused = computed(() => props.lobby.status === 'paused' || isDeparturePausePending.value);
-const hasDecisionTimer = computed(() => !isGameplayPaused.value && (isAwaitingArbiter.value || isAwaitingRouletteChoice.value));
+const hasDecisionTimer = computed(
+    () =>
+        !isGameplayPaused.value
+        && (isAwaitingArbiter.value
+            || isAwaitingRouletteChoice.value
+            || (props.lobby.mode === 'arbiter' && isCollectingProposals.value && props.arbiter.decision_deadline_at !== null)),
+);
 const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
@@ -198,6 +204,12 @@ const decisionSecondsRemaining = computed(() => {
     }
 
     return decisionWindowSeconds.value;
+});
+const decisionTimerLabel = computed(() => {
+    const minutes = Math.floor(decisionSecondsRemaining.value / 60);
+    const seconds = decisionSecondsRemaining.value % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
 const isDecisionTimerUrgent = computed(() => hasDecisionTimer.value && decisionSecondsRemaining.value <= 5);
 const pausedMembers = computed(() => members.value.filter((member) => member.left_at !== null));
@@ -239,6 +251,7 @@ const canSubmitProposal = computed(() => {
         && !isCurrentUserArbiter.value
         && !isGameplayPaused.value
         && isCollectingProposals.value
+        && (!hasDecisionTimer.value || decisionSecondsRemaining.value > 0)
         && !ownProposal.value
     );
 });
@@ -278,6 +291,7 @@ const streamingPromptId = ref<string | null>(null);
 const localPrompts = ref<PromptInterface[]>([...(props.game?.prompts ?? [])]);
 const promptCardElements = ref<Record<string, HTMLElement | null>>({});
 const storyColumn = ref<HTMLElement | null>(null);
+const autoScrolledNarrationPromptIds = new Set<string>();
 const prompts = computed(() => localPrompts.value);
 const latestPromptId = computed(() => prompts.value[prompts.value.length - 1]?.id ?? null);
 const journalEpisodeNumber = computed(() => props.game?.currentEvent?.chapter?.position ?? props.game?.current_session_number ?? 1);
@@ -676,11 +690,11 @@ function setPromptCardElement(promptId: string, element: unknown): void {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string, topOffset = 112): void {
+function scrollToPromptStart(promptId: string, topOffset = 112): boolean {
     const element = promptCardElements.value[promptId];
 
     if (!element) {
-        return;
+        return false;
     }
 
     const column = storyColumn.value;
@@ -690,14 +704,37 @@ function scrollToPromptStart(promptId: string, topOffset = 112): void {
         const elementRect = element.getBoundingClientRect();
         const top = Math.max(0, column.scrollTop + elementRect.top - columnRect.top - topOffset);
 
-        column.scrollTo({ top, behavior: 'smooth' });
+        column.scrollTo({ top, behavior: 'auto' });
 
-        return;
+        return true;
     }
 
     const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topOffset);
 
-    window.scrollTo({ top, behavior: 'smooth' });
+    window.scrollTo({ top, behavior: 'auto' });
+
+    return true;
+}
+
+function scrollToNarrationStartOnce(sourcePromptId: string): void {
+    const promptId = `stream-${sourcePromptId}`;
+
+    if (typeof window === 'undefined' || autoScrolledNarrationPromptIds.has(promptId)) {
+        return;
+    }
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            if (
+                autoScrolledNarrationPromptIds.has(promptId)
+                || !scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38))
+            ) {
+                return;
+            }
+
+            autoScrolledNarrationPromptIds.add(promptId);
+        });
+    });
 }
 
 function memberAvatar(member: MultiplayerLobbyMemberInterface, index: number): string {
@@ -1475,21 +1512,14 @@ useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.
             setSourcePromptValue(signal.source_prompt_id, signal.source_prompt_value);
         }
         ensureStreamingPrompt(signal.source_prompt_id);
+        scrollToNarrationStartOnce(signal.source_prompt_id);
 
         return;
     }
 
     if (signal.phase === 'delta' && signal.text) {
-        const isFirstVisibleDelta = !hasVisibleStreamedResponse.value;
-        const promptId = `stream-${signal.source_prompt_id}`;
-
         appendNarrationDelta(signal.source_prompt_id, signal.text);
-
-        if (isFirstVisibleDelta) {
-            nextTick(() => {
-                scrollToPromptStart(promptId, Math.min(320, window.innerHeight * 0.38));
-            });
-        }
+        scrollToNarrationStartOnce(signal.source_prompt_id);
 
         return;
     }
@@ -1504,6 +1534,7 @@ useEchoPresence<ArbiterNarrationSignal>(lobbyChannelName, '.multiplayer.arbiter.
         const transientPromptId = `stream-${signal.source_prompt_id}`;
 
         localPrompts.value = localPrompts.value.filter((prompt) => prompt.id !== transientPromptId);
+        autoScrolledNarrationPromptIds.delete(transientPromptId);
         if (streamingPromptId.value === transientPromptId) {
             streamingPromptId.value = null;
         }
@@ -1997,9 +2028,9 @@ onUnmounted(() => {
                             <span
                                 v-if="hasDecisionTimer"
                                 :class="['decision-timer', { 'decision-timer--urgent': isDecisionTimerUrgent }]"
-                                :aria-label="`${decisionSecondsRemaining} seconds decision window`"
+                                :aria-label="`${decisionTimerLabel} remaining in the decision window`"
                             >
-                                {{ decisionSecondsRemaining }}<small>s</small>
+                                {{ decisionTimerLabel }}
                             </span>
                         </div>
 
@@ -2834,9 +2865,28 @@ onUnmounted(() => {
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
+    overflow-anchor: none;
     padding: 24.8125rem 1.25rem 10rem;
     scrollbar-color: rgba(89, 193, 202, 0.35) transparent;
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
+}
+
+.arbiter-story-column::-webkit-scrollbar {
+    width: 4px;
+}
+
+.arbiter-story-column::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.arbiter-story-column::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(89, 193, 202, 0.35);
+}
+
+.arbiter-story-column::-webkit-scrollbar-thumb:hover {
+    background: rgba(89, 193, 202, 0.55);
 }
 
 .story-heading {
@@ -2957,7 +3007,7 @@ onUnmounted(() => {
 
 .decision-timer {
     display: grid;
-    width: 3rem;
+    min-width: 4.25rem;
     height: 3rem;
     place-items: center;
     border: 3px solid #59c1ca;
@@ -2965,12 +3015,7 @@ onUnmounted(() => {
     color: #59c1ca;
     font-size: 0.85rem;
     font-weight: 500;
-}
-
-.decision-timer small {
-    margin-left: -0.12rem;
-    color: #8f8f8f;
-    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .decision-timer--urgent {
@@ -3409,6 +3454,17 @@ onUnmounted(() => {
     height: 10rem;
     content: '';
     background: linear-gradient(to top, #000 15%, rgba(0, 0, 0, 0.82) 58%, transparent);
+}
+
+.arbiter-proposal-dock::after {
+    position: absolute;
+    z-index: -1;
+    top: calc(100% - 1px);
+    right: 0;
+    left: 0;
+    height: 10rem;
+    content: '';
+    background: linear-gradient(to bottom, #000 15%, rgba(0, 0, 0, 0.82) 58%, transparent);
 }
 
 .arbiter-proposal-input {

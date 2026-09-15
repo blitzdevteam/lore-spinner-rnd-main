@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User\Game;
 
 use App\Actions\Game\ProcessGameTurnAction;
-use App\Actions\Game\RunDeferredGameTurnAction;
-use App\Events\GameNarrationStreamed;
+use App\Exceptions\Subscription\SubscriptionAccessRequiredException;
+use App\Exceptions\Subscription\SubscriptionUsageLimitExceededException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Game\Prompt\StorePromptRequest;
 use App\Http\Resources\PromptResource;
@@ -14,12 +14,14 @@ use App\Models\Game;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\ChaosEngineService;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Cache\Lock;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -32,36 +34,28 @@ final class PromptController extends Controller
     public function __construct(
         private readonly ChaosEngineService $engine,
         private readonly ProcessGameTurnAction $processGameTurn,
+        private readonly SubscriptionEntitlementService $subscriptionUsage,
     ) {}
 
-    /**
-     * Accepts a player's move and returns before the narrator runs.
-     *
-     * Three clients share this endpoint:
-     *  - The play page (JSON): gets a 202 straight away, then receives the prose
-     *    over its private broadcast channel and confirms the commit by polling
-     *    {@see TurnStatusController}. Nothing here waits on the model.
-     *  - Inertia form posts: same deferred run, answered with a redirect.
-     *  - Browsers still running the previous bundle (NDJSON): the model is streamed
-     *    inside this request. Kept only so an in-flight deploy cannot strand them.
-     */
     public function store(
         #[CurrentUser] User $user,
         Game $game,
         StorePromptRequest $request,
     ): RedirectResponse|StreamedResponse|JsonResponse {
+        Gate::forUser($user)->authorize('view', $game);
+
         $promptText = $request->string('prompt')->toString();
         $sourcePromptId = $request->string('prompt_id')->toString();
         $lockName = "game-turn:{$game->id}:{$sourcePromptId}";
         $turnLock = Cache::lock($lockName, 180);
-        $wantsJson = $this->wantsJsonTurn($request);
 
         if (! $turnLock->get()) {
-            return $this->rejectTurn($request, $game, $sourcePromptId, 'in_progress', 'That move is already being narrated.');
+            return $this->turnConflictResponse($request, $game, $sourcePromptId, 'turn_in_progress');
         }
 
         $playerAction = $promptText;
         $deferred = false;
+        $actionReservationId = null;
 
         try {
             $sourcePrompt = $game->prompts()
@@ -72,11 +66,13 @@ final class PromptController extends Controller
             // Newest by ULID, matching the order the play page renders. created_at
             // ties would let the two sides disagree about which turn is current and
             // reject a legitimate move as out of turn.
+            $latestPromptId = $game->prompts()->orderByDesc('id')->value('id');
+
             if ($sourcePrompt === null
-                || $game->prompts()->orderByDesc('id')->value('id') !== $sourcePrompt->id
+                || $latestPromptId !== $sourcePrompt->id
                 || (int) ($sourcePrompt->session_number ?? 0) !== (int) ($game->current_session_number ?? 0)
             ) {
-                return $this->rejectTurn($request, $game, $sourcePromptId, 'out_of_turn', 'That move arrived out of turn.');
+                return $this->turnConflictResponse($request, $game, $sourcePromptId, 'stale_turn');
             }
 
             [$storedPromptValue, $playerAction, $explicitBranch] = $this->validateSubmittedAction(
@@ -84,6 +80,9 @@ final class PromptController extends Controller
                 $game,
                 $sourcePrompt,
             );
+            $actionReservationId = (string) $this->subscriptionUsage
+                ->reserveAction($user, $game, $sourcePrompt)
+                ->id;
 
             if ($this->wantsStreamingTurn($request)) {
                 Cache::put($this->processGameTurn->pendingKey($game->id), $sourcePromptId, 180);
@@ -100,40 +99,72 @@ final class PromptController extends Controller
                     playerAction: $playerAction,
                     explicitBranch: $explicitBranch,
                     userId: $user->id,
+                    actionReservationId: $actionReservationId,
                 );
             }
 
-            // Mark the turn pending before the response leaves so the very first
-            // status poll already sees it in flight, then run the narrator after
-            // the response: no proxy or FastCGI timeout can sit between the model
-            // and the player when the request has already finished.
+            $lockOwner = $turnLock->owner();
+            $gameId = $game->id;
+            $userId = $user->id;
+
+            // Return the Inertia response immediately. The model call runs after
+            // the response, so Cloudflare never waits on a silent LLM request.
+            dispatch(function () use (
+                $lockName,
+                $lockOwner,
+                $gameId,
+                $sourcePromptId,
+                $storedPromptValue,
+                $playerAction,
+                $explicitBranch,
+                $userId,
+                $actionReservationId,
+            ): void {
+                $lock = Cache::restoreLock($lockName, $lockOwner);
+                $subscriptionUsage = app(SubscriptionEntitlementService::class);
+
+                try {
+                    app(ProcessGameTurnAction::class)->handle(
+                        gameId: $gameId,
+                        sourcePromptId: $sourcePromptId,
+                        storedPromptValue: $storedPromptValue,
+                        playerAction: $playerAction,
+                        explicitBranch: $explicitBranch,
+                        userId: $userId,
+                    );
+
+                    $responseWasCommitted = Prompt::query()
+                        ->where('game_id', $gameId)
+                        ->where('source_prompt_id', $sourcePromptId)
+                        ->exists();
+
+                    if ($responseWasCommitted) {
+                        $subscriptionUsage->commitAction($actionReservationId);
+                    } else {
+                        $subscriptionUsage->releaseAction($actionReservationId);
+                    }
+                } catch (Throwable) {
+                    // Logged inside the action; frontend polls the error cache key.
+                    $subscriptionUsage->releaseAction($actionReservationId);
+                } finally {
+                    $lock->release();
+                }
+            })->afterResponse();
+
+            $deferred = true;
             Cache::put($this->processGameTurn->pendingKey($game->id), $sourcePromptId, 180);
             Cache::forget($this->processGameTurn->errorKey($game->id));
-            $deferred = true;
-
-            $this->dispatchDeferredTurn(
-                lockName: $lockName,
-                lockOwner: (string) $turnLock->owner(),
-                gameId: (string) $game->id,
-                sourcePromptId: $sourcePromptId,
-                storedPromptValue: $storedPromptValue,
-                playerAction: $playerAction,
-                explicitBranch: $explicitBranch,
-                userId: $user->id,
-            );
-
-            if ($wantsJson) {
-                return response()->json([
-                    'accepted' => true,
-                    'game_id' => (string) $game->id,
-                    'source_prompt_id' => $sourcePromptId,
-                    'source_prompt_value' => $storedPromptValue,
-                    'channel' => GameNarrationStreamed::channelName((string) $game->id),
-                ], 202);
-            }
 
             return back()->with('narrating', true);
+        } catch (SubscriptionUsageLimitExceededException $e) {
+            return $this->rejectSubscriptionUsage($request, $e->getMessage());
+        } catch (SubscriptionAccessRequiredException $e) {
+            return $this->rejectSubscriptionUsage($request, $e->getMessage(), 403, 'subscription_required');
         } catch (Throwable $e) {
+            if ($actionReservationId !== null) {
+                $this->subscriptionUsage->releaseAction($actionReservationId);
+            }
+
             Log::channel('narration')->error('game.turn_failed', [
                 'game_id' => $game->id,
                 'model' => $game->model,
@@ -143,14 +174,6 @@ final class PromptController extends Controller
                 'player_input' => mb_substr($playerAction, 0, 120),
             ]);
 
-            if ($wantsJson) {
-                return response()->json([
-                    'accepted' => false,
-                    'reason' => 'invalid',
-                    'message' => 'Narration hiccuped — please retry this turn.',
-                ], 422);
-            }
-
             return back()->with('error', 'Narration hiccuped — please retry this turn.');
         } finally {
             if (! $deferred) {
@@ -159,94 +182,47 @@ final class PromptController extends Controller
         }
     }
 
-    /**
-     * @param  array{defining_choice_id:string,defining_path_label:string,defining_choice_line:?string}|null  $explicitBranch
-     */
-    private function dispatchDeferredTurn(
-        string $lockName,
-        string $lockOwner,
-        string $gameId,
-        string $sourcePromptId,
-        string $storedPromptValue,
-        string $playerAction,
-        ?array $explicitBranch,
-        int $userId,
-    ): void {
-        dispatch(static function () use (
-            $lockName,
-            $lockOwner,
-            $gameId,
-            $sourcePromptId,
-            $storedPromptValue,
-            $playerAction,
-            $explicitBranch,
-            $userId,
-        ): void {
-            $lock = Cache::restoreLock($lockName, $lockOwner);
+    private function rejectSubscriptionUsage(
+        StorePromptRequest $request,
+        string $message,
+        int $status = 429,
+        string $reason = 'quota_exhausted',
+    ): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson() || $this->wantsStreamingTurn($request)) {
+            return response()->json([
+                'message' => $message,
+                'reason' => $reason,
+                'pricing_url' => route('pricing'),
+            ], $status);
+        }
 
-            try {
-                app(RunDeferredGameTurnAction::class)->handle(
-                    gameId: $gameId,
-                    sourcePromptId: $sourcePromptId,
-                    storedPromptValue: $storedPromptValue,
-                    playerAction: $playerAction,
-                    explicitBranch: $explicitBranch,
-                    userId: $userId,
-                );
-            } finally {
-                $lock->release();
-            }
-        })->afterResponse();
+        return back()->with('warning', $message);
     }
 
-    /**
-     * A move the server will not narrate. For the play page this is a JSON 409
-     * that says why; when the source prompt has in fact already been answered the
-     * committed turn rides along, so a resubmitted move renders the existing
-     * narration instead of failing or generating a second one.
-     */
-    private function rejectTurn(
+    private function turnConflictResponse(
         StorePromptRequest $request,
         Game $game,
         string $sourcePromptId,
         string $reason,
-        string $message,
     ): RedirectResponse|JsonResponse {
-        if (! $this->wantsJsonTurn($request)) {
-            return to_route('user.games.show', $game);
-        }
-
-        $payload = [
-            'accepted' => false,
+        Log::channel('narration')->info('game.turn_conflict', [
+            'game_id' => (string) $game->id,
+            'source_prompt_id' => $sourcePromptId,
+            'latest_prompt_id' => $game->prompts()->orderByDesc('id')->value('id'),
             'reason' => $reason,
-            'message' => $message,
-        ];
+        ]);
 
-        $existingResponse = $game->prompts()
-            ->where('source_prompt_id', $sourcePromptId)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($existingResponse !== null) {
-            $payload['reason'] = 'already_answered';
-            $payload['source_prompt_id'] = $sourcePromptId;
-            $payload['source_prompt_value'] = (string) $game->prompts()->whereKey($sourcePromptId)->value('prompt');
-            $payload['prompt'] = (new PromptResource($existingResponse))->resolve($request);
-            $payload['game'] = GameNarrationStreamed::gamePayload($game->fresh() ?? $game);
+        if ($request->expectsJson() || $this->wantsStreamingTurn($request)) {
+            return response()->json([
+                'message' => $reason === 'turn_in_progress'
+                    ? 'Your previous move is still being processed.'
+                    : 'The story has already advanced past that move.',
+                'reason' => $reason,
+            ], 409);
         }
 
-        return response()->json($payload, 409);
-    }
-
-    /**
-     * The play page asks for JSON; the NDJSON legacy bundle asks for x-ndjson;
-     * Inertia asks for HTML. Only the first gets the 202 contract.
-     */
-    private function wantsJsonTurn(StorePromptRequest $request): bool
-    {
-        $accept = (string) $request->headers->get('Accept');
-
-        return str_contains($accept, 'application/json') && ! str_contains($accept, 'application/x-ndjson');
+        return to_route('user.games.show', $game);
     }
 
     /**
@@ -262,6 +238,7 @@ final class PromptController extends Controller
         string $playerAction,
         ?array $explicitBranch,
         int $userId,
+        string $actionReservationId,
     ): StreamedResponse {
         return response()->stream(function () use (
             $request,
@@ -273,7 +250,10 @@ final class PromptController extends Controller
             $playerAction,
             $explicitBranch,
             $userId,
+            $actionReservationId,
         ): void {
+            ignore_user_abort(true);
+
             $send = static function (string $event, array $payload = []): void {
                 echo json_encode(
                     ['event' => $event, ...$payload],
@@ -305,12 +285,16 @@ final class PromptController extends Controller
                     throw new RuntimeException('The turn could not be processed.');
                 }
 
+                $this->subscriptionUsage->commitAction($actionReservationId);
+
                 $send('done', [
                     'source_prompt_id' => $sourcePromptId,
                     'source_prompt_value' => $storedPromptValue,
                     'prompt' => (new PromptResource($responsePrompt))->resolve($request),
                 ]);
             } catch (Throwable $e) {
+                $this->subscriptionUsage->releaseAction($actionReservationId);
+
                 Log::channel('narration')->error('game.turn_stream_failed', [
                     'game_id' => $game->id,
                     'source_prompt_id' => $sourcePromptId,

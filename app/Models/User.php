@@ -44,10 +44,14 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $comments_count
  * @property-read Collection<int, Game> $games
  * @property-read int|null $games_count
+ * @property-read Collection<int, CompletionReceipt> $completionReceipts
+ * @property-read int|null $completion_receipts_count
  * @property-read Collection<int, MultiplayerLobby> $hostedMultiplayerLobbies
  * @property-read Collection<int, MultiplayerLobbyMember> $multiplayerLobbyMemberships
  * @property-read Collection<int, Story> $bookmarkedStories
  * @property-read int|null $bookmarked_stories_count
+ * @property-read Collection<int, SubscriptionEntitlement> $subscriptionEntitlements
+ * @property-read Collection<int, SubscriptionUsageEvent> $subscriptionUsageEvents
  */
 final class User extends Authenticatable implements CanResetPassword, HasMedia
 {
@@ -122,6 +126,14 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     }
 
     /**
+     * @return HasMany<CompletionReceipt, $this>
+     */
+    public function completionReceipts(): HasMany
+    {
+        return $this->hasMany(CompletionReceipt::class);
+    }
+
+    /**
      * @return HasMany<MultiplayerLobby, $this>
      */
     public function hostedMultiplayerLobbies(): HasMany
@@ -135,6 +147,22 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     public function multiplayerLobbyMemberships(): HasMany
     {
         return $this->hasMany(MultiplayerLobbyMember::class);
+    }
+
+    /**
+     * @return HasMany<SubscriptionEntitlement, $this>
+     */
+    public function subscriptionEntitlements(): HasMany
+    {
+        return $this->hasMany(SubscriptionEntitlement::class);
+    }
+
+    /**
+     * @return HasMany<SubscriptionUsageEvent, $this>
+     */
+    public function subscriptionUsageEvents(): HasMany
+    {
+        return $this->hasMany(SubscriptionUsageEvent::class);
     }
 
     /**

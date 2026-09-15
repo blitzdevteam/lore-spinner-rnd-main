@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Multiplayer\ChooseMultiplayerLobbyRouletteChoiceAction;
 use App\Actions\Multiplayer\CreateMultiplayerLobbyAction;
+use App\Actions\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineAction;
 use App\Actions\Multiplayer\SubmitMultiplayerLobbyProposalAction;
 use App\Enums\Multiplayer\MultiplayerArbiterTurnStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
@@ -12,6 +13,7 @@ use App\Enums\Story\StoryStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Events\MultiplayerLobbyCreated;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
+use App\Jobs\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineJob;
 use App\Models\Game;
 use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyMember;
@@ -101,7 +103,81 @@ it('accepts only voting time for arbiter lobbies and requires roulette-only sett
         ]);
 });
 
-it('uses the arbiter lobby voting time when the arbiter decision window begins', function (): void {
+it('starts the arbiter decision window with the first submitted proposal', function (): void {
+    Event::fake([MultiplayerArbiterStateChanged::class]);
+    Queue::fake();
+    Carbon::setTestNow('2026-09-06 12:00:00');
+
+    try {
+        $host = User::factory()->create();
+        $firstContributor = User::factory()->create();
+        $secondContributor = User::factory()->create();
+        $story = Story::factory()->create();
+        $game = Game::query()->create([
+            'story_id' => $story->id,
+            'user_id' => $host->id,
+            'current_session_number' => 1,
+            'model' => 'claude-sonnet-4-6',
+        ]);
+        $lobby = MultiplayerLobby::factory()->create([
+            'story_id' => $story->id,
+            'host_user_id' => $host->id,
+            'game_id' => $game->id,
+            'mode' => MultiplayerLobbyModeEnum::Arbiter,
+            'status' => MultiplayerLobbyStatusEnum::Started,
+            'turn_status' => MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+            'settings' => [
+                'custom_input_enabled' => false,
+                'voice_over_enabled' => false,
+                'power_ups_per_user' => 10,
+                'decision_window_seconds' => 180,
+            ],
+        ]);
+        $arbiter = MultiplayerLobbyMember::factory()->host()->create([
+            'lobby_id' => $lobby->id,
+            'user_id' => $host->id,
+        ]);
+        MultiplayerLobbyMember::factory()->create([
+            'lobby_id' => $lobby->id,
+            'user_id' => $firstContributor->id,
+        ]);
+        MultiplayerLobbyMember::factory()->create([
+            'lobby_id' => $lobby->id,
+            'user_id' => $secondContributor->id,
+        ]);
+        $sourcePrompt = $game->prompts()->create([
+            'session_number' => 1,
+            'response' => 'A crossroads opens before the party.',
+            'choices' => [],
+        ]);
+        $lobby->update([
+            'current_arbiter_member_id' => $arbiter->id,
+            'current_source_prompt_id' => $sourcePrompt->id,
+        ]);
+
+        app(SubmitMultiplayerLobbyProposalAction::class)->handle($firstContributor, $lobby, 'Take the path through the woods.');
+
+        $lobby->refresh();
+
+        expect($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::CollectingProposals)
+            ->and($lobby->decision_deadline_at?->toISOString())
+            ->toBe(now()->addSeconds(180)->toISOString());
+
+        app(SubmitMultiplayerLobbyProposalAction::class)->handle($secondContributor, $lobby, 'Wait for the storm to pass.');
+
+        $lobby->refresh();
+
+        expect($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::AwaitingArbiter)
+            ->and($lobby->decision_deadline_at?->toISOString())
+            ->toBe(now()->addSeconds(180)->toISOString());
+
+        Queue::assertPushed(ResolveMultiplayerLobbyDecisionDeadlineJob::class, 1);
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+it('resolves the submitted arbiter proposal when the first decision window expires', function (): void {
     Event::fake([MultiplayerArbiterStateChanged::class]);
     Queue::fake();
     Carbon::setTestNow('2026-09-06 12:00:00');
@@ -127,14 +203,14 @@ it('uses the arbiter lobby voting time when the arbiter decision window begins',
                 'custom_input_enabled' => false,
                 'voice_over_enabled' => false,
                 'power_ups_per_user' => 10,
-                'decision_window_seconds' => 30,
+                'decision_window_seconds' => 180,
             ],
         ]);
         $arbiter = MultiplayerLobbyMember::factory()->host()->create([
             'lobby_id' => $lobby->id,
             'user_id' => $host->id,
         ]);
-        MultiplayerLobbyMember::factory()->create([
+        $contributorMember = MultiplayerLobbyMember::factory()->create([
             'lobby_id' => $lobby->id,
             'user_id' => $contributor->id,
         ]);
@@ -149,12 +225,23 @@ it('uses the arbiter lobby voting time when the arbiter decision window begins',
         ]);
 
         app(SubmitMultiplayerLobbyProposalAction::class)->handle($contributor, $lobby, 'Take the path through the woods.');
-
         $lobby->refresh();
+        $deadlineTimestamp = $lobby->decision_deadline_at?->getTimestamp();
 
-        expect($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::AwaitingArbiter)
-            ->and($lobby->decision_deadline_at?->toISOString())
-            ->toBe(now()->addSeconds(30)->toISOString());
+        Carbon::setTestNow('2026-09-06 12:03:01');
+
+        $selection = app(ResolveMultiplayerLobbyDecisionDeadlineAction::class)->handle(
+            $lobby->id,
+            (string) $sourcePrompt->id,
+            $deadlineTimestamp,
+        );
+
+        expect($selection)->not->toBeNull()
+            ->and($selection['proposal_id'])->toBe(
+                (string) $lobby->proposals()->where('member_id', $contributorMember->id)->value('id'),
+            )
+            ->and($selection['lobby']->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::Narrating)
+            ->and($selection['lobby']->decision_deadline_at)->toBeNull();
     } finally {
         Carbon::setTestNow();
     }

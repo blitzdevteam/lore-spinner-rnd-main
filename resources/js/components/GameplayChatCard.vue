@@ -16,39 +16,46 @@ const { settings: gameplaySettings } = useGameplaySettings();
 
 const panelGlassStyle = computed(() => glassTintVars(gameplaySettings.backgroundColor));
 
-const props = withDefaults(defineProps<{
-    prompt: PromptInterface;
-    gameId: string;
-    isLatest?: boolean;
-    pendingChoice?: string;
-    isSubmitting?: boolean;
-    animate?: boolean;
-    isStreamingResponse?: boolean;
-    usesPlayableMoments?: boolean;
-    narrationOnly?: boolean;
-    voiceOverEnabled?: boolean;
-    /**
-     * Onboarding staging (first two turns of a game only).
-     * choicesLocked → turn 1: no buttons at all, the player must type or speak.
-     * freeformLocked → turn 2: buttons only, the chat bar is disabled.
-     * Both false from turn 3 on, which is the normal game.
-     */
-    choicesLocked?: boolean;
-    freeformLocked?: boolean;
-}>(), {
-    voiceOverEnabled: true,
-});
+const props = withDefaults(
+    defineProps<{
+        prompt: PromptInterface;
+        gameId: string;
+        coverUrl?: string | null;
+        isLatest?: boolean;
+        pendingChoice?: string;
+        isSubmitting?: boolean;
+        actionsDisabled?: boolean;
+        animate?: boolean;
+        isStreamingResponse?: boolean;
+        usesPlayableMoments?: boolean;
+        narrationOnly?: boolean;
+        voiceOverEnabled?: boolean;
+        /**
+         * Onboarding staging (first two turns of a game only).
+         * choicesLocked → turn 1: no buttons at all, the player must type or speak.
+         * freeformLocked → turn 2: buttons only, the chat bar is disabled.
+         * Both false from turn 3 on, which is the normal game.
+         */
+        choicesLocked?: boolean;
+        freeformLocked?: boolean;
+    }>(),
+    {
+        voiceOverEnabled: true,
+    },
+);
 
 const emit = defineEmits<{
     'choice-selected': [promptId: string, suggestionIndex: number, choice: PromptChoice];
     continue: [];
     /** Fired once when the choice buttons first become visible on this (latest) card. */
     'choices-ready': [];
+    /** Fired when the typewriter finishes revealing this card's narration. */
+    'narration-finished': [];
 }>();
 
 const tts = useTextToSpeech();
 const typewriter = useTypewriter();
-const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);
+const voiceOverEnabled = computed(() => props.voiceOverEnabled);
 
 const effectiveSelection = computed(() => {
     return props.prompt.prompt || props.pendingChoice || null;
@@ -59,7 +66,7 @@ const isContinued = computed(() => {
 });
 
 const canInteract = computed(() => {
-    return props.isLatest && !effectiveSelection.value && !props.isSubmitting;
+    return props.isLatest && !effectiveSelection.value && !props.isSubmitting && !props.actionsDisabled;
 });
 
 const hasChoices = computed(() => (props.prompt.choices?.length ?? 0) > 0);
@@ -88,7 +95,7 @@ const showContinueButton = computed(() => {
 });
 
 const renderedResponse = computed(() => {
-    if (props.isStreamingResponse || (props.animate && props.isLatest)) {
+    if (props.isStreamingResponse || props.animate) {
         return typewriter.displayedHtml.value;
     }
     return props.prompt.response;
@@ -130,6 +137,10 @@ const getChoiceClass = (choice: string) => {
     const base = 'choice-glass flex min-h-[52px] items-center gap-2 rounded-lg border px-2 py-2 transition-all duration-300 sm:min-h-[60px] sm:gap-2.5 sm:py-1';
 
     if (!effectiveSelection.value) {
+        if (props.actionsDisabled) {
+            return `${base} cursor-not-allowed border-white/5 text-gray-500 opacity-55`;
+        }
+
         return `${base} choice-glass--idle border-white/10 text-white cursor-pointer hover:border-primary-600/70`;
     }
 
@@ -180,12 +191,12 @@ const beginNarration = (response: string) => {
 onMounted(() => {
     if (props.isStreamingResponse && props.prompt.response) {
         typewriter.streamTo(props.prompt.response);
-    } else if (props.animate && props.isLatest && props.prompt.response) {
+    } else if (props.animate && props.prompt.response) {
         beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
         if (voiceOverEnabled.value && props.isLatest && gameplaySettings.autoplay) {
-            tts.play(props.gameId, props.prompt.id);
+            tts.autoplay(props.gameId, props.prompt.id);
         }
     }
 });
@@ -207,7 +218,7 @@ watch(
 watch(
     () => props.animate,
     (animate, wasAnimate) => {
-        if (!animate || wasAnimate || !props.isLatest || !props.prompt.response) return;
+        if (!animate || wasAnimate || !props.prompt.response) return;
         beginNarration(props.prompt.response);
     },
 );
@@ -219,9 +230,10 @@ watch(
     () => typewriter.isTyping.value,
     (isTyping, wasTyping) => {
         if (isTyping || !wasTyping) return; // only on true → false transition
+        emit('narration-finished');
         if (!props.isLatest || !props.animate) return;
         if (!voiceOverEnabled.value || !gameplaySettings.autoplay) return;
-        tts.play(props.gameId, props.prompt.id);
+        tts.autoplay(props.gameId, props.prompt.id);
     },
 );
 
@@ -270,25 +282,45 @@ watch(choicesVisible, (visible, wasVisible) => {
             <span v-if="typewriter.isTyping.value && !props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
-        <!-- ── Listen Again + Continue (tied to narration, above player echo) ── -->
+        <!-- ── Player's action echo ── -->
+        <div v-if="showPlayerAction" class="border-l-2 border-primary py-2 pl-4">
+            <p class="text-base text-primary italic">"{{ playerActionLabel }}"</p>
+        </div>
+
+        <!-- ── Listen Again + Continue ── -->
         <div v-if="showResponseActions && (voiceOverEnabled || showContinueButton)" class="flex flex-row flex-wrap items-center gap-1.5">
             <button
                 v-if="voiceOverEnabled"
                 type="button"
-                class="narration-action-pill bg-glass-effect flex h-[50px] w-auto min-w-0 items-center gap-2 overflow-hidden rounded-full p-1.5 pe-4 sm:pe-5 bg-[#33333330]"
+                class="narration-action-pill listen-again-pill relative flex h-[50px] w-auto items-center gap-[5px] overflow-hidden rounded-[60px] p-[6px] pe-3.5"
                 :class="{ 'cursor-not-allowed opacity-55': listenDisabled }"
                 :title="listenTitle"
                 :disabled="listenDisabled"
                 :aria-disabled="listenDisabled"
                 @click="handleListenAgain"
             >
-                <span class="grid size-9 shrink-0 place-items-center rounded-full bg-primary-600 text-white">
+                <!-- Background layers -->
+                <span aria-hidden class="listen-again-backdrop pointer-events-none absolute inset-0">
+                    <span class="absolute inset-0 bg-[#33333330]" />
+                    <img
+                        v-if="props.coverUrl"
+                        class="absolute top-1/2 left-1/2 h-[58px] w-[195px] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+                        :src="props.coverUrl"
+                        alt=""
+                    />
+                    <span class="absolute inset-0 bg-[rgba(51,51,51,0.3)] mix-blend-saturation backdrop-blur-[6px]" />
+                </span>
+                <!-- Inner shine overlay -->
+                <span aria-hidden class="listen-again-shine pointer-events-none absolute inset-0 rounded-[60px]" />
+                <!-- Icon -->
+                <span class="relative grid size-[37px] shrink-0 place-items-center overflow-hidden rounded-full bg-primary-600 text-white">
                     <LucideLoader v-if="isThisLoading" class="size-4 animate-spin" />
                     <LucidePause v-else-if="isThisPlaying" class="size-4" fill="currentColor" />
                     <LucidePlay v-else class="size-4" fill="currentColor" />
                 </span>
-                <span class="flex min-w-0 flex-col items-start leading-tight">
-                    <span class="text-sm text-primary-400">{{ hasPlayedOnce ? 'Listen Again' : 'Listen' }}</span>
+                <!-- Label -->
+                <span class="relative flex min-w-0 flex-col items-start leading-tight tracking-[0.5px]">
+                    <span class="text-sm text-primary-600">{{ hasPlayedOnce ? 'Listen Again' : 'Listen' }}</span>
                     <span class="text-xs font-light text-[#7e7e7e]">{{ hasPlayedOnce ? 'Replay Narration' : 'Play Narration' }}</span>
                 </span>
             </button>
@@ -309,11 +341,6 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <span class="text-xs font-light text-[#7e7e7e]">Let the story progress</span>
                 </span>
             </button>
-        </div>
-
-        <!-- ── Player's action echo ── -->
-        <div v-if="showPlayerAction" class="border-l-2 border-primary py-2 pl-4">
-            <p class="text-base text-primary italic">"{{ playerActionLabel }}"</p>
         </div>
 
         <!-- ── Choices ── -->
@@ -378,6 +405,28 @@ watch(choicesVisible, (visible, wasVisible) => {
 
 .narration-action-pill:active {
     transform: translateZ(0) scale(0.98);
+}
+
+.listen-again-pill {
+    box-shadow:
+        0 0 2px 0 rgba(0, 0, 0, 0.1),
+        0 1px 8px 0 rgba(0, 0, 0, 0.12);
+}
+
+.listen-again-backdrop {
+    border-radius: inherit;
+    overflow: hidden;
+    transform: translateZ(0);
+}
+
+.listen-again-shine {
+    box-shadow:
+        inset 3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.75),
+        inset -3px -3px 0.5px -3.5px rgba(255, 255, 255, 0.8),
+        inset 1px 1px 1px -0.5px rgba(255, 255, 255, 0.75),
+        inset -1px -1px 1px -0.5px rgba(255, 255, 255, 0.75),
+        inset 0 0 1px 1px rgba(153, 153, 153, 0.15),
+        inset 0 0 16px 0 rgba(242, 242, 242, 0.15);
 }
 
 .choice-glass {

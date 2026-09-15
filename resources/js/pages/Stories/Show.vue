@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import backChevronIcon from '@/assets/story-play/back-chevron.svg';
+import FirstStoryTutorialModal from '@/components/FirstStoryTutorialModal.vue';
 import StoryChapterCard from '@/components/StoryChapterCard.vue';
 import StoryCommentCard from '@/components/StoryCommentCard.vue';
 import StoryPlayAmbientGlows from '@/components/story-play/StoryPlayAmbientGlows.vue';
@@ -28,13 +29,17 @@ const props = defineProps<{
     story: StoryInterface;
     existingGameId?: string | null;
     isPlayable?: boolean;
+    showFirstStoryTutorial?: boolean;
 }>();
 
 type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
+const isRestarting = ref(false);
+const isTutorialOpen = ref(false);
+const hasDismissedTutorial = ref(false);
+const isStartingStory = ref(false);
 const hasExistingGame = computed(() => !!props.existingGameId);
-const isResetting = ref(false);
 const { isBookmarked, toggleBookmark } = useBookmark(props.story.id, props.story.is_bookmarked ?? false);
 const { share } = useShare();
 
@@ -63,26 +68,67 @@ const handleShare = async (): Promise<void> => {
     }
 };
 
-const handleStartStory = (): void => {
-    if (!props.isPlayable) return;
+const startStory = (): void => {
+    if (isStartingStory.value) return;
+
+    isStartingStory.value = true;
+
     if (props.existingGameId) {
-        router.visit(showGame.url(props.existingGameId));
-    } else {
-        router.post(store(), {
-            story_id: props.story.id,
+        router.visit(showGame.url(props.existingGameId), {
+            onFinish: () => {
+                isStartingStory.value = false;
+            },
         });
+
+        return;
     }
+
+    router.post(
+        store(),
+        {
+            story_id: props.story.id,
+        },
+        {
+            onFinish: () => {
+                isStartingStory.value = false;
+            },
+        },
+    );
 };
 
-const handleFreshExperience = (): void => {
-    if (!props.isPlayable || !props.existingGameId || isResetting.value) return;
+const handleStartStory = (): void => {
+    if (!props.isPlayable || isStartingStory.value) return;
+
+    if (props.showFirstStoryTutorial && !props.existingGameId && !hasDismissedTutorial.value) {
+        isTutorialOpen.value = true;
+
+        return;
+    }
+
+    startStory();
+};
+
+const handleTutorialSkip = (): void => {
+    if (hasDismissedTutorial.value) return;
+
+    hasDismissedTutorial.value = true;
+    isTutorialOpen.value = false;
+    startStory();
+};
+
+const handleRestartStory = (): void => {
+    if (!props.isPlayable || !props.existingGameId || isRestarting.value) {
+        return;
+    }
 
     const confirmed = window.confirm(
-        'Start a fresh experience? This will erase all your current progress, including every prompt and choice you have made.',
+        'Start a fresh story? This will erase all your current progress, including every prompt and choice you have made.',
     );
-    if (!confirmed) return;
+    if (!confirmed) {
+        return;
+    }
 
-    isResetting.value = true;
+    isRestarting.value = true;
     router.post(
         resetGame.url(props.existingGameId),
         {},
@@ -90,7 +136,7 @@ const handleFreshExperience = (): void => {
             preserveScroll: false,
             preserveState: false,
             onFinish: () => {
-                isResetting.value = false;
+                isRestarting.value = false;
             },
         },
     );
@@ -206,8 +252,14 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
     >
         <StoryPlayAmbientGlows class="hidden lg:block" />
 
+        <div class="absolute top-4 left-4 z-30 md:top-6 md:left-6 lg:top-8 lg:left-[3.25rem]">
+            <StoryPlayGlassRoundButton aria-label="Go back" @click="handleBack">
+                <img :src="backChevronIcon" alt="" class="h-8 w-5 shrink-0" width="20" height="32" aria-hidden="true" />
+            </StoryPlayGlassRoundButton>
+        </div>
+
         <div
-            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-8 md:px-[3.25rem] md:pt-10 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 md:px-[3.25rem] md:pt-20 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
             :class="isPlayable ? 'pb-40' : 'pb-28'"
         >
             <!-- Left: Poster column -->
@@ -230,12 +282,6 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
 
                 <StoryPlayCoverColumn :src="coverImageUrl" :title="displayTitle" :headline="coverHeadline" :footer-credit="coverFooterCredit">
                     <template #overlay>
-                        <!-- Back button — Figma 45×45 glass circle -->
-                        <div class="pointer-events-auto absolute top-4 left-4">
-                            <StoryPlayGlassRoundButton aria-label="Go back" @click="handleBack">
-                                <img :src="backChevronIcon" alt="" class="h-8 w-5 shrink-0" width="20" height="32" aria-hidden="true" />
-                            </StoryPlayGlassRoundButton>
-                        </div>
                         <div v-if="!coverImageUrl" class="pointer-events-none absolute inset-0 z-[2] grid place-items-center" aria-hidden="true">
                             <span class="font-['Marcellus_SC','Marcellus SC',serif] text-4xl tracking-wider text-white/55 uppercase">
                                 {{ displayTitle.charAt(0)?.toUpperCase() }}
@@ -330,12 +376,15 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                                 <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
                                 <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
                             </div>
-                            <StoryPlayStartCta
-                                v-if="hasExistingGame && isPlayable"
-                                :label="isResetting ? 'Starting fresh…' : 'Start a fresh experience'"
-                                variant="secondary"
-                                @click="handleFreshExperience"
-                            />
+                            <button
+                                v-if="isPlayable"
+                                type="button"
+                                class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
+                                :disabled="!hasExistingGame || isRestarting"
+                                @click="handleRestartStory"
+                            >
+                                Restart Story
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -354,15 +403,24 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                         <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
                         <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
                     </div>
-                    <StoryPlayStartCta
-                        v-if="hasExistingGame && isPlayable"
-                        :label="isResetting ? 'Starting fresh…' : 'Start a fresh experience'"
-                        variant="secondary"
-                        @click="handleFreshExperience"
-                    />
+                    <button
+                        v-if="isPlayable"
+                        type="button"
+                        class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
+                        :disabled="!hasExistingGame || isRestarting"
+                        @click="handleRestartStory"
+                    >
+                        Restart Story
+                    </button>
                 </div>
             </div>
         </div>
+
+        <FirstStoryTutorialModal
+            :open="isTutorialOpen"
+            video-src="/videos/lorespinner-website-guide.mp4"
+            @skip="handleTutorialSkip"
+        />
     </div>
 </template>
 

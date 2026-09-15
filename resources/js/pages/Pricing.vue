@@ -11,53 +11,37 @@ import PricingPlanCard from '@/components/PricingPlanCard.vue';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import { Head } from '@inertiajs/vue3';
 
+type Plan = {
+    name: string;
+    tagline: string;
+    price: string;
+    description: string;
+    features: string[];
+    cta: string;
+    checkoutUrl: string;
+    iconKey: string;
+    accent: 'teal' | 'gold';
+    featured: boolean;
+};
+
 const props = withDefaults(
     defineProps<{
         checkoutStatus?: 'success' | 'cancel' | null;
+        plans?: Plan[];
     }>(),
     {
         checkoutStatus: null,
+        plans: () => [],
     },
 );
 
-const plans = [
-    {
-        name: 'EXPLORER',
-        slug: 'explorer',
-        tagline: 'Start your Journey',
-        price: '$9.9',
-        description: 'Great for casual play. Get enough Spinners to jump into a story, with a steady daily recharge to keep you going.',
-        features: ['100 Spinners', '8 Daily Spinner Recharge', '120 Spinner Storage', 'Access to Stories'],
-        cta: 'Choose Plan',
-        icon: footprints,
-        accent: 'teal' as const,
-        featured: false,
-    },
-    {
-        name: 'ADVENTURER',
-        slug: 'adventurer',
-        tagline: 'Go deeper',
-        price: '$19.9',
-        description: 'For regular players. More daily recharge and higher storage so you can play longer sessions whenever you have time.',
-        features: ['180 Spinners', '15 Daily Spinner Recharge', '200 Spinner Storage', 'Access to Stories'],
-        cta: 'Choose Plan',
-        icon: mountains,
-        accent: 'gold' as const,
-        featured: false,
-    },
-    {
-        name: 'CHRONICLE',
-        slug: 'chronicle',
-        tagline: 'Live the story',
-        price: '$29.9',
-        description: 'For dedicated players. Maximum storage and faster daily recharge so you can play when it suits you.',
-        features: ['300 Spinners', '20 Daily Spinner Recharge', '320 Spinner Storage', 'Access to Stories'],
-        cta: 'Join The Chronicle',
-        icon: crown,
-        accent: 'teal' as const,
-        featured: true,
-    },
-] as const;
+const planIcons: Record<string, string> = {
+    footprints,
+    mountains,
+    crown,
+};
+
+const iconFor = (iconKey: string) => planIcons[iconKey] ?? footprints;
 </script>
 
 <template>
@@ -101,22 +85,25 @@ const plans = [
                         Checkout canceled. Choose a plan whenever you are ready.
                     </p>
 
-                    <div class="mt-12 grid w-full grid-cols-1 items-stretch gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
+                    <div v-if="props.plans.length" class="mt-12 grid w-full grid-cols-1 items-start gap-5 overflow-visible py-2 md:mt-[3.75rem] md:grid-cols-3">
                         <PricingPlanCard
-                            v-for="plan in plans"
-                            :key="plan.name"
+                            v-for="plan in props.plans"
+                            :key="plan.checkoutUrl"
                             :name="plan.name"
                             :tagline="plan.tagline"
                             :price="plan.price"
                             :description="plan.description"
                             :features="plan.features"
                             :cta="plan.cta"
-                            :href="`/user/checkout/${plan.slug}`"
-                            :icon="plan.icon"
+                            :href="plan.checkoutUrl"
+                            :icon="iconFor(plan.iconKey)"
                             :accent="plan.accent"
                             :featured="plan.featured"
                         />
                     </div>
+                    <p v-else class="mt-12 text-center text-base text-[#838383]">
+                        Subscription plans are being prepared. Please check back shortly.
+                    </p>
                 </div>
             </section>
 

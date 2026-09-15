@@ -49,7 +49,10 @@ use Override;
  */
 final class MultiplayerLobby extends Model
 {
-    private const int DEFAULT_DECISION_WINDOW_SECONDS = 20;
+    public const int DEFAULT_DECISION_WINDOW_SECONDS = 180;
+
+    /** @var list<int> */
+    public const array DECISION_WINDOW_SECONDS = [180, 240, 300, 360];
 
     /** @use HasFactory<MultiplayerLobbyFactory> */
     use HasFactory;
@@ -135,7 +138,7 @@ final class MultiplayerLobby extends Model
     {
         $decisionWindowSeconds = (int) ($this->settings['decision_window_seconds'] ?? self::DEFAULT_DECISION_WINDOW_SECONDS);
 
-        return in_array($decisionWindowSeconds, [10, 20, 30], true)
+        return in_array($decisionWindowSeconds, self::DECISION_WINDOW_SECONDS, true)
             ? $decisionWindowSeconds
             : self::DEFAULT_DECISION_WINDOW_SECONDS;
     }

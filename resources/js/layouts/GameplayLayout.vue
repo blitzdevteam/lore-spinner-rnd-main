@@ -7,15 +7,15 @@ import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayJournalPanel, { type JournalMeta } from '@/components/GameplayJournalPanel.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
-import GameplayRecapPanel from '@/components/GameplayRecapPanel.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
+import GameplaySubscriptionUsagePanel from '@/components/GameplaySubscriptionUsagePanel.vue';
 import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
-import { GameplayUsageSummary } from '@/types';
+import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronDown, LucideChevronLeft, LucideChevronUp, LucideMenu, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideChevronLeft, LucideGauge, LucideLoader, LucideNotebookText, LucidePause, LucideSettings, LucideVolume2, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -29,6 +29,7 @@ const props = withDefaults(
         inputDisabled?: boolean;
         gameId?: string;
         usage?: GameplayUsageSummary;
+        subscriptionUsage?: SubscriptionUsageSummary | null;
         latestPromptId?: string | null;
         coverUrl?: string | null;
         journalMeta?: JournalMeta;
@@ -46,9 +47,10 @@ const props = withDefaults(
          * Suppresses the orbit glow so the UI does not read as "thinking".
          */
         inputLockedByDesign?: boolean;
-        recapText?: string | null;
-        recapLoading?: boolean;
-        recapError?: string | null;
+        /**
+         * Hide the chat bar entirely (episode/story completion ceremony).
+         */
+        hideInput?: boolean;
     }>(),
     {
         inputDisabled: false,
@@ -60,9 +62,7 @@ const props = withDefaults(
         inputPlaceholder: '',
         nudgeTrigger: 0,
         inputLockedByDesign: false,
-        recapText: null,
-        recapLoading: false,
-        recapError: null,
+        hideInput: false,
     },
 );
 
@@ -115,23 +115,9 @@ function onInputReadyToType() {
     }
 }
 
-type Panel = 'journal' | 'settings' | 'audio' | null;
+type Panel = 'journal' | 'settings' | 'usage' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
-const recapView = ref<'closed' | 'actions' | 'recap'>('closed');
-const recapDrawerEl = ref<HTMLElement | null>(null);
-const recapDockEl = ref<HTMLElement | null>(null);
-const recapDragOffset = ref(0);
-const recapDragging = ref(false);
-let recapDragStartY = 0;
-let recapDragStartTime = 0;
-
-/** Drag distance (px) past which releasing dismisses the drawer. */
-const RECAP_DISMISS_DISTANCE = 96;
-/** Downward fling speed (px/ms) that dismisses regardless of distance. */
-const RECAP_DISMISS_VELOCITY = 0.55;
-
-const recapOpen = computed(() => recapView.value === 'recap');
 const journalTab = ref<'journals' | 'characters'>('journals');
 const journalSheetTab = ref<'timeline' | 'characters'>('timeline');
 const isMobile = ref(false);
@@ -140,19 +126,9 @@ const inputFocused = ref(false);
 
 const MOBILE_MQ = '(max-width: 767px)';
 
-const { settings, syncVoiceForStory } = useGameplaySettings();
+const { settings } = useGameplaySettings();
 const tts = useTextToSpeech();
 const { audioSheetOpen } = useFeedbackWidget();
-
-watch(
-    () => props.storySlug,
-    (slug) => {
-        if (syncVoiceForStory(slug)) {
-            tts.invalidateCache();
-        }
-    },
-    { immediate: true },
-);
 
 function syncMobile() {
     if (typeof window === 'undefined') return;
@@ -163,14 +139,14 @@ onMounted(() => {
     syncMobile();
     window.matchMedia(MOBILE_MQ).addEventListener('change', syncMobile);
     isIos.value = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    window.addEventListener('keydown', onRecapKeydown);
-    document.addEventListener('pointerdown', onRecapPointerDownOutside);
+    document.documentElement.classList.add('gameplay-scrollbar-theme');
+    document.body.classList.add('gameplay-scrollbar-theme');
 });
 
 onUnmounted(() => {
     window.matchMedia(MOBILE_MQ).removeEventListener('change', syncMobile);
-    window.removeEventListener('keydown', onRecapKeydown);
-    document.removeEventListener('pointerdown', onRecapPointerDownOutside);
+    document.documentElement.classList.remove('gameplay-scrollbar-theme');
+    document.body.classList.remove('gameplay-scrollbar-theme');
 });
 
 watch(isMobile, (mobile) => {
@@ -189,72 +165,8 @@ const toggleJournal = () => {
     activePanel.value = activePanel.value === 'journal' ? null : 'journal';
 };
 
-const toggleRecapPanel = () => {
-    // Toggle the hidden action strip that reveals the Recap button.
-    recapView.value = recapView.value === 'closed' ? 'actions' : 'closed';
-};
-
-const toggleRecap = () => {
-    // From the action strip, open the recap drawer (slides up from behind the chat bar).
-    recapDragOffset.value = 0;
-    recapView.value = 'recap';
-    emit('recap');
-};
-
-const closeRecap = () => {
-    recapDragOffset.value = 0;
-    recapView.value = 'actions';
-};
-
-function onRecapKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Escape' || recapView.value === 'closed') return;
-
-    if (recapOpen.value) {
-        closeRecap();
-    } else {
-        recapView.value = 'closed';
-    }
-}
-
-function onRecapPointerDownOutside(event: PointerEvent): void {
-    if (!recapOpen.value) return;
-    if (recapDockEl.value?.contains(event.target as Node)) return;
-
-    closeRecap();
-}
-
-function startRecapDrag(event: PointerEvent): void {
-    recapDragStartY = event.clientY;
-    recapDragStartTime = event.timeStamp;
-    recapDragging.value = true;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-}
-
-function moveRecapDrag(event: PointerEvent): void {
-    if (!recapDragging.value) return;
-
-    const delta = event.clientY - recapDragStartY;
-
-    recapDragOffset.value = delta >= 0 ? delta : delta / 5;
-}
-
-function endRecapDrag(event: PointerEvent): void {
-    if (!recapDragging.value) return;
-
-    const travelled = recapDragOffset.value;
-    const elapsed = Math.max(1, event.timeStamp - recapDragStartTime);
-    const velocity = travelled / elapsed;
-
-    recapDragging.value = false;
-    recapDragOffset.value = 0;
-
-    if (velocity > RECAP_DISMISS_VELOCITY || travelled > RECAP_DISMISS_DISTANCE) {
-        closeRecap();
-    }
-}
-
 const refreshUsage = () => {
-    router.reload({ only: ['usage'] });
+    router.reload({ only: ['usage', 'subscriptionUsage'] });
 };
 
 const toggleSettings = () => {
@@ -266,10 +178,19 @@ const toggleSettings = () => {
     }
 };
 
+const toggleUsage = () => {
+    const openingUsage = activePanel.value !== 'usage';
+    activePanel.value = openingUsage ? 'usage' : null;
+
+    if (openingUsage) {
+        refreshUsage();
+    }
+};
+
 watch(
     () => tts.isLoading.value,
     (isLoading, wasLoading) => {
-        if (!isLoading && wasLoading && activePanel.value === 'settings') {
+        if (!isLoading && wasLoading) {
             refreshUsage();
         }
     },
@@ -280,14 +201,35 @@ const toggleAutoplay = () => {
     settings.autoplay = !settings.autoplay;
 };
 
-const toggleMedia = () => {
-    if (!tts.isActive.value && props.gameId && props.latestPromptId) {
-        tts.primeAudio();
-        tts.play(props.gameId, props.latestPromptId);
+const isNarratingLatest = computed(() => {
+    return !!props.gameId && !!props.latestPromptId && tts.activeKey.value === `${props.gameId}:${props.latestPromptId}`;
+});
+
+const isNarrationLoading = computed(() => isNarratingLatest.value && tts.isLoading.value);
+const isNarrationPlaying = computed(() => isNarratingLatest.value && tts.isPlaying.value);
+
+const narrationTitle = computed(() => {
+    if (!props.gameId || !props.latestPromptId) {
+        return 'Narration will be available when story text arrives';
+    }
+
+    if (isNarrationLoading.value) {
+        return 'Preparing narration';
+    }
+
+    if (isNarrationPlaying.value) {
+        return 'Pause narration';
+    }
+
+    return isNarratingLatest.value ? 'Narrate again' : 'Narrate latest story text';
+});
+
+const toggleNarration = () => {
+    if (!props.gameId || !props.latestPromptId) {
         return;
     }
 
-    tts.mediaCollapsed.value = !tts.mediaCollapsed.value;
+    tts.toggle(props.gameId, props.latestPromptId);
 };
 
 function openAudioSettings() {
@@ -308,13 +250,11 @@ const closeMobilePanel = () => {
     }
 };
 
-const showDesktopBackdrop = () =>
-    !isMobile.value && (activePanel.value === 'journal' || activePanel.value === 'settings');
+const showDesktopBackdrop = () => !isMobile.value && ['journal', 'settings', 'usage'].includes(activePanel.value ?? '');
 
 const emit = defineEmits<{
     submit: [prompt: string];
     back: [];
-    recap: [];
 }>();
 
 const handleInputSubmit = (prompt: string) => {
@@ -325,7 +265,7 @@ const handleInputSubmit = (prompt: string) => {
 </script>
 
 <template>
-    <div class="relative min-h-svh">
+    <div class="gameplay-layout relative min-h-svh">
         <div class="pointer-events-none fixed inset-0 z-0" :style="{ background: auroraProps.deep }" />
         <AuroraBackground
             class="pointer-events-none fixed inset-0 z-0"
@@ -357,7 +297,19 @@ const handleInputSubmit = (prompt: string) => {
                                     @click="toggleSettings"
                                 >
                                     <LucideX v-if="activePanel === 'settings'" class="size-5 text-secondary-300" />
-                                    <LucideSettings v-else class="size-5 text-secondary-300" />
+                                    <LucideSettings v-else class="size-5 text-gray-300" />
+                                </GameplayCapsuleButton>
+                            </div>
+                            <div class="hidden md:inline-flex">
+                                <GameplayCapsuleButton
+                                    label="Usage"
+                                    label-tone="secondary"
+                                    :title="activePanel === 'usage' ? 'Close subscription usage' : 'Subscription usage'"
+                                    :active="activePanel === 'usage'"
+                                    @click="toggleUsage"
+                                >
+                                    <LucideX v-if="activePanel === 'usage'" class="size-5 text-secondary-300" />
+                                    <LucideGauge v-else class="size-5 text-gray-300" />
                                 </GameplayCapsuleButton>
                             </div>
                         </div>
@@ -378,20 +330,19 @@ const handleInputSubmit = (prompt: string) => {
                             >
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
-                                label="Audio"
+                                label="Narrate"
                                 label-tone="secondary"
-                                :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
-                                :active="tts.isActive.value && !tts.mediaCollapsed.value"
-                                @click="toggleMedia"
+                                :title="narrationTitle"
+                                :active="isNarratingLatest"
+                                @click="toggleNarration"
                             >
-                                <LucideAudioLines
-                                    class="size-5"
-                                    :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-secondary-300' : 'text-gray-300'"
-                                />
+                                <LucideLoader v-if="isNarrationLoading" class="size-5 animate-spin text-secondary-300" />
+                                <LucidePause v-else-if="isNarrationPlaying" class="size-5 text-secondary-300" fill="currentColor" />
+                                <LucideVolume2 v-else class="size-5" :class="isNarratingLatest ? 'text-secondary-300' : 'text-gray-300'" />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
                                 label="Notes"
@@ -401,7 +352,7 @@ const handleInputSubmit = (prompt: string) => {
                                 @click="toggleJournal"
                             >
                                 <LucideX v-if="activePanel === 'journal'" class="size-5 text-secondary-300" />
-                                <LucideNotebookText v-else class="size-5 text-secondary-300" />
+                                <LucideNotebookText v-else class="size-5 text-gray-300" />
                             </GameplayCapsuleButton>
                         </div>
 
@@ -416,19 +367,30 @@ const handleInputSubmit = (prompt: string) => {
                                 <LucideX v-if="activePanel === 'settings'" class="size-5 text-secondary-300" />
                                 <LucideSettings v-else class="size-5 text-gray-300" />
                             </button>
+                            <button
+                                class="mobile-pill__btn"
+                                :class="{ 'mobile-pill__btn--active': activePanel === 'usage' }"
+                                :title="activePanel === 'usage' ? 'Close subscription usage' : 'Subscription usage'"
+                                @click="toggleUsage"
+                            >
+                                <LucideX v-if="activePanel === 'usage'" class="size-5 text-secondary-300" />
+                                <LucideGauge v-else class="size-5 text-gray-300" />
+                            </button>
                             <button class="mobile-pill__btn" :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'" @click="toggleAutoplay">
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
                                 />
                             </button>
                             <button
                                 class="mobile-pill__btn"
-                                :class="{ 'mobile-pill__btn--active': tts.isActive.value && !tts.mediaCollapsed.value }"
-                                :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
-                                @click="toggleMedia"
+                                :class="{ 'mobile-pill__btn--active': isNarratingLatest }"
+                                :title="narrationTitle"
+                                @click="toggleNarration"
                             >
-                                <LucideAudioLines class="size-5" :class="tts.isActive.value ? 'text-secondary-300' : 'text-gray-300'" />
+                                <LucideLoader v-if="isNarrationLoading" class="size-5 animate-spin text-secondary-300" />
+                                <LucidePause v-else-if="isNarrationPlaying" class="size-5 text-secondary-300" fill="currentColor" />
+                                <LucideVolume2 v-else class="size-5" :class="isNarratingLatest ? 'text-secondary-300' : 'text-gray-300'" />
                             </button>
                             <button
                                 class="mobile-pill__btn"
@@ -448,113 +410,24 @@ const handleInputSubmit = (prompt: string) => {
                     class="z-5 mx-auto flex w-full flex-col transition-colors duration-300"
                     :style="{ fontSize: settings.fontSize + 'px', color: settings.fontColor }"
                 >
-                    <div class="p-3">
+                    <div :class="props.hideInput ? 'px-3' : 'p-3'">
                         <slot name="header" />
                     </div>
                     <div
                         class="mx-auto flex max-w-3xl flex-col gap-8 p-3"
-                        :class="isMobile ? 'pb-42' : 'pb-32'"
+                        :class="props.hideInput ? 'pb-4' : isMobile ? 'pb-42' : 'pb-32'"
                     >
                         <slot name="game" />
                     </div>
                     <div
+                        v-if="!props.hideInput"
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
-                        <div ref="recapDockEl" class="flex flex-col items-center px-0">
-                            <!-- ── Recap drawer (in flow above the bar, so it never covers narration) ── -->
-                            <Transition name="recap-drawer">
-                                <div v-if="recapOpen" class="recap-drawer w-full max-w-3xl">
-                                    <div class="min-h-0 overflow-hidden pb-2">
-                                        <div
-                                            ref="recapDrawerEl"
-                                            class="flex max-h-[42vh] flex-col overflow-hidden rounded-2xl border border-primary/20 bg-gray-950/95 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-                                            :class="recapDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'"
-                                            :style="{ transform: `translateY(${recapDragOffset}px)` }"
-                                            role="dialog"
-                                            aria-label="Story recap"
-                                        >
-                                            <button
-                                                type="button"
-                                                class="group flex h-8 w-full shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-                                                aria-label="Drag down to close recap"
-                                                @pointerdown="startRecapDrag"
-                                                @pointermove="moveRecapDrag"
-                                                @pointerup="endRecapDrag"
-                                                @pointercancel="endRecapDrag"
-                                            >
-                                                <span class="h-1 w-10 rounded-full bg-white/30 transition-colors group-hover:bg-white/60" />
-                                            </button>
-                                            <div class="flex shrink-0 items-center justify-between px-5 pb-2 md:px-6">
-                                                <span class="text-xs font-semibold tracking-[0.18em] text-primary-300 uppercase">Recap</span>
-                                                <button
-                                                    type="button"
-                                                    class="text-xs text-gray-500 transition hover:text-gray-200"
-                                                    aria-label="Close recap"
-                                                    @click="closeRecap"
-                                                >
-                                                    Close
-                                                </button>
-                                            </div>
-                                            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 md:px-6">
-                                                <GameplayRecapPanel
-                                                    :text="props.recapText"
-                                                    :loading="props.recapLoading"
-                                                    :error="props.recapError"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Transition>
-
-                            <!-- ── Toggle nub: only shown while the drawer is closed ── -->
-                            <Transition name="recap-nub">
-                                <button
-                                    v-if="!recapOpen"
-                                    type="button"
-                                    class="group flex h-6 shrink-0 items-center justify-center"
-                                    :title="recapView === 'closed' ? 'Show recap' : 'Hide'"
-                                    :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide'"
-                                    :aria-expanded="recapView !== 'closed'"
-                                    @click="toggleRecapPanel"
-                                >
-                                    <span class="flex items-center rounded-full border border-white/10 bg-black/40 px-2.5 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
-                                        <LucideChevronUp v-if="recapView === 'closed'" class="size-3.5" />
-                                        <LucideChevronDown v-else class="size-3.5" />
-                                    </span>
-                                </button>
-                            </Transition>
-
-                            <!-- ── Action strip ── -->
-                            <Transition name="action-strip">
-                                <div v-if="recapView !== 'closed'" class="action-strip w-full max-w-3xl">
-                                    <div class="min-h-0 overflow-hidden">
-                                        <div class="mb-2 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/95 px-3 py-2 md:px-4">
-                                            <button
-                                                type="button"
-                                                class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
-                                                :class="recapOpen
-                                                    ? 'border-primary/60 bg-primary/15 text-primary-300'
-                                                    : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
-                                                :title="recapOpen ? 'Close recap' : 'Catch me up'"
-                                                @click="recapOpen ? closeRecap() : toggleRecap()"
-                                            >
-                                                <LucideX v-if="recapOpen" class="size-4" />
-                                                <LucideMenu v-else class="size-4 text-primary-300" />
-                                                <span>Recap</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Transition>
-
-                            <!-- Mobile media player -->
-                            <div class="flex w-full max-w-3xl items-center justify-start md:hidden">
+                        <div class="flex flex-col items-center gap-3 px-0">
+                            <div class="flex w-full items-center justify-start md:hidden">
                                 <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
-
-                            <!-- Chat input -->
                             <GameplayInput
                                 :disabled="props.inputDisabled"
                                 :glow-variant="inputGlowVariant"
@@ -624,7 +497,22 @@ const handleInputSubmit = (prompt: string) => {
                     class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
                 >
                     <div class="flex h-full w-full flex-col px-6 pt-8">
-                        <GameplaySettingsPanel variant="sidebar" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
+                        <GameplaySettingsPanel
+                            variant="sidebar"
+                            :game-id="props.gameId"
+                            :prompt-id="props.latestPromptId"
+                            :usage="props.usage"
+                            :subscription-usage="props.subscriptionUsage"
+                        />
+                    </div>
+                </div>
+                <div
+                    v-else-if="!isMobile && activePanel === 'usage'"
+                    key="usage"
+                    class="fixed inset-y-0 right-0 z-50 flex h-svh w-[85vw] max-w-sm flex-col overflow-y-auto border-s border-gray-700 bg-gray-900 md:sticky md:right-auto md:z-50 md:w-sm md:max-w-none md:shrink-0"
+                >
+                    <div class="flex h-full w-full flex-col px-6 pt-8">
+                        <GameplaySubscriptionUsagePanel :subscription-usage="props.subscriptionUsage" />
                     </div>
                 </div>
             </Transition>
@@ -643,16 +531,57 @@ const handleInputSubmit = (prompt: string) => {
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'settings'" title="Settings" @close="closeMobilePanel">
-            <GameplaySettingsPanel variant="sheet" :game-id="props.gameId" :prompt-id="props.latestPromptId" :usage="props.usage" />
+            <GameplaySettingsPanel
+                variant="sheet"
+                :game-id="props.gameId"
+                :prompt-id="props.latestPromptId"
+                :usage="props.usage"
+                :subscription-usage="props.subscriptionUsage"
+            />
+        </GameplayBottomSheet>
+
+        <GameplayBottomSheet :open="isMobile && activePanel === 'usage'" title="Subscription usage" @close="closeMobilePanel">
+            <GameplaySubscriptionUsagePanel :subscription-usage="props.subscriptionUsage" />
         </GameplayBottomSheet>
 
         <GameplayBottomSheet :open="isMobile && activePanel === 'audio'" title="Audio" @close="closeMobilePanel">
-            <GameplayAudioPanel :game-id="props.gameId" :prompt-id="props.latestPromptId" />
+            <GameplayAudioPanel />
         </GameplayBottomSheet>
     </div>
 </template>
 
 <style scoped>
+.gameplay-layout {
+    overflow-anchor: none;
+}
+
+:global(html.gameplay-scrollbar-theme),
+:global(body.gameplay-scrollbar-theme) {
+    scrollbar-color: rgba(84, 244, 218, 0.3) transparent;
+    scrollbar-width: thin;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar) {
+    width: 4px;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-track),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-track) {
+    background: transparent;
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-thumb),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-thumb) {
+    border-radius: 9999px;
+    background: rgba(84, 244, 218, 0.3);
+}
+
+:global(html.gameplay-scrollbar-theme::-webkit-scrollbar-thumb:hover),
+:global(body.gameplay-scrollbar-theme::-webkit-scrollbar-thumb:hover) {
+    background: rgba(84, 244, 218, 0.5);
+}
+
 .sidebar-slide-enter-active,
 .sidebar-slide-leave-active {
     transition: all 0.3s ease;
@@ -662,66 +591,6 @@ const handleInputSubmit = (prompt: string) => {
 .sidebar-slide-leave-to {
     width: 0;
     opacity: 0;
-}
-
-/*
- * The drawer and action strip animate their real content height via
- * grid-template-rows (0fr -> 1fr), so no hard-coded max-height can clip them.
- */
-.recap-drawer,
-.action-strip {
-    display: grid;
-    grid-template-rows: 1fr;
-}
-
-.recap-drawer-enter-active,
-.recap-drawer-leave-active {
-    transition:
-        grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.2s ease;
-}
-
-.recap-drawer-enter-from,
-.recap-drawer-leave-to {
-    grid-template-rows: 0fr;
-    opacity: 0;
-}
-
-.action-strip-enter-active,
-.action-strip-leave-active {
-    transition:
-        grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.18s ease;
-}
-
-.action-strip-enter-from,
-.action-strip-leave-to {
-    grid-template-rows: 0fr;
-    opacity: 0;
-}
-
-.recap-nub-enter-active,
-.recap-nub-leave-active {
-    transition:
-        opacity 0.18s ease,
-        transform 0.18s ease;
-}
-
-.recap-nub-enter-from,
-.recap-nub-leave-to {
-    opacity: 0;
-    transform: translateY(0.25rem);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .recap-drawer-enter-active,
-    .recap-drawer-leave-active,
-    .action-strip-enter-active,
-    .action-strip-leave-active,
-    .recap-nub-enter-active,
-    .recap-nub-leave-active {
-        transition-duration: 0.01ms;
-    }
 }
 
 .backdrop-fade-enter-active,
@@ -752,8 +621,15 @@ const handleInputSubmit = (prompt: string) => {
     cursor: pointer;
     transition:
         background 0.15s ease,
-        box-shadow 0.15s ease;
+        box-shadow 0.15s ease,
+        color 0.15s ease;
     flex-shrink: 0;
+}
+
+.mobile-pill__btn:hover :deep(svg),
+.mobile-pill__btn:focus-visible :deep(svg),
+.mobile-pill__btn--active :deep(svg) {
+    color: var(--color-secondary-300);
 }
 
 .mobile-pill__btn--active {

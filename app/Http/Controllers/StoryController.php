@@ -87,8 +87,11 @@ final class StoryController extends Controller
             ]);
 
         $existingGameId = null;
+        $showFirstStoryTutorial = false;
         if (Auth::check()) {
-            $existingGameId = Auth::user()->games()->where('story_id', $story->id)->value('id');
+            $user = Auth::user();
+            $existingGameId = $user->games()->where('story_id', $story->id)->value('id');
+            $showFirstStoryTutorial = ! $user->games()->where('is_preview', false)->exists();
         }
 
         // Playable when published, on the review list, and boiler-complete.
@@ -98,6 +101,7 @@ final class StoryController extends Controller
             'story'          => $story->toResource(),
             'existingGameId' => $existingGameId,
             'isPlayable'     => $isPlayable,
+            'showFirstStoryTutorial' => $showFirstStoryTutorial,
         ]);
     }
 
