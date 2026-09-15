@@ -1,5 +1,6 @@
 import { getMoodNavLinks, normalizeMood } from '@/data/moodBanners';
 import { index } from '@/wayfinder/routes';
+import { pricing } from '@/wayfinder/routes';
 import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { index as worldsIndex } from '@/wayfinder/routes/worlds';
 import { usePage } from '@inertiajs/vue3';
@@ -34,6 +35,8 @@ export function useHomeHeaderNav() {
 
     const isAboutUsActive = computed(() => pageUrl.value.split('?')[0] === '/about-us');
 
+    const isPricingActive = computed(() => pageUrl.value.split('?')[0] === pricing().url);
+
     const isMoodsActive = computed(() => activeMood.value !== null);
 
     const moodLinks = getMoodNavLinks(storiesIndex().url);
@@ -45,11 +48,13 @@ export function useHomeHeaderNav() {
         isLibraryActive,
         isWorldsActive,
         isAboutUsActive,
+        isPricingActive,
         isMoodsActive,
         moodLinks,
         homeHref: index().url,
         libraryHref: storiesIndex().url,
         worldsHref: worldsIndex().url,
         aboutUsHref: '/about-us',
+        pricingHref: pricing().url,
     };
 }

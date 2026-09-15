@@ -18,12 +18,14 @@ const {
     isLibraryActive,
     isWorldsActive,
     isAboutUsActive,
+    isPricingActive,
     isMoodsActive,
     moodLinks,
     homeHref,
     libraryHref,
     worldsHref,
     aboutUsHref,
+    pricingHref,
 } = useHomeHeaderNav();
 
 /* Reserve the same box for every item so labels never shift; underline bar is hidden even when active */
@@ -31,7 +33,7 @@ const underlineSlotClass = (): string => 'pointer-events-none invisible mt-2 h-[
 const navItemShell =
     'relative flex h-[4.6875rem] w-fit items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black';
 const navStack = 'relative flex flex-col items-center';
-const navLabelRow = 'relative z-[1] flex items-center justify-center p-[0.625rem] font-[Inter] text-[1rem] leading-[2.0625rem] transition-colors';
+const navLabelRow = 'relative z-[1] flex items-center justify-center p-[0.625rem] font-[Inter] text-[0.9375rem] leading-[2.0625rem] transition-colors';
 
 const inactiveText = 'text-[#D8D8D8] hover:text-primary';
 const activeText = 'text-primary';
@@ -167,6 +169,26 @@ const moodItemClass = (slug: string): string =>
                 <Link :href="aboutUsHref" :class="navItemShell">
                     <span :class="navStack">
                         <span :class="navClass(isAboutUsActive)">About Us</span>
+                        <span :class="underlineSlotClass()" aria-hidden="true" />
+                    </span>
+                </Link>
+            </li>
+
+            <li aria-hidden="true" class="hidden md:flex">
+                <span class="relative -mx-5 flex flex-col items-center">
+                    <span class="relative z-[1] flex items-center justify-center py-[0.625rem]">
+                        <span class="flex h-[2.0625rem] items-center justify-center">
+                            <span class="nav-divider" />
+                        </span>
+                    </span>
+                    <span class="pointer-events-none invisible mt-2 h-[3px] w-16 shrink-0" aria-hidden="true" />
+                </span>
+            </li>
+
+            <li>
+                <Link :href="pricingHref" :class="navItemShell">
+                    <span :class="navStack">
+                        <span :class="navClass(isPricingActive)">Pricing</span>
                         <span :class="underlineSlotClass()" aria-hidden="true" />
                     </span>
                 </Link>

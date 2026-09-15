@@ -10,6 +10,7 @@ const props = defineProps<{
     chapter: ChapterInterface;
     /** 1-based episode index for display (Episode N). */
     episodeNumber: number;
+    isCompleted?: boolean;
 }>();
 
 const coverImage = computed(() => props.chapter.cover || chapterPlaceholder);
@@ -25,8 +26,11 @@ const isLocked = computed(() => !isPlayable.value);
 const episodeLabel = computed(() => `Episode ${displayNumber.value}`);
 
 const eventsLabel = computed(() => {
-    if (isPlayable.value) {
+    if (props.isCompleted) {
         return 'Events completed';
+    }
+    if (isPlayable.value) {
+        return null;
     }
     const count = props.chapter.events_count;
     if (count == null) {
@@ -72,40 +76,12 @@ const eventsLabel = computed(() => {
                                 {{ episodeLabel }}
                             </h3>
 
-                            <div
-                                v-if="!isLocked"
-                                class="relative flex h-6 w-[94px] shrink-0 items-center justify-center overflow-hidden rounded-[27px]"
-                                style="box-shadow: 0px 4px 80px rgba(0, 0, 0, 0.2)"
-                            >
-                                <span
-                                    aria-hidden="true"
-                                    class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]"
-                                />
-                                <span
-                                    aria-hidden="true"
-                                    class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] backdrop-blur-[3px] mix-blend-plus-lighter"
-                                />
-                                <span
-                                    class="relative z-[1] font-['Inter',sans-serif] text-center text-xs font-medium text-[#ffbe58]"
-                                >
-                                    Spins Earned
-                                </span>
-                                <span
-                                    aria-hidden="true"
-                                    class="pointer-events-none absolute inset-0 rounded-[inherit]"
-                                    style="
-                                        box-shadow:
-                                            inset 0.25px 0.5px 0.5px 0.25px rgba(255, 255, 255, 0.22),
-                                            inset -0.2px -0.5px 0.15px 0.5px rgba(255, 255, 255, 0.05);
-                                    "
-                                />
-                            </div>
                         </div>
 
                         <p
                             v-if="eventsLabel"
                             class="w-full font-['Inter',sans-serif] text-[0.8125rem] font-normal leading-normal"
-                            :class="isPlayable ? 'text-[#59c1ca]' : 'text-[#3f3f3f]'"
+                            :class="isCompleted ? 'text-[#59c1ca]' : 'text-[#3f3f3f]'"
                         >
                             {{ eventsLabel }}
                         </p>

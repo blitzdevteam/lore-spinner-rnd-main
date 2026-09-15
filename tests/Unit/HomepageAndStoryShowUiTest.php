@@ -92,3 +92,42 @@ it('exposes restart story on the story details page when a game already exists',
         ->toContain('!hasExistingGame || isRestarting')
         ->toContain('resetGame.url(props.existingGameId)');
 });
+
+it('shows the fixed episode duration and data-driven episode completion', function (): void {
+    $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
+    $chapterCard = file_get_contents(resource_path('js/components/StoryChapterCard.vue'));
+    $storyController = file_get_contents(app_path('Http/Controllers/StoryController.php'));
+
+    expect($storyShow)
+        ->toContain('Approx. 25m per episode')
+        ->toContain('completedEpisodeNumbers')
+        ->toContain(':is-completed="completedEpisodeNumbers.includes(chapter.position)"');
+
+    expect($chapterCard)
+        ->not->toContain('Spins Earned')
+        ->toContain('if (props.isCompleted)')
+        ->toContain('Events completed');
+
+    expect($storyController)
+        ->toContain("'completedEpisodeNumbers' => $completedEpisodeNumbers")
+        ->toContain('$existingGame->current_session_complete');
+});
+
+it('adds pricing to the home navigation without profile usage details', function (): void {
+    $headerMenu = file_get_contents(resource_path('js/components/HomeHeaderMenu.vue'));
+    $mobileMenu = file_get_contents(resource_path('js/components/HomeHeaderMobileMenu.vue'));
+    $profile = file_get_contents(resource_path('js/components/HomeHeaderProfile.vue'));
+
+    expect($headerMenu)
+        ->toContain('Pricing')
+        ->toContain('text-[0.9375rem]');
+
+    expect($mobileMenu)
+        ->toContain('Pricing');
+
+    expect($profile)
+        ->not->toContain('subscription_usage')
+        ->not->toContain('Actions')
+        ->not->toContain('Voice')
+        ->not->toContain('Remaining subscription allowances');
+});

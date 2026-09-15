@@ -17,12 +17,14 @@ const {
     isLibraryActive,
     isWorldsActive,
     isAboutUsActive,
+    isPricingActive,
     isMoodsActive,
     moodLinks,
     homeHref,
     libraryHref,
     worldsHref,
     aboutUsHref,
+    pricingHref,
 } = useHomeHeaderNav();
 
 const moodsExpanded = ref(false);
@@ -124,6 +126,10 @@ const moodLinkClass = (slug: string): string =>
 
                         <li>
                             <Link :href="aboutUsHref" :class="navLinkClass(isAboutUsActive)" @click="closeMenu"> About Us </Link>
+                        </li>
+
+                        <li>
+                            <Link :href="pricingHref" :class="navLinkClass(isPricingActive)" @click="closeMenu"> Pricing </Link>
                         </li>
                     </ul>
                 </nav>

@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Enums\Comment\CommentStatusEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Http\Resources\MultiplayerLobbyCardResource;
+use App\Models\Chapter;
 use App\Models\MultiplayerLobby;
 use App\Models\Story;
 use App\Support\StoryPlayability;
@@ -70,7 +71,7 @@ final class StoryController extends Controller
                     $query
                         ->with(['media'])
                         ->orderBy('position')
-                        ->select(['id', 'story_id', 'title', 'status', 'teaser'])
+                        ->select(['id', 'story_id', 'position', 'title', 'status', 'teaser'])
                         ->withCount(['events']);
                 },
                 'comments' => function (MorphMany $query): void {
@@ -87,10 +88,26 @@ final class StoryController extends Controller
             ]);
 
         $existingGameId = null;
+        $completedEpisodeNumbers = [];
         $showFirstStoryTutorial = false;
         if (Auth::check()) {
             $user = Auth::user();
-            $existingGameId = $user->games()->where('story_id', $story->id)->value('id');
+            $existingGame = $user->games()
+                ->where('story_id', $story->id)
+                ->first(['id', 'current_session_number', 'current_session_complete']);
+
+            $existingGameId = $existingGame?->id;
+            $currentSessionNumber = $existingGame?->current_session_number;
+            if ($currentSessionNumber !== null) {
+                $completedEpisodeNumbers = $story->chapters
+                    ->filter(function (Chapter $chapter) use ($currentSessionNumber, $existingGame): bool {
+                        return $chapter->position < $currentSessionNumber
+                            || ($chapter->position === $currentSessionNumber && $existingGame->current_session_complete);
+                    })
+                    ->map(fn (Chapter $chapter): int => (int) $chapter->position)
+                    ->values()
+                    ->all();
+            }
             $showFirstStoryTutorial = ! $user->games()->where('is_preview', false)->exists();
         }
 
@@ -100,6 +117,7 @@ final class StoryController extends Controller
         return inertia('Stories/Show', [
             'story'          => $story->toResource(),
             'existingGameId' => $existingGameId,
+            'completedEpisodeNumbers' => $completedEpisodeNumbers,
             'isPlayable'     => $isPlayable,
             'showFirstStoryTutorial' => $showFirstStoryTutorial,
         ]);
