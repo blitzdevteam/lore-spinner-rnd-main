@@ -18,6 +18,9 @@ Route::middleware(['auth:manager,creator'])
     ->get('filament/media/{media:uuid}', Controllers\Filament\MediaPreviewController::class)
     ->name('filament.media.preview');
 
+Route::get('media/{media:uuid}', Controllers\PublicMediaController::class)
+    ->name('media.show');
+
 // ─── Public marketing surfaces — page views tracked for Visits metric ────────
 Route::middleware(RecordPageView::class)->group(function (): void {
     Route::get('/', Controllers\IndexController::class)->name('index');

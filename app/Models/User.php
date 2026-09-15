@@ -96,14 +96,14 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     }
 
     /**
-     * Public URL for the user's avatar, always as a same-origin /storage/ path.
+     * Public URL for the user's avatar, always as a same-origin path.
      */
     public function resolveAvatarUrl(): string
     {
         $mediaUrl = $this->getFirstMediaUrl('avatar');
 
         if (filled($mediaUrl)) {
-            return self::toRelativeStoragePath($mediaUrl) ?? $this->defaultAvatarPath();
+            return self::toRelativePublicPath($mediaUrl) ?? $this->defaultAvatarPath();
         }
 
         return $this->defaultAvatarPath();
@@ -213,15 +213,19 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         );
     }
 
-    private static function toRelativeStoragePath(string $url): ?string
+    private static function toRelativePublicPath(string $url): ?string
     {
         $path = parse_url($url, PHP_URL_PATH);
 
-        if (! is_string($path) || ! str_starts_with($path, '/storage/')) {
+        if (! is_string($path)) {
             return null;
         }
 
-        return $path;
+        if (str_starts_with($path, '/storage/') || str_starts_with($path, '/media/')) {
+            return $path;
+        }
+
+        return null;
     }
 
     private function defaultAvatarPath(): string

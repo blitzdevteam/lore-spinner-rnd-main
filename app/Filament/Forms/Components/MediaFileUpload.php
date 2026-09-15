@@ -15,6 +15,7 @@ final class MediaFileUpload extends SpatieMediaLibraryFileUpload
     {
         parent::setUp();
 
+        $this->visibility('public');
         $this->getUploadedFileUsing(SameOriginMediaPreview::uploadedFile(...));
     }
 }
