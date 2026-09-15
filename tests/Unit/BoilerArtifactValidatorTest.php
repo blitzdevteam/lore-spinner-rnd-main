@@ -166,6 +166,22 @@ it('fills empty moment source_event_ids from event_role_map bindings', function 
     );
 });
 
+it('stamps the contract boiler_version instead of regenerating the draft', function () {
+    $draft = boilerTestDraft();
+    $draft['boiler_version'] = '1';
+
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+
+    expect($canonicalized['boiler_version'])->toBe('1.0');
+
+    (new BoilerDraftValidator())->validate(
+        $canonicalized,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+});
+
 it('rejects empty source_event_ids when role map cannot recover them', function () {
     $draft = boilerTestDraft();
     $draft['moment_drafts'][0]['source_event_ids'] = [];

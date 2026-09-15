@@ -7,6 +7,9 @@ namespace App\Ai\Adaptation;
 /**
  * Deterministic Draft repairs before validation.
  *
+ * `boiler_version` is stamped rather than trusted: it is a fixed contract value,
+ * so a model that returns "1" or omits it must not cost a full regeneration.
+ *
  * When a moment is missing source_event_ids but event_role_map rows bind
  * events to that moment_key, fill the IDs from the role map. When moments
  * already list source_event_ids, those bindings are authoritative and the
@@ -21,6 +24,8 @@ final class BoilerDraftCanonicalizer
      */
     public function canonicalize(array $draft): array
     {
+        $draft['boiler_version'] = '1.0';
+
         $roles = (array) ($draft['event_role_map'] ?? []);
         $moments = (array) ($draft['moment_drafts'] ?? []);
 
@@ -30,7 +35,7 @@ final class BoilerDraftCanonicalizer
                 continue;
             }
 
-            $momentKey = trim((string) ($role['included_moment_key'] ?? ''));
+            $momentKey = mb_trim((string) ($role['included_moment_key'] ?? ''));
             if ($momentKey === '') {
                 continue;
             }
