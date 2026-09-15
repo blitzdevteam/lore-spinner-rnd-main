@@ -7,6 +7,7 @@ import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayJournalPanel, { type JournalMeta } from '@/components/GameplayJournalPanel.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
+import GameplayRecapPanel from '@/components/GameplayRecapPanel.vue';
 import GameplaySettingsPanel from '@/components/GameplaySettingsPanel.vue';
 import GameplaySubscriptionUsagePanel from '@/components/GameplaySubscriptionUsagePanel.vue';
 import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
@@ -15,7 +16,7 @@ import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideChevronLeft, LucideGauge, LucideLoader, LucideNotebookText, LucidePause, LucideSettings, LucideVolume2, LucideX, LucideZap } from 'lucide-vue-next';
+import { LucideChevronDown, LucideChevronLeft, LucideChevronUp, LucideGauge, LucideLoader, LucideMenu, LucideNotebookText, LucidePause, LucideSettings, LucideVolume2, LucideX, LucideZap } from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
@@ -51,6 +52,9 @@ const props = withDefaults(
          * Hide the chat bar entirely (episode/story completion ceremony).
          */
         hideInput?: boolean;
+        recapText?: string | null;
+        recapLoading?: boolean;
+        recapError?: string | null;
     }>(),
     {
         inputDisabled: false,
@@ -63,6 +67,9 @@ const props = withDefaults(
         nudgeTrigger: 0,
         inputLockedByDesign: false,
         hideInput: false,
+        recapText: null,
+        recapLoading: false,
+        recapError: null,
     },
 );
 
@@ -118,6 +125,20 @@ function onInputReadyToType() {
 type Panel = 'journal' | 'settings' | 'usage' | 'audio' | null;
 
 const activePanel = ref<Panel>(null);
+const recapView = ref<'closed' | 'actions' | 'recap'>('closed');
+const recapDrawerEl = ref<HTMLElement | null>(null);
+const recapDockEl = ref<HTMLElement | null>(null);
+const recapDragOffset = ref(0);
+const recapDragging = ref(false);
+let recapDragStartY = 0;
+let recapDragStartTime = 0;
+
+/** Drag distance (px) past which releasing dismisses the drawer. */
+const RECAP_DISMISS_DISTANCE = 96;
+/** Downward fling speed (px/ms) that dismisses regardless of distance. */
+const RECAP_DISMISS_VELOCITY = 0.55;
+
+const recapOpen = computed(() => recapView.value === 'recap');
 const journalTab = ref<'journals' | 'characters'>('journals');
 const journalSheetTab = ref<'timeline' | 'characters'>('timeline');
 const isMobile = ref(false);
@@ -141,12 +162,16 @@ onMounted(() => {
     isIos.value = /iPad|iPhone|iPod/.test(navigator.userAgent);
     document.documentElement.classList.add('gameplay-scrollbar-theme');
     document.body.classList.add('gameplay-scrollbar-theme');
+    window.addEventListener('keydown', onRecapKeydown);
+    document.addEventListener('pointerdown', onRecapPointerDownOutside);
 });
 
 onUnmounted(() => {
     window.matchMedia(MOBILE_MQ).removeEventListener('change', syncMobile);
     document.documentElement.classList.remove('gameplay-scrollbar-theme');
     document.body.classList.remove('gameplay-scrollbar-theme');
+    window.removeEventListener('keydown', onRecapKeydown);
+    document.removeEventListener('pointerdown', onRecapPointerDownOutside);
 });
 
 watch(isMobile, (mobile) => {
@@ -164,6 +189,68 @@ watch([isMobile, activePanel], ([mobile, panel]) => {
 const toggleJournal = () => {
     activePanel.value = activePanel.value === 'journal' ? null : 'journal';
 };
+
+const toggleRecapPanel = () => {
+    recapView.value = recapView.value === 'closed' ? 'actions' : 'closed';
+};
+
+const toggleRecap = () => {
+    recapDragOffset.value = 0;
+    recapView.value = 'recap';
+    emit('recap');
+};
+
+const closeRecap = () => {
+    recapDragOffset.value = 0;
+    recapView.value = 'actions';
+};
+
+function onRecapKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || recapView.value === 'closed') return;
+
+    if (recapOpen.value) {
+        closeRecap();
+    } else {
+        recapView.value = 'closed';
+    }
+}
+
+function onRecapPointerDownOutside(event: PointerEvent): void {
+    if (!recapOpen.value) return;
+    if (recapDockEl.value?.contains(event.target as Node)) return;
+
+    closeRecap();
+}
+
+function startRecapDrag(event: PointerEvent): void {
+    recapDragStartY = event.clientY;
+    recapDragStartTime = event.timeStamp;
+    recapDragging.value = true;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function moveRecapDrag(event: PointerEvent): void {
+    if (!recapDragging.value) return;
+
+    const delta = event.clientY - recapDragStartY;
+
+    recapDragOffset.value = delta >= 0 ? delta : delta / 5;
+}
+
+function endRecapDrag(event: PointerEvent): void {
+    if (!recapDragging.value) return;
+
+    const travelled = recapDragOffset.value;
+    const elapsed = Math.max(1, event.timeStamp - recapDragStartTime);
+    const velocity = travelled / elapsed;
+
+    recapDragging.value = false;
+    recapDragOffset.value = 0;
+
+    if (velocity > RECAP_DISMISS_VELOCITY || travelled > RECAP_DISMISS_DISTANCE) {
+        closeRecap();
+    }
+}
 
 const refreshUsage = () => {
     router.reload({ only: ['usage', 'subscriptionUsage'] });
@@ -255,6 +342,7 @@ const showDesktopBackdrop = () => !isMobile.value && ['journal', 'settings', 'us
 const emit = defineEmits<{
     submit: [prompt: string];
     back: [];
+    recap: [];
 }>();
 
 const handleInputSubmit = (prompt: string) => {
@@ -424,8 +512,92 @@ const handleInputSubmit = (prompt: string) => {
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
-                        <div class="flex flex-col items-center gap-3 px-0">
-                            <div class="flex w-full items-center justify-start md:hidden">
+                        <div ref="recapDockEl" class="flex flex-col items-center gap-0 px-0">
+                            <Transition name="recap-drawer">
+                                <div v-if="recapOpen" class="recap-drawer w-full max-w-3xl">
+                                    <div class="min-h-0 overflow-hidden pb-2">
+                                        <div
+                                            ref="recapDrawerEl"
+                                            class="flex max-h-[42vh] flex-col overflow-hidden rounded-2xl border border-primary/20 bg-gray-950/95 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                                            :class="recapDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'"
+                                            :style="{ transform: `translateY(${recapDragOffset}px)` }"
+                                            role="dialog"
+                                            aria-label="Story recap"
+                                        >
+                                            <button
+                                                type="button"
+                                                class="group flex h-8 w-full shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+                                                aria-label="Drag down to close recap"
+                                                @pointerdown="startRecapDrag"
+                                                @pointermove="moveRecapDrag"
+                                                @pointerup="endRecapDrag"
+                                                @pointercancel="endRecapDrag"
+                                            >
+                                                <span class="h-1 w-10 rounded-full bg-white/30 transition-colors group-hover:bg-white/60" />
+                                            </button>
+                                            <div class="flex shrink-0 items-center justify-between px-5 pb-2 md:px-6">
+                                                <span class="text-xs font-semibold tracking-[0.18em] text-primary-300 uppercase">Recap</span>
+                                                <button
+                                                    type="button"
+                                                    class="text-xs text-gray-500 transition hover:text-gray-200"
+                                                    aria-label="Close recap"
+                                                    @click="closeRecap"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 md:px-6">
+                                                <GameplayRecapPanel
+                                                    :text="props.recapText"
+                                                    :loading="props.recapLoading"
+                                                    :error="props.recapError"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Transition>
+
+                            <Transition name="recap-nub">
+                                <button
+                                    v-if="!recapOpen"
+                                    type="button"
+                                    class="group flex h-6 shrink-0 items-center justify-center"
+                                    :title="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    :aria-expanded="recapView !== 'closed'"
+                                    @click="toggleRecapPanel"
+                                >
+                                    <span class="flex items-center rounded-full border border-white/10 bg-black/40 px-2.5 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
+                                        <LucideChevronUp v-if="recapView === 'closed'" class="size-3.5" />
+                                        <LucideChevronDown v-else class="size-3.5" />
+                                    </span>
+                                </button>
+                            </Transition>
+
+                            <Transition name="action-strip">
+                                <div v-if="recapView !== 'closed'" class="action-strip w-full max-w-3xl">
+                                    <div class="min-h-0 overflow-hidden">
+                                        <div class="mb-2 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/95 px-3 py-2 md:px-4">
+                                            <button
+                                                type="button"
+                                                class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
+                                                :class="recapOpen
+                                                    ? 'border-primary/60 bg-primary/15 text-primary-300'
+                                                    : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
+                                                :title="recapOpen ? 'Close recap' : 'Catch me up'"
+                                                @click="recapOpen ? closeRecap() : toggleRecap()"
+                                            >
+                                                <LucideX v-if="recapOpen" class="size-4" />
+                                                <LucideMenu v-else class="size-4 text-primary-300" />
+                                                <span>Recap</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Transition>
+
+                            <div class="flex w-full max-w-3xl items-center justify-start md:hidden">
                                 <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
                             <GameplayInput
@@ -601,6 +773,62 @@ const handleInputSubmit = (prompt: string) => {
 .backdrop-fade-enter-from,
 .backdrop-fade-leave-to {
     opacity: 0;
+}
+
+.recap-drawer,
+.action-strip {
+    display: grid;
+    grid-template-rows: 1fr;
+}
+
+.recap-drawer-enter-active,
+.recap-drawer-leave-active {
+    transition:
+        grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease;
+}
+
+.recap-drawer-enter-from,
+.recap-drawer-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+
+.action-strip-enter-active,
+.action-strip-leave-active {
+    transition:
+        grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.18s ease;
+}
+
+.action-strip-enter-from,
+.action-strip-leave-to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+
+.recap-nub-enter-active,
+.recap-nub-leave-active {
+    transition:
+        opacity 0.18s ease,
+        transform 0.18s ease;
+}
+
+.recap-nub-enter-from,
+.recap-nub-leave-to {
+    opacity: 0;
+    transform: translateY(0.25rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recap-drawer-enter-active,
+    .recap-drawer-leave-active,
+    .action-strip-enter-active,
+    .action-strip-leave-active,
+    .recap-nub-enter-active,
+    .recap-nub-leave-active {
+        transition-duration: 0.01ms;
+    }
 }
 
 .mobile-pill {

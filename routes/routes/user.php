@@ -60,6 +60,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
         Route::singleton('games.prompt', User\Game\PromptController::class)
             ->creatable()
             ->only(['store']);
+
+        Route::post('games/{game}/recap', User\Game\RecapController::class)
+            ->name('games.recap');
     });
 
     // Dashboard
