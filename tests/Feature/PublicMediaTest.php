@@ -95,6 +95,32 @@ it('sends same-origin cover urls on the library page', function (): void {
         );
 });
 
+it('does not crash pages when uploaded media has a null uuid', function (): void {
+    $story = Story::factory()->create([
+        'title' => 'Emma: Hearts Misread',
+        'slug' => 'emma',
+        'status' => StoryStatusEnum::PUBLISHED,
+        'published_at' => now(),
+    ]);
+    $story->addMedia(UploadedFile::fake()->image('emma.jpg'))
+        ->toMediaCollection('cover');
+
+    $media = $story->getFirstMedia('cover');
+    expect($media)->not->toBeNull();
+    $media->forceFill(['uuid' => null])->saveQuietly();
+
+    $this->get(route('stories.index'))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Stories/Index')
+                ->where('stories.0.cover', route('media.show', $media->fresh()->uuid))
+                ->etc()
+        );
+
+    expect($media->fresh()?->uuid)->not->toBeEmpty();
+});
+
 it('sends same-origin background urls on the worlds page', function (): void {
     $world = World::factory()->create([
         'title' => 'Jane Austen',
