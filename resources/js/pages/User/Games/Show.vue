@@ -652,6 +652,7 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             };
 
             if (event.event === 'ready') {
+                openingMusic.fadeOut();
                 scrollToNarrationStartOnce(activeStreamingPromptId);
             }
 
@@ -747,6 +748,7 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         if (kind === 'begin' && hasPrompts.value && !stillPending) {
             beginSettled.value = true;
             isRetryingBegin.value = false;
+            openingMusic.fadeOut();
             shouldAnimate.value = true;
             if (latestPromptId.value) {
                 scrollToNarrationStartOnce(latestPromptId.value);
