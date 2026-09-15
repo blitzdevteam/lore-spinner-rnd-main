@@ -45,6 +45,7 @@ use Override;
  * @property-read Collection<int, GameSessionCompletion> $sessionCompletions
  * @property-read Collection<int, GameReset> $resets
  * @property-read Collection<int, GameCompletion> $completionHistory
+ * @property-read Collection<int, CompletionReceipt> $completionReceipts
  */
 final class Game extends Model
 {
@@ -131,6 +132,14 @@ final class Game extends Model
     public function completionHistory(): HasMany
     {
         return $this->hasMany(GameCompletion::class);
+    }
+
+    /**
+     * @return HasMany<CompletionReceipt, $this>
+     */
+    public function completionReceipts(): HasMany
+    {
+        return $this->hasMany(CompletionReceipt::class);
     }
 
     #[Override]

@@ -47,6 +47,10 @@ const props = withDefaults(
          * Suppresses the orbit glow so the UI does not read as "thinking".
          */
         inputLockedByDesign?: boolean;
+        /**
+         * Hide the chat bar entirely (episode/story completion ceremony).
+         */
+        hideInput?: boolean;
     }>(),
     {
         inputDisabled: false,
@@ -58,6 +62,7 @@ const props = withDefaults(
         inputPlaceholder: '',
         nudgeTrigger: 0,
         inputLockedByDesign: false,
+        hideInput: false,
     },
 );
 
@@ -400,16 +405,17 @@ const handleInputSubmit = (prompt: string) => {
                     class="z-5 mx-auto flex w-full flex-col transition-colors duration-300"
                     :style="{ fontSize: settings.fontSize + 'px', color: settings.fontColor }"
                 >
-                    <div class="p-3">
+                    <div :class="props.hideInput ? 'px-3' : 'p-3'">
                         <slot name="header" />
                     </div>
                     <div
                         class="mx-auto flex max-w-3xl flex-col gap-8 p-3"
-                        :class="isMobile ? 'pb-42' : 'pb-32'"
+                        :class="props.hideInput ? 'pb-4' : isMobile ? 'pb-42' : 'pb-32'"
                     >
                         <slot name="game" />
                     </div>
                     <div
+                        v-if="!props.hideInput"
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >

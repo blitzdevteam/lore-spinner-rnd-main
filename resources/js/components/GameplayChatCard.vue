@@ -44,6 +44,8 @@ const emit = defineEmits<{
     continue: [];
     /** Fired once when the choice buttons first become visible on this (latest) card. */
     'choices-ready': [];
+    /** Fired when the typewriter finishes revealing this card's narration. */
+    'narration-finished': [];
 }>();
 
 const tts = useTextToSpeech();
@@ -88,7 +90,7 @@ const showContinueButton = computed(() => {
 });
 
 const renderedResponse = computed(() => {
-    if (props.isStreamingResponse || (props.animate && props.isLatest)) {
+    if (props.isStreamingResponse || props.animate) {
         return typewriter.displayedHtml.value;
     }
     return props.prompt.response;
@@ -184,7 +186,7 @@ const beginNarration = (response: string) => {
 onMounted(() => {
     if (props.isStreamingResponse && props.prompt.response) {
         typewriter.streamTo(props.prompt.response);
-    } else if (props.animate && props.isLatest && props.prompt.response) {
+    } else if (props.animate && props.prompt.response) {
         beginNarration(props.prompt.response);
     } else if (props.prompt.response) {
         typewriter.complete(props.prompt.response);
@@ -211,7 +213,7 @@ watch(
 watch(
     () => props.animate,
     (animate, wasAnimate) => {
-        if (!animate || wasAnimate || !props.isLatest || !props.prompt.response) return;
+        if (!animate || wasAnimate || !props.prompt.response) return;
         beginNarration(props.prompt.response);
     },
 );
@@ -223,6 +225,7 @@ watch(
     () => typewriter.isTyping.value,
     (isTyping, wasTyping) => {
         if (isTyping || !wasTyping) return; // only on true → false transition
+        emit('narration-finished');
         if (!props.isLatest || !props.animate) return;
         if (!voiceOverEnabled.value || !gameplaySettings.autoplay) return;
         tts.play(props.gameId, props.prompt.id);

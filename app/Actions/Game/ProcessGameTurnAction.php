@@ -11,6 +11,7 @@ use App\Models\Prompt;
 use App\Models\UserActivityDay;
 use App\Services\ChaosEngineService;
 use App\Services\NarrationAudioService;
+use App\Services\Runtime\CompletionReceiptRecorder;
 use App\Services\Runtime\NarrationMetricsStore;
 use App\Services\Runtime\NarrationResultNormalizer;
 use App\Services\Runtime\PlayableMomentResolver;
@@ -57,6 +58,7 @@ final class ProcessGameTurnAction
         private readonly NarrationResultNormalizer $resultNormalizer,
         private readonly NarrationAudioService $audio,
         private readonly PlayerTokenUsageRecorder $tokenUsage,
+        private readonly CompletionReceiptRecorder $receiptRecorder,
     ) {}
 
     /**
@@ -304,6 +306,10 @@ final class ProcessGameTurnAction
             });
 
             UserActivityDay::record($userId);
+            $game->refresh();
+            if ($game->current_session_complete) {
+                $this->receiptRecorder->snapshot($game);
+            }
             $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
             Log::channel('narration')->info('game.turn', [
                 'game_id' => $game->id,
