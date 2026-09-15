@@ -1,0 +1,702 @@
+{
+    "exported_at": "2026-08-18T18:52:57+00:00",
+    "game": {
+        "id": "01kyk029yz3y3y39b05d60d53x",
+        "user": "thomas@lorespinner.com",
+        "story": "wasteland",
+        "updated_at": "2026-08-18 16:00:57",
+        "session": 1,
+        "complete": false,
+        "cut_id": 16,
+        "moment_id": 170,
+        "moment_key": "S1_M04",
+        "moment_order": 4,
+        "playable_moment_turn_count": 1,
+        "footnote": {
+            "moment_key": "S1_M04",
+            "text": "Player is using Lily's drawing as a threshold object — they want the world to register the exact cost before Emmit acts, not after.",
+            "source_prompt_id": "01m0as9eaxv5vfvw7v3ywnb4sr",
+            "detour_beats_used": 0,
+            "ending_blocked_turns": 0
+        },
+        "path": "A",
+        "choice_id": "S1_C2",
+        "choice_line": "You choose the boxes, the paperwork, the almost-home life.",
+        "world_state": {
+            "location": "GWS Engineering Sec C — Emmit's office",
+            "conditions": [],
+            "items": [],
+            "object_states": [
+                "Silver SECURITY WRAP: snapped, on the floor grating inside the wing compartment",
+                "Burned OVERFLOW SWITCH: reseated in panel housing, maintenance cover closed",
+                "Lily's folded jet drawing: unfolded, laid flat on the desk under the office light",
+                "Cargo hold door: held shut by Emmit's body, seal broken"
+            ],
+            "relationship_updates": [
+                "Pontis: walked away without agreeing — filed the betrayal rather than accepting it; contempt is quiet and stored, not discharged",
+                "Zoe: knows what is in the hold — heard it plainly, went silent, and pulled the truck into gear without looking at Emmit again; warmth has not left but something has locked behind it"
+            ],
+            "world_flags": [
+                "gws_suspicion_of_emmit: ACTIVE_AFTER_HOLD_BREACH"
+            ],
+            "knowledge": [
+                "A living person — dirty, hair-covered, eyes open — is inside the sealed cargo hold",
+                "Three GWS security cameras in the wing compartment recorded Emmit breaking the seal",
+                "Emmit told Pontis directly that something alive is inside the sealed hold",
+                "Emmit declared love to Zoe and kissed her in the truck cab before the crew left the aircraft area — Pontis witnessed it",
+                "Zoe now knows a living person is inside the sealed cargo hold",
+                "Pontis believes the human cargo is not limited to this one hold — he said 'not just that one'",
+                "Emmit told Pontis directly that this is not their problem and ordered him to pack and say nothing"
+            ],
+            "notes": [
+                "Emmit broke the company security seal on camera; GWS now has evidence of the breach",
+                "Three GWS security cameras recorded Emmit breaking the seal and holding the door shut",
+                "The snapped SECURITY WRAP remains inside the wing compartment — physical evidence GWS cameras recorded",
+                "Emmit told Pontis to forget it and say nothing — Pontis has not agreed",
+                "Emmit gave Zoe the half-heart necklace and declared his love before the recall — this kiss is the emotional act that precedes the canonical necklace moment; treat as the same irreversible relationship beat",
+                "Pontis has walked away from the truck cab and is standing facing the WING COMPARTMENT — he has not agreed to silence and his body is making that visible",
+                "Zoe did not respond with words — she pulled the truck into gear; her silence is its own answer and she will carry this forward",
+                "Pontis spoke the accusation directly under GWS security cameras — the breach of silence is now on record in addition to the seal break",
+                "Pontis did not agree to silence — he nodded and walked away; his compliance is performance, not consent",
+                "Emmit chose home over the people in the hold — this choice was made under the cameras and is now part of the record",
+                "Emmit sat with Lily's drawing before acting — the decision to call Len is forming from grief, not momentum"
+            ],
+            "player_style": [
+                "Moves immediately and directly toward forbidden knowledge; does not hesitate at moral thresholds",
+                "Tries to contain horror through task-completion and forward motion; uses procedure as a lid on panic",
+                "Attempts to contain crisis through forward motion and verbal suppression rather than disclosure or confrontation",
+                "Uses physical intimacy as emotional containment under pressure — reaches for connection when suppression fails",
+                "Escalates physical intimacy when verbal disclosure feels too dangerous — uses the body as a substitute for the word",
+                "Breaks silence at the last possible moment, only when physical containment has already failed — disclosure arrives as a minimum viable truth, not a confession",
+                "Moves to physically manage others when verbal suppression fails — uses body and proximity as a control mechanism before committing to words",
+                "Chooses suppression over confrontation when the personal cost becomes concrete — frames retreat as protection rather than abandonment",
+                "Uses a personal object as a decision threshold — pauses at the cost before committing to action"
+            ],
+            "unresolved_promises": [],
+            "emotional_ledger": [
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Emmit broke the GWS security seal and opened the cargo hold, choosing to confront what was inside over protecting his path home."
+                },
+                {
+                    "category": "secrets_discovered",
+                    "entry": "Emmit discovered a living person concealed inside the sealed waste-disposal cargo hold, confirming the hold contains human cargo."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Emmit kissed Zoe and declared love in the truck cab, using intimacy to hold the horror at arm's length rather than disclosing what he saw."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Emmit told Zoe there was something alive in the hold — the minimum truth, after two kisses failed to hold the secret in place."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Emmit told Pontis the people in the RDU holds were not their problem and ordered him to stay silent, choosing the trip home over acting on what he saw."
+                }
+            ]
+        },
+        "alignment": {
+            "chaotic": 3,
+            "lawful": 6,
+            "neutral": 2
+        },
+        "symbolic_memory": "Emmit is the kind of man who opens the door. He knew what it would cost and he did it anyway, hands still pressed flat against the metal, cameras blinking overhead.\nEmmit is the kind of man who opens the door — and then, with the cameras still blinking and the face still inches away on the other side of the metal, reaches for the one thing that still feels like his own.\nEmmit is the kind of man who opens the door — and then, when the door is shut and the cameras are done blinking, reaches for the nearest warm thing and holds on, as if love can stand between him and what he saw.\nEmmit is the kind of man who opens the door — and when the kiss fails to hold the door shut, gives the truth away in four words, stripped bare, and then watches what they do to the person he handed them to.\nEmmit is the kind of man who opens the door — and then, when the face is still there and someone else has named it out loud, tells them both to forget it, because home is two days away and the cameras are still blinking.\nEmmit is the kind of man who opens the door — and then sits with his daughter's crooked drawing until the cost of what he saw has a shape he can hold in both hands before he decides what to do with it."
+    },
+    "moments": [
+        {
+            "id": 167,
+            "moment_key": "S1_M01",
+            "moment_order": 1,
+            "anchor_event_id": 2180,
+            "title": "The Sealed Hold",
+            "exit_condition": "Emmit has committed to a course at the seal, having either opened the hold and confronted the human face, kept the seal intact to protect the job home, or probed enough to know something living is inside.",
+            "next_moment_key": "S1_M02",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S1_C1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 168,
+            "moment_key": "S1_M02",
+            "moment_order": 2,
+            "anchor_event_id": 2181,
+            "title": "What Did You See",
+            "exit_condition": "Emmit has either disclosed or withheld what he saw and the crew moves off the aircraft.",
+            "next_moment_key": "S1_M03",
+            "turn_budget": {
+                "target_turns": 2,
+                "gravity_after": 3
+            },
+            "word_budget": {
+                "target_per_turn": 75
+            },
+            "choice_ids": [
+                "S1_E1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 169,
+            "moment_key": "S1_M03",
+            "moment_order": 3,
+            "anchor_event_id": 2182,
+            "title": "Not Our Problem",
+            "exit_condition": "Emmit has taken a position on Pontis's accusation and Pontis has left, leaving Emmit alone with the choice and the desk phone.",
+            "next_moment_key": "S1_M04",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S1_C2"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 170,
+            "moment_key": "S1_M04",
+            "moment_order": 4,
+            "anchor_event_id": 2183,
+            "title": "The Call and the Needle",
+            "exit_condition": "Emmit's inquiry has run its course and the masked figures overpower and drug him into darkness.",
+            "next_moment_key": "S1_M05",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S1_E2"
+            ],
+            "is_current": true
+        },
+        {
+            "id": 171,
+            "moment_key": "S1_M05",
+            "moment_order": 5,
+            "anchor_event_id": 2185,
+            "title": "Among the Dumped",
+            "exit_condition": "Emmit has grasped that he is inside a dumping ship among the disposed and the crew is reunited and demanding answers.",
+            "next_moment_key": "S1_M06",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 95
+            },
+            "choice_ids": [
+                "S1_E3"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 172,
+            "moment_key": "S1_M06",
+            "moment_order": 6,
+            "anchor_event_id": 2186,
+            "title": "It's Dumping",
+            "exit_condition": "The crew has committed to the ladders and reached the base of the pods with the dump opening still growing behind them.",
+            "next_moment_key": "S1_M07",
+            "turn_budget": {
+                "target_turns": 2,
+                "gravity_after": 3
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 173,
+            "moment_key": "S1_M07",
+            "moment_order": 7,
+            "anchor_event_id": 2187,
+            "title": "The Flush Tab",
+            "exit_condition": "Both pods are open with blinking lights, Rajeed is lost, and the survivors are at the pod hatches.",
+            "next_moment_key": "S1_M08",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 95
+            },
+            "choice_ids": [
+                "S1_E4"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 174,
+            "moment_key": "S1_M08",
+            "moment_order": 8,
+            "anchor_event_id": 2189,
+            "title": "Ten Minutes",
+            "exit_condition": "Emmit and Zoe are sealed in separate pods, the ten-minute promise made or refused, and the lights blinking faster.",
+            "next_moment_key": "S1_M09",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S1_C3",
+                "S1_E5"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 175,
+            "moment_key": "S1_M09",
+            "moment_order": 9,
+            "anchor_event_id": 2190,
+            "title": "Falling With the Garbage",
+            "exit_condition": "The pod releases from its anchors and falls to earth with the garbage, and Emmit commits to a first vow for the ground, ending the session on the descent.",
+            "next_moment_key": null,
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 95
+            },
+            "choice_ids": [
+                "S1_C4"
+            ],
+            "is_current": false
+        }
+    ],
+    "logs": {
+        "files_scanned": [
+            "narration-2026-08-18.log"
+        ],
+        "counts_by_type": {
+            "boiler.opening_progress_repaired": 1,
+            "game.begin": 1,
+            "boiler.moment_turn_committed": 10,
+            "game.turn": 10,
+            "boiler.moment_footnote_truncated": 3,
+            "boiler.submitted_emotional_mapping": 1
+        },
+        "commits_joined_to_turns": 10,
+        "repair_count": 4,
+        "failure_count": 0,
+        "repairs": [
+            {
+                "at": "2026-08-18 15:34:57",
+                "event": "boiler.opening_progress_repaired",
+                "payload": {
+                    "game_id": "01kyk029yz3y3y39b05d60d53x"
+                }
+            },
+            {
+                "at": "2026-08-18 15:41:06",
+                "event": "boiler.moment_footnote_truncated",
+                "payload": {
+                    "game_id": "01kyk029yz3y3y39b05d60d53x",
+                    "original_word_count": 43
+                }
+            },
+            {
+                "at": "2026-08-18 15:42:05",
+                "event": "boiler.moment_footnote_truncated",
+                "payload": {
+                    "game_id": "01kyk029yz3y3y39b05d60d53x",
+                    "original_word_count": 37
+                }
+            },
+            {
+                "at": "2026-08-18 15:43:59",
+                "event": "boiler.moment_footnote_truncated",
+                "payload": {
+                    "game_id": "01kyk029yz3y3y39b05d60d53x",
+                    "original_word_count": 34
+                }
+            }
+        ],
+        "failures": []
+    },
+    "turns": [
+        {
+            "n": 1,
+            "id": "01m0ar5vvp7zp1rq6tymrdnz98",
+            "at": "2026-08-18 15:34:57",
+            "session": 1,
+            "player": "OPEN THE SEALED DOOR",
+            "narrator": "Your shoulder scrapes metal as you squeeze into the WING COMPARTMENT. Hot air. Tight space. The tapping comes again through the sealed door in front of you. Too steady to be loose metal. Too patient to be an engine fault.Pontis has already backed off. Pale. Useless for once. The burned OVERFLOW SWITCH hangs from his hand while the SECURITY WRAP stays tight around the wheel below the hold. Bright. Official. Wrong.You crouch beside it, flashlight in one hand, wrench grease still in your nails. You are Emmit Patel, propulsion engineer, and your hands know machines better than men. This one is lying. Lily's folded jet drawing presses through your suit pocket like a thumb to the chest. Home. Two days away, if you keep your head down.The tapping hits again. Three knocks. Then three more.Pontis swallows. \"Emmit. Don't.\"",
+            "narrator_words": 142,
+            "choices": [
+                {
+                    "text": "Force the SECURITY WRAP off the wheel and pull the hold open.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Crouch at the SERVICE HATCH and shine your light inside first.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Tell Pontis to get back on the SWITCH and finish the engine test.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": null,
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 2,
+            "id": "01m0ar9m34938c68zv2hk7qsn0",
+            "at": "2026-08-18 15:37:00",
+            "session": 1,
+            "player": "Hold the door shut and tell Pontis what you just saw.",
+            "narrator": "You grip the SECURITY WRAP and pull. The plastic fights, then snaps. Pontis makes a sound behind you but doesn't move.The RUSTED WHEEL resists, grinds, gives. Stale vapor gets out first. Chemical. Something underneath it that isn't chemical at all. You lean in with the light anyway.Garbage packed to the hull. Mountains of it. Then the beam drops lower and finds the face. Dirty. Hair-covered. Inches from your own. Eyes open. Alive.You slam the door shut with your feet and your back hits the opposite wall and your hands are still pressed flat against the metal, holding it closed, while three SECURITY CAMERAS blink red above your head.",
+            "narrator_words": 111,
+            "choices": [
+                {
+                    "text": "Hold the door shut and tell Pontis what you just saw.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Open it again — get a name, a face, anything the cameras can't take back.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Check how many cameras. Count them. Make sure you know exactly what they recorded.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0ar5vvp7zp1rq6tymrdnz98",
+            "moment_key": "S1_M01",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M02",
+            "moment_footnote": "Player charged straight at the threshold without hesitation — they want the horror confirmed, not managed; press the cameras and what they recorded next.",
+            "log_at": "2026-08-18 15:37:00"
+        },
+        {
+            "n": 3,
+            "id": "01m0arbyf7373h6rahhcx4fwm5",
+            "at": "2026-08-18 15:38:16",
+            "session": 1,
+            "player": "get this thing fixed and lets get out of here",
+            "narrator": "Pontis is already reading your face. You don't have to say a word. But you say it anyway, voice low and flat, back still pressed against the door.\"Something alive. In there.\"He stares at you. Then at the door. The burned OVERFLOW SWITCH drops from his fingers and clangs off the floor grating. Neither of you reaches for it.Above your head, the three SECURITY CAMERAS keep blinking. Red. Patient. Recording every second of this.",
+            "narrator_words": 76,
+            "choices": [
+                {
+                    "text": "Tell Pontis to say nothing and get back to the truck now.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Say only \"Something alive\" and watch Pontis decide what that means.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Snap at Pontis to keep his voice down before he says something the cameras catch.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": "01m0ar9m34938c68zv2hk7qsn0",
+            "moment_key": "S1_M02",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player named the horror plainly and immediately; they want the cameras to matter — press what those blinking red lights mean for every choice that follows.",
+            "log_at": "2026-08-18 15:38:16"
+        },
+        {
+            "n": 4,
+            "id": "01m0ardc2kkdqj18b6jdq83ebv",
+            "at": "2026-08-18 15:39:03",
+            "session": 1,
+            "player": "I don't know what that was but just forget about it for now - say nothing Pontis",
+            "narrator": "You push off the door. The face stays on the other side of it. You tell yourself it stays there.Pontis grabs the OVERFLOW SWITCH off the grating without being asked. You take it from him, slot it back into the panel housing, and run the check by feel. Contacts seated. Seal good. You close the maintenance cover and the compartment looks exactly as it did before you opened anything. Except for the snapped SECURITY WRAP on the floor. Except for the cameras still blinking above you. Except for Pontis, who cannot make his hands stop moving.You step out of the WING COMPARTMENT and back into the flat hangar light. The truck cab is twenty feet away. Zoe is already in the driver seat, one hand on the controls, waiting for the all-clear. She has not seen your face yet.Pontis is right behind you. Close. \"Tell me what we just did,\" he says, quiet enough that only you catch it.",
+            "narrator_words": 162,
+            "choices": [
+                {
+                    "text": "Say only \"Something alive\" and keep walking toward the truck.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Snap at Pontis to keep his voice down before Zoe hears him.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Tell Pontis to finish the engine test first — this cab is not the place.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m0arbyf7373h6rahhcx4fwm5",
+            "moment_key": "S1_M02",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player wants to bury the horror under procedure and motion; press whether Pontis will let that lid stay on.",
+            "log_at": "2026-08-18 15:39:03"
+        },
+        {
+            "n": 5,
+            "id": "01m0arfg41zgjqy27qs24820w5",
+            "at": "2026-08-18 15:40:13",
+            "session": 1,
+            "player": "turn to Zoe and kiss her - I love you Zoe",
+            "narrator": "Pontis stops walking. You don't.The truck cab is ten feet away. Zoe has the ENGINE turning over already, smooth and clean, the sound swallowing everything behind you. You climb in. You keep your eyes forward. The SECURITY WRAP is still on the floor back there, snapped plastic on a grating, and you are not thinking about it.Pontis gets in. Sits. Doesn't touch the door for a second.\"Emmit.\" Not a question. Not yet. Just your name, held in his mouth like something he hasn't decided what to do with.Zoe glances across at you. Then at Pontis. Her hand stays on the controls but she hasn't pulled off yet. Your face is doing something you can't stop it from doing.",
+            "narrator_words": 122,
+            "choices": [
+                {
+                    "text": "Say \"Something alive\" — two words, nothing more.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Snap at Pontis to keep his voice down and drive.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Tell Pontis to finish the test first — this cab gets people heard.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m0ardc2kkdqj18b6jdq83ebv",
+            "moment_key": "S1_M02",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player wants the lid to hold; press whether Pontis and Zoe's combined attention — one demanding, one oblivious — can keep it sealed.",
+            "log_at": "2026-08-18 15:40:13"
+        },
+        {
+            "n": 6,
+            "id": "01m0arh3qzs81xsacs2cz27qv1",
+            "at": "2026-08-18 15:41:06",
+            "session": 1,
+            "player": "Kiss her again, harder, and say nothing at all.",
+            "narrator": "Zoe's hand comes off the controls.You turn toward her and she reads it before you even move — the set of your jaw, the thing your face is doing that you cannot stop — and then you close the distance and kiss her, right there in the cab, engine running, Pontis three feet away saying nothing. She goes still for half a second. Then she kisses you back, one hand coming up to your collar, and it is real and warm and completely wrong for what is sitting in your chest right now.When you pull back she is looking at you the way people look when a building has just made a sound it shouldn't. \"Emmit.\" Quiet. Not pulling away. \"What happened in there?\"Pontis is staring out the windshield. Jaw tight. Hands flat on his knees. He does not say a word, but the silence he is holding has a shape to it.",
+            "narrator_words": 154,
+            "choices": [
+                {
+                    "text": "Tell Zoe only: \"Something alive. In the hold.\"",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Kiss her again, harder, and say nothing at all.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell Zoe to drive and squeeze her hand once.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m0arfg41zgjqy27qs24820w5",
+            "moment_key": "S1_M02",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player reached for intimacy as a pressure valve — they want the world to register what Emmit is feeling without forcing him to say it out loud; press whether Zoe's",
+            "log_at": "2026-08-18 15:41:06"
+        },
+        {
+            "n": 7,
+            "id": "01m0arjxg149410tjr6sg4w0sh",
+            "at": "2026-08-18 15:42:05",
+            "session": 1,
+            "player": "Tell Zoe only: \"Something alive. In the hold.\"",
+            "narrator": "She lets you. For a second she lets you, hands tightening on your collar, and then she pulls back and holds your face in both palms and looks at you straight. Not angry. Worse than angry. Searching.Pontis opens the truck door and gets out. Doesn't slam it. Just steps down onto the tarmac and walks away from the cab, hands in his pockets, head down, putting distance between himself and whatever this is. The ENGINE runs on, indifferent.Zoe's thumbs are still against your jaw. Her eyes don't move off yours. \"Something's wrong.\" Not a question. A fact she is handing you to confirm or deny.Across the tarmac, Pontis has stopped walking. He's standing with his back to the truck, facing the aircraft. Facing the WING COMPARTMENT door.",
+            "narrator_words": 130,
+            "choices": [
+                {
+                    "text": "Tell Zoe only: \"Something alive. In the hold.\"",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Get out and pull Pontis back before he does something.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Say nothing. Start the truck moving. Force the moment to end.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": "01m0arh3qzs81xsacs2cz27qv1",
+            "moment_key": "S1_M02",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player keeps reaching for physical contact as a wall against disclosure — they want Zoe to feel the weight without Emmit having to say the words; press what happens when",
+            "log_at": "2026-08-18 15:42:05"
+        },
+        {
+            "n": 8,
+            "id": "01m0armerd99c2r7mey17mdh40",
+            "at": "2026-08-18 15:42:55",
+            "session": 1,
+            "player": "Get out and pull Pontis back to the truck before he does something.",
+            "narrator": "Zoe's thumbs go still against your jaw.She doesn't move back. Doesn't speak. Just holds your face and lets the words sit in the cab between you, the ENGINE turning over smooth and clean underneath them. Then her hands come down slowly, and she turns forward and stares through the windshield at Pontis, at the aircraft, at the WING COMPARTMENT door he is standing in front of.She pulls the truck into gear. Doesn't look at you again.",
+            "narrator_words": 78,
+            "choices": [
+                {
+                    "text": "Get out and pull Pontis back to the truck before he does something.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell Zoe to drive now and not stop until you're off the tarmac.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Watch Pontis at the WING COMPARTMENT and say nothing more.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0arjxg149410tjr6sg4w0sh",
+            "moment_key": "S1_M02",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M03",
+            "moment_footnote": "Player finally gave Zoe the words — but through Zoe's silence and Pontis's back, they're hoping the world registered that saying it changed nothing, and everything.",
+            "log_at": "2026-08-18 15:42:55"
+        },
+        {
+            "n": 9,
+            "id": "01m0arpdbhm9zxnvn36ym8dtfv",
+            "at": "2026-08-18 15:43:59",
+            "session": 1,
+            "player": "Tell Pontis straight: not our problem, we're going home, drop it now.",
+            "narrator": "Pontis has not moved. He is standing at the WING COMPARTMENT door with both hands at his sides, staring at the circular handle where the SECURITY WRAP used to be. You drop out of the cab and cross the tarmac fast, boots loud on the concrete, and get a hand on his shoulder before he can reach for anything.He shrugs you off. Hard. Turns around. His face is not angry yet. It is something worse. The kind of look a man gets when he has already decided the answer and is just waiting for someone to stop lying to him.\"There's people in those holds, Emmit.\" Low. Flat. Not a question. \"Not just that one.\"Behind you, the truck idles. Zoe has not moved it. The three SECURITY CAMERAS above the WING COMPARTMENT door are still blinking, patient and red, and Pontis is standing directly underneath them.",
+            "narrator_words": 148,
+            "choices": [
+                {
+                    "text": "Pull Pontis away from the cameras and say nothing until you're inside.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell Pontis straight: not our problem, we're going home, drop it now.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Admit he's right — then ask who else on this base already knows.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m0armerd99c2r7mey17mdh40",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player moved to protect Pontis from the cameras — they want to contain the damage, not confront it; press whether containment is even possible now that Pontis has already said",
+            "log_at": "2026-08-18 15:43:59"
+        },
+        {
+            "n": 10,
+            "id": "01m0as9eaxv5vfvw7v3ywnb4sr",
+            "at": "2026-08-18 15:54:23",
+            "session": 1,
+            "player": "Sit at the desk and look at Lily's drawing until you know what you're actually deciding.",
+            "narrator": "Pontis looks at you like you just told him to leave someone in a burning building. His jaw tightens. He doesn't move.\"Not our problem,\" he says back at you. Flat. Testing the sound of it. \"That's what you're going with.\"You hold his eye. You tell him yes. You tell him Lily is two days away. You tell him the company does not forgive the wrong question twice, and you are not going to be the one who asks it. You tell him to go pack his things and be ready to rotate out tomorrow morning like a man who saw nothing, because that is exactly what you both did.Pontis stares at you for a long count. Then he looks up at the cameras. Then back at you. He nods once, slow, the way a man nods when he's filing something away rather than agreeing to it. He walks past you toward the truck without another word. Doesn't look at Zoe. Doesn't look back.The WING COMPARTMENT door is still behind you. The cameras are still blinking. The handle sits bare where the SECURITY WRAP used to be, and Pontis's footsteps fade into the engine noise, and the office and the boxes and the morning flight home are all still there, exactly where you left them.",
+            "narrator_words": 218,
+            "choices": [
+                {
+                    "text": "Go back to the office and start packing — don't let yourself stop moving.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Pull out the desk phone and dial Len Stills before you lose your nerve.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Sit at the desk and look at Lily's drawing until you know what you're actually deciding.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0arpdbhm9zxnvn36ym8dtfv",
+            "moment_key": "S1_M03",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M04",
+            "moment_footnote": "Player chose home over conscience and made it stick — they want to feel the cost of that choice land quietly, not be absolved of it.",
+            "log_at": "2026-08-18 15:54:23"
+        },
+        {
+            "n": 11,
+            "id": "01m0asnfj7kc6d436mcwm5c3h1",
+            "at": "2026-08-18 16:00:57",
+            "session": 1,
+            "player": null,
+            "narrator": "The BOXES are stacked against the wall. Three of them. Taped and labeled in your own handwriting. The desk is half-bare, the company-issue surface showing through where the personal things used to sit. You pull the drawing from your pocket and set it flat under the light.Lily drew the plane crooked. Engine nacelles too big, tail fin tilted left. She signed it in red crayon at the bottom, big looping letters, the L running into the I. You have been carrying it for six weeks without unfolding it once.The PHONE on the desk sits dark. Len Stills is three buildings over in the remote pilot block. Young. Grateful for the polarized glasses you sourced him last winter. The kind of man who knows things he has been told not to say out loud.The drawing does not tell you anything you did not already know. It just makes the cost of knowing it sit in your hands instead of your chest.",
+            "narrator_words": 163,
+            "choices": [
+                {
+                    "text": "Pick up the desk PHONE and dial Len Stills directly.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Fold the drawing away and call Len — ask what jobs make pilots go quiet.",
+                    "canonical_choice_id": "S1_E2",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Tape the drawing to the top box, then make the call before you change your mind.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0as9eaxv5vfvw7v3ywnb4sr",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player is using Lily's drawing as a threshold object — they want the world to register the exact cost before Emmit acts, not after.",
+            "log_at": "2026-08-18 16:00:57"
+        }
+    ]
+}

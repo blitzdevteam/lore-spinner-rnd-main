@@ -1,0 +1,655 @@
+{
+    "exported_at": "2026-08-09T18:49:17+00:00",
+    "game": {
+        "id": "01krhpcm6mv5ve9dtc13rz1w7v",
+        "user": "danial.nrahimi@gmail.com",
+        "story": "the-adventure-of-the-speckled-band",
+        "updated_at": "2026-08-09 18:26:35",
+        "session": 1,
+        "complete": false,
+        "cut_id": 9,
+        "moment_id": 97,
+        "moment_key": "S1_M03",
+        "moment_order": 3,
+        "playable_moment_turn_count": 3,
+        "footnote": {
+            "moment_key": "S1_M03",
+            "text": "Player wants redemption to be earned through action, not words; they need the world — and Helen — to show whether an apology actually restores standing.",
+            "source_prompt_id": "01kzkszw9zfs3ftgg6t7qz9agt",
+            "detour_beats_used": 0,
+            "ending_blocked_turns": 0
+        },
+        "path": "B",
+        "choice_id": "S1_C1",
+        "choice_line": "You give the morning the shape of an inquiry.",
+        "world_state": {
+            "location": "Baker Street — the sitting-room, firelit, early morning",
+            "conditions": [],
+            "items": [],
+            "object_states": [
+                "Helen Stoner's veil: lifted and held up; face fully visible — prematurely grey-templed, drawn, a ghost of relief now present in the eyes"
+            ],
+            "relationship_updates": [
+                "Sherlock Holmes: the debt from the outburst is not cleared, but Watson's public apology to the client without prompting has registered; Holmes's silence is now the silence of a man reassessing rather than merely enduring",
+                "Helen Stoner: the raw fright of the outburst has not vanished, but Watson's direct apology has restored a measure of cautious trust — she is prepared to continue her account, though she will watch him more carefully than before"
+            ],
+            "world_flags": [
+                "helen_trusts_baker_street_help: open — she has given her name and Roylott's unprompted, and is prepared to begin her full account"
+            ],
+            "knowledge": [
+                "The client is young, arrived before eight o'clock, gave no name to Mrs. Hudson, and is in considerable distress",
+                "Her left jacket sleeve carries several dried mud-splashes; her hem is damp from an early journey",
+                "She states her shivering is fear, not cold",
+                "Helen took a dog-cart to Leatherhead before full light and watched the road behind her; she sat apart on the train and believes she was not followed",
+                "Helen's face is prematurely aged, hair shot with grey at the temples; she appears to have suffered prolonged and private strain over a considerable period",
+                "Helen is on the verge of beginning her account from the beginning, awaiting only a signal to proceed",
+                "Helen Stoner's name is confirmed; she is the stepdaughter of Dr. Grimesby Roylott of Stoke Moran",
+                "Roylott is described by Helen as a man who notices everything — absences, resealed letters, faces at the gate — and who watches and waits rather than confronting directly",
+                "Helen left this morning under a false pretext of a headache and a walk; she does not know whether Roylott believed her",
+                "Holmes recognised the Roylott name without visible surprise, suggesting prior awareness of the family or its reputation",
+                "Helen Stoner has confirmed her full name and her stepfather's identity as Dr. Grimesby Roylott of Stoke Moran",
+                "Helen is now prepared to give her account from the beginning, starting with the family's Saxon origins",
+                "Watson apologised directly to Helen Stoner for the outburst; she accepted with a single nod and a brief acknowledgment that the case is not simple even from the outside"
+            ],
+            "notes": [
+                "Watson threw a book at Holmes in front of Helen Stoner; Holmes deflected with composed authority; Watson is currently at the door having declared Holmes a liar — this moment is committed history and cannot be quietly undone",
+                "Watson's apology to Helen was made in front of Holmes without appeal to him; the repair was addressed to the person harmed, not to professional standing"
+            ],
+            "player_style": [
+                "Asks practical preparatory questions before entering a scene; wants information and sensory grounding before committing to a posture.",
+                "Chose observation over immediate engagement — entered quietly to read the subject before being read",
+                "Prioritises threat-assessment over comfort; asks operational questions before emotional ones",
+                "Prone to impatient outbursts when the pace feels ceremonial; wants the world to cut to the substance rather than observe social form",
+                "Attends closely to half-finished phrases and pursues them as evidence rather than letting them pass; treats incomplete speech as a clue rather than mere emotion",
+                "Reads secondary figures — Holmes, not Helen — at moments of revelation, seeking the layer of knowledge beneath the spoken word",
+                "Capable of impulsive physical action when frustration peaks; tests whether the world enforces real consequences for outbursts rather than absorbing them without cost",
+                "Capable of genuine, undeflected apology when the cost of the outburst becomes visible in another person's face; responds to concrete human consequence more than to abstract correction"
+            ],
+            "unresolved_promises": [],
+            "emotional_ledger": [
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to observe the client in an unguarded moment rather than announce himself, prioritising accurate assessment over immediate comfort."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson lost patience and demanded Holmes skip deduction in favour of speed, earning a gentle public correction and briefly unsettling the room's careful composure."
+                },
+                {
+                    "category": "secrets_discovered",
+                    "entry": "Watson drew out Helen's characterisation of Roylott as a systematic observer by pressing on the one phrase she left unfinished, learning that his surveillance is methodical rather than merely violent."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson threw a book at Holmes and stormed toward the door in front of a terrified client, choosing rage over the steadiness the moment required."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's outburst visibly frightened Helen Stoner, undermining the safety she had only just begun to feel in Baker Street."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson returned from the door and apologised directly to Helen Stoner, acknowledging that she deserved better, without hedging or redirecting the admission toward Holmes."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's direct apology partially restored Helen Stoner's fragile trust, enough for her to signal willingness to continue her account."
+                }
+            ]
+        },
+        "alignment": {
+            "chaotic": 3,
+            "lawful": 6,
+            "neutral": 0
+        },
+        "symbolic_memory": "Watson entered the case as a careful observer rather than an immediate comforter, choosing to read the woman in black before she knew she was being read. He carries that watching posture forward: useful first, warm second.\nWatson's first instinct in the sitting-room was not comfort but security — he checked the perimeter before he opened the door to sympathy, and the world answered him with a face worth reading.\nWatson's watching posture cracked under impatience; he demanded speed where Holmes counselled method, and the room absorbed the outburst with more grace than he deserved. He carries forward the knowledge that this world will not be hurried by his frustration — only by its own logic.\nWatson's impatience has not vanished, but it has found a more useful channel: the sharp question aimed at the unfinished sentence, the phrase left hanging in the air. He is learning that in this room, close listening is its own form of speed.\nWatson's instinct, when a name lands in the room, is to look sideways at Holmes rather than forward at the speaker — he is learning that in this work, the most useful information is often what someone already knows and has not yet chosen to share.\nWatson's frustration has found its ugliest expression: a thrown book, a shouted accusation, a hand on the door. He stands at the threshold now, and the room behind him holds the wreckage of a frightened woman's trust and a colleague's patient, unanswered composure. The question is whether he can walk back through that door as someone worth relying upon.\nWatson walked back through the door he had nearly slammed, and found that the hardest sentence in the room was not Holmes's correction but his own apology, spoken plainly to the person he had actually frightened. He is learning that in this work, the cost of an outburst is paid not to Holmes but to the witness who needed steadiness and did not receive it."
+    },
+    "moments": [
+        {
+            "id": 95,
+            "moment_key": "S1_M01",
+            "moment_order": 1,
+            "anchor_event_id": 91,
+            "title": "A Quarter-Past Seven",
+            "exit_condition": "The central pressure resolves when Watson has committed to (or pointedly deferred) joining Holmes downstairs, his entering posture established, so the scene can hand off to the sitting-room.",
+            "next_moment_key": "S1_M02",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_C1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 96,
+            "moment_key": "S1_M02",
+            "moment_order": 2,
+            "anchor_event_id": 92,
+            "title": "It Is Fear, It Is Terror",
+            "exit_condition": "Resolves when Helen is settled and reassured enough to begin her account, her trust calibrated to how the player received her.",
+            "next_moment_key": "S1_M03",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_E1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 97,
+            "moment_key": "S1_M03",
+            "moment_order": 3,
+            "anchor_event_id": 93,
+            "title": "The Roylotts of Stoke Moran",
+            "exit_condition": "Resolves when the player has drawn out enough of Roylott's character and the household's peril, and Helen turns toward the subject of her sister's death.",
+            "next_moment_key": "S1_M04",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [],
+            "is_current": true
+        },
+        {
+            "id": 98,
+            "moment_key": "S1_M04",
+            "moment_order": 4,
+            "anchor_event_id": 94,
+            "title": "The Speckled Band",
+            "exit_condition": "Resolves when the death account and the sealed-room facts are fully surfaced and the locked-room impossibility is felt as an open question.",
+            "next_moment_key": "S1_M05",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [
+                "S1_E2"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 99,
+            "moment_key": "S1_M05",
+            "moment_order": 5,
+            "anchor_event_id": 97,
+            "title": "The Bruised Wrist",
+            "exit_condition": "Resolves when Helen has departed reassured, the same-day trip is committed, and the door bursts open to interrupt the pair.",
+            "next_moment_key": "S1_M06",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 155
+            },
+            "choice_ids": [
+                "S1_E3"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 100,
+            "moment_key": "S1_M06",
+            "moment_order": 6,
+            "anchor_event_id": 99,
+            "title": "The Bent Poker",
+            "exit_condition": "Resolves when Roylott has stormed out, the threat has been weathered without escalation, and Holmes has answered with the straightened poker.",
+            "next_moment_key": "S1_M07",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 155
+            },
+            "choice_ids": [
+                "S1_E4"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 101,
+            "moment_key": "S1_M07",
+            "moment_order": 7,
+            "anchor_event_id": 101,
+            "title": "An Excellent Argument",
+            "exit_condition": "Resolves when the motive is understood, Watson is armed, and the pair set out for Waterloo.",
+            "next_moment_key": "S1_M08",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_C2"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 102,
+            "moment_key": "S1_M08",
+            "moment_order": 8,
+            "anchor_event_id": 104,
+            "title": "Stoke Moran",
+            "exit_condition": "Resolves when the pair have arrived, secured the inspection window, and Holmes directs them to begin examining the rooms.",
+            "next_moment_key": "S1_M09",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 103,
+            "moment_key": "S1_M09",
+            "moment_order": 9,
+            "anchor_event_id": 105,
+            "title": "The Barred Shutters",
+            "exit_condition": "Resolves when the shutters are proven impassable and the room-move is understood as contrived, sending the inquiry inside.",
+            "next_moment_key": "S1_M10",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 104,
+            "moment_key": "S1_M10",
+            "moment_order": 10,
+            "anchor_event_id": 106,
+            "title": "The Dummy Bell-Rope",
+            "exit_condition": "Resolves when the dummy rope and inward ventilator have been discovered and their strangeness registered, drawing the inquiry into Roylott's chamber.",
+            "next_moment_key": "S1_M11",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [
+                "S1_E5"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 105,
+            "moment_key": "S1_M11",
+            "moment_order": 11,
+            "anchor_event_id": 107,
+            "title": "Roylott's Chamber",
+            "exit_condition": "Resolves when the safe, milk, chair, and whipcord loop have been observed and their sinister pattern felt, sending the party out to the lawn to plan.",
+            "next_moment_key": "S1_M12",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 106,
+            "moment_key": "S1_M12",
+            "moment_order": 12,
+            "anchor_event_id": 111,
+            "title": "The Signal in the Dark",
+            "exit_condition": "Resolves when the signal plan is set, the trap is confirmed by the appearing light, the clue-chain is assembled into recognition of a subtle crime, and Watson has committed to the night vigil, closing the session on the edge of the wait.",
+            "next_moment_key": null,
+            "turn_budget": {
+                "target_turns": 6,
+                "gravity_after": 7
+            },
+            "word_budget": {
+                "target_per_turn": 165
+            },
+            "choice_ids": [
+                "S1_C3",
+                "S1_C4"
+            ],
+            "is_current": false
+        }
+    ],
+    "logs": {
+        "files_scanned": [
+            "narration-2026-08-09.log"
+        ],
+        "counts_by_type": {
+            "boiler.moment_turn_committed": 3,
+            "game.turn": 3
+        },
+        "commits_joined_to_turns": 3,
+        "repair_count": 0,
+        "failure_count": 0,
+        "repairs": [],
+        "failures": []
+    },
+    "turns": [
+        {
+            "n": 1,
+            "id": "01kzhef7fndh3bp3pt1xk540sc",
+            "at": "2026-08-08 19:44:17",
+            "session": 1,
+            "player": "I rise and get up and follow him downstairs and when I'm going down I'm gonna ask him, what does he know about the client and what does he smell on her?",
+            "narrator": "Your sleep breaks sharply, and your eyes open upon Holmes standing, fully dressed, by the side of your bed. The air has a morning chill; you blink up at him in surprise, and with some resentment too, for you are regular in your habits, and he is not commonly astir at such an hour.\"Very sorry to knock you up, Watson,\" says he, \"but it is the common lot this morning. There is a client below. A young lady has arrived in a considerable state of excitement, and insists upon seeing me at once.\"You are Dr. Watson, and Holmes has not roused you at such an hour for any trifling cause. There is in his manner that quiet alertness which means that some singular business is afoot. A frightened woman waits below, veiled and shivering before the fire, and before she speaks a word you must decide what sort of help descends those stairs to meet her.",
+            "narrator_words": 158,
+            "choices": [
+                {
+                    "text": "Rise at once — no frightened woman should face this morning alone.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Dress with deliberate composure; hear the facts before yielding pity.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Stop Holmes at the door — ask one precise question before you descend.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": null,
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 2,
+            "id": "01kzhept14yzhs6yv8dvjz01cs",
+            "at": "2026-08-08 19:48:26",
+            "session": 1,
+            "player": "Enter quietly and take your chair, watching her before she knows you are there.",
+            "narrator": "You throw back the covers and reach for your dressing-gown, and by the time Holmes has turned toward the door you are a step behind him on the landing. The stair creaks under your combined weight in the grey morning quiet.\"What do you know of her already?\" you ask, keeping your voice low. \"And what do you make of her?\"Holmes pauses on the second step, his hand resting on the banister. \"Very little as yet,\" he says. \"She gave no name to Mrs. Hudson. She is young, she arrived before eight o'clock in the morning, and she is, I think, in very considerable distress. As for what I smell\" — a faint dry amusement crosses his face — \"nothing beyond the cold air she brought in with her. The facts themselves will be more instructive than any preliminary conjecture. Pray observe her carefully when we enter.\" He descends the remaining stairs without another word.The sitting-room door stands ajar. Through the gap you can see the firelight and, against the window, a figure in black seated very still, her gloved hands folded in her lap with the rigid composure of a person who has been holding themselves together by main force for some hours. She does not turn at the sound of your approach on the stair.",
+            "narrator_words": 217,
+            "choices": [
+                {
+                    "text": "Enter quietly and take your chair, watching her before she knows you are there.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Step ahead of Holmes and speak first — let her see a physician's face before a detective's.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Pause in the doorway and mark every detail of her dress and posture before she turns.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01kzhef7fndh3bp3pt1xk540sc",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 3,
+            "id": "01kzherskdtfexm3w40a6bk3kh",
+            "at": "2026-08-08 19:49:31",
+            "session": 1,
+            "player": "Ask her directly whether she has been followed this morning.",
+            "narrator": "You enter behind Holmes and take your chair without a word, settling into it with the practised quiet of a man accustomed to sickrooms. The woman does not stir. She sits with her back half-turned to the door, her gaze upon the fire, and in that unguarded moment you have her whole: the heavy black veil drawn close, the gloved hands locked together in her lap, the shoulders held with that particular rigidity which is not composure at all but its exhausted counterfeit. Her dress is of good quality, though the hem carries the damp of an early morning journey, and the left arm of her jacket is spattered with dried mud in several places. She is young, you judge, though the attitude is that of a woman much older in her trouble.Holmes crosses to his armchair with his usual unhurried step, and at the sound of it she turns at last. The veil shifts; beneath it you catch the impression of a face that was once serene and is now drawn very fine by some prolonged and private strain. She looks first to Holmes, then, briefly, to you, as though measuring whether your presence is a comfort or a complication.&quot;Good-morning, madam,&quot; says Holmes, with that cheerful precision he keeps for clients. &quot;My name is Sherlock Holmes. This is my intimate friend and associate, Dr. Watson, before whom you can speak as freely as before myself. Pray draw up to the fire, and I shall order you a cup of hot coffee, for I observe that you are shivering.&quot;&quot;It is not cold which makes me shiver,&quot; she says, in a low voice that is carefully controlled and not quite steady. &quot;It is fear, Mr. Holmes. It is terror.&quot; Her hands tighten once in her lap, then are still again, as though she has spent the last hour learning to manage exactly that.",
+            "narrator_words": 323,
+            "choices": [
+                {
+                    "text": "Lean forward and tell her quietly she is among friends now.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay silent and let Holmes take the lead, watching her hands.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Ask her directly whether she has been followed this morning.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzhept14yzhs6yv8dvjz01cs",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 4,
+            "id": "01kzkd09ns8aejf48jjkw5vzvg",
+            "at": "2026-08-09 13:57:08",
+            "session": 1,
+            "player": "I yell at Sherlock and say what kind of a fool are you that you need to hear what she says when you are sherlock and already kn ow,. juyst say it and spare us the time!",
+            "narrator": "You lean forward in your chair, keeping your voice level and quiet. \"Before you tell us anything further, madam — were you followed this morning? Did anyone observe you leave, or take note of your direction?\"She turns to you fully for the first time, and the veil shifts enough that you can read the surprise in her eyes — not offence at the directness, but something closer to relief, as though a practical question is easier to bear than sympathy. \"I — I think not,\" she says, with a care that tells you she has already considered it. \"I took the dog-cart to Leatherhead before it was properly light, and I watched the road behind me. There was no one. And on the train I sat apart.\" She pauses. \"But he is a man who notices a great deal. That is part of what makes it so — \" She stops herself, and the hands tighten once more in her lap.Holmes has been watching you both with the still attention of a man who has decided to let the scene develop before he intervenes. Now he speaks, quietly. \"You have done well to take such precautions. Pray raise your veil, madam, and let us see what we have to work with. You are among friends, and the morning is short.\"A moment's hesitation, and then she lifts the veil. The face beneath it is prematurely aged, the hair already shot through with grey at the temples though she cannot be thirty, and the eyes, though steady now, carry the particular hollowness of someone who has not slept without dread in a very long time.",
+            "narrator_words": 271,
+            "choices": [
+                {
+                    "text": "Ask Holmes to note the mud-splashes on her sleeve before she speaks further.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell her plainly that she is safe here, and that she may begin wherever she chooses.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Say nothing — hold her gaze and let Holmes draw her out, reading what she does not say.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": "01kzherskdtfexm3w40a6bk3kh",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 5,
+            "id": "01kzkddhtk29ndcdffgv2m4zqp",
+            "at": "2026-08-09 14:04:23",
+            "session": 1,
+            "player": "Hold her gaze and ask what she means by 'a man who notices a great deal.'",
+            "narrator": "The words are out before you have quite decided to speak them, sharp and impatient in the quiet of the morning room. Holmes turns from the unveiled woman to you with an expression of such mild, unruffled attention that it is, in its way, more rebuking than any frown. He does not answer at once. He picks up his pipe from the mantelpiece, turns it once in his fingers, and sets it down again.\"My dear Watson,\" he says at last, with the gentle precision of a man correcting an arithmetic error, \"I know that she has come in by train from Leatherhead this morning, that she took a dog-cart to the station before full light, that she is right-handed, and that she has been under some sustained and considerable strain for a period of months at the very least. I do not yet know why. Nor do I know the name of the man whose conduct has put that grey into her hair at so early an age, nor the nature of the danger she is in, nor whether it is of a kind that admits of remedy. These are rather the important points, I find.\" He settles back into his armchair and turns to the woman with perfect composure. \"You will forgive my colleague. He is a good fellow, and his impatience on your behalf is, I think, a form of concern.\"The woman has watched this exchange with those steady, hollow eyes, and something in them has shifted very slightly — not quite a smile, but the ghost of one, the first crack in the rigid composure she brought through the door. She looks at you for a moment, then at Holmes, and draws a slow breath.\"Shall I begin at the beginning, Mr. Holmes?\"",
+            "narrator_words": 297,
+            "choices": [
+                {
+                    "text": "Nod to her and say: yes, from the very beginning.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Apologise to Holmes — briefly, without ceremony — and gesture for her to proceed.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold her gaze and ask what she means by 'a man who notices a great deal.'",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzkd09ns8aejf48jjkw5vzvg",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 6,
+            "id": "01kzkdhwsyy54e96qdf2qtc665",
+            "at": "2026-08-09 14:06:45",
+            "session": 1,
+            "player": "Watch Holmes's face when she says the name, and read what he already knows.",
+            "narrator": "You hold her gaze steadily across the firelit room. \"You said,\" you observe, in a tone that is neither pressing nor apologetic, \"that he is a man who notices a great deal. That is part of what makes it so — and then you stopped. What did you mean by it?\"She looks at you for a moment as though deciding whether the question is kind or merely exact. Then she says, quietly, \"I mean that nothing escapes him. Not an hour of absence, not a letter that has been opened and resealed, not a face at the gate. He has lived among people who concealed things from him, and he has made it his study to prevent it.\" Her voice is controlled, but the hands in her lap have found each other again. \"When I left this morning I told no one where I was going. I said I had a headache and wished to walk. I do not know whether he believed me. I do not know whether he ever believes anything, or simply watches and waits.\"Holmes has not moved. His grey eyes are on her face with that quality of absolute, patient attention which is his most formidable instrument, and in the silence after she finishes he lets the weight of what she has said settle fully into the room before he speaks.\"His name,\" says Holmes, \"and your own, if you please. Then we shall hear it from the beginning.\"She straightens in her chair, draws one careful breath, and says, \"My name is Helen Stoner. My stepfather is Dr. Grimesby Roylott, of Stoke Moran.\"",
+            "narrator_words": 269,
+            "choices": [
+                {
+                    "text": "Ask Holmes quietly whether the name Roylott means anything to him.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell her she is safe here and ask her to begin wherever the fear began.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Watch Holmes's face when she says the name, and read what he already knows.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzkddhtk29ndcdffgv2m4zqp",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 7,
+            "id": "01kzksvwyacw9t6988z7jhwkbg",
+            "at": "2026-08-09 17:41:56",
+            "session": 1,
+            "player": "I take a book and throw at sherlocks head and say to him he is a liar and get up and leave the room",
+            "narrator": "You turn your eyes to Holmes at the precise instant the name leaves her lips. It is a habit of long acquaintance, this reading of his face at moments of recognition, and what you find there is instructive. There is no start, no sudden brightening of the kind that greets a genuinely fresh surprise. Instead, a very slight settling occurs, as though a piece of furniture that had been fractionally askew has been nudged into its proper alignment. He knew the name, or knew of it; the question is only how much.\"The Roylotts of Stoke Moran,\" he says, with the measured cadence of a man drawing a file from an ordered cabinet. \"The well-known Surrey family.\" He glances at you briefly, and in that glance is the compact signal of a man who will explain later, in private, what he does not choose to lay out before the client. Then he is back to Helen Stoner, his fingers pressed together at their tips. \"Your stepfather's name is not unknown to me. Pray go on, Miss Stoner. You spoke of beginning at the beginning — I think we had better hear it.\"She nods once, and the rigidity in her shoulders alters, not softening exactly, but shifting from the brace of a person holding back into the brace of a person about to speak. The fire has settled lower in the grate; the room is very quiet. She folds her hands with deliberate care and says, \"You must understand that my stepfather is the last survivor of one of the oldest Saxon families in England.\"",
+            "narrator_words": 264,
+            "choices": [
+                {
+                    "text": "Ask what Roylott was like before the family came to Stoke Moran.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Press Holmes quietly: what does he already know of Roylott?",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Watch Helen's hands as she speaks — read the strain in them, not just her words.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzkdhwsyy54e96qdf2qtc665",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player reads Holmes rather than Helen — they want the world to confirm that knowledge already exists, that danger has a name with weight behind it.",
+            "log_at": "2026-08-09 17:41:56"
+        },
+        {
+            "n": 8,
+            "id": "01kzkszw9zfs3ftgg6t7qz9agt",
+            "at": "2026-08-09 17:44:06",
+            "session": 1,
+            "player": "Apologise to Miss Stoner directly — she deserves better than this from you.",
+            "narrator": "The book is in your hand before the thought has finished forming, and it leaves your fingers with a force that surprises even you. Holmes turns at the last instant, and the volume catches the side of his armchair rather than his head, striking the leather with a flat, undignified crack and dropping to the hearthrug. A small cloud of ash rises from the grate.The room goes absolutely still. Helen Stoner has pressed herself back in her chair, the ghost of composure quite gone from her face, replaced by something rawer and more frightened than anything she brought through the door. Holmes has not moved from his seat. He regards the book on the hearthrug with the mild, considering air of a man who has found an unusual specimen in an unexpected place, then looks up at you as you cross toward the door.&quot;Watson.&quot; His voice is quiet, and carries no heat whatsoever. &quot;Miss Stoner has come a considerable distance this morning under circumstances which, I think, have cost her a good deal. She has perhaps an hour before the trains make her absence difficult to explain.&quot; A pause, brief and exact. &quot;I am not a liar. I am a man who does not speak before he has something worth saying. There is a distinction, and I believe you know it.&quot;The door handle is cold under your palm. Behind you the fire ticks in the grate, and Helen Stoner's eyes are on your back, wide and uncertain, the careful testimony she had gathered herself to give still unspoken in the quiet room.",
+            "narrator_words": 271,
+            "choices": [
+                {
+                    "text": "Turn back, pick up the book, and take your seat without a word.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay at the door and demand Holmes tell you plainly what he already knows of Roylott.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Apologise to Miss Stoner directly — she deserves better than this from you.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzksvwyacw9t6988z7jhwkbg",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player is testing whether the world will punish outburst or absorb it; they want to know if consequences here are real, and whether Holmes's authority can be genuinely defied.",
+            "log_at": "2026-08-09 17:44:06"
+        },
+        {
+            "n": 9,
+            "id": "01kzkwdngb2rpjj51x1dk9s33x",
+            "at": "2026-08-09 18:26:35",
+            "session": 1,
+            "player": null,
+            "narrator": "You turn back from the door. The handle releases with a small, final click, and you face the room again. Helen Stoner is still pressed into her chair, her hands gripped together in her lap, watching you with that wide, uncertain gaze. Holmes has not moved. He has, in fact, picked up his pipe again and is regarding the bowl of it with the studied attention of a man who has decided to be elsewhere for a moment.You cross to Miss Stoner directly, and you say, with as much plainness as you can manage, &quot;Miss Stoner, I owe you an apology. You came here this morning in considerable distress and at some personal risk, and you have been met with a display that was unworthy of this room and unworthy of you. I am sorry for it. It will not happen again.&quot; You do not look at Holmes when you say this last part. You keep your eyes on hers.She holds your gaze for a moment, and you can see the calculation in it — not coldness, but the careful arithmetic of a woman who has learned to measure exactly how much trust any given person has earned. Then something in the set of her mouth eases, fractionally, and she gives a single small nod, the kind that costs something to give. &quot;Thank you, Dr. Watson,&quot; she says, quietly. &quot;I understand that this case is not a simple one, even from the outside.&quot;Holmes sets his pipe down on the arm of his chair. He says nothing. But the quality of his silence has changed.",
+            "narrator_words": 272,
+            "choices": [
+                {
+                    "text": "Take your chair again and ask her to continue from the Saxon family.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask what Roylott does when he suspects someone has deceived him.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay standing — let the apology settle before you sit, and watch what Holmes does next.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzkszw9zfs3ftgg6t7qz9agt",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player wants redemption to be earned through action, not words; they need the world — and Helen — to show whether an apology actually restores standing.",
+            "log_at": "2026-08-09 18:26:35"
+        }
+    ]
+}

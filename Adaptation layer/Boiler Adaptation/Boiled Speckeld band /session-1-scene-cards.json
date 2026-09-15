@@ -1,0 +1,658 @@
+[
+    {
+        "moment_key": "S1_M01",
+        "moment_order": 1,
+        "title": "A Quarter-Past Seven",
+        "source_event_ids": [
+            91
+        ],
+        "anchor_event_id": 91,
+        "treatment": "Cold-open bedroom threshold at a quarter-past seven. Watson wakes to Holmes fully dressed by the bed; a frightened young lady waits below. One embodied choice: how to enter the case.",
+        "runtime_goal": "Ground the player in Watson's body and habit, establish the improper hour and pressing client, and land a posture-setting first choice within a few turns.",
+        "player_desire": "Understand what is wrong and decide how to meet it.",
+        "live_pressure": "An agitated client waits below at daybreak; first impressions will be formed with or without you.",
+        "opening_image": "Thin morning light on the mantel clock reading a quarter-past seven; Holmes, already fully dressed, stands over your bed with that quiet alertness which means some singular business is afoot.",
+        "player_affordances": [
+            "Rise at once with human sympathy",
+            "Dress with professional composure to hear facts first",
+            "Pause Holmes for one precise question about the visitor before descending",
+            "Ask Holmes about the hour or the client",
+            "Observe the thin morning light and mantel clock"
+        ],
+        "canon_must_keep": [
+            "It is a quarter-past seven, an hour Holmes is seldom astir",
+            "A young lady in considerable excitement insists on seeing Holmes in the sitting-room below",
+            "Watson is Holmes's intimate friend and habitual companion who follows cases from the outset"
+        ],
+        "allowed_variance": [
+            "Watson's exact tone of surprise\/resentment",
+            "Which posture the player chooses and how it is voiced",
+            "Whether Watson asks a clarifying question"
+        ],
+        "forbidden_expansions": [
+            "Do not reveal Helen's name, Stoke Moran, Julia, Roylott, the whistle, or the bruises",
+            "No supernatural framing",
+            "No modern colloquial speech"
+        ],
+        "source_extracts": [
+            "\"Very sorry to knock you up, Watson,\" said he, \"but it's the common lot this morning.\"",
+            "\"No; a client. It seems that a young lady has arrived in a considerable state of excitement, who insists upon seeing me.\"",
+            "\"My dear fellow, I would not miss it for anything.\""
+        ],
+        "choice_ids": [
+            "S1_C1"
+        ],
+        "word_budget": {
+            "target_per_turn": 150
+        },
+        "turn_budget": {
+            "target_turns": 3,
+            "gravity_after": 4
+        },
+        "exit_condition": "The central pressure resolves when Watson has committed to (or pointedly deferred) joining Holmes downstairs, his entering posture established, so the scene can hand off to the sitting-room.",
+        "next_moment_key": "S1_M02",
+        "next_bridge": "With his posture chosen, Watson descends the stair beside Holmes toward the sitting-room where the veiled visitor waits."
+    },
+    {
+        "moment_key": "S1_M02",
+        "moment_order": 2,
+        "title": "It Is Fear, It Is Terror",
+        "source_event_ids": [
+            92
+        ],
+        "anchor_event_id": 92,
+        "treatment": "The sitting-room. A lady in black rises from the window; her shivering is fear, not cold. Holmes demonstrates the return-ticket and mud deduction, and invites her to lay the case before them.",
+        "runtime_goal": "Deliver first proof of the detective promise through observed deduction and earn Helen's trust in proportion to the chosen posture.",
+        "player_desire": "Take the measure of this frightened woman and see whether Holmes's method is real.",
+        "live_pressure": "A terrified stranger is on the edge of breaking; how she is received shapes how freely she will speak.",
+        "opening_image": "A lady in black, heavily veiled, rises from the window-seat; her gloved hands tremble in the firelight though the morning is not cold.",
+        "player_affordances": [
+            "Reassure Helen or hold professional reserve",
+            "Notice details of her appearance (grey-shot hair, hunted eyes)",
+            "React with admiration to Holmes's deduction",
+            "Prompt Holmes or Helen to begin",
+            "Offer coffee or the fire"
+        ],
+        "canon_must_keep": [
+            "\"It is fear, Mr. Holmes. It is terror.\"",
+            "Holmes deduces the dog-cart drive and morning train from the return ticket and seven mud-splashes",
+            "Holmes takes genuine interest and pledges the same care he gave Mrs. Farintosh"
+        ],
+        "allowed_variance": [
+            "Depth of Watson's reassurance based on M01 posture",
+            "Order of the deduction beats",
+            "Whether the case-book\/Farintosh detail is surfaced or left as optional lore"
+        ],
+        "forbidden_expansions": [
+            "Do not yet give Julia's death account or the family history",
+            "No mystical framing of the deduction; keep it clue-anchored",
+            "No romance subplotting"
+        ],
+        "source_extracts": [
+            "\"It is not cold which makes me shiver,\" said the woman in a low voice",
+            "\"The left arm of your jacket is spattered with mud in no less than seven places... There is no vehicle save a dog-cart which throws up mud in that way\"",
+            "\"before whom you can speak as freely as before myself\""
+        ],
+        "choice_ids": [
+            "S1_E1"
+        ],
+        "word_budget": {
+            "target_per_turn": 150
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when Helen is settled and reassured enough to begin her account, her trust calibrated to how the player received her.",
+        "next_moment_key": "S1_M03",
+        "next_bridge": "Steadied enough to speak, Helen draws a breath and begins the history of Stoke Moran and the man who rules it."
+    },
+    {
+        "moment_key": "S1_M03",
+        "moment_order": 3,
+        "title": "The Roylotts of Stoke Moran",
+        "source_event_ids": [
+            93
+        ],
+        "anchor_event_id": 93,
+        "treatment": "Helen's account of Stoke Moran and Roylott, delivered as choosable probes: the ruined Saxon family, the Calcutta doctor who beat his butler to death, the violent temper, the cheetah and baboon, the isolated joyless household. Ends on the mention of Julia's death.",
+        "runtime_goal": "Convert front-loaded family history into interactive testimony where the player's questions (intuition vs procedure) shape which motive and menace threads are drawn out.",
+        "player_desire": "Learn who Roylott is and why this household is dangerous.",
+        "live_pressure": "The backstory is long and could smother momentum; the player must mine what matters before dread cools.",
+        "opening_image": "Helen sits forward in the firelight, her prematurely grey hair and worn face testifying to years of strain as she speaks of an ancient family reduced to one mortgaged house.",
+        "player_affordances": [
+            "Probe Roylott's past (Calcutta, the butler, the prison term)",
+            "Ask about the will and the sisters' finances",
+            "Ask about the animals and the gipsies",
+            "Follow procedure with pointed factual questions or follow intuition toward the ominous",
+            "Note Helen's prematurely grey hair as evidence of the household's strain"
+        ],
+        "canon_must_keep": [
+            "Roylott is the last of an ancient Saxon family reduced to a mortgaged Stoke Moran house",
+            "He trained in Calcutta, beat his native butler to death, and served prison time",
+            "He keeps a free-roaming cheetah and baboon and consorts with wandering gipsies",
+            "The mother's bequest passes to Roylott while the daughters reside, with sums on marriage"
+        ],
+        "allowed_variance": [
+            "How much history the player draws out vs leaves as optional lore",
+            "Order of probes",
+            "Whether financial detail is deep or deferred to M07"
+        ],
+        "forbidden_expansions": [
+            "Do not narrate Julia's death scene here (that is M04)",
+            "No invented Roylott dialogue",
+            "Keep exposition to what the player elicits; do not dump the whole ledger unprompted"
+        ],
+        "source_extracts": [
+            "\"the Roylotts of Stoke Moran, on the western border of Surrey\"",
+            "\"he beat his native butler to death and narrowly escaped a capital sentence\"",
+            "\"he has at this moment a cheetah and a baboon, which wander freely over his grounds\""
+        ],
+        "choice_ids": [],
+        "word_budget": {
+            "target_per_turn": 150
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when the player has drawn out enough of Roylott's character and the household's peril, and Helen turns toward the subject of her sister's death.",
+        "next_moment_key": "S1_M04",
+        "next_bridge": "Her voice lowering, Helen comes at last to the night her sister died, and the account darkens into the fatal room."
+    },
+    {
+        "moment_key": "S1_M04",
+        "moment_order": 4,
+        "title": "The Speckled Band",
+        "source_event_ids": [
+            94,
+            95
+        ],
+        "anchor_event_id": 94,
+        "treatment": "Julia's last night, breathed at full length: the whistle at three a.m., the smell of cigars, the locked doors, the wild stormy night, the scream, the low whistle and metallic clang, Julia swaying into the corridor and dying with 'the speckled band.' Then Holmes's inquest probing establishes the sealed room and his 'deep waters' dissatisfaction.",
+        "runtime_goal": "Let the session's core dread land unhurried, then hand the player active forensic inquiry into the locked-room facts.",
+        "player_desire": "Grasp exactly how Julia died and why the room seems impenetrable.",
+        "live_pressure": "The account is harrowing and the facts refuse an ordinary explanation; the puzzle tightens as each escape route is sealed.",
+        "opening_image": "Helen relives the wild stormy night: a low clear whistle in the silence, a metallic clang, and her sister swaying into the corridor to gasp of a speckled band before she died.",
+        "player_affordances": [
+            "Press Helen for precise details of the whistle and clang",
+            "Ask whether she could swear to what she heard",
+            "Probe the coroner's findings on door, shutters, walls, floor, chimney, and poison",
+            "Ask what 'the speckled band' might mean",
+            "React to Holmes's dissatisfaction"
+        ],
+        "canon_must_keep": [
+            "Julia dies gasping \"It was the band! The speckled band!\" pointing toward the Doctor's room",
+            "A low whistle and a metallic clang were heard on the fatal night",
+            "The room was sealed: fastened door, barred shutters, solid walls and floor, staple-barred chimney; no poison found",
+            "Holmes calls these \"very deep waters\" and is not satisfied by the gipsy explanation"
+        ],
+        "allowed_variance": [
+            "How much inquest detail the player elicits",
+            "Order of questioning",
+            "Whether the charred match\/match-box detail is surfaced now or noted lightly"
+        ],
+        "forbidden_expansions": [
+            "Do not reveal the snake, ventilator theory, or clamped bed yet",
+            "No graphic gore; render death through Julia's convulsions, pallor, and cry",
+            "No supernatural resolution of the whistle"
+        ],
+        "source_extracts": [
+            "\"Oh, my God! Helen! It was the band! The speckled band!\"",
+            "\"the door had been fastened upon the inner side, and the windows were blocked by old-fashioned shutters with broad iron bars\"",
+            "\"These are very deep waters,\" said he; \"pray go on with your narrative.\""
+        ],
+        "choice_ids": [
+            "S1_E2"
+        ],
+        "word_budget": {
+            "target_per_turn": 160
+        },
+        "turn_budget": {
+            "target_turns": 5,
+            "gravity_after": 6
+        },
+        "exit_condition": "Resolves when the death account and the sealed-room facts are fully surfaced and the locked-room impossibility is felt as an open question.",
+        "next_moment_key": "S1_M05",
+        "next_bridge": "As the impossibility settles, Helen confesses she now sleeps in that very room, and the danger turns from history to the present hour."
+    },
+    {
+        "moment_key": "S1_M05",
+        "moment_order": 5,
+        "title": "The Bruised Wrist",
+        "source_event_ids": [
+            96,
+            97,
+            98
+        ],
+        "anchor_event_id": 97,
+        "treatment": "Testimony's close. Helen reveals she now sleeps in the death chamber and heard the whistle last night. Holmes exposes the five livid bruises on her wrist; the player weighs protection against exposure. Helen leaves re-veiled; Holmes and Watson agree the case demands a same-day trip, ending on the door bursting open.",
+        "runtime_goal": "Spike urgency with renewed peril and the bruise reveal, land a protection-vs-exposure pressure, and commit to Stoke Moran that day.",
+        "player_desire": "Protect Helen and settle whether to act now or gather more first.",
+        "live_pressure": "Helen is already back in the fatal bed and heard the herald of death last night; the danger is immediate and personal.",
+        "opening_image": "Holmes gently draws back the frill of black lace at Helen's wrist to reveal five little livid spots, the marks of four fingers and a thumb printed on the white skin.",
+        "player_affordances": [
+            "React to the bruise reveal with anger, gentleness, or restraint",
+            "Urge caution to shield Helen from Roylott's suspicion, or press for speed",
+            "Confirm the plan to visit Stoke Moran that day",
+            "Reassure Helen before she departs",
+            "Weigh the theory with Holmes"
+        ],
+        "canon_must_keep": [
+            "Helen now sleeps in Julia's room due to 'repairs' and heard the low whistle last night",
+            "Five livid finger-and-thumb marks are printed on Helen's wrist",
+            "Holmes and Watson resolve to see over the rooms that day while Roylott is in town",
+            "The scene ends on the door being suddenly dashed open"
+        ],
+        "allowed_variance": [
+            "How the player frames protection vs exposure",
+            "Depth of the theory discussion (compress per guidance)",
+            "Watson's emotional register at the bruises"
+        ],
+        "forbidden_expansions": [
+            "Do not resolve the full theory (that is the vigil setup)",
+            "No lurid dwelling on the bruises; keep it forensic",
+            "Do not let Watson out-deduce Holmes"
+        ],
+        "source_extracts": [
+            "\"I suddenly heard in the silence of the night the low whistle which had been the herald of her own death.\"",
+            "Five little livid spots, the marks of four fingers and a thumb, were printed upon the white wrist.",
+            "\"It is precisely for that reason that we are going to Stoke Moran this day... But what in the name of the devil!\""
+        ],
+        "choice_ids": [
+            "S1_E3"
+        ],
+        "word_budget": {
+            "target_per_turn": 155
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when Helen has departed reassured, the same-day trip is committed, and the door bursts open to interrupt the pair.",
+        "next_moment_key": "S1_M06",
+        "next_bridge": "The door is dashed suddenly open, and an enormous man fills the frame, transferring the danger from testimony to the room itself."
+    },
+    {
+        "moment_key": "S1_M06",
+        "moment_order": 6,
+        "title": "The Bent Poker",
+        "source_event_ids": [
+            99,
+            100
+        ],
+        "anchor_event_id": 99,
+        "treatment": "Midpoint intensification. Roylott fills the doorway, demands what Helen has said, and is met by Holmes's bland civility about crocuses and draughts. He insults, threatens, and bends the steel poker before storming out; Holmes calmly straightens it again.",
+        "runtime_goal": "Make the antagonist's menace physically present and let the player choose a posture under direct threat, then release the tension with Holmes's quiet answer.",
+        "player_desire": "Stand your ground without provoking catastrophe, and take Roylott's measure.",
+        "live_pressure": "An enormous, uncontrollable man is threatening bodily harm in the room, having traced Helen.",
+        "opening_image": "A huge man in top-hat and frock-coat fills the doorway, hunting-crop swinging, his great yellow bird-of-prey face turning from one of you to the other.",
+        "player_affordances": [
+            "Support Holmes's cool deflection or move to physically interpose",
+            "Answer Roylott with defiance or hold silence",
+            "Observe his dress, bird-of-prey features, and the bent poker",
+            "Show concern that Helen was traced",
+            "React to Holmes straightening the poker"
+        ],
+        "canon_must_keep": [
+            "Roylott is enormous, dressed in top-hat, frock-coat, gaiters, carrying a hunting-crop, with bird-of-prey features",
+            "Holmes answers provocation with bland understatement (weather, crocuses, draught) and does not become heated",
+            "Roylott bends the poker with his hands and threatens Holmes before leaving",
+            "Holmes straightens the poker afterward"
+        ],
+        "allowed_variance": [
+            "Watson's degree of physical readiness",
+            "Exact insults Roylott hurls (meddler, busybody, Jack-in-office)",
+            "Whether Watson speaks or stays silent"
+        ],
+        "forbidden_expansions": [
+            "Holmes must not rant or match aggression",
+            "No physical brawl beyond the poker display",
+            "Do not reveal the murder method"
+        ],
+        "source_extracts": [
+            "\"It is a little cold for the time of the year,\" said Holmes.",
+            "\"I am a dangerous man to fall foul of! See here.\" ... he seized the poker, and bent it into a curve",
+            "\"When you go out close the door, for there is a decided draught.\""
+        ],
+        "choice_ids": [
+            "S1_E4"
+        ],
+        "word_budget": {
+            "target_per_turn": 155
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when Roylott has stormed out, the threat has been weathered without escalation, and Holmes has answered with the straightened poker.",
+        "next_moment_key": "S1_M07",
+        "next_bridge": "With Roylott gone and the poker straightened, Holmes sets out to learn the man's true motive, returning near one o'clock with the figures in hand."
+    },
+    {
+        "moment_key": "S1_M07",
+        "moment_order": 7,
+        "title": "An Excellent Argument",
+        "source_event_ids": [
+            101
+        ],
+        "anchor_event_id": 101,
+        "treatment": "Holmes returns near one o'clock with the will worked out: the income falls, each daughter's marriage would cripple Roylott, proving the strongest motive. He arms Watson with the Eley's No. 2 and calls the cab for Waterloo.",
+        "runtime_goal": "Deliver motive clarity (evidence vs speed) and arm the player, converting suspicion into a case with a why and a weapon.",
+        "player_desire": "Understand what Roylott stands to lose and be ready for danger.",
+        "live_pressure": "Roylott now knows they are interested; there is no time for dawdling.",
+        "opening_image": "Holmes returns near one o'clock, a sheaf of notes in hand and the will figures clear in his mind, and lays the revolver within your reach.",
+        "player_affordances": [
+            "Ask Holmes to explain the will figures",
+            "Weigh whether the motive is proof enough or requires the estate visit",
+            "Take up the revolver",
+            "Voice concern for Helen's imprudence in being traced",
+            "Decide how cautiously to frame the operation"
+        ],
+        "canon_must_keep": [
+            "Holmes has seen the wife's will; income fell from ~£1,100 to ~£750; each daughter claims £250 on marriage",
+            "Roylott has the strongest motive to prevent his stepdaughters' marriages",
+            "Watson is asked to slip the Eley's No. 2 revolver into his pocket"
+        ],
+        "allowed_variance": [
+            "Depth of the financial explanation",
+            "Watson's reaction to arming himself",
+            "Whether the Doctors' Commons errand is mentioned"
+        ],
+        "forbidden_expansions": [
+            "Do not reveal the snake or apparatus",
+            "No modern gun jargon",
+            "Keep the aphorism about doctors-turned-criminals for the vigil setup"
+        ],
+        "source_extracts": [
+            "\"I have seen the will of the deceased wife\"",
+            "\"each daughter can claim an income of £250, in case of marriage\"",
+            "\"An Eley's No. 2 is an excellent argument with gentlemen who can twist steel pokers into knots.\""
+        ],
+        "choice_ids": [
+            "S1_C2"
+        ],
+        "word_budget": {
+            "target_per_turn": 150
+        },
+        "turn_budget": {
+            "target_turns": 3,
+            "gravity_after": 4
+        },
+        "exit_condition": "Resolves when the motive is understood, Watson is armed, and the pair set out for Waterloo.",
+        "next_moment_key": "S1_M08",
+        "next_bridge": "Armed and resolved, the pair take the train from Waterloo into Surrey, the spring country giving way to the grey gables of Stoke Moran."
+    },
+    {
+        "moment_key": "S1_M08",
+        "moment_order": 8,
+        "title": "Stoke Moran",
+        "source_event_ids": [
+            102,
+            103,
+            104
+        ],
+        "anchor_event_id": 104,
+        "treatment": "Compressed travel montage into an arrival room: Surrey lanes and the first grey-gabled sight of Stoke Moran, the stile, and the architect cover story; Helen meets them joyful that Roylott is away till evening. Holmes urges immediate inspection and warns her to lock herself in tonight; the player weighs stealth against confrontation.",
+        "runtime_goal": "Move briskly through travel per guidance, then open the inspection window with a stealth-vs-confrontation choice about avoiding Roylott's notice.",
+        "player_desire": "Reach the house and begin inspecting before Roylott can return.",
+        "live_pressure": "The inspection window is narrow; Roylott has already traced Helen and could learn of the visit.",
+        "opening_image": "Across the Surrey lanes the grey lichen-blotched gables of Stoke Moran rise against the sweet promise of spring, a strange contrast to the sinister quest that brings you.",
+        "player_affordances": [
+            "Take in the spring-vs-sinister contrast and the mansion's gables",
+            "Confirm the architect cover story",
+            "Greet Helen and confirm Roylott's absence",
+            "Choose a cautious stealthy approach or a bolder one",
+            "Reassure Helen about locking herself in and the Harrow fallback"
+        ],
+        "canon_must_keep": [
+            "The drive is four or five miles through Surrey lanes with spring-vs-sinister-quest contrast; the driver confirms it is Roylott's house",
+            "Approach is by stile and footpath under an architect cover story; Helen confirms Roylott is in town till evening",
+            "Holmes insists on inspecting the rooms at once and warns Helen to lock herself in, with Harrow as refuge if he turns violent"
+        ],
+        "allowed_variance": [
+            "How much scenery is dwelt on (keep brief)",
+            "The player's stealth vs confrontation framing",
+            "Order of greeting and cover-story mention"
+        ],
+        "forbidden_expansions": [
+            "Do not begin the room inspection yet (that is M09)",
+            "No lush landscape padding",
+            "Do not reveal that repairs were an excuse until the shutter inspection"
+        ],
+        "source_extracts": [
+            "\"there was a strange contrast between the sweet promise of the spring and this sinister quest upon which we were engaged\"",
+            "\"this fellow should think we had come here as architects\"",
+            "\"kindly take us at once to the rooms which we are to examine.\""
+        ],
+        "choice_ids": [],
+        "word_budget": {
+            "target_per_turn": 150
+        },
+        "turn_budget": {
+            "target_turns": 3,
+            "gravity_after": 4
+        },
+        "exit_condition": "Resolves when the pair have arrived, secured the inspection window, and Holmes directs them to begin examining the rooms.",
+        "next_moment_key": "S1_M09",
+        "next_bridge": "With Roylott safely away till evening, Holmes turns to the grey wing and its barred shutters, and the forensic inspection begins outside."
+    },
+    {
+        "moment_key": "S1_M09",
+        "moment_order": 9,
+        "title": "The Barred Shutters",
+        "source_event_ids": [
+            105
+        ],
+        "anchor_event_id": 105,
+        "treatment": "The exterior and shutters. Grey lichen-blotched stone, two crab-claw wings, the ruined wing, the modern block, the suspicious scaffolding with no workmen. Holmes examines the windows; Helen bars a shutter and Holmes cannot force it, the hinges solid iron. The 'repairs' were an excuse to move Helen.",
+        "runtime_goal": "Give the player embodied forensic play on the building's exterior, discovering that the sealed-room barrier is genuine and the room-move was contrived.",
+        "player_desire": "Test whether an intruder could ever breach the shutters.",
+        "live_pressure": "Every honest test closes a route; the impossibility deepens even as time runs.",
+        "opening_image": "The building of grey, lichen-blotched stone spreads its two curving wings like the claws of a crab, with scaffolding against an end wall that shows no sign of workmen.",
+        "player_affordances": [
+            "Examine each wing, the ruined roof, the modern block, and the scaffolding",
+            "Note the absence of workmen and the needless end-wall repair",
+            "Have Helen bar the shutter and try to force it",
+            "Inspect hinges and look for a knife-slit",
+            "Reason aloud about corridor windows being too narrow"
+        ],
+        "canon_must_keep": [
+            "The barred shutters cannot be forced; hinges are solid iron in massive masonry; no slit for a knife",
+            "The end-wall repairs were a needless excuse to move Helen into the middle room",
+            "Corridor windows are too narrow to pass and the doors were locked, making the rooms unapproachable from that side"
+        ],
+        "allowed_variance": [
+            "Order of exterior hotspots examined",
+            "How the player voices the 'excuse' realization",
+            "Depth of scaffolding suspicion"
+        ],
+        "forbidden_expansions": [
+            "Do not allow any working intruder route through shutter, window, or corridor",
+            "Do not reveal the ventilator\/rope apparatus yet",
+            "No supernatural entry"
+        ],
+        "source_extracts": [
+            "The building was of grey, lichen-blotched stone, with a high central portion and two curving wings, like the claws of a crab",
+            "\"there does not seem to be any very pressing need for repairs at that end wall.\" ... \"it was an excuse to move me from my room.\"",
+            "Holmes... endeavoured in every way to force the shutter open, but without success."
+        ],
+        "choice_ids": [],
+        "word_budget": {
+            "target_per_turn": 160
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when the shutters are proven impassable and the room-move is understood as contrived, sending the inquiry inside.",
+        "next_moment_key": "S1_M10",
+        "next_bridge": "The shutters proving impassable, Holmes leads you within, to the middle bedroom where Julia died and where Helen now sleeps."
+    },
+    {
+        "moment_key": "S1_M10",
+        "moment_order": 10,
+        "title": "The Dummy Bell-Rope",
+        "source_event_ids": [
+            106
+        ],
+        "anchor_event_id": 106,
+        "treatment": "The death chamber interior. Low ceiling, gaping fireplace, worm-eaten oak panelling, the clamped narrow bed, the Wilton carpet. Holmes crawls the floor and walls, then tugs the thick bell-rope by the pillow: a dummy, not attached to any wire, fastened to a hook just above a ventilator that opens into the next room, not outdoors.",
+        "runtime_goal": "Deliver the session's central clue discovery as a room the player inhabits and inspects for several turns, surfacing the dummy rope and the ventilator-that-does-not-ventilate.",
+        "player_desire": "Find what is wrong with this innocent-looking room.",
+        "live_pressure": "The clues are subtle and the answer is nearly in reach; missing them leaves Helen in the fatal bed tonight.",
+        "opening_image": "A low-ceilinged chamber of worm-eaten oak panelling and a gaping fireplace; a thick bell-rope hangs by the pillow, its tassel resting on the clamped narrow bed.",
+        "player_affordances": [
+            "Inspect the bed, carpet, panelling, fireplace, and dressing-table",
+            "Examine the bell-rope's placement and tug it to find it a dummy",
+            "Trace the rope to the hook above the ventilator",
+            "Note the ventilator opens into Roylott's room, not outside",
+            "Ask Helen when the rope and ventilator were installed"
+        ],
+        "canon_must_keep": [
+            "The bell-rope is a dummy, not attached to any wire, fastened to a hook just above the ventilator opening",
+            "The ventilator opens into the adjacent (Roylott's) room rather than outdoors",
+            "The bed is clamped to the floor and cannot be moved",
+            "The rope and ventilator are recent, installed about the same time"
+        ],
+        "allowed_variance": [
+            "Order in which the player finds rope vs ventilator vs bed clamp",
+            "How much of the floor\/panel crawl is dramatized",
+            "Whether the bed-clamp is fully voiced here or reserved for M12's synthesis"
+        ],
+        "forbidden_expansions": [
+            "Do not name the snake or state the full method",
+            "Do not allow the rope to function as a real bell-pull",
+            "Do not let the ventilator vent outside"
+        ],
+        "source_extracts": [
+            "\"Why, it's a dummy,\" said he. \"No, it is not even attached to a wire... fastened to a hook just above where the little opening for the ventilator is.\"",
+            "\"what a fool a builder must be to open a ventilator into another room\"",
+            "\"dummy bell-ropes, and ventilators which do not ventilate.\""
+        ],
+        "choice_ids": [
+            "S1_E5"
+        ],
+        "word_budget": {
+            "target_per_turn": 160
+        },
+        "turn_budget": {
+            "target_turns": 5,
+            "gravity_after": 6
+        },
+        "exit_condition": "Resolves when the dummy rope and inward ventilator have been discovered and their strangeness registered, drawing the inquiry into Roylott's chamber.",
+        "next_moment_key": "S1_M11",
+        "next_bridge": "The ventilator points the way, and Holmes crosses into Roylott's own chamber to see what waits on the other side of that opening."
+    },
+    {
+        "moment_key": "S1_M11",
+        "moment_order": 11,
+        "title": "Roylott's Chamber",
+        "source_event_ids": [
+            107
+        ],
+        "anchor_event_id": 107,
+        "treatment": "Roylott's chamber. Plain furnishings, a shelf of technical books, and the principal objects: a large iron safe with a saucer of milk on top, a wooden chair bolted to the wall bearing signs of being stood upon, and a small dog lash curled and tied into a loop of whipcord on the bed corner.",
+        "runtime_goal": "Complete the apparatus discovery through inspectable objects, letting the player assemble the ominous inventory without Holmes naming the solution.",
+        "player_desire": "Read the meaning in Roylott's strange possessions.",
+        "live_pressure": "Time in the enemy's own room is dangerous, and the objects hint at a method too subtle to name aloud.",
+        "opening_image": "A plain chamber with a shelf of technical books; on a large iron safe stands a small saucer of milk, and on the bed-corner lies a dog lash curled and tied into a loop of whipcord.",
+        "player_affordances": [
+            "Examine the safe and the saucer of milk",
+            "Inspect the bolted wooden chair's seat",
+            "Find and puzzle over the tied whipcord loop",
+            "Note the technical books",
+            "Offer a Watsonian guess and be gently corrected"
+        ],
+        "canon_must_keep": [
+            "The iron safe holds business papers; a saucer of milk sits atop it (\"there is a cheetah and a baboon\")",
+            "A wooden chair is bolted\/against the wall and Holmes examines its seat with keen interest",
+            "A small dog lash is curled and tied into a loop of whipcord on the bed corner",
+            "Holmes remarks on a clever man turning his brains to crime but withholds the full solution"
+        ],
+        "allowed_variance": [
+            "Order objects are examined",
+            "Whether Watson guesses the cat\/cheetah idea",
+            "How explicitly the milk-and-loop are lingered on"
+        ],
+        "forbidden_expansions": [
+            "Do not name the snake or explain the method",
+            "Do not open the safe to reveal its contents beyond papers\/impression of papers",
+            "No gore or animal-on-page reveal"
+        ],
+        "source_extracts": [
+            "\"Well, look at this!\" He took up a small saucer of milk which stood on the top of it.",
+            "The lash, however, was curled upon itself and tied so as to make a loop of whipcord.",
+            "\"it's a wicked world, and when a clever man turns his brains to crime it is the worst of all.\""
+        ],
+        "choice_ids": [],
+        "word_budget": {
+            "target_per_turn": 160
+        },
+        "turn_budget": {
+            "target_turns": 4,
+            "gravity_after": 5
+        },
+        "exit_condition": "Resolves when the safe, milk, chair, and whipcord loop have been observed and their sinister pattern felt, sending the party out to the lawn to plan.",
+        "next_moment_key": "S1_M12",
+        "next_bridge": "The sinister inventory complete, Holmes leads you out to the lawn, where the plan for the night must be laid before darkness falls."
+    },
+    {
+        "moment_key": "S1_M12",
+        "moment_order": 12,
+        "title": "The Signal in the Dark",
+        "source_event_ids": [
+            108,
+            109,
+            110,
+            111
+        ],
+        "anchor_event_id": 111,
+        "treatment": "Final cash-out. On the lawn Holmes gravely warns Helen her life depends on compliance and lays out the signal plan: feign a headache, when Roylott retires open the shutters and set the lamp as a signal, then withdraw to the old room. From the Crown Inn they watch Roylott drive past and a light spring up. In gathering darkness Holmes assembles the clues — ventilator inferred from the cigar smell, the clamped bed, the dummy rope — and Watson commits to the dangerous vigil.",
+        "runtime_goal": "Assemble the session's discovered clues into dread and a plan, land the courage-vs-caution commitment to the night, and close on the promise cashed out: real detection made playable.",
+        "player_desire": "Turn the clues into a survivable plan and steel yourself for the night.",
+        "live_pressure": "Night is falling on a subtle, horrible crime; the vigil must be arranged and joined before it is too late.",
+        "opening_image": "On the lawn with the grey house behind you and evening drawing on, Holmes speaks more gravely than his wont, laying out the lamp-signal plan while Helen stands deadly pale before you.",
+        "player_affordances": [
+            "Help stage the lamp signal and the headache pretence",
+            "Confirm Helen withdraws to the old room and the Harrow fallback",
+            "Watch Roylott arrive and the light appear",
+            "Draw out Holmes's deduction chain (cigar-smell ventilator, clamped bed, dummy rope)",
+            "Commit to the vigil or voice caution while ultimately standing with Holmes"
+        ],
+        "canon_must_keep": [
+            "Helen must absolutely follow the advice; her life may depend on her compliance",
+            "The signal plan: headache pretence, open shutters and set lamp as signal when Roylott retires, withdraw to the old room",
+            "Roylott is seen driving past at dusk and a light appears in a sitting-room",
+            "Holmes deduces the ventilator from the cigar smell, the bed is clamped to the floor, and the rope was never a bell-pull; Watson resolves to come despite the danger"
+        ],
+        "allowed_variance": [
+            "How much of the deduction Watson draws out vs Holmes volunteers",
+            "Watson's courage-vs-caution voicing before committing",
+            "Order of plan, arrival-watch, and deduction beats"
+        ],
+        "forbidden_expansions": [
+            "Do not reveal the snake by name or stage the vigil\/strike (that is Session 2)",
+            "Do not resolve Roylott's death here",
+            "No modern rhetoric; keep the aphorism about doctors-turned-criminals period-appropriate"
+        ],
+        "source_extracts": [
+            "\"Your life may depend upon your compliance.\"",
+            "\"put your lamp there as a signal to us, and then withdraw quietly... into the room which you used to occupy.\"",
+            "\"It was clamped to the floor... It must always be in the same relative position to the ventilator and to the rope.\""
+        ],
+        "choice_ids": [
+            "S1_C3",
+            "S1_C4"
+        ],
+        "word_budget": {
+            "target_per_turn": 165
+        },
+        "turn_budget": {
+            "target_turns": 6,
+            "gravity_after": 7
+        },
+        "exit_condition": "Resolves when the signal plan is set, the trap is confirmed by the appearing light, the clue-chain is assembled into recognition of a subtle crime, and Watson has committed to the night vigil, closing the session on the edge of the wait.",
+        "next_bridge": "Hold one brief beat of earned clarity as the middle window burns steady across the black lawn, then present Choice S1_C4 in period voice; the session closes on Watson's chosen commitment posture with the lit window as the carry-forward summons into the dreadful vigil of Session 2."
+    }
+]

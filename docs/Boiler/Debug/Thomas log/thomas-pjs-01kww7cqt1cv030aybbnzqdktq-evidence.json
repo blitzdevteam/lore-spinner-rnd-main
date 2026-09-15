@@ -1,0 +1,1796 @@
+{
+    "exported_at": "2026-08-17T09:22:07+00:00",
+    "game": {
+        "id": "01kww7cqt1cv030aybbnzqdktq",
+        "user": "thomas@lorespinner.com",
+        "story": "pjs",
+        "updated_at": "2026-08-16 22:29:17",
+        "session": 2,
+        "complete": false,
+        "cut_id": 21,
+        "moment_id": 205,
+        "moment_key": "S2_M02",
+        "moment_order": 2,
+        "playable_moment_turn_count": 2,
+        "footnote": {
+            "moment_key": "S2_M02",
+            "text": "They stopped Thanos physically but haven't spoken yet — they want the room to recognize that Apollo owns this name, not the family's rage.",
+            "source_prompt_id": "01m06b25rgs0tr1vsp762327f2",
+            "detour_beats_used": 2,
+            "ending_blocked_turns": 0
+        },
+        "path": "C",
+        "choice_id": "S2_C1",
+        "choice_line": "Once the family hears it together, nobody gets to clean it up later.",
+        "world_state": {
+            "location": "Brownstone, Queens — Christina's bedroom, full family present",
+            "conditions": [
+                "Treeline fire losing angle — rafts moving beyond effective range",
+                "Papa Bear loaded onto raft — unresponsive, face clear of water, palm open",
+                "Two rafts moving seaward — all wounded and dead aboard"
+            ],
+            "items": [
+                "MP-5",
+                "silent dog whistle",
+                "night vision goggles",
+                "medical trauma kit",
+                "encrypted radio / earpiece set",
+                "combat weapons loadout"
+            ],
+            "object_states": [
+                "silent dog whistle: used once, tactical surprise value partially spent but guards remain unaware of its existence",
+                "black tarp over the dead: Penna and Tannum being carried out with the team",
+                "medical trauma kit: Peleck's plate clipped flush and channel packed with wet gauze — all critical wounds now addressed; kit closed and on Apollo's back",
+                "rubber rafts: both against the submarine hull, empty — all personnel and casualties aboard"
+            ],
+            "relationship_updates": [
+                "Harding: responsive and talking under treatment; grin held through tourniquet — rapport established through the hard line",
+                "Yarland: jaw moved once and stopped — the line found the same place his fingers found at the neck",
+                "Peleck: weight transferred to Daredevil without protest — the debt between him and Stoner is quietly settled in the handoff",
+                "Papa Bear: aboard the submarine, eyes open and rolled back, pupils fixed and blown wide — delivered, not saved",
+                "Daredevil: went still at the one line — the words landed and he let them, no deflection",
+                "Apollo: resumed work slowly after the line, the way a man resumes something he forgot he was doing — the grief received and filed",
+                "Christina: gave Apollo the rapist's name directly — the weight transferred; she is watching to see what he does with it",
+                "Elissa: still at the wall, watching — the door she forced open is now fully open, and she is reading whether Apollo holds or breaks",
+                "Thanos: physically stopped at the door by Apollo — rage is live but contained for this breath, waiting to see whether Apollo claims the name or yields it",
+                "Apphia: hand over her mouth, absorbing the sentence as shared family wound",
+                "Sophia: shielding Antonio — the family has reorganized around the disclosure as a unit"
+            ],
+            "world_flags": [
+                "enemy_alert_state_in_village: BROKEN_CONTACT",
+                "papa_bear_memory_frame: UNRESOLVED_BLAME",
+                "team_command_structure: LEADERLESS_GRIEVING",
+                "apollo_family_crisis_state: ASSAULT_DISCLOSED"
+            ],
+            "knowledge": [
+                "ISIS Commander executed the town Elder and his wife on the ridge when they would not reveal the crew's location",
+                "ISIS Commander's silhouette, height, and gait marked by Stoner during the ridge executions",
+                "Seven wounded Rangers are alive inside the house; two Rangers (Penna and Tannum) are confirmed dead under a black tarp",
+                "Authentication code Rain Man / Thunder Mountain confirmed the Rangers before entry",
+                "Harding: eight-inch forearm gash, bone visible, blood pressure dropping — tourniquet and gauze packing applied",
+                "Yarland: sheet metal through ribcage, still seated — Apollo clipping down",
+                "Xiang: triple-fractured arm, badly splinted — needs proper stabilization",
+                "Peleck: jagged plate through shoulder, conscious and upright — untreated",
+                "Two Rangers under the black tarp confirmed dead — not part of triage math",
+                "The Blackhawk was downed by an RPG on the ridge; the surviving Rangers walked approximately two clicks to the intact house",
+                "The Rangers have been in the house for three days with Penna and Tannum dead under the tarp",
+                "Harding's description of the Commander: tall, bearded, moved with indifference, gave the order and walked without watching — consistent with Stoner's ridge silhouette",
+                "Xiang's triple fracture has been properly realigned and bound — stable for movement if not stressed",
+                "Yarland's plate is clipped flush and packed — bleeding controlled, no organ hit confirmed by blood color",
+                "Peleck's shoulder plate remains seated and unclipped — the last critical wound in the room",
+                "Firing the MP-5 inside the village perimeter drew immediate enemy attention — lights and voices are now orienting on the intact house",
+                "Three separate light sources are now oriented on the intact house from the north and east alley — the search is tightening around the team's position",
+                "Papa Bear's tactical calculus: opening fire from the house with seven wounded Rangers inside trades the mission for the impulse — he has made this explicit and physical",
+                "Firing on the village drew a fifth light source from the alley mouth east — at least five enemy personnel are now actively repositioning on the house",
+                "Apollo has set a four-minute movement window before extraction becomes impossible",
+                "Stoner's position in the alley has been radioed to enemy forces — at least one fighter has a working radio and has given his location",
+                "The decoy tactic is splitting enemy lights but not holding them — half are already swinging back toward the intact house",
+                "Stoner's position has been radioed and updated at least twice; enemy fighters are converging from the north",
+                "The decoy tactic split enemy lights but could not hold them — three remain fixed on the house while only two followed Stoner east",
+                "Apollo's four-minute extraction window is now under two minutes with Stoner sixty yards away and Peleck's wound still open",
+                "Destroying the roofline spotlight bought approximately ten to fifteen seconds of actual darkness before enemy repositioning closes the shadow",
+                "Apollo has called the extraction window closed and the team is moving — Stoner is sixty yards out and off the spine of the extraction",
+                "Apollo called the extraction window closed and the team began moving before Stoner returned — the room ran the math without him on point",
+                "One of three locked lights on the house was destroyed by Stoner's burst during the run; two remain active on the alley mouth",
+                "All seven wounded Rangers are now stabilized and moving; Peleck's plate is the last wound addressed before extraction",
+                "Papa Bear has issued the triple-cross order — Stoner and Daredevil are assigned suppressing fire across the road while the stretchers move to the beach",
+                "Two truck fighters are confirmed dead — one over the tailgate, one folded into the bed — leaving six active in or around the truck.",
+                "Six truck fighters remain active — two under the truck frame, two behind the far wheel, two working east along the ditch",
+                "Papa Bear has taken a rearguard knee at the road's edge to cover the stretcher column through the cross",
+                "The triple-cross geometry is set: Stoner on the left wall, Daredevil on the far end, Papa Bear holding rearguard",
+                "The triple-cross geometry is now firing — Stoner left wall, Daredevil far end, Papa Bear rearguard — and the stretcher column is moving through the gap",
+                "Two truck fighters are working east along the ditch and closing on Papa Bear's rearguard position",
+                "Papa Bear has been struck twice in the back by reinforcement fire and dropped to one knee at the road's edge — no visible wound assessment yet",
+                "Papa Bear's grip on Stoner's forearm tightened once then went slack — no verbal response, legs not answering, dead weight under drag",
+                "Papa Bear's feet are dragging and his arm does not grip back — the body is not answering the way it should",
+                "Papa Bear's hand rests open on the raft floor, palm up, fingers loose — no grip, no movement with the raft's rocking",
+                "Stoner pressed two fingers to Papa Bear's neck in the raft and found no pulse — the body is not answering",
+                "The submarine conning tower has surfaced fifty yards out; Apollo's evac code was acknowledged by beeps in his earpiece",
+                "Papa Bear's pupils are blown wide and fixed — no pulse, no flutter confirmed by two-finger check; he is dead",
+                "Stoner chose not to name Papa Bear's death — the loss is carried as an unnamed weight rather than a stated fact or a vow",
+                "The submarine has begun its descent — Syria is above water and distance, the mission's surface phase is closed.",
+                "Stoner named Papa Bear to the compartment in one line — the debt is now spoken and shared, even if its shape is still forming",
+                "The rape disclosure has been made aloud twice — once privately, once with the full family present — and cannot be retracted or privately buried by any single member",
+                "Apollo has been given the rapist's name by Christina, spoken in front of the full family"
+            ],
+            "notes": [
+                "Papa Bear ordered Stoner back inside after the unsanctioned burst — the command was quiet and carries weight",
+                "Papa Bear physically intervened to stop Stoner from charging the village — the confrontation is now body-to-body, not just verbal",
+                "Papa Bear physically blocked Stoner from charging the village a second time — the restraint is now a repeated fact, not a single incident",
+                "Stoner physically shoved Papa Bear to break his restraint and fired on the village — the confrontation has escalated from verbal to mutual physical force",
+                "Apollo's four-minute extraction window is actively burning with Stoner separated from the team and Peleck's wound still open",
+                "Apollo's four-minute extraction window is burning with Stoner sixty yards away and Peleck's wound still open",
+                "The decoy tactic has destroyed two light sources but failed to draw the three remaining lights off the house — they are locked and patient",
+                "Apollo's four-minute window has expired; the team is now moving without Stoner on point",
+                "Peleck's plate remains unclipped and unpacked — the last critical wound in the room — as the team steps into extraction",
+                "Stoner clipped and packed Peleck's plate himself under pursuit pressure — fifteen seconds, clean — before stepping into the extraction column",
+                "Stoner is carrying Peleck personally into the road contact — his hands are not free for a weapon",
+                "Stoner passed Peleck to Daredevil and took the wall before the truck could lock the road — hands free for the first time since the house",
+                "Stoner broke from the suppressing wall and charged the truck open — Papa Bear has called him back to the triple-cross line explicitly.",
+                "Stoner broke for the truck and returned to the wall on Papa Bear's explicit order — the compliance is now part of the record alongside the earlier charge",
+                "Stoner called Daredevil's timing across the gap by hand signal before the column moved — the coordination was wordless and clean",
+                "The triple cross held — all six truck fighters eliminated and the stretcher column cleared the kill zone clean before Papa Bear went down",
+                "Stoner went back for Papa Bear immediately and without calculation — the loyalty is now body-memory, not a decision",
+                "Yarland's fingers found Papa Bear's neck and held there longer than the task required — he knows",
+                "Yarland reached for Papa Bear's collar again without being asked — he is reading the same absence Stoner's fingers found",
+                "Stoner delivered Papa Bear to the submarine with both hands rather than stopping to confirm death — the body was gotten there before the fact was named",
+                "Stoner passed Papa Bear aboard without words and without ceremony — the silence is the only frame he allowed the death",
+                "Yarland confirmed by eye contact that he knows Papa Bear is dead — the knowledge is now shared between at least two men without being spoken aloud",
+                "Papa Bear is laid beside Penna and Tannum against the far bulkhead — the dead are together and the team can see them.",
+                "Stoner held Papa Bear's body on the deck plates and let grief out without a shape — the loss is now embodied and witnessed by the compartment, still unnamed",
+                "Stoner chose to name Papa Bear as a debt before a creed — the loss is personal now, and it will heat future rescue choices before it becomes a plan",
+                "Apollo forced a witnessed disclosure rather than a private one — the family now carries the wound collectively, and denial is no longer available to anyone in the house",
+                "Thanos moved the instant the name landed — the family's first physical escalation toward retaliation is already in motion",
+                "Apollo physically blocked Thanos from leaving the room on the name alone — the family's first retaliatory impulse is now suspended on Apollo's authority"
+            ],
+            "player_style": [
+                "Defaults to disciplined, low-signature solutions under pressure — chose the quiet tool over force at first contact",
+                "Holds position under maximum pressure without acting; trusts stillness over intervention",
+                "Converts atrocity into cold operational memory rather than reactive emotion — files threats as future debts",
+                "Uses dry humor as a functional tool — keeps casualties alert and the room's emotional register from collapsing",
+                "Folds intelligence-gathering into active triage rather than separating the two — treats every conversation as dual-purpose",
+                "Prioritizes the worst mobility threat over the most visually urgent wound — triage by movement consequence, not by appearance",
+                "Tested the boundary between mission discipline and impulse — broke cover without tactical justification; the world answered immediately and hard",
+                "When authority blocks impulse, escalates the confrontation rather than absorbing the redirect — tests the wall before accepting it",
+                "Escalates confrontation with authority when blocked rather than absorbing redirection — tests the wall repeatedly before accepting it",
+                "When authority physically blocks impulse repeatedly, escalates to force against the authority itself rather than absorbing the redirect",
+                "When blocked by authority repeatedly, escalates to unilateral action that separates from the team entirely — treats the mission as secondary to the impulse when the rage peaks",
+                "Commits fully to the decoy logic even when it costs separation — treats personal exposure as a tactical instrument rather than a mistake to reverse",
+                "Commits fully to a tactic even when it visibly fails to achieve its full objective — treats partial success as reason to hold rather than adapt",
+                "Pursues tactical objectives past the point of diminishing returns — holds position and keeps firing even when the tactic has visibly stopped working",
+                "When a tactic stops producing gains, continues pressing it for one more beat before accepting the cost — treats the window's closure as a condition to fight rather than a fact to absorb",
+                "When the window closed, broke for the objective anyway rather than accepting separation — treats a closed window as a condition to run through, not a fact to absorb",
+                "When given the chance to fix the cost of earlier choices, acts immediately and with precision — treats the repair as its own kind of mission",
+                "When the firefight opens, reorganizes the team's load before acting on personal instinct — treats structural integrity as the first weapon",
+                "When a firefight opens with a clear target mass, charges directly into it rather than holding the assigned suppressing geometry — treats the kill as the mission, not the line.",
+                "When called back to the line after a charge, returns immediately and reintegrates into the assigned geometry — treats the order as the correction, not the defeat",
+                "When the firefight geometry is set, uses non-verbal coordination to synchronize without breaking the line — treats silence as a tactical instrument",
+                "When assigned a suppressing role, holds the geometry until the objective clears rather than breaking for a secondary target — treats the line as the mission",
+                "When the team leader goes down, breaks back without calculating cost — treats the man as the mission",
+                "When carrying a critical casualty, immediately delegates load-sharing rather than absorbing the burden alone — treats distributed weight as a tactical instrument",
+                "When the body gives no answer, acts to protect its dignity before confronting the fact — clears the face from the water before checking the pulse",
+                "When the body gives no answer, presses again rather than accepting the first silence — treats the absence of pulse as a condition to verify, not a fact to absorb immediately",
+                "When the body cannot be saved, keeps moving toward the destination anyway — treats delivery as the last form of rescue available",
+                "When the loss is too large for language, refuses to force a shape onto it — treats silence as the most honest available response",
+                "When carrying an unnameable loss, reaches for human witness rather than isolation — sought Yarland's eyes before going through the hatch",
+                "When the last action available is closing a hatch, takes it — treats physical finality as the only honest punctuation for an unnameable loss.",
+                "When the mission is sealed and the body is aboard, allows grief to surface physically rather than converting it immediately into vow or action — holds the weight before deciding what it means",
+                "When grief peaks, reaches for language that names the debt rather than the discipline — treats loyalty as the primary inheritance, not procedure",
+                "When given a private crisis, chooses to make it witnessed rather than contained — treats collective knowledge as a structural tool against future denial",
+                "When the room is full and volatile, cuts straight to the operational fact rather than managing emotion first — treats the name as the primary resource",
+                "When a family member moves toward retaliation, interposes physically before speaking — treats the body as the first argument"
+            ],
+            "unresolved_promises": [],
+            "emotional_ledger": [
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "At first contact in the drainage ditch, Stoner used the silent whistle to turn the dog rather than opening fire, keeping the team covert and the mission intact."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner held flat in the ditch and watched the ridge executions without breaking cover, absorbing the atrocity as a debt rather than a trigger."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner held flat through the ridge executions and deliberately memorized the Commander's silhouette, treating the killing as a debt to be paid rather than a wound to be felt."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner delivered the challenge code and received the countersign, successfully authenticating the Ranger position and opening the rescue."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner correctly triaged Xiang's fracture ahead of Peleck's plate, stabilizing the wound most likely to worsen under movement."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner broke covert discipline by firing his weapon in the air inside the village perimeter, drawing enemy attention and earning a direct order from Papa Bear to return inside."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner attempted to charge the village under fire after Papa Bear ordered him back inside, forcing a direct physical confrontation with his team leader in a compromised position."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner attempted to break past Papa Bear and open fire on the village lights, forcing a second physical confrontation with his team leader while seven wounded Rangers lay inside."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner shoved Papa Bear aside and fired on the village lights, destroying one source but drawing full enemy attention to the house and triggering a four-minute extraction countdown with Peleck's wound still open."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner broke from the house entirely and charged the village alone, killing two fighters but radioing his position to enemy forces and burning the extraction window with Peleck's wound still open."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner ran the village street alone under fire, attempting to draw enemy lights away from the house, while Peleck's wound remained open and Apollo's extraction window burned."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner held his position in the village street attempting to draw enemy lights away from the house, even as the tactic partially collapsed and Apollo's extraction window burned toward zero."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner destroyed the roofline spotlight and retreated into shadow, still sixty yards from the house with Apollo's window under two minutes and Peleck's wound unaddressed."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner fired north to scatter converging boots and buy seconds, but Apollo called the extraction window closed while Stoner remained sixty yards from the house with Peleck's wound still open."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner destroyed one of three locked lights and ran the alley gap to rejoin the team, but Peleck's wound remained open and the extraction had already launched without him on point."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner clipped Peleck's plate and packed the channel in fifteen seconds flat before the team stepped out — the last open wound closed before the extraction began."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner called Daredevil's timing by hand signal across the gap; the triple cross fired on Papa Bear's mark and the stretcher column moved through clean."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner held the wall through the triple cross until the last stretcher cleared the road, then watched Papa Bear take two rounds in the back from closing reinforcements."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner broke back for Papa Bear the instant he dropped, taking his full weight and dragging him north toward the beach before the grip went slack."
+                },
+                {
+                    "category": "sacrifices_made",
+                    "entry": "Stoner gave up his weapon hand and his position in the column to carry Papa Bear out of the kill zone under reinforcement fire."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Stoner called Daredevil in to split Papa Bear's weight and walked him into the surf, keeping him off the sand and moving toward the rafts."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Stoner and Daredevil muscled Papa Bear onto the raft and cleared his face from the water — the last thing they could do for him that still looked like rescue."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner pressed two fingers to Papa Bear's neck in the open water before looking at the submarine — reaching for confirmation the hands already had before the mind could name it."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Stoner pulled Papa Bear to the submarine hull and got him aboard, completing the extraction even after confirming no pulse."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "The Syria mission recovered all surviving Rangers and brought Papa Bear's body to the submarine, but Papa Bear died during the water extraction."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner passed Papa Bear aboard the submarine without naming the death — carrying the loss as an unsettled weight rather than a vow or a verdict."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Stoner found Yarland's eyes on the ladder and held them — giving the shared knowledge of Papa Bear's death a witness before either man went through the hatch."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Stoner closed the submarine hatch behind him, sealing the mission's surface phase — all surviving Rangers recovered, Papa Bear dead beside the other fallen."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner held Papa Bear's body in his arms on the submarine deck and let grief come without naming it or shaping it into a vow — the loss stayed raw and witnessed."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Stoner named Papa Bear to the room in one line — framing the loss as a personal debt and a standard to answer to, not a commandment toward tighter discipline."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Apollo called the whole family into the room and made Christina say the rape out loud a second time with witnesses, converting a private wound into a house-wide fact that no one can quietly bury."
+                },
+                {
+                    "category": "secrets_discovered",
+                    "entry": "Apollo obtained the rapist's name from Christina, spoken aloud with the full family as witnesses."
+                }
+            ]
+        },
+        "alignment": {
+            "chaotic": 16,
+            "lawful": 21,
+            "neutral": 10
+        },
+        "symbolic_memory": "Stoner held the line by choosing the smallest possible tool. The whistle worked. The guards turned back. He is learning what kind of man he is out here — the kind who waits until the world gives him a reason to fire.\nStoner held flat while the ridge gave him two deaths he could not answer. He is learning that the creed does not always let you move toward the sound — sometimes it makes you lie in the mud and carry what you saw.\nStoner carries the Commander's shape now — not as rage, not as grief, but as a fact he intends to use. He is becoming the kind of man who watches the worst thing happen and turns it into a future problem with a solution.\nStoner broke the cold discipline he had been building — not toward a target, not for the mission, just into the dark. The world answered with lights and voices. He is learning that the creed cuts both ways: it holds you steady, and when you drop it, everything notices.\nStoner hit the wall of command and pushed against it with his body. The rage is real — the Commander, the ridge, three days of dead men under a tarp — but Papa Bear's hand is in the way, and the lights are closing, and the house is full of men who need him to come back inside.\nStoner has now hit the wall of Papa Bear's body twice in the same night. The rage is real and the lights are real and the village is right there — but the creed is in the way, wearing a man's face, and it will not move.\nStoner put hands on Papa Bear and got what he wanted — one light out, the village awake, and a four-minute clock on every man in the room. The rage won the moment and is already costing the mission. He is learning that force answers him, and that the answer is never clean.\nStoner broke from the line entirely and ran the street alone, firing at shapes in the dark. The force landed — two men down, one pulled back. The radio crackled his position to everyone listening. He is learning that the rage answers him every time, and that every time the answer costs something he did not price.\nStoner ran the street alone and kept firing, trying to make the sacrifice count — trying to prove the force was a plan, not just rage. The lights are splitting. It is not enough.\nStoner is learning that rage answers him every time, and that the answer keeps costing something he did not price — this time it is Peleck's open wound and a window that is almost gone.\nStoner is learning that the rage answers him every time, and that every answer closes a window he did not price — this time it is Apollo's voice saying the window is gone, and Peleck's plate still open in a room already moving without him.\nStoner ran the gap he made and got back inside. The cost is still open — Peleck's plate, unclipped, moving into the dark with the team. He is learning that getting back is not the same as arriving in time.\nStoner ran the village and paid every cost the rage asked — and then came back and did the work anyway, hands on Peleck's wound before the team stepped out. He is learning that getting back and arriving in time are not the same thing, and that sometimes the creed lets you close the gap.\nStoner put Peleck's arm over his shoulder and walked him out. The rage that split the team is still in him — but so is this, and right now this is what the creed looks like with both hands full.\nStoner passed the weight off his shoulder and took the wall with empty hands. The rage is still in him — but so is this: the instinct to clear the line before he fires. He is learning that the creed and the hardcase are not opposites. Sometimes the creed is what makes the shot possible.\nStoner ran the road open again — not because the wall failed, but because the target was right there and the rage answered before the order did. He is learning that the creed and the impulse want the same thing and keep arriving in the wrong order.\nStoner ran the road open again — not because the wall failed, but because the target was right there and the rage answered before the order did. He came back when called. He is learning that the creed and the impulse want the same thing and keep arriving in the wrong order.\nStoner held the line until the last stretcher cleared — discipline paid exactly what it promised. Now Papa Bear is on one knee and the math has a face, and the creed and the impulse are about to want the same thing at the same time.\nStoner held the line until the last stretcher cleared — discipline paid exactly what it promised. Then Papa Bear went down and the math had a face, and Stoner broke back without running it. He is learning that the creed and the impulse can want the same thing at the same time, and that when they do, the body moves before the mind catches up.\nStoner called for help before the weight broke him. The loyalty is still body-first — but this time it reached for another man to carry it with him.\nStoner got Papa Bear's face out of the water. The hands knew before the mind did — the raft rocks and he doesn't move with it, and the palm is open, and that is the shape the knowledge takes before it becomes a word.\nStoner pressed two fingers to a neck that did not answer and held them there anyway, because the hands needed to be sure before the mind could carry it. He is learning that some knowledge arrives through the body first, and that the body keeps checking even after it already knows.\nStoner pulled Papa Bear to the sub with both hands on the rope and eyes forward — not because the fact was deniable, but because delivery was the last thing rescue could mean. He is learning that the creed does not ask you to stop when the body stops answering. It asks you to get him there.\nStoner passed Papa Bear up the ladder with both hands and said nothing — refusing to name the loss because anything cleaner would feel false. He is learning that some weights do not resolve into meaning. They just ride in behind the ribs and wait.\nStoner looked for a witness before he went through the hatch — not for comfort, not for permission, just for proof that the weight was real and that someone else had felt it too. He is learning that silence can be shared.\nStoner closed the hatch and the ocean took everything above it. The loss is in the compartment with him now — no target, no exit, no creed-shaped answer waiting. He is learning what it costs to carry a man all the way home and still not get him there.\nStoner held Papa Bear on the deck plates and let the grief come without a name — not a vow, not a verdict, just the weight of the man in his arms and the compartment holding still around it. He is learning that some losses ask to be felt before they ask to be carried.\nStoner named the debt before he named the grief — one line into a yellow-lit compartment going deep, with Papa Bear still in his arms. He is learning that loyalty does not wait for the right moment. It speaks first, and the shape comes after.\nApollo made the wound public before he made it procedural — pulling the family into the room so the truth had witnesses before it had a plan. He is learning that some facts need to be heard before they can be used, and that making a thing undeniable is its own form of protection.\nApollo cut straight to the name before the room could fracture into grief or movement — treating the fact as the first tool, not the wound. He is learning that witness-building and intelligence-gathering are the same act when the emergency is personal."
+    },
+    "moments": [
+        {
+            "id": 204,
+            "moment_key": "S2_M01",
+            "moment_order": 1,
+            "anchor_event_id": 2259,
+            "title": "The Prick Raped Her",
+            "exit_condition": "Resolves when Apollo has committed to a first posture toward the violation — hunting, protecting-and-gathering, or forcing witnessed accountability — and the family sees which force in him moved first.",
+            "next_moment_key": "S2_M02",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S2_C1",
+                "S2_E1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 205,
+            "moment_key": "S2_M02",
+            "moment_order": 2,
+            "anchor_event_id": 2254,
+            "title": "Scatter Home",
+            "exit_condition": "Resolves once Daredevil is home, recognized by his family, and the BMX hook has pulled him toward tomorrow, leaving the player oriented in this homecoming without dwelling.",
+            "next_moment_key": "S2_M03",
+            "turn_budget": {
+                "target_turns": 2,
+                "gravity_after": 3
+            },
+            "word_budget": {
+                "target_per_turn": 75
+            },
+            "choice_ids": [],
+            "is_current": true
+        },
+        {
+            "id": 206,
+            "moment_key": "S2_M03",
+            "moment_order": 3,
+            "anchor_event_id": 2248,
+            "title": "Kirtland and the Clock",
+            "exit_condition": "Resolves when the family understands Apollo's new posting and its clock, and the weight of Papa Bear's absence has been acknowledged or pointedly avoided.",
+            "next_moment_key": "S2_M04",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 85
+            },
+            "choice_ids": [
+                "S2_E2"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 207,
+            "moment_key": "S2_M04",
+            "moment_order": 4,
+            "anchor_event_id": 2251,
+            "title": "The Mercedes",
+            "exit_condition": "Resolves when Stoner's stance toward Walter's control and Jessica's reassurances has been set, and the drive delivers him toward the Simons house carrying that unresolved distrust.",
+            "next_moment_key": "S2_M05",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 85
+            },
+            "choice_ids": [
+                "S2_C2",
+                "S2_E3",
+                "S2_E4"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 208,
+            "moment_key": "S2_M05",
+            "moment_order": 5,
+            "anchor_event_id": 2256,
+            "title": "The Jackson Corner",
+            "exit_condition": "Resolves when the armed threat is broken by the police interruption and Playboy is safely home with Emma, the violence survived and the homecoming's class-and-family weight landed.",
+            "next_moment_key": "S2_M06",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S2_E5"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 209,
+            "moment_key": "S2_M06",
+            "moment_order": 6,
+            "anchor_event_id": 2260,
+            "title": "Walter's Den",
+            "exit_condition": "Resolves when Stoner has faced Walter, delivered the reassignment, and the power imbalance is fully felt, moving the couple toward the game room.",
+            "next_moment_key": "S2_M07",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 90
+            },
+            "choice_ids": [
+                "S2_C3"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 210,
+            "moment_key": "S2_M07",
+            "moment_order": 7,
+            "anchor_event_id": 2261,
+            "title": "Real Ivory",
+            "exit_condition": "Resolves when Stoner has confirmed the ivory is real and privately committed to a stance — expose it or hold it in tactical silence — closing Act Two with the leverage banked.",
+            "next_moment_key": null,
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 95
+            },
+            "choice_ids": [
+                "S2_C4"
+            ],
+            "is_current": false
+        }
+    ],
+    "logs": {
+        "files_scanned": [],
+        "counts_by_type": [],
+        "commits_joined_to_turns": 0,
+        "repair_count": 0,
+        "failure_count": 0,
+        "repairs": [],
+        "failures": []
+    },
+    "turns": [
+        {
+            "n": 1,
+            "id": "01m036cde4dxh0bh9917byt90b",
+            "at": "2026-08-15 17:09:16",
+            "session": 1,
+            "player": "blow the whistle",
+            "narrator": "Your knees sink into cold mud and ditch water while the stink climbs straight up your nose. Your MP-5 stays tight to your chest. Breath held. Grease paint, salt, filth. Ahead of you, Playboy's route keeps the TEAM low along the far side of the village, one file, no talk, no light. You are Robert K. Stone. Stoner. Point man, and the dog is coming straight at you.Barking. Closer. Louder.A PIT-BULL MIX cuts across the street and drives for the ditch. Three ISIS guards see the same movement a beat later. FLASHLIGHTS swing. AKs come up. You pull the tiny whistle from your glove and feel how small it is against all this dark. It will turn the dog if it works. It will do nothing to the men behind it.The dog keeps coming. Three guards come with it, lights cutting the ditch in white slices, AKs ready. Your whistle is already in your hand, but one bad move here puts the whole TEAM in a gunfight before you ever reach the men you came for.",
+            "narrator_words": 179,
+            "choices": [
+                {
+                    "text": "Blow the whistle hard and trust the dog turns before the guards lock on.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Break left out of the ditch and pull the dog off the team's position.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Raise the MP-5 and drop the dog and the lead guard before they close.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": null,
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 2,
+            "id": "01m036gxgrss5avm8wh2xtsevq",
+            "at": "2026-08-15 17:11:44",
+            "session": 1,
+            "player": "Hold the position flat until every flashlight swings away from the ditch.",
+            "narrator": "You blow it. Nothing you can hear. Not a click, not a hiss. Just the pressure in your cheeks and the whistle cold against your lips.The dog stops like it hit a wall. Head drops. One ear folds back. Then it whimpers — a high, ugly sound — and bolts back across the street into the dark.The guards keep coming. Twenty feet. Fifteen. Flashlights drag across the ditch water six inches from your boot. One of them says something low and flat. The other two slow, lights probing the smell before their eyes do. The drainage stink hits them and one turns his face away. They stand there long enough that your finger finds the trigger without deciding to.Then they turn back.",
+            "narrator_words": 123,
+            "choices": [
+                {
+                    "text": "Hold the position flat until every flashlight swings away from the ditch.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Signal the team forward now, before the guards stop moving.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Track the guards until you know exactly where they go.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m036cde4dxh0bh9917byt90b",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 3,
+            "id": "01m036k9dvj0fc8t4436yagcpv",
+            "at": "2026-08-15 17:13:02",
+            "session": 1,
+            "player": "Burn the ridge into your memory and mark the Commander's silhouette.",
+            "narrator": "You go flat. Face in the mud, MP-5 pressed under your chest, one cheek against cold ditch water. The lights sweep back toward the village in a slow arc. Then they cut out.Darkness. Forty seconds of it. Nobody moves. Then, up on the ridge, headlights carve two shapes out of the black. A man and a woman, standing in the beams. A crack rolls down off the rock — clean, single, final. The woman drops. Another crack. The man follows. The ISIS Commander's voice carries down the slope, sharp and flat, ordering the search line further east.Papa Bear's hand comes up in the dark beside you. Two fingers. Forward.",
+            "narrator_words": 110,
+            "choices": [
+                {
+                    "text": "Rise and move point, keeping the team tight behind you.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay down another beat — track the Commander's voice before moving.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Burn the ridge into your memory and mark the Commander's silhouette.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m036gxgrss5avm8wh2xtsevq",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 4,
+            "id": "01m036n6tke2ev0819zn24cdbc",
+            "at": "2026-08-15 17:14:05",
+            "session": 1,
+            "player": "Give the challenge code and listen hard for the answer.",
+            "narrator": "You hold the shape of him. The headlights are already cutting away, the Commander's voice already moving east down the ridge, but you have the silhouette locked — height, gait, the way he turned after the second shot like the sound was already boring him. You file it somewhere cold and specific. Not anger. Not yet. Just geometry and a face you have not seen and will not forget.Papa Bear's two fingers are still up. Forward.The TEAM rises out of the ditch in sequence, water sheeting off gear, and the file reforms without a word. Playboy's compass hand comes up. North. The village stays off your left shoulder, dark and ruined, and the only sound now is boot-on-mud and the distant grind of something heavy moving on the far side of the block walls.Then the house. One intact structure in a burned neighborhood, four walls and a partial ceiling still standing. Stoner stops at the door frame. Raises a fist. Waits.",
+            "narrator_words": 163,
+            "choices": [
+                {
+                    "text": "Give the challenge code and listen hard for the answer.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Signal Apollo up to the door before you speak — two sets of ears.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold the fist an extra beat and read the house before you commit.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m036k9dvj0fc8t4436yagcpv",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 5,
+            "id": "01m066tw29wj0nddvn17xdnx5f",
+            "at": "2026-08-16 21:14:53",
+            "session": 1,
+            "player": "Hit the Ranger with a hard line back and keep his eyes open while you work.",
+            "narrator": "You press close to the door frame and keep your voice at the floor. \"Rain Man.\"Three seconds of nothing. Then, from inside, rough and low: \"Thunder Mountain.\"It's them.The room opens on blood. Seven ARMY RANGERS across the floor in varying degrees of ruin — pools dark under each one, some conscious, some not. Two more lie still under a BLACK TARP in the far corner, and the tarp is not moving. Apollo is already crouching over the nearest man, penlight between his teeth. Daredevil moves to the far wall. You step over a leg, pull your kit, and the first Ranger who can still talk looks up at you with a grin that costs him something.\"We just wanted to see if you PJ's were up to the challenge.\"Seven wounds. Two dead. One room. The clock is already running and the house does not know it yet.",
+            "narrator_words": 150,
+            "choices": [
+                {
+                    "text": "Move straight to the worst bleed and pack the wound before anything else.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Pull back the tarp and confirm the two dead before you touch the living.",
+                    "canonical_choice_id": "S1_E3",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Hit the Ranger with a hard line back and keep his eyes open while you work.",
+                    "canonical_choice_id": "S1_E2",
+                    "canonical_path_label": "A"
+                }
+            ],
+            "source_prompt_id": "01m036n6tke2ev0819zn24cdbc",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 6,
+            "id": "01m066x6856ph2s4g5rd3vd27d",
+            "at": "2026-08-16 21:16:09",
+            "session": 1,
+            "player": "what the hell happened to you all?",
+            "narrator": "\"Took you long enough to find us.\" You pull the tourniquet tight on his upper arm and he sucks air through his teeth. The grin stays. Good sign.Harding. Eight-inch gash across the forearm, bone visible at the deep end, blood pressure dropping by the color of it. You pack gauze in hard with two fingers and hold. Apollo has Yarland's side open — sheet metal through the ribcage, still seated, and he reaches for the clippers. Xiang's arm is triple-fractured, splinted wrong by someone without the gear to do better. Peleck is upright against the wall, conscious, a jagged plate through his shoulder that nobody has touched yet.The two under the tarp are not part of the math anymore.Harding watches your hands work and keeps talking because you let him. The IV needle goes in and he watches that too, like it's the most interesting thing in the room. Maybe it is. Seven men. Four of them critical. Two sets of hands moving through the blood and the dark while the village grinds on the other side of the wall.",
+            "narrator_words": 182,
+            "choices": [
+                {
+                    "text": "Pack Yarland's side wound and start the IV before he loses more pressure.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Clip Peleck's shoulder metal down and move on — he can walk, others can't.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Call the room to move now — dressings on, stretchers next, medicine later.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m066tw29wj0nddvn17xdnx5f",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 7,
+            "id": "01m066zexfbz6dpydepjwrh52g",
+            "at": "2026-08-16 21:17:24",
+            "session": 1,
+            "player": "Ask Harding what the Commander looked like — the man on the ridge who gave the orders.",
+            "narrator": "Yarland answers it. Still seated, sheet metal through his side, Apollo's clippers working slow and close to the skin. He doesn't look up.\"Blackhawk went down on the ridge. RPG. Penna and Tannum didn't walk away from it.\" A breath. \"Rest of us walked about two clicks before we found this place.\"Harding adds, quieter: \"Three days.\"Three days in this room with the dead under a tarp and the village running patrols outside. You press the gauze deeper into the forearm wound and feel the blood finally starting to slow. Peleck hasn't moved from the wall. The plate through his shoulder catches the penlight when Apollo shifts — jagged, close to the clavicle, seated wrong. It needs clipping and packing and it needs it now, but Yarland's side is still open and Xiang's arm is a problem that gets worse every minute it stays wrong.Four critical. Two sets of hands. The math does not improve by looking at it.",
+            "narrator_words": 160,
+            "choices": [
+                {
+                    "text": "Move to Peleck's shoulder — clip the plate and pack the wound before it shifts.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Tell Yarland to hold still and take Apollo's clippers — finish the harder job yourself.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Harding what the Commander looked like — the man on the ridge who gave the orders.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m066x6856ph2s4g5rd3vd27d",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 8,
+            "id": "01m0673n0mz3d77wvaxpmrkvhq",
+            "at": "2026-08-16 21:19:41",
+            "session": 1,
+            "player": "Tell Peleck to bite down and fix Xiang's arm first — the fracture won't wait.",
+            "narrator": "Harding's eyes track up from the IV line. He thinks about it, jaw working.\"Tall. Beard. Moved like he had somewhere better to be.\" He pauses while you press the gauze check. \"Gave the order and walked. Didn't watch.\"That matches the ridge. The boredom in the turn. You file it under the same cold heading and keep working.Yarland's voice comes across the room, flat. \"You know him?\"You don't answer that. Peleck is still against the wall, the jagged plate catching light every time Apollo shifts, and Xiang's arm is getting worse by the minute. Harding's forearm has slowed. The IV drips steady. You have maybe bought him enough to move.Peleck watches you cross the room toward him. He doesn't say anything. The plate through his shoulder is seated wrong and close to the clavicle and it is going to stay there.",
+            "narrator_words": 145,
+            "choices": [
+                {
+                    "text": "Clip Peleck's plate down flush and pack the shoulder wound tight.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Tell Peleck to bite down and fix Xiang's arm first — the fracture won't wait.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Yarland if the Commander came down to the crash site or stayed on the ridge.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m066zexfbz6dpydepjwrh52g",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 9,
+            "id": "01m0675t512qb326abw8g6t38y",
+            "at": "2026-08-16 21:20:52",
+            "session": 1,
+            "player": "walk out the door and fire my machine gun in the air",
+            "narrator": "You crouch in front of Peleck and hold up one finger. He reads it. Looks away at the wall and sets his jaw.Xiang is three feet left, arm cradled wrong against his chest, the fracture riding higher than it was an hour ago. You move to him, pull the bad splint off in two motions, and he hisses through his teeth but holds still. Daredevil is already there with the tongue depressor and strips. You realign the break by feel — Xiang's whole body goes rigid, one sharp sound through his nose — and Daredevil binds it tight before the muscle can argue back. Proper angle. Stable. It will hold movement if he doesn't fall on it.Behind you, Apollo finishes clipping Yarland's plate down flush to the skin and starts packing the channel with wet gauze. Yarland's breathing changes — slower, more controlled. The blood on his shirt is drying at the edges. Still red. No organ hit.Peleck is still watching the wall. The jagged plate through his shoulder catches the penlight. It is next, and he knows it, and his hands are flat on his thighs like a man who has already decided not to move them.",
+            "narrator_words": 198,
+            "choices": [
+                {
+                    "text": "Move to Peleck now — clip the plate and pack the shoulder before he stiffens.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Tell Peleck the plate stays in — brief him on exactly what that means for the move.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Check the two under the tarp one last time before the room converts to extraction.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0673n0mz3d77wvaxpmrkvhq",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 10,
+            "id": "01m0689tye621sev9gcxrvt2rc",
+            "at": "2026-08-16 21:40:32",
+            "session": 1,
+            "player": "fuck you papa bear - I'm killing these fuckers as I run out and start shooting up the village",
+            "narrator": "You are through the door frame before the thought finishes. Night air. The village off to the left, dark and grinding. You raise the MP-5 and fire a three-round burst straight up into the black sky.The sound rips through the neighborhood like a door kicked off its hinges. Inside the house, something falls over. Outside, a dog starts barking two blocks east. Then a second. Then voices — sharp, Arabic, close enough to place. Lights swing toward the intact house from two directions at once.Papa Bear fills the door frame behind you. He does not raise his voice. He does not have to.\"Get back inside.\"Peleck is still against the wall. The plate through his shoulder catches the penlight. It is still next. The lights outside are still moving.",
+            "narrator_words": 131,
+            "choices": [
+                {
+                    "text": "Step back inside, drop to a knee, and let Papa Bear read you.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay in the door frame and count the lights — how many, which direction.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Go straight to Peleck and start on the shoulder plate before the room fully reacts.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m0675t512qb326abw8g6t38y",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 11,
+            "id": "01m068bpbfsbhv4nmvmr6jev5m",
+            "at": "2026-08-16 21:41:33",
+            "session": 1,
+            "player": "Push past Papa Bear and open fire on the nearest light source.",
+            "narrator": "Papa Bear steps out of the door frame and puts one hand flat on your chest. Not a shove. A wall.\"Inside. Now.\"The lights are already on the house. Two beams from the north, one from the alley mouth east. Voices multiplying behind them. You have the MP-5 up and the village is right there — dark shapes moving between the block walls, maybe forty yards, maybe less — and Papa Bear's hand does not move.He is between you and the alley. He is not asking.Behind him, through the door frame, Peleck's jaw is still set. The plate through his shoulder catches the penlight. Apollo's voice comes low and flat from inside: \"Lights. Three of them.\" The house is already recalculating around the noise you made, and every second you stand in the open is a second the beams get closer to finding faces.",
+            "narrator_words": 145,
+            "choices": [
+                {
+                    "text": "Push past Papa Bear and open fire on the nearest light source.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Step back inside and get your hands on Peleck's plate.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Hold the door frame and count the lights — give Apollo a number.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m0689tye621sev9gcxrvt2rc",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 12,
+            "id": "01m068czzk3nr7cvfaxap7y70v",
+            "at": "2026-08-16 21:42:16",
+            "session": 1,
+            "player": "throw papa bear off me and light up the figures with my MP5",
+            "narrator": "Papa Bear's forearm catches you across the chest and drives you back into the door frame hard enough to rattle the partial ceiling. Not a wall this time. A tackle. Your shoulder hits the jamb and the MP-5 swings wide, the barrel pointing at nothing useful, and he gets his body between you and the alley before you can reset your feet.The nearest light source is forty yards out. The burst would reach it. Papa Bear knows that. He steps into you anyway, close enough that you can see the decision already made in his face — not anger, not fear, just the flat arithmetic of a man who has run the numbers and knows exactly what happens to seven wounded Rangers if the house goes hot right now.His voice drops to nothing. \"You fire that weapon, we lose every man in this room.\"The lights are still moving. Three beams, north and east, tightening on the house. Apollo's voice comes through the door frame: \"Thirty yards.\" Peleck's plate catches the penlight from somewhere behind you. The village is right there and the MP-5 is in your hands and Papa Bear has not moved an inch.",
+            "narrator_words": 197,
+            "choices": [
+                {
+                    "text": "Stand down, step inside, and get back to Peleck's shoulder.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold your ground and force Papa Bear to make the call out loud.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Go dark, press flat against the outer wall, and let the lights sweep past.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068bpbfsbhv4nmvmr6jev5m",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 13,
+            "id": "01m068f5x75y5qgg3yfn61w6xk",
+            "at": "2026-08-16 21:43:27",
+            "session": 1,
+            "player": "run down the street firing at any enemy I see",
+            "narrator": "You get both hands on his jacket and shove. Papa Bear takes the step back, absorbs it, and comes forward again — but the half-second is enough. You clear the door frame and bring the MP-5 up on the nearest light.The burst hits the lamp housing and the beam dies. Glass and metal scatter across the block wall. The other two lights freeze for one beat — then swing hard toward the muzzle flash. Shouting now, not searching. Arabic, fast, and the sound of boots on rubble going from patrol pace to something else entirely. A fourth light appears at the alley mouth. Then a fifth, further east.Papa Bear is back in the door frame. He is not coming after you. He is looking past you at the count of lights, doing the math out loud for nobody. \"Five. At least.\" Then, quieter: \"Peleck's plate is still open.\"The village knows the house now. The lights know the door. Inside, Apollo's voice comes flat and fast through the frame: \"We need to move in four minutes or we don't move.\" The MP-5 is hot in your hands and the figures are out there, repositioning between the walls, and the room behind you has seven men who cannot run on their own.",
+            "narrator_words": 211,
+            "choices": [
+                {
+                    "text": "Get back inside and finish Peleck's plate before the four minutes run out.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold the door frame and keep firing to buy Apollo time to move the wounded.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell Papa Bear the lights are repositioning — ask him where the exit bearing goes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068czzk3nr7cvfaxap7y70v",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 14,
+            "id": "01m068hgh51n6k96k9pvps6d65",
+            "at": "2026-08-16 21:44:44",
+            "session": 1,
+            "player": "Keep firing and draw every light away from the house and the Rangers.",
+            "narrator": "You break left down the alley at a run, MP-5 up, and the village gives you targets. Two fighters emerge from behind a block wall thirty yards out, AKs coming up, and you fire before they finish the motion. Both drop. A third appears at the far corner and you put a burst into the wall beside him — he pulls back, gone. Boots on rubble. More voices, east and north, converging on the muzzle flash.You are alone in the street. The house is behind you. Inside it: Peleck's plate, unclipped. Xiang's arm, just stabilized. Harding's IV, dripping. Apollo's four-minute window, already burning.A light swings from the roofline above the alley mouth and pins you flat against the block wall. Somewhere behind it, a radio crackles. The voice is giving a position. Yours.Papa Bear's voice cuts through the open door forty yards back, low and hard: \"Stone. Four minutes.\" Not a question. Not a plea. A number, and it is already smaller than it was.",
+            "narrator_words": 167,
+            "choices": [
+                {
+                    "text": "Break off and sprint back to the house before the window closes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Keep firing and draw every light away from the house and the Rangers.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Press into the shadow under the roofline and kill the radio man first.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068f5x75y5qgg3yfn61w6xk",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 15,
+            "id": "01m068k2ndwxvn6fdzzrnd7gxb",
+            "at": "2026-08-16 21:45:35",
+            "session": 1,
+            "player": "Stay in the street and keep pulling lights east until the house goes dark.",
+            "narrator": "You keep moving. Burst left, burst right, drawing the lights east down the alley. Two more fighters peel around a corner and you drop one, the other scrambles back behind a wall. The roofline beam swings with you, tracking the muzzle flash. More radio chatter — your position, updated, moving. The village is awake and it knows exactly where you are.The house is forty yards behind you. Then fifty. Then sixty.Apollo's four minutes are burning and Peleck's plate is still seated and the lights you pulled east are already splitting — half following you, half swinging back toward the intact structure. The tactic is working and it is failing at the same time. Every step you take away from the house is a step the remaining lights take back toward it.A spotlight from the far roofline catches you full in the chest and holds. You press into the block wall. The radio crackles again, closer. Boots on rubble, north, converging. Papa Bear's voice does not come again. The four minutes are his now, not yours, and the room behind you is doing the math without you in it.",
+            "narrator_words": 189,
+            "choices": [
+                {
+                    "text": "Double back hard and get inside before Apollo's window closes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay in the street and keep pulling lights east until the house goes dark.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Find cover and radio Papa Bear — give him your position as a decoy bearing.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068hgh51n6k96k9pvps6d65",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 16,
+            "id": "01m068mkejdxfrk1krb0mzr6rc",
+            "at": "2026-08-16 21:46:25",
+            "session": 1,
+            "player": "Fire directly into the spotlight and run for the roofline shadow.",
+            "narrator": "You hold the spotlight with your body and keep moving east. Another burst, another corner, another fighter pulling back into the dark. The roofline beam follows. One more light swings off the house and tracks you down the alley. Two now, chasing the muzzle flash. You count that as a win.Then the radio crackles again. Closer. And the remaining lights on the house don't move. Three of them, locked on the door frame, steady as judgment. The split held for thirty seconds. Now it's closing back.Your back hits a block wall. Sixty yards from the house. Peleck's plate still open. Apollo's window somewhere under two minutes now. The spotlight pins you and doesn't blink, and behind it the boots are close enough to hear individual footfalls on the rubble.Papa Bear's voice doesn't come. The radio does — your position again, updated, given to someone who wasn't already looking.",
+            "narrator_words": 150,
+            "choices": [
+                {
+                    "text": "Sprint back to the house now — burn the distance before the window closes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Fire directly into the spotlight and run for the roofline shadow.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Drop flat and go silent — make them lose you in the rubble.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068k2ndwxvn6fdzzrnd7gxb",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 17,
+            "id": "01m068nz2jjc7tpqpt06fdx2hm",
+            "at": "2026-08-16 21:47:10",
+            "session": 1,
+            "player": "Fire one burst north to scatter the converging boots and buy the window.",
+            "narrator": "The burst takes the spotlight dead center. Glass and housing scatter off the roofline and the beam dies. You are already moving — left, hard, into the shadow line where the wall meets the roof overhang. Dark. Actual dark, for the first time in ninety seconds.The radio crackles. Your position, updated again. The boots are close enough now that you can hear the difference between rubble and packed dirt under them. Two sets, north. One more, east, cutting the angle. The shadow buys you ten seconds, maybe fifteen, before someone puts a light on the overhang and finds the shape pressed into it.Sixty yards back, three lights are still locked on the house. Steady. Patient. Apollo's window is somewhere under two minutes and Peleck's plate is still seated and the roofline shadow is already getting smaller as the boots find the wall beneath it.",
+            "narrator_words": 145,
+            "choices": [
+                {
+                    "text": "Sprint the sixty yards back to the house before the boots close the angle.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Fire one burst north to scatter the converging boots and buy the window.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay dark in the shadow and let the house lights tell you if Apollo moved.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068mkejdxfrk1krb0mzr6rc",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 18,
+            "id": "01m068q5cmzg7xy56stp375rk2",
+            "at": "2026-08-16 21:47:49",
+            "session": 1,
+            "player": "Fire one burst at the nearest locked light and run through the gap.",
+            "narrator": "The burst goes north and the boots scatter — two men break right, one drops behind rubble, the footfalls going ragged and wide. Ten seconds of disorientation. Maybe twelve. The shadow holds.Then the radio answers. Not the fighters. The house. Apollo's voice, flat and final through the earpiece: \"Window's gone. We're moving.\"Sixty yards of open alley between you and the door frame. Three lights still locked on it, patient. Inside: Peleck's plate, unclipped. Seven men who cannot run clean. Papa Bear already doing the math on how to move them without you on point.The shadow is shrinking. The boots are regrouping north. The radio crackles again — your position, given to someone new.",
+            "narrator_words": 114,
+            "choices": [
+                {
+                    "text": "Sprint the sixty yards back to the house under the remaining lights.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Fire one burst at the nearest locked light and run through the gap.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Key the radio and tell Apollo your position — let him route the team around you.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068nz2jjc7tpqpt06fdx2hm",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 19,
+            "id": "01m068s0wkdhetark0yxakmgnr",
+            "at": "2026-08-16 21:48:50",
+            "session": 1,
+            "player": "Clip Peleck's plate down fast and pack the channel before the team steps out.",
+            "narrator": "The burst clips the nearest locked light and the beam dies. One gap in three. You break from the shadow and run it — sixty yards of open alley, boots on rubble, the two remaining lights swinging hard to find the muzzle flash. A round sparks off the block wall to your left. Another cuts the air above your shoulder. You keep your head down and your legs moving and the door frame comes up fast.Papa Bear is already gone from it. Inside: seven men on their feet or being carried to their feet, Daredevil with Harding's arm across his shoulders, Apollo's kit closed and on his back. Peleck is upright against the wall, plate still seated, jaw still set. He looks at you once. Doesn't say anything.Apollo doesn't either. He just points at Peleck's shoulder and then at the door. The team is moving and Peleck's wound is still open and the two remaining lights are already sweeping the alley mouth behind you.",
+            "narrator_words": 165,
+            "choices": [
+                {
+                    "text": "Clip Peleck's plate down fast and pack the channel before the team steps out.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Grab Peleck and move him now — the plate stays, the team doesn't wait.",
+                    "canonical_choice_id": "S1_C2",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Tell Peleck he's walking point behind you and clip the plate on the move.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068q5cmzg7xy56stp375rk2",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 20,
+            "id": "01m068v7bqv66e29hwaqc59cm5",
+            "at": "2026-08-16 21:50:02",
+            "session": 1,
+            "player": "Pull Peleck's arm over your shoulder and move him yourself.",
+            "narrator": "You grab Peleck by the collar and pull him down to one knee. Metal clippers out. The plate is still seated clean — Apollo left it for you, or left it because there was no time. Either way it's yours now. You get the jaws around the base and clip. The sheet metal shears flush against the skin. Peleck doesn't make a sound, just grips the wall and breathes through his nose.Wet gauze in. Pack it hard. Peleck's jaw tightens but holds. Fifteen seconds, start to finish. You slap a combat dressing over it and he's already pushing back to his feet before you're done.Apollo is at the door. The two remaining lights are sweeping the alley mouth in slow arcs, thirty yards out and closing. Papa Bear's hand comes up — two fingers, north. Single file. Moving.Peleck steps into line without being told. The wound is packed. The team is out the door. The alley is dark where you broke the light and bright everywhere else.",
+            "narrator_words": 168,
+            "choices": [
+                {
+                    "text": "Slot into point behind Papa Bear and lead the column north.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Take rear security — let the lights chase you out of the alley.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Pull Peleck's arm over your shoulder and move him yourself.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068s0wkdhetark0yxakmgnr",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 21,
+            "id": "01m069amwyrxh1j3ztrh5mw1k5",
+            "at": "2026-08-16 21:58:27",
+            "session": 1,
+            "player": "Pass Peleck to Daredevil and take the wall before the truck locks the road.",
+            "narrator": "Peleck doesn't argue. His arm comes over your shoulder and you take the weight — plate packed, dressing holding, but the man still running on fumes and stubbornness. Single file north into the dark, Papa Bear on point, Daredevil carrying Harding's left side, the two remaining lights sweeping the alley mouth behind you in slow patient arcs.The forest swallows the team fast. Compass heading. Hand signals. The tank is still working somewhere south — you feel the rounds more than hear them, a low concussion through the soles of your boots. Tracers stitch the treeline east, blind fire into nothing, and nobody shoots back. Playboy's hand comes up and the column freezes. Thirty seconds of listening. Then north again.Peleck keeps pace. His breathing is rough but controlled, and after the second hundred yards he shifts his weight off your shoulder by a fraction — not enough to matter, enough to mean something. The dirt road opens ahead through the last of the trees. Papa Bear raises a fist. The column stops.A truck backs slowly across the road. Eight men in the bed. And a dog springs loose from the cab.",
+            "narrator_words": 190,
+            "choices": [
+                {
+                    "text": "Pass Peleck to Daredevil and take the wall before the truck locks the road.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Keep Peleck and hold the treeline until Harding drops the dog.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Step into the open and draw the truck's attention off the stretcher teams.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m068v7bqv66e29hwaqc59cm5",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 22,
+            "id": "01m069d7amwtf5wfmbfjgpqtf1",
+            "at": "2026-08-16 21:59:52",
+            "session": 1,
+            "player": "I spint to the truck open firing at the men in the bed",
+            "narrator": "You shove Peleck sideways and Daredevil catches him without being asked — arm over shoulder, weight transferred, the column barely breaking stride. You're already moving up the left flank, low and fast, reaching the block wall before the truck's reverse lights find the treeline.The dog is loose in the road. Harding fires once. The sound cracks the dark and the animal drops and then it's on — muzzle flashes from the truck bed, AKs chattering blind into the trees, rounds chewing the wall above your head and raining grit down your neck. Papa Bear's voice cuts through it: \"Beach! Stoner, Daredevil — suppressing fire across the road. Set up a triple cross!\"Eight men in the truck bed, orienting fast. The wall is low enough to shoot over and not much else.",
+            "narrator_words": 130,
+            "choices": [
+                {
+                    "text": "Open up across the road and keep the truck fighters pinned behind the bed.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Vault the wall and rush the truck's cab before they can dismount and spread.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold fire and watch for the triple-cross angle — let Daredevil move first.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069amwyrxh1j3ztrh5mw1k5",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 23,
+            "id": "01m069jzybedvpr20w5q5cjs2n",
+            "at": "2026-08-16 22:03:01",
+            "session": 1,
+            "player": "Break back for the wall — answer Papa Bear and set the cross.",
+            "narrator": "You break from the wall and sprint the road open, MP-5 up, firing into the truck bed on the move. Two men drop fast — one backward over the tailgate, one folding sideways into the man beside him. The remaining six scatter, some jumping the far side, two rolling under the truck frame, rounds coming back at you from everywhere at once. A burst clips the dirt six inches left of your boot. Another sparks off the truck's rear panel.Papa Bear's voice hits you like a wall. \"STONER. WALL. NOW.\" Not a request. The triple cross needs you back on the suppressing line — Daredevil is alone on the far side, the stretchers are stacking up at the treeline, and the six still breathing in the road are already repositioning on the sound of your boots.The truck isn't going anywhere. Two dead in the bed. Four more using it for cover, AKs up and hunting. The road is open between you and the wall, lit by the truck's reverse lights, and the stretchers haven't moved yet.",
+            "narrator_words": 176,
+            "choices": [
+                {
+                    "text": "Drop behind the truck's engine block and fire from there.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Keep sprinting past the truck, draw their fire off the stretchers.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Break back for the wall — answer Papa Bear and set the cross.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069d7amwtf5wfmbfjgpqtf1",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 24,
+            "id": "01m069n45fb9kn7xeghcqcnm80",
+            "at": "2026-08-16 22:04:11",
+            "session": 1,
+            "player": "Call Daredevil's timing across the gap before the column moves.",
+            "narrator": "You break back hard, low across the reverse-light strip, rounds chasing your boots across the road. The wall comes up and you hit it shoulder-first, MP-5 coming over the top before you've fully stopped moving. Daredevil is already there on the far end, firing in short bursts, keeping heads down behind the truck frame.Papa Bear's voice again, quieter now, controlled: \"Triple cross. On my mark.\" The six still breathing are split — two under the truck, two behind the far wheel, two working east along the ditch. The stretchers are moving out of the treeline. You can hear the litter teams grunting, boots in loose dirt, Peleck's dressing holding somewhere behind you in the dark.Papa Bear steps back from the column and takes a knee at the road's edge. Rearguard. He's staying behind the stretchers. The beach is north and the six are still in the road and the triple cross needs both ends of the wall firing the moment Papa Bear signals the column through.Daredevil catches your eye across the gap. Nods once. The truck's engine is still running, reverse lights painting the road red.",
+            "narrator_words": 188,
+            "choices": [
+                {
+                    "text": "Open fire on the two men working east along the ditch.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold the wall and wait for Papa Bear's mark before firing.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Call Daredevil's timing across the gap before the column moves.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069jzybedvpr20w5q5cjs2n",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 25,
+            "id": "01m069q9ghxc1etnk612fkjc8t",
+            "at": "2026-08-16 22:05:22",
+            "session": 1,
+            "player": "Hold the wall and keep firing until the last stretcher clears the road.",
+            "narrator": "You cut your hand across the gap — two fingers, point at the near wheel, then the far wheel, then back. Daredevil reads it in one beat and adjusts his angle left, barrel dropping to cover the two under the truck frame. You take the pair behind the far wheel. Papa Bear gets the ditch.The column starts moving. Litter teams first, heads down, boots grinding through the loose shoulder. Peleck somewhere in the middle, upright. The truck's reverse lights paint everything red and the six in the road are patient in the way men get when they think they have time.They don't. Papa Bear's fist comes up once. Then open.You fire. Daredevil fires. The road comes apart in noise and muzzle flash, rounds walking the truck frame, the ditch, the near wheel — and the column moves through the gap in the cross, fast and low, stretchers clearing the kill zone while the six stay pinned and the reverse lights keep bleeding red into the dark.",
+            "narrator_words": 167,
+            "choices": [
+                {
+                    "text": "Hold the wall and keep firing until the last stretcher clears the road.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Break off the wall early and sprint to lead the column north toward the beach.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Shout to Papa Bear that the ditch pair is moving east — they're flanking his rearguard.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069n45fb9kn7xeghcqcnm80",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 26,
+            "id": "01m069rdj58k029nacb0nf31pp",
+            "at": "2026-08-16 22:05:59",
+            "session": 1,
+            "player": "Break back and get hands under Papa Bear before he goes down further.",
+            "narrator": "You hold. Daredevil holds. The wall takes the return fire and you keep your barrel moving — near wheel, ditch, truck frame, back — not letting any of the six find a window to stand. Brass hits the road. The reverse lights strobe red through the smoke and the column grinds through the gap, litter teams bent low, the stretchers swaying.The last litter clears. You hear Peleck's boot scrape the far shoulder and then nothing but the truck's engine and the two men still working east along the ditch toward Papa Bear's knee.Stoner and Daredevil drop the remaining six. Clean. The road goes quiet in the way roads go quiet after that — not empty, just finished.Then more tracers rip through the trees from the north. Reinforcements. Papa Bear calls the run and you're already moving when you hear it — two rounds, close together, the flat wet sound of them finding something solid. You look back. Papa Bear jerks hard at the road's edge and drops to one knee, MP-5 still up, one hand going to the dirt to hold himself there.",
+            "narrator_words": 182,
+            "choices": [
+                {
+                    "text": "Break back and get hands under Papa Bear before he goes down further.",
+                    "canonical_choice_id": "S1_C3",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Shove the column north and drag Papa Bear after them without stopping the run.",
+                    "canonical_choice_id": "S1_C3",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Drive the others toward the beach and trust Papa Bear to follow on one knee.",
+                    "canonical_choice_id": "S1_C3",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m069q9ghxc1etnk612fkjc8t",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 27,
+            "id": "01m069xfzjw9t50z738w21z00n",
+            "at": "2026-08-16 22:08:45",
+            "session": 1,
+            "player": "Shout at Daredevil to take Papa Bear's other side and split the weight.",
+            "narrator": "You break back hard, boots reversing on the dirt, and close the distance before the second tracer wave finds the road. Your hands go under his arms from behind — he's still got the MP-5 up, still trying to track north, one knee in the dirt and the other leg pushing against it like the leg doesn't know yet. You haul. He comes up off the ground by a foot, dead weight suddenly, and you feel how wrong that is before you understand it.\"I got you.\" You say it into the back of his helmet. He doesn't answer. The MP-5 drops on its sling and his hand finds your forearm and grips — hard, then less hard. The tracers are cutting through the treeline thirty yards north and Daredevil is already at the shoulder screaming the column forward and the beach is still ahead and Papa Bear's boots are dragging in the dirt because the legs aren't answering the way they should.You drag him north anyway. Both hands locked under his chest, your back bent, his weight pulling down and back against every step. The column is moving. The trees open ahead into salt air and dark sand. Papa Bear's grip on your forearm tightens once — then goes slack.",
+            "narrator_words": 209,
+            "choices": [
+                {
+                    "text": "Keep dragging him north — don't stop moving until sand is under your boots.",
+                    "canonical_choice_id": "S1_C3",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Shout at Daredevil to take Papa Bear's other side and split the weight.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Check his back while you drag — find the wounds before the beach does.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069rdj58k029nacb0nf31pp",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 28,
+            "id": "01m069z8mnexqv28rrgenssr59",
+            "at": "2026-08-16 22:09:43",
+            "session": 1,
+            "player": "Pull Papa Bear onto the raft and get his face out of the water.",
+            "narrator": "Daredevil is already turning when you shout — he reads the drag before the word finishes and cuts across the column, shoulder dropping under Papa Bear's left arm. The weight splits and you both straighten a half-inch, boots finding better purchase in the sand. Papa Bear's head rolls forward. His feet drag two tracks in the dark beach, toes down, heels up, the boots leaving parallel lines behind you toward the water.Apollo has the backpacks out of the shallow hole and both cords pulled before you reach the surf line. Two rafts hiss full and float flat on the black water. Playboy is already loading — Yarland first, then Harding, then the stretchers with Penna and Tannum, litter teams wading in to their knees. Rounds from the treeline skip the wet sand twenty yards south, then thirty, the fighters losing the angle as the beach opens up.You and Daredevil walk Papa Bear into the surf. The cold hits your boots, your shins, your thighs. His weight shifts in the water — easier to pull, harder to read. His head stays forward. The warm smile is still there, wrong against the dark and the salt and the noise, and his arm over your shoulder doesn't grip back.",
+            "narrator_words": 205,
+            "choices": [
+                {
+                    "text": "Pull Papa Bear onto the raft and get his face out of the water.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Call his name once, close to his ear, and wait for anything back.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Pass him to Apollo and take the oar — get the raft moving north.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069xfzjw9t50z738w21z00n",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 29,
+            "id": "01m06a0r0c8r9x1jsv1aqfv67m",
+            "at": "2026-08-16 22:10:32",
+            "session": 1,
+            "player": "Check Papa Bear's pulse yourself — press two fingers to his neck.",
+            "narrator": "You and Daredevil muscle him up over the rubber gunwale together — one heave, his torso rolling in, legs dragging after. His face clears the water. The warm smile is still there. Eyes open. The surf breaks white around the raft and the raft rocks and Papa Bear does not move with it the way a living man moves with it.Apollo is already in the water on the far side, one hand on the raft's rope, kicking hard. Yarland reaches down from his seat and grips Papa Bear's collar to keep his head up. His fingers find the neck. He holds there a beat longer than the task requires. Says nothing.The treeline lights are losing the angle. Rounds skip the water thirty yards south, then forty. The beach is going dark behind you. Ahead, open black water and the rafts pulling seaward, and Papa Bear's hand resting open on the rubber floor, palm up, fingers loose.",
+            "narrator_words": 157,
+            "choices": [
+                {
+                    "text": "Check Papa Bear's pulse yourself — press two fingers to his neck.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Keep kicking toward open water and let Yarland hold him steady.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Say his name once, low, into the dark above the raft.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m069z8mnexqv28rrgenssr59",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 30,
+            "id": "01m06a1zms880f0xbywzqzmccq",
+            "at": "2026-08-16 22:11:12",
+            "session": 1,
+            "player": "Keep pulling toward the sub — both hands on the raft rope, eyes forward.",
+            "narrator": "Two fingers to his neck. Cold skin. Salt water running off it. You press harder, shifting your grip on the raft's rope to free your hand, and feel nothing where something should be — no pulse, no flutter, no delayed beat you might have missed the first time. You press again anyway. The raft rocks. Papa Bear's head rolls slightly with it, cheek turning toward the black water, and Yarland's hand comes back to the collar without being asked.Apollo's voice from the water, flat and even: \"Crystal palace, crystal palace, ready for evac. Acknowledge.\" A pause. Then a series of beeps in his earpiece — short, short, long — and then the sound. WHOOSH. Fifty yards out, a conning tower breaks the surface, steel black and sweating salt, water sheeting off it in the dark. Yarland's arm comes up, shaking, pointing past your shoulder.\"There.\"Papa Bear's palm rests open on the rubber floor. The raft pulls seaward and the treeline lights are gone and the sub is right there, and your two fingers are still at his neck.",
+            "narrator_words": 177,
+            "choices": [
+                {
+                    "text": "Keep pulling toward the sub — both hands on the raft rope, eyes forward.",
+                    "canonical_choice_id": "S1_E5",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Tell Yarland what your fingers just found — say it out loud before the sub gets closer.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Let the sight of the sub hit you for one full beat before you move again.",
+                    "canonical_choice_id": "S1_E5",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m06a0r0c8r9x1jsv1aqfv67m",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 31,
+            "id": "01m06a3ew6gk0phkdndy5bb4qb",
+            "at": "2026-08-16 22:12:01",
+            "session": 1,
+            "player": "Carry it unnamed — anything cleaner than silence would feel false right now.",
+            "narrator": "You pull. Both hands on the rope, salt burning the cuts across your knuckles, the raft moving through black water toward the steel tower. Yarland keeps his grip on Papa Bear's collar. Nobody says anything. The sub grows out of the dark — the conning tower, then the hull curve, then the ladder rungs catching what little light there is.Playboy is already at the steel, hauling Yarland up first, then Harding, then the stretchers passed hand to hand up the ladder by men you cannot see yet. The rafts knock against the hull and the water slaps cold between rubber and iron. Apollo comes around the far side and grabs the gunwale.You reach for Papa Bear's shoulder. Papa Bear's dead. The eyes are open and rolled back, pupils blown wide and fixed, and the warm smile is the worst thing in the water. You get your hands under him anyway. You get him there. You get him aboard.",
+            "narrator_words": 159,
+            "choices": [
+                {
+                    "text": "Lock yourself to the creed — his death means tighter missions, no more preventable losses.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Decide the debt is personal — answer every loss from here with loyalty before rules.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Carry it unnamed — anything cleaner than silence would feel false right now.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m06a1zms880f0xbywzqzmccq",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 32,
+            "id": "01m06a66w2qw3p0z2r6p7p765w",
+            "at": "2026-08-16 22:13:31",
+            "session": 1,
+            "player": "Find Yarland's eyes before you go through the hatch.",
+            "narrator": "You pass him up the ladder with both hands and say nothing. Playboy takes the weight from above. Apollo steadies from below. Papa Bear goes aboard the way gear goes aboard — passed, received, set down — and the submarine takes him in.The raft knocks against the hull. Salt water runs off the ladder rungs. Somewhere above you a hatch opens and the smell of diesel and recycled air comes down, and the team is already inside, and the Rangers are inside, and Penna and Tannum are inside, and Papa Bear is inside.You grip the ladder. The water pulls at your boots. The loss sits in your chest like a weight that has not yet decided what shape it will take — not grief yet, not guilt yet, not anything with a name. Just the fact of it, cold and exact, riding in behind your ribs the way salt water rides into a wound.You climb.",
+            "narrator_words": 155,
+            "choices": [
+                {
+                    "text": "Climb aboard and let the silence hold — don't name it yet.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Find Yarland's eyes before you go through the hatch.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Look back at the water once — the beach, the lights, the dark — then go in.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m06a3ew6gk0phkdndy5bb4qb",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 33,
+            "id": "01m06a78r8ampawcxhe7ts2z1a",
+            "at": "2026-08-16 22:14:05",
+            "session": 1,
+            "player": "climb into the sub and close the hatch",
+            "narrator": "Yarland is two rungs above you, one hand on the hatch coaming, the other pressed flat against his ribcage where the clipped plate sits. He hasn't gone through yet. He's waiting, and you don't know how you know that until you look up and find his eyes already down on yours.He holds it. No words. His jaw is set and his face is wet and the look he gives you is the look of a man who pressed two fingers to the same neck and got the same answer and has been carrying it since the beach. He nods once — small, deliberate, the kind of nod that means I know and I've got you and don't stop moving all at the same time.Then he goes through the hatch. The diesel smell rolls down the ladder. The water pulls at your boots.",
+            "narrator_words": 143,
+            "choices": [
+                {
+                    "text": "Nod back at Yarland and climb through the hatch.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Grip the ladder and decide Papa Bear's death demands cleaner missions from here.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Climb through and decide every future rescue is a debt you owe him personally.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "B"
+                }
+            ],
+            "source_prompt_id": "01m06a66w2qw3p0z2r6p7p765w",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 34,
+            "id": "01m06a8zf421g9sr8zn3cwjc5h",
+            "at": "2026-08-16 22:15:01",
+            "session": 1,
+            "player": "hold papa bear in my arms and let out my grief",
+            "narrator": "You go through the hatch and pull it shut behind you. The wheel spins. The seals bite. The ocean stops.Below, the compartment is lit yellow and close, smelling of diesel and wet gear and something metallic underneath. Rangers on the deck plates, on fold-down bunks, on whatever flat surface the crew cleared. Penna and Tannum against the far bulkhead under the same black tarp. Papa Bear set down beside them, hands at his sides, the warm smile finally just a face in bad light.Yarland is against the curved wall, one hand still at his ribs. Daredevil is pulling wet gloves off with his teeth. Apollo is already talking to someone in a flight suit, low and fast, pointing at Harding's arm. Nobody looks at Papa Bear. Nobody looks away from him for long.The sub moves. A deep mechanical shudder through the deck plates, and then the angle shifts — bow dropping, the whole hull tilting into the descent — and Syria goes up behind you and keeps going until there is nothing above you but water and dark and distance.",
+            "narrator_words": 181,
+            "choices": [
+                {
+                    "text": "Sit down next to Papa Bear and stay there until someone makes you move.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Cross the compartment and help Apollo brief the crew on the wounded.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Lean against the hull and let the descent take you — no name for it yet.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01m06a78r8ampawcxhe7ts2z1a",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 35,
+            "id": "01m06ab6nyv96mpggmv6kvkz43",
+            "at": "2026-08-16 22:16:14",
+            "session": 1,
+            "player": "Tell the room what he was — one line, nothing more.",
+            "narrator": "Nobody stops you. The crew moves around the fact of it — a man kneeling on the deck plates with his team leader in his arms — the way water moves around something fixed. Daredevil's wet gloves go still. Apollo's voice drops off mid-sentence. Yarland's hand stays flat against his ribs and his eyes stay on the far bulkhead.Papa Bear's gear is soaked through. His weight is the weight of a man, not a body, until it isn't, and then it is just weight. You hold it anyway. The sub tilts deeper into its descent and the deck hums under your knees and the yellow light doesn't change and nothing in the compartment asks you to stop or to hurry or to make it mean something before it's ready.The grief comes out without a shape. Not loud. Not clean. Just the thing itself, riding out of your chest into the close air of the compartment, where it has nowhere to go and does not need to.Yarland looks at you finally. Holds it. Looks away.",
+            "narrator_words": 175,
+            "choices": [
+                {
+                    "text": "Set him down beside Penna and Tannum — give him that much.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "C"
+                },
+                {
+                    "text": "Tell the room what he was — one line, nothing more.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Lock it down and decide what this death demands of you going forward.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "A"
+                }
+            ],
+            "source_prompt_id": "01m06a8zf421g9sr8zn3cwjc5h",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 36,
+            "id": "01m06acmasw1rj27y2hqp59ndt",
+            "at": "2026-08-16 22:17:01",
+            "session": 1,
+            "player": null,
+            "narrator": "You lift your head. The compartment holds still around you.\"He was the kind of man,\" you say, \"who made you want to be worth saving.\"That's all. The words go into the diesel air and the close yellow light and the hum of the descent, and nobody answers them, because there is no answer. Daredevil puts his wet gloves down on the deck. Apollo turns back to Harding's arm, slowly, like a man resuming something he forgot he was doing. Yarland's jaw moves once and stops.Papa Bear's weight is still in your arms. The sub keeps tilting into the dark. The debt is already deciding what shape it will take — not a creed, not a commandment, just a name you will answer to from here on, in every room where someone needs pulling out.",
+            "narrator_words": 136,
+            "choices": [
+                {
+                    "text": "Set him down carefully beside Penna and Tannum — hands at his sides.",
+                    "canonical_choice_id": "S1_C4",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Ask Apollo quietly who takes point now.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stay on your knees and let the sub carry you deeper without moving.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m06ab6nyv96mpggmv6kvkz43",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 37,
+            "id": "01m06agx0ztfyjmqa0c0ydzhj2",
+            "at": "2026-08-16 22:19:21",
+            "session": 2,
+            "player": "Call the rest of the family in. She says it once, in front of everyone.",
+            "narrator": "Your knuckles rap the wood and your jaw locks waiting. Sounds of a struggle on the other side. Then the door cracks open. Elissa in the gap. Wet tissues on the floor behind her. Christina on the bed, folded in on herself, trying and failing to breathe quiet.\n\nYou push through anyway. You are Apollo, and the room changes the second you get through that door. One look and your hand is already clearing the tissues off the mattress, making space, getting beside her. Family first. Facts next.\n\nElissa plants herself by the door. Not moving.\n\nChristina will not look at you. Her shoulders shake. The whole house feels stacked behind this one room, waiting to hear what nobody wanted said out loud. Then she says it. Flat. Broken.\n\nThe prick raped her.",
+            "narrator_words": 133,
+            "choices": [
+                {
+                    "text": "Stay low beside Christina and ask for the name, one word.",
+                    "canonical_choice_id": "S2_C1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Stand and move for the door — you need a location before this cools.",
+                    "canonical_choice_id": "S2_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Call the rest of the family in. She says it once, in front of everyone.",
+                    "canonical_choice_id": "S2_C1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": null,
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 38,
+            "id": "01m06b02pd7fd783y8f3amnv2f",
+            "at": "2026-08-16 22:27:38",
+            "session": 2,
+            "player": "Ask Christina for his name before anyone else speaks first.",
+            "narrator": "You step back to the door and pull it wide. The hallway is already full — Thanos, Apphia, Sophia with her arm around Antonio. They have been standing there the whole time, close enough to hear the shape of it without the words. You do not explain. You just leave the door open and go back to the bed.Christina looks up when the room fills. Her face changes — not relief, not anger. Something closer to shame, and then something harder underneath it. Elissa watches from the wall. Nobody speaks first.Then Christina says it again. Same words. Flat and broken and real, with seven people in the room to catch it. The prick raped her. Apphia's hand goes to her mouth. Sophia pulls Antonio's face into her shoulder. Thanos goes very still, the kind of still that is not calm.The sentence is out now. It is in the air and in the walls and nobody in this house can clean it up or bury it or decide later that it did not happen. Christina's shoulders drop like something heavy just got set down. Her eyes find yours. The room waits to see what you do with it.",
+            "narrator_words": 198,
+            "choices": [
+                {
+                    "text": "Ask Christina for his name before anyone else speaks first.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Look at Thanos and hold him in place with one look.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Sit beside Christina and let the room settle before you move.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m06agx0ztfyjmqa0c0ydzhj2",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 39,
+            "id": "01m06b25rgs0tr1vsp762327f2",
+            "at": "2026-08-16 22:28:47",
+            "session": 2,
+            "player": "Step into Thanos's path before he reaches the door.",
+            "narrator": "You look at Christina straight. Not soft. Not clinical. Just direct, the way you look at a wound you need to map before you can treat it.\"His name.\"The room holds. Thanos shifts his weight. Elissa's hand tightens on the doorframe. Christina's eyes drop to the mattress, then come back up. She gives it to you. One name. Flat and certain, like she has been carrying it in her teeth for weeks.Thanos moves.",
+            "narrator_words": 75,
+            "choices": [
+                {
+                    "text": "Step into Thanos's path before he reaches the door.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Let Thanos go and ask Christina where the man works.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell the room the name stays here until you know how to use it.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m06b02pd7fd783y8f3amnv2f",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 40,
+            "id": "01m06b337fstgmpkee23bagav4",
+            "at": "2026-08-16 22:29:17",
+            "session": 2,
+            "player": null,
+            "narrator": "You get a shoulder into the doorway before Thanos does. He is bigger than you and moving with the kind of purpose that does not stop for conversation. Your hand goes flat on his chest anyway.He looks down at it. Then at you. The name is still in the air between all of you.Behind you, Christina has not moved. Elissa is watching from the wall. Apphia still has her hand over her mouth. Nobody in the room is breathing at full capacity.Thanos does not push back. He just stands there with his jaw working and his eyes somewhere past your shoulder, aimed at a door that is not this one.",
+            "narrator_words": 113,
+            "choices": [
+                {
+                    "text": "Tell Thanos the name is yours to use, not his.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Step aside and let Thanos go — the room already has what it needs.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Thanos where the man works before he decides anything.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01m06b25rgs0tr1vsp762327f2",
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        }
+    ]
+}

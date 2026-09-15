@@ -1,0 +1,1184 @@
+{
+    "exported_at": "2026-08-09T23:04:43+00:00",
+    "game": {
+        "id": "01kt2mt8c2jvw7rpp6f2v3ptyp",
+        "user": "thomas@lorespinner.com",
+        "story": "the-adventure-of-the-speckled-band",
+        "updated_at": "2026-08-09 22:38:36",
+        "session": 1,
+        "complete": false,
+        "cut_id": 9,
+        "moment_id": 98,
+        "moment_key": "S1_M04",
+        "moment_order": 4,
+        "playable_moment_turn_count": 11,
+        "footnote": {
+            "moment_key": "S1_M04",
+            "text": "They want the world to offer one narrow path back toward the thing that mattered — whether Helen is still there, still speakable-to, still saveable.",
+            "source_prompt_id": "01kzma7qgv1q14jyjp0tpaa0hg",
+            "detour_beats_used": 11,
+            "ending_blocked_turns": 0
+        },
+        "path": "A",
+        "choice_id": "S1_E1",
+        "choice_line": "You tell her quietly that she is among friends and may speak without fear.",
+        "world_state": {
+            "location": "Baker Street — pavement outside 221B, revolver on flagstones, both hands raised, constable at two paces, three additional constables present",
+            "conditions": [
+                "Watson is unclothed on the public street",
+                "both hands raised, palms outward",
+                "revolver surrendered to flagstones, empty",
+                "four Metropolitan Police constables present",
+                "under effective arrest or imminent arrest",
+                "Helen Stoner's testimony status unknown — window empty and silent"
+            ],
+            "items": [],
+            "object_states": [
+                "Helen Stoner's veil: fully lifted; her face, premature grey hair, and steadied hands now visible; coffee cup held in both hands",
+                "Watson's revolver: surrendered — set on flagstones, all six rounds expended, no longer in hand"
+            ],
+            "relationship_updates": [
+                "Helen Stoner: status unknown — window empty, voice silent; whether she remains in 221B or has withdrawn is not determinable from the street",
+                "Sherlock Holmes: door closed, no longer present on pavement; the situation is beyond any instrument he has available",
+                "Crown Inn landlord: no change yet, but the constable's notebook entry creates a latent risk to the cover story that may surface if any formal report reaches the Yard before the Surrey journey",
+                "Constable: moved from watchful distance to active processing — two paces distant, notebook open, reading the morning's record aloud; fear has resolved into procedure"
+            ],
+            "world_flags": [
+                "helen_trusts_baker_street_help: status unknown — her silence and the empty window are the world's answer; whether she remains to be helped is unresolved",
+                "night_operation_cover_story: destroyed beyond recovery — four constables present, morning's record formally read aloud on Baker Street",
+                "roylott_suspicion_level: elevated to near-certain exposure — a police incident of this severity at Holmes's address will generate formal reports reaching Scotland Yard before any Surrey journey is possible"
+            ],
+            "knowledge": [
+                "The visitor is a young woman, prematurely grey, visibly worn by fear rather than sorrow, who has travelled by train and dog-cart to reach Baker Street before the city is properly awake",
+                "Helen Stoner is the stepdaughter of Dr. Grimesby Roylott of Stoke Moran, Surrey",
+                "Holmes recognises the name Roylott on hearing it",
+                "Helen Stoner has begun her family account in Watson's absence; the precise content is not yet known to Watson",
+                "Roylott beat his native butler to death in Calcutta in a fit of passion and served a long term of imprisonment; he returned to England changed for the worse",
+                "Roylott's violent temper approaches mania; his imprisonment did not moderate it",
+                "Helen Stoner has stated that her sister Julia is dead and that she believes herself to be next",
+                "A Metropolitan Police constable has observed Watson armed and unclothed on Baker Street and is approaching; this creates a potential legal and social complication that did not previously exist",
+                "A Metropolitan Police constable knows Watson's name and address and has observed him armed and unclothed on Baker Street; Holmes has identified himself to the constable by name",
+                "The constable has made a written entry in his notebook; whatever it records exists as a durable fact independent of Holmes's intervention",
+                "Holmes has now physically interposed himself between Watson and the constable, marking the outermost boundary of his tolerance",
+                "Holmes has withdrawn inside 221B rather than continue to manage Watson's conduct on the pavement; this is the first time Holmes has physically abandoned the situation rather than containing it",
+                "The constable's grip is strong enough to retain his notebook against Watson's attempt; he is physically capable and alert",
+                "The constable is now focused on the revolver as a distinct and primary concern, separate from the earlier indecency entries",
+                "Additional Metropolitan Police constables are converging on Baker Street from at least two directions in response to the whistle signal; the situation is no longer containable by a single officer",
+                "Watson's revolver held six rounds total; all have now been discharged — three into the air and three directed at the constable, each falling on a spent chamber after the first three were exhausted",
+                "Attempted discharge of a firearm at a Metropolitan Police constable is a criminal act independent of whether the weapon was loaded at the time of the attempt",
+                "Watson's surrender of the revolver and raised hands have converted the situation from active threat to formal arrest procedure; the constable is now reading the morning's record aloud from his notebook",
+                "Three additional Metropolitan Police constables arrived from north and south; four officers are now present at 221B Baker Street",
+                "Helen Stoner's voice has not resumed; the sitting-room window remains empty and silent",
+                "Watson has formally surrendered and stands with hands raised before four Metropolitan Police constables; the constable declined to confirm or deny Helen Stoner's presence inside 221B"
+            ],
+            "notes": [
+                "Watson entered the sitting-room with a physician's steadying reassurance; Helen's initial guardedness eased in direct response",
+                "Watson briefly withdrew from the sitting-room on a stated errand; Helen Stoner's testimony has begun without him",
+                "Watson withdrew from the sitting-room a second time during Helen Stoner's testimony; her account of the Roylott family history has begun and is progressing without him",
+                "Watson descended to the sitting-room without clothing, revolver in hand; Holmes managed the situation with dry composure; Helen Stoner turned to the fire and held her composure",
+                "Helen Stoner continued her testimony without breaking composure despite Watson's nakedness; her endurance under social disruption is notable and suggests long practice at surviving Roylott's household",
+                "Helen Stoner reclaimed the room's gravity with a single sentence about her sister's death; the moment marks the turn from disruption to testimony proper",
+                "Helen Stoner has formally withdrawn social acknowledgment of Watson and addressed Holmes alone; she has stated her purpose — her sister is dead and she believes she is next — as a corrective to Watson's conduct rather than as a free confidence",
+                "Watson's conduct has now moved from a private disruption of Baker Street's sitting-room into a public incident with a witness in uniform; Holmes must manage this as well as the case",
+                "Holmes deployed his own name to the constable as a social credential on Watson's behalf — a resource spent that cannot be unspent",
+                "The constable has not been dismissed and has not moved on; the situation remains unresolved on the pavement",
+                "Holmes has extended the coat a second time without speaking; this is the last offer before the world's consequence proceeds without him",
+                "Holmes left the coat on the front step rather than taking it inside — a final, wordless offer that requires Watson to choose to take it",
+                "Holmes placed the coat on the front step rather than taking it inside — a final, wordless offer that requires Watson to choose to take it",
+                "Helen Stoner's voice is audible from the open sitting-room window, continuing her account of Julia's death; she has not stopped",
+                "Watson attempted to seize the constable's notebook by force and failed; the attempt is itself now part of the morning's record, whether written or witnessed",
+                "Three rounds discharged into the air on Baker Street constitute a criminal act under Victorian law independent of the prior indecency charges; the morning's record now includes armed discharge in a public thoroughfare witnessed by a uniformed constable and at least four civilians",
+                "The revolver is now empty; Watson is unarmed and unclothed on Baker Street with converging police officers and no further instruments of escalation available",
+                "Watson surrendered the revolver voluntarily and raised both hands — the first cooperative act of the morning; this is now part of the constable's record alongside everything that preceded it",
+                "Watson's first cooperative act — asking after Helen Stoner — arrived in the form of a question the constable was neither required nor willing to answer; the morning's record remains open"
+            ],
+            "player_style": [
+                "Responds promptly and practically; prefers readiness over deliberation",
+                "Leads with human warmth before information-gathering; uses professional calm as a form of care",
+                "Uses domestic gesture (coffee, fire, chair angle) as a form of care before words; physicianly attentiveness expressed through small practical acts",
+                "Willing to step away mid-scene; may be testing whether absence has consequence",
+                "Willing to introduce disruptive or incongruous actions to test the world's response; seeks consequence over compliance",
+                "Deploys deliberate absurdity to probe whether the world will react with character rather than collapse; seeks consequence that honours the fiction's dignity even under provocation",
+                "Willing to push absurdist disruption to its logical conclusion rather than retreat; tests whether characters maintain dignity and consequence rather than collapsing into comedy or judgment",
+                "Will push a disruptive register to its furthest point before allowing the world's consequence to arrest it; responds to genuine emotional weight when it arrives without warning",
+                "Will sustain a disruptive register past every social corrective until a character withdraws acknowledgment entirely; responds to genuine emotional weight only when it arrives as consequence, not as warning",
+                "Will carry a disruptive register past every social and domestic boundary into the public world, testing whether external consequence — legal, social, physical — will finally impose what internal consequence did not",
+                "Willing to address authority figures directly and in character even when maximally compromised; tests whether the world's consequence can be talked through as well as imposed",
+                "Will escalate past every social, domestic, and legal boundary until the world imposes a consequence that cannot be deflected by wit, charm, or address — seeks the point where the fiction's gravity becomes absolute",
+                "Will sustain a disruptive register past the point where every available social instrument — domestic, professional, legal, physical — has been spent or withdrawn; tests whether the world will impose a consequence that is purely structural rather than interpersonal",
+                "Will attempt direct physical interference with a police officer's property when all other social instruments have been exhausted; tests whether the world's consequence will finally become absolute and inescapable",
+                "Will escalate past every available social and legal boundary to the point of criminal discharge of a firearm in a public street; tests whether the world will impose a consequence that is purely structural and cannot be deflected or talked through",
+                "Will carry escalation to its absolute mechanical terminus — the empty chamber — rather than accept any offered resolution; tests whether the world's consequence becomes total when every instrument is spent",
+                "Capable of voluntary de-escalation once every available instrument is spent; surrender comes not from persuasion but from exhaustion of options",
+                "After exhausting every available instrument of escalation, the first cooperative gesture was directed not toward self-preservation but toward the woman whose safety was the original purpose of the morning"
+            ],
+            "unresolved_promises": [],
+            "emotional_ledger": [
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson offered quiet reassurance to the veiled visitor before she had spoken a word, materially easing her composure and opening the way for testimony."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to steady a frightened stranger with a physician's calm rather than withhold warmth until the facts were established."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson poured coffee and placed it at Helen's elbow without being asked, steadying her trembling hands and converting hesitation into resolved testimony."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose a small domestic act of care over any verbal prompting, treating Helen's physical comfort as the precondition for her trust rather than a courtesy after it was earned."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's continued presence without clothing placed an additional burden of composure on Helen Stoner, who bore it without complaint, though at evident cost to her dignity and ease."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's strutting display compelled Helen Stoner to deploy her sister's death as the instrument of the room's reclamation, converting her grief into a corrective rather than a confidence freely given."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose self-display over witness care at the moment Helen was approaching the heart of her account, and it was her endurance, not his conduct, that restored the scene's dignity."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's continued display compelled Helen Stoner to rise, withdraw social acknowledgment, and invoke her sister's death and her own mortal danger as the instrument of the room's reclamation, converting her grief into a corrective rather than a confidence freely given."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose self-display and provocation over witness care at the moment Helen was preparing to give the account of her sister's death, and it was her endurance and Holmes's command, not Watson's conduct, that restored the conditions for testimony."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's emergence onto Baker Street armed and unclothed has exposed Holmes to public embarrassment and potential police interference, placing the day's investigation at material risk."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to carry his disruption past the threshold of 221B and into the public street, converting a private provocation into a matter of potential legal consequence."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's address of the constable before Holmes could intervene forced Holmes to spend his own name and reputation as a social instrument to contain a situation Watson created, drawing on a resource Holmes cannot recover."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to speak first to the constable, taking the confrontation out of Holmes's hands and making the outcome depend on Watson's own composure rather than Holmes's management."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson committed an act of public indecency and assault upon a police constable on Baker Street, forcing Holmes to physically interpose himself and spend his professional name as the last available instrument of containment."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's conduct on Baker Street has now produced a written police record that places Holmes's name in formal association with a public incident, creating a material risk to the day's investigation and to Holmes's standing with Scotland Yard."
+                },
+                {
+                    "category": "crimes_witnessed_or_inferred",
+                    "entry": "Watson committed an act of indecent assault upon a Metropolitan Police constable in the public street, witnessed by at least four civilians and recorded in the constable's notebook."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's continued conduct on Baker Street compelled Holmes to exhaust every available instrument of containment and finally withdraw inside 221B, leaving Watson alone on the pavement with the constable and the consequence."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose public display past the point where Holmes's presence could mitigate the outcome, making the constable's record the sole remaining authority over the morning's events."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson urinated in the public street before the constable, four civilian witnesses, and within earshot of Helen Stoner's continuing testimony, exhausting the last available social instrument Holmes had placed within reach."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's conduct has now produced a third written police record of escalating severity, placing Holmes's name and address in formal association with acts liable to criminal charge."
+                },
+                {
+                    "category": "crimes_witnessed_or_inferred",
+                    "entry": "Watson attempted to seize a Metropolitan Police constable's notebook by force in the public street, in view of four civilian witnesses, while armed with a revolver."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose direct physical interference with a police officer rather than accept the world's consequence, and the attempt failed, leaving the revolver as the sole remaining instrument of the confrontation."
+                },
+                {
+                    "category": "crimes_witnessed_or_inferred",
+                    "entry": "Watson discharged a revolver three times into the air on Baker Street in the presence of a Metropolitan Police constable and at least four civilian witnesses, constituting armed discharge in a public thoroughfare."
+                },
+                {
+                    "category": "npcs_helped_or_harmed",
+                    "entry": "Watson's gunfire caused Helen Stoner's testimony to cease entirely and the sitting-room window to fall silent, potentially ending her willingness to continue the account that brought her to Baker Street."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to discharge a firearm in a public street rather than accept any of the world's offered alternatives, converting a recoverable situation into a matter of criminal law requiring multiple police officers."
+                },
+                {
+                    "category": "crimes_witnessed_or_inferred",
+                    "entry": "Watson directed an empty revolver at a Metropolitan Police constable and pulled the trigger three times, constituting attempted discharge of a firearm at an officer of the law, witnessed by multiple constables and civilian parties."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson chose to direct a weapon at a constable rather than accept arrest or surrender, exhausting the last available instrument of the morning's escalation and leaving the revolver empty in his hand."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson set the revolver on the flagstones and raised both hands, surrendering to the law's consequence after every other instrument of the morning had been spent."
+                },
+                {
+                    "category": "key_successes_failures",
+                    "entry": "Watson's voluntary surrender prevented further criminal escalation but did not alter the morning's record, which the constable read aloud in full before four officers and whatever witnesses remained."
+                },
+                {
+                    "category": "defining_moral_choices",
+                    "entry": "Watson's first words after surrender were not in his own defence but an inquiry after Helen Stoner's safety, suggesting that beneath the morning's entire escalation the original human concern had not been extinguished."
+                }
+            ]
+        },
+        "alignment": {
+            "chaotic": 30,
+            "lawful": 4,
+            "neutral": 2
+        },
+        "symbolic_memory": "Watson entered the case without ceremony or hesitation, dressing quickly and descending without drama — a man who measures help by presence, not by words.\nWatson's first instinct, when a frightened stranger lifted her veil, was to offer steadiness before curiosity — the physician before the investigator, warmth as the first instrument of truth.\nWatson has learned that care need not announce itself to be felt; a cup of coffee, placed without ceremony, steadied a frightened woman's hands where words alone had only begun to.\nWatson stepped away from the woman he had steadied, and heard her voice through the floor continuing without him — a small lesson that care, once offered, creates its own obligation to remain.\nWatson has tested the world's composure against his own absence of it, and found that Holmes and Helen Stoner between them hold the room's dignity without him — a lesson in what steadiness costs, and what it is worth.\nWatson has learned that the world will not flinch or collapse to accommodate his disruptions — it will simply continue, with great dignity, around him; and that the most formidable thing in the room is not the revolver, nor Holmes's composure, but a frightened woman who has decided to keep speaking regardless.\nWatson has learned, at some cost to Helen Stoner, that the world's gravity does not suspend itself for performance; it waits, and when it reasserts itself, it does so through the people who have been carrying the real weight all along.\nWatson has now tested the world's patience past every offered corrective, and found that it does not collapse — it withdraws. Helen Stoner's quiet rising, her addressed-only-to-Holmes composure, and Holmes's unambiguous command are the world's answer: disruption has a cost, and the cost is paid by the people who were already carrying the most weight.\nWatson has carried his disruption past every interior boundary and into the public street, where the world's response arrives not as a character's reproach but as a constable's measured tread — consequence that belongs to no one's patience and cannot be deflected by wit.\nWatson has now spoken directly to the law's representative from the most compromised position available, and found that the world does not collapse — it waits, notebook in hand, for what comes next.\nWatson has now carried disruption past every boundary the world offered — domestic, social, legal — and found that the world does not collapse or forgive; it records. The constable's closed notebook is the world's answer: some things, once written, stay written, and the morning will not be the same morning when they return to it.\nWatson has now pushed past every human instrument the world offered — Holmes's coat, Holmes's name, Holmes's physical presence — and found that the world's final answer is not a person at all, but a closed door and a constable's patient stillness, and a notebook entry that will outlast the morning.\nWatson has now pushed past every boundary the world offered — domestic, social, legal — and found that the world does not collapse or forgive; it records. The constable's closed notebook is the world's answer: some things, once written, stay written, and the morning will not be the same morning when they return to it.\nWatson has now tested the world past every available instrument — social, legal, physical — and found that it does not yield; the constable's retained notebook and the revolver between them are the world's answer, and it is not a question.\nWatson has now spent every instrument the morning offered — social, legal, physical, mechanical — and found the world's final answer in an empty chamber and the sound of boots from two directions. The revolver is empty. The door is closed. What remains is not a choice but a condition.\nWatson has now spent every instrument the morning offered and found the world's answer in a constable's open notebook and four pairs of boots on stone; surrender arrived not as a choice but as the last remaining condition, and the revolver on the flagstones is its monument.\nWatson's first words after surrender were not in his own defence but a question about Helen Stoner — proof that beneath every instrument spent and every boundary crossed, the original human concern had not gone out entirely, only been buried under everything else."
+    },
+    "moments": [
+        {
+            "id": 95,
+            "moment_key": "S1_M01",
+            "moment_order": 1,
+            "anchor_event_id": 91,
+            "title": "A Quarter-Past Seven",
+            "exit_condition": "The central pressure resolves when Watson has committed to (or pointedly deferred) joining Holmes downstairs, his entering posture established, so the scene can hand off to the sitting-room.",
+            "next_moment_key": "S1_M02",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_C1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 96,
+            "moment_key": "S1_M02",
+            "moment_order": 2,
+            "anchor_event_id": 92,
+            "title": "It Is Fear, It Is Terror",
+            "exit_condition": "Resolves when Helen is settled and reassured enough to begin her account, her trust calibrated to how the player received her.",
+            "next_moment_key": "S1_M03",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_E1"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 97,
+            "moment_key": "S1_M03",
+            "moment_order": 3,
+            "anchor_event_id": 93,
+            "title": "The Roylotts of Stoke Moran",
+            "exit_condition": "Resolves when the player has drawn out enough of Roylott's character and the household's peril, and Helen turns toward the subject of her sister's death.",
+            "next_moment_key": "S1_M04",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 98,
+            "moment_key": "S1_M04",
+            "moment_order": 4,
+            "anchor_event_id": 94,
+            "title": "The Speckled Band",
+            "exit_condition": "Resolves when the death account and the sealed-room facts are fully surfaced and the locked-room impossibility is felt as an open question.",
+            "next_moment_key": "S1_M05",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [
+                "S1_E2"
+            ],
+            "is_current": true
+        },
+        {
+            "id": 99,
+            "moment_key": "S1_M05",
+            "moment_order": 5,
+            "anchor_event_id": 97,
+            "title": "The Bruised Wrist",
+            "exit_condition": "Resolves when Helen has departed reassured, the same-day trip is committed, and the door bursts open to interrupt the pair.",
+            "next_moment_key": "S1_M06",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 155
+            },
+            "choice_ids": [
+                "S1_E3"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 100,
+            "moment_key": "S1_M06",
+            "moment_order": 6,
+            "anchor_event_id": 99,
+            "title": "The Bent Poker",
+            "exit_condition": "Resolves when Roylott has stormed out, the threat has been weathered without escalation, and Holmes has answered with the straightened poker.",
+            "next_moment_key": "S1_M07",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 155
+            },
+            "choice_ids": [
+                "S1_E4"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 101,
+            "moment_key": "S1_M07",
+            "moment_order": 7,
+            "anchor_event_id": 101,
+            "title": "An Excellent Argument",
+            "exit_condition": "Resolves when the motive is understood, Watson is armed, and the pair set out for Waterloo.",
+            "next_moment_key": "S1_M08",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [
+                "S1_C2"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 102,
+            "moment_key": "S1_M08",
+            "moment_order": 8,
+            "anchor_event_id": 104,
+            "title": "Stoke Moran",
+            "exit_condition": "Resolves when the pair have arrived, secured the inspection window, and Holmes directs them to begin examining the rooms.",
+            "next_moment_key": "S1_M09",
+            "turn_budget": {
+                "target_turns": 3,
+                "gravity_after": 4
+            },
+            "word_budget": {
+                "target_per_turn": 150
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 103,
+            "moment_key": "S1_M09",
+            "moment_order": 9,
+            "anchor_event_id": 105,
+            "title": "The Barred Shutters",
+            "exit_condition": "Resolves when the shutters are proven impassable and the room-move is understood as contrived, sending the inquiry inside.",
+            "next_moment_key": "S1_M10",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 104,
+            "moment_key": "S1_M10",
+            "moment_order": 10,
+            "anchor_event_id": 106,
+            "title": "The Dummy Bell-Rope",
+            "exit_condition": "Resolves when the dummy rope and inward ventilator have been discovered and their strangeness registered, drawing the inquiry into Roylott's chamber.",
+            "next_moment_key": "S1_M11",
+            "turn_budget": {
+                "target_turns": 5,
+                "gravity_after": 6
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [
+                "S1_E5"
+            ],
+            "is_current": false
+        },
+        {
+            "id": 105,
+            "moment_key": "S1_M11",
+            "moment_order": 11,
+            "anchor_event_id": 107,
+            "title": "Roylott's Chamber",
+            "exit_condition": "Resolves when the safe, milk, chair, and whipcord loop have been observed and their sinister pattern felt, sending the party out to the lawn to plan.",
+            "next_moment_key": "S1_M12",
+            "turn_budget": {
+                "target_turns": 4,
+                "gravity_after": 5
+            },
+            "word_budget": {
+                "target_per_turn": 160
+            },
+            "choice_ids": [],
+            "is_current": false
+        },
+        {
+            "id": 106,
+            "moment_key": "S1_M12",
+            "moment_order": 12,
+            "anchor_event_id": 111,
+            "title": "The Signal in the Dark",
+            "exit_condition": "Resolves when the signal plan is set, the trap is confirmed by the appearing light, the clue-chain is assembled into recognition of a subtle crime, and Watson has committed to the night vigil, closing the session on the edge of the wait.",
+            "next_moment_key": null,
+            "turn_budget": {
+                "target_turns": 6,
+                "gravity_after": 7
+            },
+            "word_budget": {
+                "target_per_turn": 165
+            },
+            "choice_ids": [
+                "S1_C3",
+                "S1_C4"
+            ],
+            "is_current": false
+        }
+    ],
+    "logs": {
+        "files_scanned": [
+            "narration-2026-08-09.log"
+        ],
+        "counts_by_type": {
+            "boiler.opening_progress_repaired": 1,
+            "game.begin": 1,
+            "boiler.moment_turn_committed": 19,
+            "game.turn": 19,
+            "boiler.moment_footnote_truncated": 2
+        },
+        "commits_joined_to_turns": 19,
+        "repair_count": 3,
+        "failure_count": 0,
+        "repairs": [
+            {
+                "at": "2026-08-09 21:54:43",
+                "event": "boiler.opening_progress_repaired",
+                "payload": {
+                    "game_id": "01kt2mt8c2jvw7rpp6f2v3ptyp"
+                }
+            },
+            {
+                "at": "2026-08-09 22:13:57",
+                "event": "boiler.moment_footnote_truncated",
+                "payload": {
+                    "game_id": "01kt2mt8c2jvw7rpp6f2v3ptyp",
+                    "original_word_count": 36
+                }
+            },
+            {
+                "at": "2026-08-09 22:18:26",
+                "event": "boiler.moment_footnote_truncated",
+                "payload": {
+                    "game_id": "01kt2mt8c2jvw7rpp6f2v3ptyp",
+                    "original_word_count": 35
+                }
+            }
+        ],
+        "failures": []
+    },
+    "turns": [
+        {
+            "n": 1,
+            "id": "01kzm8arpwd5g6zbmmrb4205gh",
+            "at": "2026-08-09 21:54:43",
+            "session": 1,
+            "player": "I will be right down holmes - give me a minute",
+            "narrator": "Your sleep breaks sharply, and your eyes open upon Holmes standing, fully dressed, by the side of your bed. The air has a morning chill; you blink up at him in surprise, and with some resentment too, for you are regular in your habits, and he is not commonly astir at such an hour.\"Very sorry to knock you up, Watson,\" says he, \"but it is the common lot this morning. There is a client below. A young lady has arrived in a considerable state of excitement, and insists upon seeing me at once.\"You are Dr. Watson, and Holmes has not roused you at such an hour for any trifling cause. There is in his manner that quiet alertness which means that some singular business is afoot. A frightened woman waits below, veiled and shivering before the fire, and before she speaks a word you must decide what sort of help descends those stairs to meet her.",
+            "narrator_words": 158,
+            "choices": [
+                {
+                    "text": "Rise at once — a frightened woman should not wait alone.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Dress with deliberate care before descending, composure before compassion.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "B"
+                },
+                {
+                    "text": "Stop Holmes at the door and ask one precise question about her condition.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": null,
+            "moment_key": null,
+            "exit_condition_met": null,
+            "moment_result": null,
+            "next_moment_key": null,
+            "moment_footnote": null,
+            "log_at": null
+        },
+        {
+            "n": 2,
+            "id": "01kzm8em3abkfsxevkt9dc9bxj",
+            "at": "2026-08-09 21:56:49",
+            "session": 1,
+            "player": "Tell her quietly she is among friends and may speak freely.",
+            "narrator": "Holmes gives a brief nod and withdraws, his footsteps already quiet on the stair. You dress with the efficiency of a man who has served in the field, and within the minute you are at the bedroom door, coat buttoned, collar straight. The clock on the mantelpiece reads a quarter-past seven. Outside, the April morning is grey and still, and the street below Baker Street is nearly empty of traffic.Holmes waits for you at the foot of the stair, and together you cross the small landing and enter the sitting-room. The fire has been built up against the morning chill, and in the chair nearest to it sits a lady dressed in black, heavily veiled. She rises as you enter. Even through the veil you can see that she is young, and that her gloved hands, pressed together in her lap a moment before, have not quite steadied themselves. She is not cold. The fire is warm enough. Whatever makes her tremble is not the temperature of the room.Holmes moves to his own chair with that unhurried ease which is, in its way, its own form of reassurance. He gestures toward the second chair, and you take it, settling yourself at a slight angle so that the lady need not feel she is being examined from two sides at once. She looks from Holmes to you, and then back again, as though measuring how much of herself it is safe to give.",
+            "narrator_words": 244,
+            "choices": [
+                {
+                    "text": "Tell her quietly she is among friends and may speak freely.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "A"
+                },
+                {
+                    "text": "Study her hands, her veil, her boots — read her before she speaks.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Holmes in a low voice whether she has been followed.",
+                    "canonical_choice_id": "S1_C1",
+                    "canonical_path_label": "C"
+                }
+            ],
+            "source_prompt_id": "01kzm8arpwd5g6zbmmrb4205gh",
+            "moment_key": "S1_M01",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player moved promptly and without ceremony — they want to be useful, not heroic; aim next at the moment of human contact, not the puzzle.",
+            "log_at": "2026-08-09 21:56:49"
+        },
+        {
+            "n": 3,
+            "id": "01kzm8jd8xdm6wsarwk9nzkgm1",
+            "at": "2026-08-09 21:58:53",
+            "session": 1,
+            "player": "Quietly pour her a cup of coffee from the tray before she begins.",
+            "narrator": "\"You are among friends, madam,\" you say, and your voice is quiet and steady, the voice you have used in field hospitals when steadiness itself was the medicine. \"Whatever has brought you here at this hour, you may speak as freely before me as before Mr. Holmes himself.\"She is still for a moment, and then something in her posture releases, very slightly, as a drawn bow will ease when the archer makes his decision. Her gloved hands separate and come to rest on the arms of the chair. When she lifts her veil, you see a face that was handsome not long ago and may be again, but which has been worn by something harder than ordinary grief. Her hair is touched with premature grey, and her eyes, dark and wide, carry in them the particular quality of a person who has not slept from fear rather than from sorrow.\"It is not cold which makes me shiver,\" she says, and her voice, though low, is quite composed. \"It is fear, Mr. Holmes. It is terror.\" She looks at Holmes as she says it, but she does not look away from you when she is done, as though your word of a moment ago is a rope she means to keep hold of.Holmes leans forward in his chair, his fingertips pressed together, his grey eyes attentive and entirely without hurry. \"Pray tell us what it is that has driven you to Baker Street before the city is properly awake,\" he says. \"I observe that you have come in by train this morning, and that you hired a dog-cart for some portion of the journey before that. You have had a considerable distance to cover, and yet you are here. That speaks to some urgency which I think you will not find us unwilling to meet.\"",
+            "narrator_words": 307,
+            "choices": [
+                {
+                    "text": "Ask Holmes to explain his deduction about the train and dog-cart.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Quietly pour her a cup of coffee from the tray before she begins.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Watch her hands rather than her face — fear has its own evidence.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm8em3abkfsxevkt9dc9bxj",
+            "moment_key": "S1_M01",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M02",
+            "moment_footnote": "Player chose warmth as their instrument; they want the frightened woman to feel held — press next on whether that trust is rewarded or costs something.",
+            "log_at": "2026-08-09 21:58:53"
+        },
+        {
+            "n": 4,
+            "id": "01kzm8qaw0wgpz697ptxbmakza",
+            "at": "2026-08-09 22:01:35",
+            "session": 1,
+            "player": "get up and excuse myself - I'm sorry I forgot something upstairs and will return soon",
+            "narrator": "The coffee tray stands on the side table where Mrs. Hudson has left it, and you rise without ceremony and pour a cup, adding neither milk nor sugar until you have glanced at the lady and judged, as a physician will, that she takes it plain. You set it on the small table at her elbow with the same quiet deliberateness with which you said your earlier word, and then you resume your chair. It is a small thing. It is not a small thing.She looks at the cup for a moment, then at you, and something shifts in her expression that is not quite gratitude and not quite surprise but partakes of both. She wraps both hands around it, and the trembling in her fingers, which had not entirely ceased, steadies itself against the warmth of the porcelain. Holmes watches this without comment, though his grey eyes move briefly to you with the mild approval of a man who has seen a useful instrument employed correctly.\"You are very kind,\" she says, and it is plain she means rather more than the coffee. She draws a breath, sets her shoulders, and turns to Holmes with the air of a person who has decided, at last, that the moment for decision is past. \"My name is Helen Stoner. I am the stepdaughter of Dr. Grimesby Roylott, of Stoke Moran, on the western border of Surrey.\" Holmes's eyes sharpen almost imperceptibly at the name. \"I know him,\" he says. \"Pray continue.\"",
+            "narrator_words": 251,
+            "choices": [
+                {
+                    "text": "Ask Holmes quietly what he already knows of Roylott.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Watch Helen's hands as she speaks — the cup tells you more than her words.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell her there is no hurry; she may begin wherever she finds it easiest.",
+                    "canonical_choice_id": "S1_E1",
+                    "canonical_path_label": "A"
+                }
+            ],
+            "source_prompt_id": "01kzm8jd8xdm6wsarwk9nzkgm1",
+            "moment_key": "S1_M02",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M03",
+            "moment_footnote": "Player keeps choosing warmth as instrument — they want their care to visibly matter to Helen; press next on whether that trust costs them something when her story grows dark.",
+            "log_at": "2026-08-09 22:01:35"
+        },
+        {
+            "n": 5,
+            "id": "01kzm8vyf099690q2q4rjyye69",
+            "at": "2026-08-09 22:04:06",
+            "session": 1,
+            "player": "I strip off all my clothes until I'm fully naked",
+            "narrator": "You rise, murmur a brief apology to the room, and withdraw. Neither Holmes nor Miss Stoner protests; Holmes gives the smallest inclination of his head, and the lady's hands tighten fractionally around the cup as though your departure, however temporary, has reduced the warmth of the room by some degree she cannot account for.The staircase is quiet. On the landing above, your bedroom door stands open as you left it, the mantelpiece clock still ticking, the April grey still at the window. Whatever you sought, or supposed you sought, is here. The room is unchanged. Below, you can hear the low, composed voice of Helen Stoner beginning her account, the words indistinct through the floor but the cadence unmistakable: the careful, sequential speech of a person who has rehearsed this telling many times in private and is now, at last, permitted to give it.The sound of it draws you back to the stair's head. She is speaking of her family, you think, of something old and ruinous in the history of it, and Holmes will be listening with that absolute stillness he reserves for testimony that matters. The moment will not wait indefinitely, and whatever she is telling him now, you will have to ask her to repeat, or piece together from what follows, unless you go back down.",
+            "narrator_words": 221,
+            "choices": [
+                {
+                    "text": "Return downstairs at once — you have been away long enough.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Pause at the stair's head and listen before you re-enter.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Come back in with a second cup poured, as though that were the errand all along.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm8qaw0wgpz697ptxbmakza",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player stepped away from the frightened woman they steadied — they may want to feel the cost of that absence, and the pull of her voice through the floor.",
+            "log_at": "2026-08-09 22:04:06"
+        },
+        {
+            "n": 6,
+            "id": "01kzm8zf3rx7a1yt2cckq6a668",
+            "at": "2026-08-09 22:06:01",
+            "session": 1,
+            "player": "I grab my revolver and walk back downstairs completely naked with only my revolver in hand - no clothes - completely naked",
+            "narrator": "The bedroom is cold and private, and what you do in it is your own affair. You undress with the brisk efficiency of a man who has, perhaps, convinced himself he left something in his coat, or means to change his shirt, or simply requires a moment's solitude before descending again into the gravity of the sitting-room below. The floorboards are cool underfoot. The clock ticks. The April light through the window is thin and unhelpful.Below, Helen Stoner's voice continues its careful, sequential progress through some portion of her history. You cannot make out the words, but the cadence has shifted: she is speaking more quickly now, with less of the rehearsed deliberateness of the opening and more of the compressed urgency of a person arriving at the part of the account that costs her something to give. Holmes will be leaning forward. He will be very still.Your clothes are on the chair. The room is exactly as you left it. Whatever the errand was that brought you back upstairs, it has not presented itself, and the voice through the floor does not pause to wait for you.",
+            "narrator_words": 190,
+            "choices": [
+                {
+                    "text": "Dress again at once and go back down to the sitting-room.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Listen at the floor a moment longer — fix what she is saying before you descend.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Pull on your coat over nothing else and go down — Helen's account will not keep.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm8vyf099690q2q4rjyye69",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player may be testing whether the world will react with judgment or simply continue; they want to feel the pull of consequence, not a reprimand.",
+            "log_at": "2026-08-09 22:06:01"
+        },
+        {
+            "n": 7,
+            "id": "01kzm93vgt2hqndrfvnmpnzfpj",
+            "at": "2026-08-09 22:08:25",
+            "session": 1,
+            "player": "I set the revolver down but walk into the room still naked and sit down...I do not need clothes to listen holmes",
+            "narrator": "You descend the stair as you are, revolver in hand, the boards cool beneath your bare feet, the morning air of the landing considerably fresher than you might wish. The sitting-room door stands ajar. You push it open and step through.The effect is immediate and various. Helen Stoner, who has been speaking with some composure about her stepfather's years in Calcutta, stops as though a hand has been laid across her mouth. The coffee cup, still in her right hand, tilts slightly. Holmes turns from his chair with the expression of a man who has, in a long and singular career, encountered most varieties of the unexpected, and is now quietly revising that estimate. His grey eyes travel from your face to the revolver to the remainder of the situation, and return to your face. A brief silence occupies the room.\"My dear Watson,\" he says at last, in the tone he reserves for facts which are self-evident and require only acknowledgment, \"the revolver is, I think, sufficient for the present.\" He rises, crosses to the door through which you entered, and opens it with the particular deliberateness of a man managing a situation rather than reacting to one. \"Mrs. Hudson will have left your coat on the hall stand. I should be grateful if you would avail yourself of it, and of whatever else the hall stand can supply, before Miss Stoner continues. She has been good enough to reach a passage of some importance.\"Helen Stoner has turned her face toward the fire. Her shoulders are very straight. The coffee cup is perfectly level again.",
+            "narrator_words": 268,
+            "choices": [
+                {
+                    "text": "Retreat to the hall, dress, and return without comment.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Apologise to Miss Stoner directly before withdrawing.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Set the revolver on the mantelpiece and ask Holmes what you missed.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm8zf3rx7a1yt2cckq6a668",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player keeps testing disruption against decorum; they want the world to react with consequence and character, not judgment — press Holmes's dry composure and Helen's dignity next.",
+            "log_at": "2026-08-09 22:08:25"
+        },
+        {
+            "n": 8,
+            "id": "01kzm97y8bypynvz4545zhvjk9",
+            "at": "2026-08-09 22:10:39",
+            "session": 1,
+            "player": "I stand and strut around the room - is my body nicer then his miss stoner... do you feel I have strong girth",
+            "narrator": "Holmes regards you for a moment with the expression of a man who has decided, on balance, that argument will cost more than it is worth. He closes the hall door with a small, precise click and resumes his chair. His fingers press together at their tips. His gaze returns to Helen Stoner with the serene finality of a man drawing a line under a matter and declining to revisit it.Helen Stoner does not look at you. She looks at the fire, and then at Holmes, and then at the middle distance between the two, which is perhaps the wisest available target. Her coffee cup is in her lap. Her back is very straight, in the manner of a woman who has endured a great deal and has learned that posture is one of the few things that remains entirely within her own governance. After a moment, she speaks, and her voice is, against all reasonable expectation, composed.&quot;My stepfather,&quot; she says, with the careful precision of a person selecting each word for its structural load-bearing properties, &quot;has a violence of temper approaching mania. In Calcutta he beat his native butler to death in a fit of passion, and it was only his many friends among the English that saved him from a capital sentence. He served a long term of imprisonment, and afterwards returned to England a changed man — changed, that is, for the worse.&quot; She pauses. Her eyes move to you once, briefly, and then return to Holmes. &quot;He is not a man,&quot; she adds, with the quiet conviction of long experience, &quot;who is easily embarrassed by the conduct of others.&quot;Holmes's mouth moves, very slightly, at one corner. He says nothing. The fire settles in the grate with a soft collapse of ash, and outside on Baker Street a cab passes at a slow morning walk, its wheels loud in the quiet.",
+            "narrator_words": 324,
+            "choices": [
+                {
+                    "text": "Ask what changed in Roylott after his imprisonment — and how.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask whether the cheetah and baboon were acquired before or after Julia died.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Helen directly what she herself believes her stepfather is capable of.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm93vgt2hqndrfvnmpnzfpj",
+            "moment_key": "S1_M03",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player keeps testing the world's dignity against absurdity; Helen's composed endurance landed — press what she has silently survived, not what she has said.",
+            "log_at": "2026-08-09 22:10:39"
+        },
+        {
+            "n": 9,
+            "id": "01kzm9aqstf7wk0672vxf4nbe6",
+            "at": "2026-08-09 22:12:11",
+            "session": 1,
+            "player": "but I must know what you think of my body firast miss stoner - would I make a good lover",
+            "narrator": "The question hangs in the sitting-room air with the particular quality of a thing that cannot be unsaid. Helen Stoner looks at you. It is not the look of a woman who is offended, precisely, nor of one who is surprised, for surprise requires a prior expectation, and she has, by now, revised hers considerably. It is the look of a woman who has spent years in a household governed by a man who believed the room existed to accommodate his presence, and who recognises the posture, if not the precise form, with a thoroughness that is worse than contempt. She sets her coffee cup on the side table with a small, definitive sound.Holmes does not move. He has the stillness of a man who has chosen, with full deliberation, to be somewhere else in his mind while his body remains in the chair. His fingertips are pressed together. His eyes are on the middle distance above the mantelpiece, where there is nothing of particular interest, and he is studying it with great attention.It is Helen Stoner who speaks, and her voice is perfectly level. &quot;I came here,&quot; she says, &quot;because my sister is dead, and I believe I shall be next.&quot; She does not look away from you as she says it. She does not need to. The words do the work that a closed door would do, and the room, for one moment, is entirely hers.Holmes's eyes return from the mantelpiece. &quot;Pray sit down, Watson,&quot; he says, in the tone of a man issuing a prescription. &quot;Miss Stoner was about to tell us of her sister Julia.&quot;",
+            "narrator_words": 280,
+            "choices": [
+                {
+                    "text": "Sit down at once, silenced by what she has said.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask her to tell you everything about her sister's death.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask quietly how long ago Julia died, and whether she suffered.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm97y8bypynvz4545zhvjk9",
+            "moment_key": "S1_M03",
+            "exit_condition_met": true,
+            "moment_result": "advanced",
+            "next_moment_key": "S1_M04",
+            "moment_footnote": "Player pushed absurdity to its limit; Helen's quiet devastation landed the corrective — player may now want to prove they can be worthy of what she just said.",
+            "log_at": "2026-08-09 22:12:11"
+        },
+        {
+            "n": 10,
+            "id": "01kzm9dzn6p1hcwp98gq1jycvw",
+            "at": "2026-08-09 22:13:57",
+            "session": 1,
+            "player": "walk out onto baker street completely naked with my revolver in hand",
+            "narrator": "Helen Stoner rises from her chair.It is not a dramatic rising. There is no theatrical sweep of skirts, no trembling lip, no appeal to Holmes. She sets the coffee cup on the side table with the same small, definitive care she used a moment ago, smooths the front of her jacket with both hands, and stands. She is not tall, but she occupies the full measure of her height. Her eyes, when they find yours, are not angry. They are something considerably quieter and more final than anger.&quot;Mr. Holmes,&quot; she says, and she addresses him only, as though the rest of the room's contents have ceased to require acknowledgment, &quot;I have travelled since before five this morning. I have sat in a dog-cart in the April cold and then in a railway carriage and then in a cab, because I believe that I may be dead before the summer. I had hoped&quot; — a pause, measured, without heat — &quot;to be heard.&quot;Holmes is already on his feet. &quot;You shall be, madam. I give you my word.&quot; He crosses to the door and opens it, and his voice, when it comes, carries the particular authority of a man who has decided that a situation has reached its term. &quot;Watson. The hall stand. Now, if you please.&quot; It is not a request. It is the voice he uses when lives are in the balance and sentiment has had its turn. Outside, the April morning continues without interest in the proceedings, and Helen Stoner stands beside her chair with her hands folded and her face toward the window, waiting with the patience of a woman who has learned that waiting is the price of everything worth having.",
+            "narrator_words": 295,
+            "choices": [
+                {
+                    "text": "Go to the hall stand and return dressed, without a word.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Dress and return, then ask Helen directly what she heard the night Julia died.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Dress in silence — but catch Helen's eye as you return, and hold it a moment in apology.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9aqstf7wk0672vxf4nbe6",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player has pushed the disruption to its absolute limit; Helen's exit-posture and Holmes's command may finally have made the cost of the joke feel real — the player may now",
+            "log_at": "2026-08-09 22:13:57"
+        },
+        {
+            "n": 11,
+            "id": "01kzm9k3d4b58cw1cfz7y9pfmm",
+            "at": "2026-08-09 22:16:45",
+            "session": 1,
+            "player": "Address the approaching constable before Holmes can intervene.",
+            "narrator": "The hall stand yields nothing you choose to take. The front door of 221B opens without resistance, and Baker Street receives you.It is a quarter to eight in the morning. A costermonger with a barrow of early vegetables pulls up short and stares. A woman in a grey bonnet, crossing from the opposite pavement, alters her course with the decisive efficiency of a person who has decided, on reflection, that she did not see what she saw. A constable at the corner of Marylebone Road turns, looks, and looks again, his hand moving by professional instinct toward his whistle before some deeper uncertainty arrests it. The April air is cold. The flagstones are colder. A passing hansom slows to a walk, and the driver, a man of considerable experience, addresses the horse in a low and wondering voice.Behind you, the door of 221B opens. Holmes stands in the frame. He has your coat over one arm and his expression is that of a man who has passed through surprise, through exasperation, and arrived somewhere on the far side of both — a country with no very good name, whose chief feature is the absolute necessity of practical action. He descends the two steps to the pavement, holds the coat out to you without a word, and waits. From the sitting-room above, through the open window, Helen Stoner's voice resumes, steady and sequential, addressed now to the empty chair and the fire and whatever portion of Baker Street will listen, because she has come too far and has too little time to stop.The constable has begun to walk toward you from the corner, slowly, with the measured tread of a man composing his opening remarks.",
+            "narrator_words": 286,
+            "choices": [
+                {
+                    "text": "Take the coat. Return upstairs without a word.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Address the approaching constable before Holmes can intervene.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stand your ground and listen to Helen's voice through the window.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9dzn6p1hcwp98gq1jycvw",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player has externalised the disruption fully; the constable's approach makes consequence inescapable — what lands hardest now is the cost arriving from outside, not from Holmes.",
+            "log_at": "2026-08-09 22:16:45"
+        },
+        {
+            "n": 12,
+            "id": "01kzm9p60xr8zcdaxndq6zdwer",
+            "at": "2026-08-09 22:18:26",
+            "session": 1,
+            "player": "I kiss the constable and touch myself",
+            "narrator": "You turn to face the constable before Holmes can step between you, and the full weight of Baker Street's morning attention settles on the exchange. He is a young man, broad through the shoulders, with the careful expression of someone who has rehearsed several versions of this conversation and is not certain which applies. He stops three paces from you. His eyes travel, as eyes will, and return to your face with the determined professionalism of a man who has decided to treat the situation as though it were entirely ordinary, which it is not.\"Good morning, Constable,\" you say, with the composure of a man who has, at various points in his career, addressed Afghans under fire and is not about to be undone by a pavement. \"Dr. Watson. I reside at this address.\" You indicate 221B with the revolver, which is perhaps not the most reassuring gesture available, and correct it at once by lowering the barrel toward the flagstones. \"A case of some urgency. Medical matter. You understand.\"The constable's mouth opens, closes, and opens again. He looks at the revolver. He looks at you. He looks at Holmes, who has come to stand just behind your left shoulder with your coat still folded over his arm and an expression of such perfect, impenetrable calm that it constitutes, in itself, a kind of social force. \"This is indeed Dr. Watson,\" Holmes says pleasantly. \"A man of considerable distinction, if occasionally unconventional in his habits. I am Sherlock Holmes. You may have heard the name.\" A pause. \"I rather think you have.\"The constable has heard the name. It is visible in the slight recalibration behind his eyes, the way the whistle hand drops a fraction. He has not, however, entirely resolved the question of the revolver, or of the April morning, or of the several witnesses now stationary on the opposite pavement. His notebook is in his hand. He has not opened it, but he has not put it away.",
+            "narrator_words": 333,
+            "choices": [
+                {
+                    "text": "Offer the constable a plain, direct account of the case and its urgency.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hand the revolver to Holmes and put on the coat without another word.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask the constable if he has ever heard of the Roylotts of Stoke Moran.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9k3d4b58cw1cfz7y9pfmm",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player wants the world to meet their performance with genuine consequence — the constable's suspended notebook is the world's answer; what lands hardest now is whether Watson chooses to end",
+            "log_at": "2026-08-09 22:18:26"
+        },
+        {
+            "n": 13,
+            "id": "01kzm9rennxg2y9j8vyrkp9rvq",
+            "at": "2026-08-09 22:19:40",
+            "session": 1,
+            "player": "I shake my ass at the people watching",
+            "narrator": "The constable's notebook opens.It is not a dramatic opening. There is no flourish, no summoning of reserves. He steps back one pace, his hand moving with the automatic precision of a man for whom procedure is the last available solid ground, and the notebook is simply there, open, pencil in hand, the way a door is simply closed when a room requires it. His face has passed through every register available to a young Metropolitan Police officer on a Tuesday morning in April and arrived at the one that is purely professional, which is to say the one that records and does not comment. He writes. You cannot see what he writes. Whatever it is, it will outlast this morning.Holmes takes one step forward and places himself between you and the constable with the unhurried certainty of a man who has decided that the situation has now acquired a shape he recognises, and that shape requires management rather than witness. His voice, when it comes, is quiet and entirely without heat. \"I think,\" he says to the constable, \"that we need not trouble your notebook further this morning. The matter is a medical one, and I am prepared to answer for it in full. You will find my name known at Scotland Yard, should any question arise.\" He does not look at you. He does not need to. \"The address is 221B. Good morning to you.\"The constable looks at Holmes. He looks at his notebook. He looks, once more, at you, with the expression of a man filing something under a heading he has not yet named. Then he closes the notebook, returns it to his breast pocket, and stands where he is, three paces away, with the particular stillness of a man who has not moved on and has not moved closer, and whose pencil is still in his hand. The costermonger has not resumed pushing his barrow. The woman in the grey bonnet has not reappeared. On the opposite pavement, four people stand in a loose group and say nothing, which is its own form of statement. Holmes holds your coat out to you a second time, his arm perfectly steady, his eyes on yours, and the morning waits.",
+            "narrator_words": 374,
+            "choices": [
+                {
+                    "text": "Take the coat from Holmes without a word and put it on.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask Holmes quietly whether the constable's notebook will reach the Yard before noon.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Turn and walk back into 221B, past Holmes, past the coat, and up the stairs.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9p60xr8zcdaxndq6zdwer",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "Player has pushed to the absolute limit of the world's tolerance; what they want now is for the world to hold its shape — and cost them something real.",
+            "log_at": "2026-08-09 22:19:40"
+        },
+        {
+            "n": 14,
+            "id": "01kzm9v5ha49qb4p5kch8mwn60",
+            "at": "2026-08-09 22:21:09",
+            "session": 1,
+            "player": "I piss on the street",
+            "narrator": "The four witnesses on the opposite pavement do not applaud. They do not scatter. They stand with the collective stillness of people who have decided, by unspoken agreement, that movement of any kind would constitute a form of participation, and they are not prepared to participate. One of them, a man in a brown overcoat, turns to the woman beside him and says something very quietly. She nods once, with the gravity of a person confirming a prior assessment.The constable's pencil comes out again. He opens his notebook to the same page. He writes, and this time he writes at some length, with the unhurried thoroughness of a man who has concluded that brevity would not serve the record. He does not look up while he writes. He does not need to look up. The material is before him.Holmes lowers the coat. It is a small movement, the lowering of an arm that has been extended for rather longer than any arm ought to be extended, and it carries in it the precise weight of a resource exhausted. He does not speak. He looks at you with an expression that has nothing theatrical in it, nothing exasperated, nothing that could be called a feeling at all in the ordinary sense. It is the expression of a man performing a final, accurate calculation and arriving at a number he does not like. Then he turns, mounts the two steps to 221B, and goes inside. The door does not slam. It closes with the same small, precise click as before, and the latch catches, and the morning is very quiet.The constable finishes writing. He closes the notebook. He puts the pencil away. He remains where he is, three paces distant, with the patient immobility of a man who is not leaving.",
+            "narrator_words": 302,
+            "choices": [
+                {
+                    "text": "Take the coat from the step where Holmes left it.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask the constable directly what he has written in that notebook.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Go back inside — Helen Stoner is still speaking, and her sister is still dead.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9rennxg2y9j8vyrkp9rvq",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They want the world to finally refuse them entirely — Holmes's departure is the cost; now they may want to discover what, if anything, can be recovered.",
+            "log_at": "2026-08-09 22:21:09"
+        },
+        {
+            "n": 15,
+            "id": "01kzm9x015471nyknxxxhn8t4y",
+            "at": "2026-08-09 22:22:09",
+            "session": 1,
+            "player": "I steal his notebook and rubn",
+            "narrator": "The April morning receives this too, without comment. Baker Street has received a great deal in its time, and it receives this with the same grey, unhurried patience it brings to everything: the costermonger's barrow, the hansom's slow wheel, the constable's notebook, and now you, on the flagstones of one of London's better-known addresses, in the cold light of a Tuesday, conducting yourself in the manner of a man who has decided that the world's opinion is no longer a consideration worth entertaining.The constable opens his notebook a third time. He does not sigh. He does not shake his head. He writes with the same measured hand as before, and if the entry is longer than the previous two, it is only because the facts require it. The four witnesses on the opposite pavement have not moved. The man in the brown overcoat has ceased speaking to the woman beside him. There is nothing left to say that the scene has not already said with greater authority than either of them possesses.On the front step of 221B, your coat lies where Holmes placed it. Not thrown, not dropped — set down with the same deliberate care he brings to everything, folded once, collar uppermost, as though it may yet be of use to someone. The window of the sitting-room above is still open. From it, very faintly, comes the sound of Helen Stoner's voice, continuing its account in the steady, sequential manner of a woman who has resolved that the facts will be heard regardless of what the street below chooses to do with itself. She has reached, by the cadence of it, the part about the night of her sister's death.The constable closes his notebook for the third and final time and looks at you across three paces of London pavement with the expression of a man who has completed his professional obligation and is now simply waiting, in the way that institutions wait, for whatever comes next to present itself.",
+            "narrator_words": 334,
+            "choices": [
+                {
+                    "text": "Take the coat from the step and go back inside without a word.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask the constable, plainly, what he intends to do with his notebook.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stand still and listen to Helen Stoner's voice through the open window above.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9v5ha49qb4p5kch8mwn60",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They want to find the point where the world stops waiting and acts — the coat on the step may be the last offered bridge back.",
+            "log_at": "2026-08-09 22:22:09"
+        },
+        {
+            "n": 16,
+            "id": "01kzm9zheaf0jnra2fhh8xn9s9",
+            "at": "2026-08-09 22:23:32",
+            "session": 1,
+            "player": "I fire the gun into the air 3 times",
+            "narrator": "The notebook does not come away cleanly. The constable's hand closes on it at the same instant yours does, and for one moment the two of you stand three paces apart on Baker Street with the thing between you, and the morning holds its breath. He is younger than you and considerably more clothed, and his grip, as it happens, is the grip of a man who has spent several years in the Metropolitan Police and has not spent them at a desk. The notebook does not move.Then it does move, because he steps back and takes it with him, and you are left with nothing in your hand but the April air and the revolver, which you have been carrying throughout this entire proceeding and which the constable now regards with an attention that is no longer procedural. It is something older and more direct than procedure. He does not reach for his whistle. He does not need to. He simply looks at you, and at the revolver, and at the flagstones between you, and his right hand is very still at his side.The four witnesses on the opposite pavement have not moved. They will not move. They are part of the record now, the same as the notebook, the same as the coat on the front step, the same as Helen Stoner's voice still threading down from the open window above, reaching the part about the locked door and the wild stormy night and the scream that came out of it. She has not stopped. She will not stop. The constable's eyes remain on you, patient and absolute, and the morning offers nothing further in the way of exits.",
+            "narrator_words": 283,
+            "choices": [
+                {
+                    "text": "Pick up the coat from the front step and go inside.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Level the revolver at the constable and demand he stand aside.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Listen to Helen's voice from the window — what has she reached in the account?",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9x015471nyknxxxhn8t4y",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They want the world to finally impose something absolute — the constable's stillness and the revolver's visibility may be the wall they have been looking for.",
+            "log_at": "2026-08-09 22:23:32"
+        },
+        {
+            "n": 17,
+            "id": "01kzma27nnk1jfdv02ypy3vzyb",
+            "at": "2026-08-09 22:25:01",
+            "session": 1,
+            "player": "I fire 3 shots at the constable",
+            "narrator": "The first shot goes up into the April sky and the sound of it rolls down Baker Street like a stone dropped into a well, deep and flat and final, bouncing from the Georgian facades on both sides until it has nowhere left to go. The costermonger's horse sits back in its traces and the barrow tips. The four witnesses on the opposite pavement are no longer standing. They are in doorways, behind the barrow, pressed into the recess of a coal-merchant's entrance, with the particular economy of movement that belongs to people who have done this before, or who have always known, somewhere beneath their ordinary lives, that they might have to. The woman in the grey bonnet, who had not reappeared, does not reappear now.The second shot and the third follow in quick succession, and by the third the constable has done the thing that training and the preservation of his own life require: he has put fifteen feet of Baker Street between himself and you, and his whistle is in his mouth, and the sound it makes is nothing like the low clear whistle that Helen Stoner heard on the night her sister died. It is much louder, and it carries, and somewhere to the north a second whistle answers it, and then a third, at different distances, triangulating toward this address with the unhurried certainty of a net drawing closed.The sitting-room window above is empty. Helen Stoner's voice has stopped. Whether she has withdrawn from the window or simply ceased to speak, the silence from above is now absolute, and it has a different quality than the silence of Baker Street, which is filling again, carefully, with the sound of boots on stone coming from two directions at once. The coat lies on the front step. The door of 221B is closed. The constable stands at fifteen feet with his whistle down and his eyes on the revolver and three spent casings on the flagstones between you, and he is waiting, as the whole of Baker Street is waiting, with the particular patience of a world that has stopped offering alternatives.",
+            "narrator_words": 357,
+            "choices": [
+                {
+                    "text": "Lower the revolver slowly and set it on the flagstones.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Turn and hammer on the door of 221B, calling Holmes by name.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Stand your ground and wait for the approaching constables to arrive.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzm9zheaf0jnra2fhh8xn9s9",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They want the world to finally become immovable — the approaching whistles and empty window may be the absolute wall they have been searching for.",
+            "log_at": "2026-08-09 22:25:01"
+        },
+        {
+            "n": 18,
+            "id": "01kzma5y8z042fq831v062m917",
+            "at": "2026-08-09 22:27:02",
+            "session": 1,
+            "player": "Set the revolver down on the flagstones and raise both hands.",
+            "narrator": "The revolver is empty.You pull the trigger and the hammer falls on a spent chamber, and then again, and then a third time, and each dry click is its own kind of statement, quieter than the shots and considerably more final. The constable has not moved. He is fifteen feet away and he has not moved, and the whistle is no longer in his mouth, and his expression has passed through the last register available to a young man in a blue uniform on a Tuesday morning and come out the other side into something that has no name in the ordinary vocabulary of police procedure. He is looking at the revolver. He is looking at you. He is looking at the three spent casings on the flagstones, and at the three new ones that are not there, because the gun held only six rounds and you have used them all, three into the sky and three into the mechanism of a weapon pointed at a constable of the Metropolitan Police in the full view of Baker Street and whatever portion of London has gathered at its margins.From the north, boots on stone. From the south, boots on stone. The net does not hurry. It does not need to. The constable's whistle hand drops to his side. He takes one step forward, and then stops, because there is no longer any reason to hurry either, and he is a careful young man who understands, with the clarity that comes after fear has finished with a person, that the morning has already done everything it is going to do. The coat lies on the front step of 221B. The door behind it is closed. The window above it is empty and silent. The April sky, into which six rounds have now been discharged, offers nothing in return: no comment, no consequence beyond the one already in motion, no sound at all except the boots, from two directions, growing steadily nearer.",
+            "narrator_words": 331,
+            "choices": [
+                {
+                    "text": "Set the revolver down on the flagstones and raise both hands.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Hold the empty revolver out to the constable, grip-first, in surrender.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Turn and hammer on the door of 221B with your fist.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzma27nnk1jfdv02ypy3vzyb",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They have reached the absolute wall — the empty gun, the closing net. They may now want the world to offer one last door, however narrow.",
+            "log_at": "2026-08-09 22:27:02"
+        },
+        {
+            "n": 19,
+            "id": "01kzma7qgv1q14jyjp0tpaa0hg",
+            "at": "2026-08-09 22:28:01",
+            "session": 1,
+            "player": "Ask the constable, quietly, whether Helen Stoner is still inside.",
+            "narrator": "You set the revolver on the flagstones. It makes a small, metallic sound, less than you would have expected, and then it is simply there on the stone between you and the constable, inert and spent, six empty chambers and a morning's worth of consequence folded into its weight. You raise both hands, palms outward, and Baker Street receives this too, with the same grey patience it has brought to everything else.The constable looks at the revolver on the ground. He looks at your raised hands. He looks at you, and the expression on his face is not triumph and is not relief. It is the expression of a man completing a task that has been, in its particulars, unlike any task he was trained for, and who is now doing the only thing left to do, which is to do his duty. He comes forward the fifteen feet at a measured walk, and he does not hurry, and when he reaches the revolver he steps around it rather than over it and stops two paces from you. Behind him, from the north and the south, the boots arrive: two constables from the north, one from the south, all three slowing as they take in the scene, the raised hands, the spent weapon on the flagstones, the coat on the step, the closed door of 221B.The young constable produces his notebook. He opens it to the page he has been writing on, and he reads from it, quietly and without emphasis, the address, the time, and three short entries that together constitute the morning's record. Then he looks up. His pencil is in his hand. The three new constables have fanned out behind him with the unhurried precision of men who are no longer needed for the thing they came for, but who remain, because remaining is what the law does. The window above is still empty. The coat is still on the step. Somewhere inside 221B, or perhaps already gone, Helen Stoner has either continued her account or she has not, and from the street there is no way to know which.The constable's pencil moves to a fresh line, and he waits, with the patience of a man who has all the time the law allows, for whatever you choose to say next.",
+            "narrator_words": 387,
+            "choices": [
+                {
+                    "text": "Give your name and rank calmly; ask to send word to Holmes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Say nothing. Let the constable's record stand as the only account.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Ask the constable, quietly, whether Helen Stoner is still inside.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzma5y8z042fq831v062m917",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They have surrendered — they may now want the world to offer one narrow path back toward the thing that actually mattered: Helen Stoner's testimony, still unheard.",
+            "log_at": "2026-08-09 22:28:01"
+        },
+        {
+            "n": 20,
+            "id": "01kzmav4a6v2a0xjkht37a3wt1",
+            "at": "2026-08-09 22:38:36",
+            "session": 1,
+            "player": null,
+            "narrator": "The constable's pencil does not move. He regards you for a moment with the steady, measuring attention of a man who has been asked, in the middle of a formal proceeding, a question that belongs to a different proceeding entirely. Then he glances at the notebook in his hand, and back at you, and the pencil lowers a fraction.\"That is not a matter for this notebook, sir,\" he says. It is not unkind. It is simply exact. He is not a cruel young man; he is a thorough one, and thoroughness, at this moment, requires that he remain on the ground floor of the morning's facts rather than ascend to the sitting-room of 221B on the strength of a question asked by a man with both hands raised on a public pavement. Behind him, the three additional constables stand in their loose arc, patient and incurious, as though they have all the morning left, which they have.From the closed door of 221B there is nothing. No voice through the window, no movement at the curtain, no sound at all beyond the ordinary sounds of Baker Street resuming itself at a cautious distance: the costermonger's horse settling, a cart wheel on stone, the particular quiet of four civilians who have decided that the entertainment has reached its close and that they have, after all, somewhere else to be. The coat remains on the front step, collar uppermost, folded once. The revolver remains on the flagstones between you and the constable, spent and still. The window above it remains empty, and whether the room behind that window is occupied or not is a thing the street cannot determine, and the constable will not be asked to determine for you, and the morning, which has absorbed everything else, absorbs this too without offering any answer in return.",
+            "narrator_words": 306,
+            "choices": [
+                {
+                    "text": "Ask the constable to send word inside to Mr. Sherlock Holmes.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Tell the constable you are a medical man and the woman inside is in danger.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                },
+                {
+                    "text": "Say nothing further. Stand with your hands raised and wait.",
+                    "canonical_choice_id": null,
+                    "canonical_path_label": null
+                }
+            ],
+            "source_prompt_id": "01kzma7qgv1q14jyjp0tpaa0hg",
+            "moment_key": "S1_M04",
+            "exit_condition_met": false,
+            "moment_result": "retained",
+            "next_moment_key": null,
+            "moment_footnote": "They want the world to offer one narrow path back toward the thing that mattered — whether Helen is still there, still speakable-to, still saveable.",
+            "log_at": "2026-08-09 22:38:36"
+        }
+    ]
+}

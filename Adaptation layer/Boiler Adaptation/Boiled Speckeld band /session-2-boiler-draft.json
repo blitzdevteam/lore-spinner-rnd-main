@@ -1,0 +1,543 @@
+{
+    "boiler_version": "1.0",
+    "session_number": 2,
+    "playable_promise": "You are Watson on a live night operation: cross the dark grounds, hold a silent vigil in absolute darkness beside a sleeping trap, and be present at the instant Holmes's decisive strike turns the hidden killer back upon its master — every sense strained, every sound potentially fatal.",
+    "pacing_guidance_used": {
+        "compaction_level": "balanced",
+        "target_playtime_minutes": 23,
+        "recommended_moment_count_min": 9,
+        "recommended_moment_count_max": 12
+    },
+    "session_budget_decision": {
+        "target_playtime_minutes": 23,
+        "target_moment_count": 10,
+        "budget_reasoning": "The session target of 23 minutes is adopted unchanged. I chose 10 moments inside the 9-12 range because the guidance demands that the climax breathe: the signal, grounds approach, darkness wait, oil smell, whistle\/strike, and reveal each require deliberate temporal stretch and must not be collapsed into one another. Ten moments let me give discrete breathing rooms to the darkness (115), the oil gleam (116), the strike\/shriek (117), and the speckled-band reveal (119) while compressing the concise beats the guidance flags — the departure walk (112 folds into the grounds approach 113), Holmes's revised conclusions (121) and the evidence\/attack explanation (122) fold into a single debrief moment. This keeps the felt time slow across the vigil while keeping the moment count honest to the room concept.",
+        "must_compress_event_ids": [
+            113,
+            118,
+            121,
+            122
+        ],
+        "must_breathe_event_ids": [
+            112,
+            114,
+            115,
+            116,
+            117,
+            119,
+            120
+        ]
+    },
+    "playable_promise_arc": {
+        "first_proof_moment": "S2_M01",
+        "midpoint_intensification": "S2_M05",
+        "final_cash_out": "S2_M10"
+    },
+    "event_role_map": [
+        {
+            "event_id": 112,
+            "role": "CHOICE",
+            "why": "The signal appearing and the departure into the night is the Entry Point and the first live threshold: Watson commits to the operation's risk posture (stealth\/haste\/vigilance) at the instant Helen's survival goes from theoretical to immediate. A load-bearing identity\/commitment pressure.",
+            "included_moment_key": "S2_M01",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 113,
+            "role": "PLAY",
+            "why": "The grounds crossing with the distorted-child (baboon) scare is a genuinely inhabitable room: movement under threat, noise discipline, ambient animal menace, and Holmes's vice-grip startle reveal relationship under strain. Guidance marks it must_compress, so it is concise but still playable.",
+            "included_moment_key": "S2_M02",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 114,
+            "role": "PLAY",
+            "why": "Staging the vigil — shoes off, shutters closed, revolver, cane, matches, candle placed, lamp extinguished — is a rich procedural room where the player configures the trap and chooses proof-vs-protection. Must-breathe.",
+            "included_moment_key": "S2_M03",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 115,
+            "role": "PLAY",
+            "why": "The dreadful vigil in absolute darkness is the emotional core of felt time: sensory deprivation, the clock striking, the cheetah's whine. This must breathe as its own inhabited room where nothing happens yet everything is at stake.",
+            "included_moment_key": "S2_M04",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 116,
+            "role": "PULSE",
+            "why": "The gleam at the ventilator and the growing smell of burning oil and heated metal is one strong sensory image that breaks the darkness — a short, sharp playable beat of dawning wrongness. Must-breathe, given its own moment.",
+            "included_moment_key": "S2_M05",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 117,
+            "role": "PLAY",
+            "why": "The soft steam-jet hiss, Holmes springing up, the match, the furious lashing at the bell-pull, and the horrible shriek is the violent reversal — the session's central pressure resolving in a room the player inhabits under maximum tension. Choice of decisive action vs patient observation lives here.",
+            "included_moment_key": "S2_M06",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 118,
+            "role": "PULSE",
+            "why": "The decision to take the pistol and enter Roylott's room is a short duty-vs-self-preservation crossing into the aftermath. Guidance marks it must_compress, so it is a brief threshold beat rather than a full room.",
+            "included_moment_key": "S2_M07",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 119,
+            "role": "PLAY",
+            "why": "The crime-scene tableau — Roylott dead, dressing-gown, dog-whip, open safe, and the speckled band that rears into a living snake — is the singular reveal. Must-breathe as an examinable horror room where the mystery's solution becomes visible.",
+            "included_moment_key": "S2_M08",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 120,
+            "role": "PLAY",
+            "why": "Holmes naming the swamp adder, speaking the moral aphorism, and noosing the snake into the iron safe is the decisive containment — a room of resolution and forensic action. Must-breathe.",
+            "included_moment_key": "S2_M09",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 121,
+            "role": "PLAY",
+            "why": "Holmes's revised conclusions (insufficient data, ventilator, dummy rope, clamped bed, snake bridge) are the required rational retrospective synthesis. Folded with 122 into a single debrief room; must_compress so delivered as interactive Q&A rather than a monologue dump.",
+            "included_moment_key": "S2_M10",
+            "reintroduction_note": ""
+        },
+        {
+            "event_id": 122,
+            "role": "PLAY",
+            "why": "The evidence account (chair-standing, safe, saucer of milk, whipcord, metallic clang) and Holmes confirming he lit the light and attacked, driving the snake back to turn upon Roylott, completes the moral shape. Compressed into the same debrief; recoil causality is the load-bearing canon.",
+            "included_moment_key": "S2_M10",
+            "reintroduction_note": ""
+        }
+    ],
+    "moment_drafts": [
+        {
+            "moment_key": "S2_M01",
+            "moment_order": 1,
+            "source_event_ids": [
+                112
+            ],
+            "anchor_event_id": 112,
+            "treatment": "Cold-open threshold. The signal light burns in the middle casement; Holmes is on his feet with his hand on your sleeve. The player, as Watson, chooses the posture in which the night operation begins. Concise but load-bearing: the light means Helen has done her part and the window may stand ready.",
+            "runtime_goal": "Launch the live vigil by forcing Watson to commit to a risk posture the instant the signal appears, establishing stealth-is-life and Helen's immediate peril.",
+            "player_desire": "To act at once and not fail the woman waiting across the dark road.",
+            "live_pressure": "The signal is up; every delay may cost Helen her life, yet a misstep could ruin the plan or spring a trap.",
+            "player_affordances": [
+                "Urge an immediate silent approach, trusting the plan",
+                "Press Holmes to confirm the light is truly Helen's and not a trap",
+                "Propose circling the grounds first to learn whether Roylott or a beast is abroad",
+                "Check the revolver and ready yourself",
+                "Exchange the cover story with the landlord as you leave"
+            ],
+            "canon_must_keep": [
+                "The light in the middle window is Helen's prearranged signal",
+                "You are waiting at the Crown Inn opposite Stoke Moran to act on it tonight",
+                "Helen faces the same fate that killed her sister",
+                "Stealth is essential; discovery by Roylott would ruin the plan and increase danger",
+                "You are Watson, Holmes's trusted armed companion expected to follow into danger"
+            ],
+            "allowed_variance": [
+                "Watson's degree of hesitation, urgency, or caution",
+                "Whether the revolver is mentioned drawn or merely readied",
+                "How the cover story to the landlord is phrased"
+            ],
+            "forbidden_expansions": [
+                "No supernatural reading of the light",
+                "Do not resolve the attack method here",
+                "Do not let Watson refuse the operation or abandon Holmes",
+                "Do not reveal the snake, ventilator theory, or Roylott's plan yet"
+            ],
+            "source_extracts": [
+                "\"That is our signal,\" said Holmes, springing to his feet; \"it comes from the middle window.\"",
+                "A moment later we were out on the dark road, a chill wind blowing in our faces, and one yellow light twinkling in front of us through the gloom to guide us on our sombre errand."
+            ],
+            "exit_condition_draft": "The central pressure resolves when Watson has committed to a posture and the pair are moving from the inn toward the house, the operation now irreversibly live."
+        },
+        {
+            "moment_key": "S2_M02",
+            "moment_order": 2,
+            "source_event_ids": [
+                113
+            ],
+            "anchor_event_id": 113,
+            "treatment": "The dark grounds. Concise per compress guidance, but a real room: breaches in the old park wall, the walk among trees to the lawn, and the sudden hideous distorted-child figure (the baboon) darting across the grass. Holmes's hand closes like a vice on your wrist before he recovers with a low laugh.",
+            "runtime_goal": "Establish the grounds as a threat-laden traversal and pay off the chosen risk posture through the animal scare, setting the noise profile the player carries into the vigil.",
+            "player_desire": "To reach the window unseen and unheard despite the menace loose on the grounds.",
+            "live_pressure": "A creature moves in the dark; any cry or sound could betray you, and the cheetah may be abroad.",
+            "player_affordances": [
+                "Move quietly among the trees toward the lawn",
+                "React to the darting figure with composure or alarm",
+                "Whisper to Holmes about what you saw",
+                "Choose a path across the lawn to the window",
+                "Steady your nerve and control your breathing"
+            ],
+            "canon_must_keep": [
+                "Unrepaired breaches gape in the old park wall allowing entry",
+                "A hideous, distorted child-like figure darts across the lawn (the baboon)",
+                "Holmes is momentarily as startled as Watson; his hand grips like a vice",
+                "Dangerous animals roam the grounds",
+                "The pair are about to enter through the window"
+            ],
+            "allowed_variance": [
+                "Exact wording of Watson's whispered alarm",
+                "How composed or shaken Watson is by the figure",
+                "The precise path taken across the lawn"
+            ],
+            "forbidden_expansions": [
+                "The baboon must not be the true cause of Julia's death",
+                "Do not identify the snake here",
+                "Do not let the animals be supernatural",
+                "Do not have Watson fire the revolver at the figure"
+            ],
+            "source_extracts": [
+                "out from a clump of laurel bushes there darted what seemed to be a hideous and distorted child, who threw itself upon the grass with writhing limbs and then ran swiftly across the lawn into the darkness.",
+                "Holmes was for the moment as startled as I. His hand closed like a vice upon my wrist in his agitation. Then he broke into a low laugh and put his lips to my ear."
+            ],
+            "exit_condition_draft": "The pressure resolves when the scare has passed and Watson stands at the window ready to enter, noise discipline intact or shaken by the encounter."
+        },
+        {
+            "moment_key": "S2_M03",
+            "moment_order": 3,
+            "source_event_ids": [
+                114
+            ],
+            "anchor_event_id": 114,
+            "treatment": "Staging the trap inside the middle bedroom. Shoes slipped off, shutters noiselessly closed, lamp moved and then turned down. Holmes whispers the operational rules: no sound, no light, stay awake, pistol ready. The player arranges the room — revolver on the table corner, cane, matches, candle — for either safer defence or stronger observation.",
+            "runtime_goal": "Let the player configure the vigil space and internalize the fatal rules of silence and darkness, expressing proof-vs-protection through how the room is staged.",
+            "player_desire": "To be ready for whatever comes without making the one sound that could be fatal.",
+            "live_pressure": "Holmes warns the least sound would be fatal and any light would be seen through the ventilator; the trap must be set in near-total silence.",
+            "player_affordances": [
+                "Slip off your shoes and move noiselessly",
+                "Help close and secure the shutters",
+                "Lay the revolver ready on the table",
+                "Note the cane, matches, and candle Holmes places",
+                "Choose your seat and posture for the watch",
+                "Whisper-acknowledge Holmes's instructions"
+            ],
+            "canon_must_keep": [
+                "The room is entered by the middle window and is as seen by daytime",
+                "The least sound would be fatal; they must sit without light because it would show through the ventilator",
+                "Watson lays his revolver ready; Holmes places a long thin cane, matches, and a candle stump by the bed",
+                "The lamp is turned down and they are left in darkness",
+                "Watson must not fall asleep"
+            ],
+            "allowed_variance": [
+                "Exact placement of Watson's revolver and seat",
+                "Whether Watson emphasizes defence or observation in staging",
+                "Wording of the whispered exchange"
+            ],
+            "forbidden_expansions": [
+                "Do not move the clamped bed",
+                "Do not make the dummy bell-rope function as a real bell-pull",
+                "Do not reveal the ventilator's connection to Roylott's room as explained fact yet",
+                "No light may be shown once staged"
+            ],
+            "source_extracts": [
+                "\"The least sound would be fatal to our plans.\"",
+                "\"We must sit without light. He would see it through the ventilator.\"",
+                "Holmes had brought up a long thin cane, and this he placed upon the bed beside him. By it he laid the box of matches and the stump of a candle. Then he turned down the lamp, and we were left in darkness."
+            ],
+            "exit_condition_draft": "The pressure resolves when the room is silently staged, the lamp extinguished, and the watchers settle into darkness ready for the wait."
+        },
+        {
+            "moment_key": "S2_M04",
+            "moment_order": 4,
+            "source_event_ids": [
+                115
+            ],
+            "anchor_event_id": 115,
+            "treatment": "The dreadful vigil. Absolute darkness, no sound, not even a breath. The player inhabits felt time: the parish clock booming every quarter, twelve through three, the occasional night-bird, and once at the very window the long catlike whine of the cheetah at liberty. Nothing happens, and that is the point.",
+            "runtime_goal": "Stretch felt time so silence and uncertainty are truly experienced before the violent reversal, making the climax land.",
+            "player_desire": "To endure the wait, stay awake and alert, and not break the silence.",
+            "live_pressure": "Endless darkness and strain; the cheetah is loose outside, and the attack could come at any unknown moment.",
+            "player_affordances": [
+                "Strain to listen in the dark",
+                "Count the striking of the parish clock",
+                "React inwardly to the cheetah's whine at the window",
+                "Steady yourself against sleep and fear",
+                "Sense for Holmes's presence a few feet away without sound"
+            ],
+            "canon_must_keep": [
+                "The shutters cut off the least ray of light; they wait in absolute darkness",
+                "The parish clock booms every quarter; twelve, one, two, and three strike",
+                "A long drawn catlike whine at the window shows the cheetah is at liberty",
+                "Watson cannot hear even a breath yet knows Holmes sits open-eyed nearby"
+            ],
+            "allowed_variance": [
+                "How Watson's fear and fatigue are registered (briefly, per voice)",
+                "Which small night sounds are foregrounded",
+                "The felt length of the quarters"
+            ],
+            "forbidden_expansions": [
+                "Do not introduce the oil smell or ventilator gleam yet",
+                "No extended modern psychological rumination",
+                "Do not break the silence with dialogue",
+                "No light may appear from within the room"
+            ],
+            "source_extracts": [
+                "How shall I ever forget that dreadful vigil? I could not hear a sound, not even the drawing of a breath... The shutters cut off the least ray of light, and we waited in absolute darkness.",
+                "once at our very window a long drawn catlike whine, which told us that the cheetah was indeed at liberty... Twelve struck, and one and two and three, and still we sat waiting silently for whatever might befall."
+            ],
+            "exit_condition_draft": "The pressure resolves when the long empty wait has been fully felt and the darkness is broken by the first sign of movement in the adjacent room."
+        },
+        {
+            "moment_key": "S2_M05",
+            "moment_order": 5,
+            "source_event_ids": [
+                116
+            ],
+            "anchor_event_id": 116,
+            "treatment": "The first wrongness. A momentary gleam of light shows in the direction of the ventilator, then vanishes, succeeded by a strong smell of burning oil and heated metal — someone next door has lit a dark-lantern. A gentle sound of movement, then silence, and the smell grows stronger through the strained half-hour.",
+            "runtime_goal": "Deliver one strong sensory image that pierces the darkness and signals the trap is being sprung, intensifying dread at the session midpoint.",
+            "player_desire": "To understand what is happening on the other side of the wall without betraying your presence.",
+            "live_pressure": "Something is moving in Roylott's room; the smell and gleam mean the attack has begun, but you cannot yet see the danger.",
+            "player_affordances": [
+                "Notice the gleam near the ventilator",
+                "Register the smell of burning oil and heated metal",
+                "Strain toward the faint sound of movement",
+                "Hold absolutely still and silent",
+                "Sense Holmes tensing beside you"
+            ],
+            "canon_must_keep": [
+                "A momentary gleam appears up toward the ventilator, then vanishes",
+                "A strong smell of burning oil and heated metal follows (a dark-lantern lit next door)",
+                "A gentle sound of movement, then silence, while the smell grows stronger",
+                "The watchers remain silent and still"
+            ],
+            "allowed_variance": [
+                "How acutely Watson registers each cue",
+                "The felt duration of the straining half-hour",
+                "Minor ordering of smell and sound perception"
+            ],
+            "forbidden_expansions": [
+                "Do not reveal the snake or explain the method yet",
+                "Do not have the watchers speak aloud",
+                "No light from the vigil room",
+                "Do not pre-empt Holmes's strike"
+            ],
+            "source_extracts": [
+                "Suddenly there was the momentary gleam of a light up in the direction of the ventilator, which vanished immediately, but was succeeded by a strong smell of burning oil and heated metal. Someone in the next room had lit a dark-lantern.",
+                "I heard a gentle sound of movement, and then all was silent once more, though the smell grew stronger."
+            ],
+            "exit_condition_draft": "The pressure resolves when the meaning of the gleam and smell has fully registered as imminent threat and the room falls back into taut silence awaiting the next sound."
+        },
+        {
+            "moment_key": "S2_M06",
+            "moment_order": 6,
+            "source_event_ids": [
+                117
+            ],
+            "anchor_event_id": 117,
+            "treatment": "The reversal. A very gentle soothing sound, like a small jet of steam from a kettle. Holmes springs from the bed, strikes a match, and lashes furiously at the bell-pull, yelling 'You see it, Watson?' The sudden glare blinds Watson; a low clear whistle sounds; Holmes's face is deadly pale with horror and loathing. Then the most horrible cry breaks from the night and swells and dies.",
+            "runtime_goal": "Play the violent, disorienting climax of the vigil where decisive action meets Watson's blinded, partial perception, resolving the night's central pressure.",
+            "player_desire": "To see the thing Holmes lashes at and act in the sudden chaos of light and sound.",
+            "live_pressure": "The attack is happening now; Holmes strikes at something unseen and a terrible cry answers — you must react blind, in an instant.",
+            "player_affordances": [
+                "React to the soft steam-jet hiss",
+                "Rise, ready the pistol, or move as Holmes strikes",
+                "Try to see what Holmes lashes at through the glare",
+                "Respond to Holmes's yelled 'You see it?'",
+                "Endure the horrible cry swelling from the darkness"
+            ],
+            "canon_must_keep": [
+                "A gentle sound like a small jet of steam from a kettle is heard",
+                "Holmes springs up, strikes a match, and lashes furiously with his cane at the bell-pull",
+                "The sudden glare blinds Watson; a low clear whistle is heard; Watson sees nothing clearly",
+                "Holmes's face is deadly pale, filled with horror and loathing",
+                "A most horrible cry swells louder and dies away; heard even in the distant village"
+            ],
+            "allowed_variance": [
+                "Whether Watson rises, aims, or freezes in the glare",
+                "Exact wording of Watson's reaction and Holmes's yell within voice",
+                "How the blinding light is described"
+            ],
+            "forbidden_expansions": [
+                "Watson must not clearly see the snake in this moment (his eyes are dazzled)",
+                "Do not explain the recoil mechanism here",
+                "Do not kill or reveal Roylott's body yet",
+                "No gore; horror is in cry, pallor, and gesture"
+            ],
+            "source_extracts": [
+                "a very gentle, soothing sound, like that of a small jet of steam escaping continually from a kettle... Holmes sprang from the bed, struck a match, and lashed furiously with his cane at the bell-pull. \"You see it, Watson?\" he yelled. \"You see it?\"",
+                "his face was deadly pale and filled with horror and loathing... there broke from the silence of the night the most horrible cry to which I have ever listened."
+            ],
+            "exit_condition_draft": "The pressure resolves when the strike is spent, the cry has died into silence, and the pair stand gazing at each other knowing something decisive has happened next door."
+        },
+        {
+            "moment_key": "S2_M07",
+            "moment_order": 7,
+            "source_event_ids": [
+                118
+            ],
+            "anchor_event_id": 118,
+            "treatment": "The crossing to the aftermath. 'What can it mean?' Holmes answers that it is all over, and perhaps for the best. He lights the lamp, leads down the corridor, knocks twice at the chamber door without reply, then turns the handle. Watson follows at his heels with the cocked pistol. Concise per compress guidance — a taut threshold beat.",
+            "runtime_goal": "Move the player from the vigil room into Roylott's chamber under duty-vs-self-preservation pressure, pistol readied, into the unknown behind the door.",
+            "player_desire": "To know what lies behind that silent door and to be ready for whatever waits.",
+            "live_pressure": "The cry has stopped; the room beyond is silent and unanswering, and something deadly may still be alive within.",
+            "player_affordances": [
+                "Take up and cock the pistol",
+                "Follow Holmes down the corridor with the lamp",
+                "Knock at the chamber door",
+                "Steel yourself before entering",
+                "Turn the handle or let Holmes lead"
+            ],
+            "canon_must_keep": [
+                "Holmes says it is all over and perhaps for the best",
+                "He lights the lamp and leads down the corridor",
+                "He strikes twice at the chamber door without reply, then turns the handle",
+                "Watson enters at his heels with the cocked pistol in his hand"
+            ],
+            "allowed_variance": [
+                "Whether Watson or Holmes turns the handle",
+                "Watson's exact readiness and phrasing",
+                "Pace of the corridor approach"
+            ],
+            "forbidden_expansions": [
+                "Do not reveal the tableau or the snake before entry",
+                "Do not have Watson refuse to follow",
+                "Do not fire the pistol",
+                "No supernatural dread; the danger is a real creature"
+            ],
+            "source_extracts": [
+                "\"It means that it is all over,\" Holmes answered. \"And perhaps, after all, it is for the best. Take your pistol, and we will enter Dr. Roylott's room.\"",
+                "Twice he struck at the chamber door without any reply from within. Then he turned the handle and entered, I at his heels, with the cocked pistol in my hand."
+            ],
+            "exit_condition_draft": "The pressure resolves when the door is open and the pair stand on the threshold of Roylott's lit room, about to see what waits."
+        },
+        {
+            "moment_key": "S2_M08",
+            "moment_order": 8,
+            "source_event_ids": [
+                119
+            ],
+            "anchor_event_id": 119,
+            "treatment": "The crime-scene tableau. The dark-lantern's half-open shutter throws a beam on the ajar iron safe. Roylott sits in his grey dressing-gown, bare ankles, red Turkish slippers, the dog-whip across his lap, chin cocked upward, eyes fixed in a rigid stare. Round his brow a peculiar yellow band with brownish speckles — which begins to move, rearing the squat diamond head of a snake. 'The band! the speckled band!'",
+            "runtime_goal": "Let the player inspect the deadly tableau and witness the singular reveal as the speckled band resolves into the living murder weapon.",
+            "player_desire": "To read the scene, confirm Roylott's fate, and comprehend the horror of the band.",
+            "live_pressure": "Roylott is unmoving, but the band around his head is alive and venomous, mere feet away.",
+            "player_affordances": [
+                "Examine Roylott's posture, dressing-gown, slippers, and the dog-whip on his lap",
+                "Inspect the open iron safe and the dark-lantern beam",
+                "Note the yellow speckled band round his brow",
+                "Take a step forward as it begins to move",
+                "React to Holmes's whisper 'the speckled band!'"
+            ],
+            "canon_must_keep": [
+                "A dark-lantern with half-open shutter throws light on the ajar iron safe",
+                "Roylott sits dead in a grey dressing-gown and red Turkish slippers with the dog-whip across his lap, chin up, eyes in a rigid stare",
+                "A peculiar yellow band with brownish speckles is bound round his brow",
+                "The band moves and rears the diamond-shaped head and puffed neck of a snake",
+                "Holmes whispers 'The band! the speckled band!'"
+            ],
+            "allowed_variance": [
+                "Order in which Watson examines the objects",
+                "How near Watson steps before the band moves",
+                "Wording of Watson's horror within voice"
+            ],
+            "forbidden_expansions": [
+                "No graphic gore; death is shown by posture, pallor, and rigid stare",
+                "Do not yet name the swamp adder or explain the method",
+                "Do not touch or seize the snake before Holmes acts",
+                "The band must be a real snake, never supernatural"
+            ],
+            "source_extracts": [
+                "Across his lap lay the short stock with the long lash which we had noticed during the day. His chin was cocked upward and his eyes were fixed in a dreadful, rigid stare at the corner of the ceiling. Round his brow he had a peculiar yellow band, with brownish speckles.",
+                "\"The band! the speckled band!\" whispered Holmes. I took a step forward. In an instant his strange headgear began to move, and there reared itself from among his hair the squat diamond-shaped head and puffed neck of a"
+            ],
+            "exit_condition_draft": "The pressure resolves when the speckled band is understood to be a living snake reared from the dead man's hair and the danger of the room is fully grasped."
+        },
+        {
+            "moment_key": "S2_M09",
+            "moment_order": 9,
+            "source_event_ids": [
+                120
+            ],
+            "anchor_event_id": 120,
+            "treatment": "Containment and moral verdict. Holmes cries 'It is a swamp adder — the deadliest snake in India,' notes Roylott died within ten seconds, and speaks the maxim that violence recoils upon the violent and the schemer falls into his own pit. He draws the dog-whip from the dead man's lap, nooses the reptile's neck, carries it at arm's length, and thrusts it into the iron safe, closing it.",
+            "runtime_goal": "Resolve the immediate danger through Holmes's decisive containment and deliver the moral shape of the ending while the player acts alongside him.",
+            "player_desire": "To see the deadly thing safely trapped and Miss Stoner's rescue set in motion.",
+            "live_pressure": "A venomous swamp adder is loose in the room and must be secured before anyone can be safe.",
+            "player_affordances": [
+                "Keep the pistol ready as Holmes acts",
+                "Watch or assist as Holmes nooses the snake with the dog-whip",
+                "React to the swamp adder's identification",
+                "Note the plan to remove Miss Stoner and inform the county police",
+                "Confirm the safe is shut upon the creature"
+            ],
+            "canon_must_keep": [
+                "Holmes identifies it as a swamp adder, the deadliest snake in India; Roylott died within ten seconds",
+                "Holmes speaks the moral: violence recoils upon the violent; the schemer falls into his own pit",
+                "He uses the dog-whip to noose the snake and throws it into the iron safe, closing it",
+                "The plan is to remove Miss Stoner to shelter and inform the county police"
+            ],
+            "allowed_variance": [
+                "Whether Watson assists or covers with the pistol",
+                "Exact phrasing of Holmes's aphorism within voice",
+                "Order of identification and containment"
+            ],
+            "forbidden_expansions": [
+                "Do not substitute another creature or poison method",
+                "No gore in handling the snake",
+                "Do not skip the recoil causality when it later matters",
+                "Holmes remains cool and precise, not theatrical"
+            ],
+            "source_extracts": [
+                "\"It is a swamp adder!\" cried Holmes; \"the deadliest snake in India. He has died within ten seconds of being bitten. Violence does, in truth, recoil upon the violent, and the schemer falls into the pit which he digs for another.\"",
+                "throwing the noose round the reptile's neck he drew it from its horrid perch and, carrying it at arm's length, threw it into the iron safe, which he closed upon it."
+            ],
+            "exit_condition_draft": "The pressure resolves when the swamp adder is locked in the safe and the danger is contained, freeing the pair to turn to Helen's rescue and explanation."
+        },
+        {
+            "moment_key": "S2_M10",
+            "moment_order": 10,
+            "source_event_ids": [
+                121,
+                122
+            ],
+            "anchor_event_id": 121,
+            "treatment": "The debrief and final synthesis. Holmes lays out the rational retrospective chain as interactive Q&A: his erroneous first conclusion from insufficient data (the gipsies, the word 'band'), his reconsideration when danger could come from neither window nor door, the ventilator and dummy bell-rope, the clamped bed as a bridge for something passing through, the snake, the untraceable Eastern poison, the whistle to recall it, the milk to train it. Then the evidence (chair-standing, safe, saucer of milk, whipcord, the metallic clang of the safe door) and his admission that he lit the light and attacked, driving the snake back to turn upon its master. Compressed per guidance into one closing room.",
+            "runtime_goal": "Assemble the complete rational solution and moral coda through player-driven questioning, confirming the recoil causality and closing the session.",
+            "player_desire": "To understand exactly how the murder worked and how Holmes turned it back on Roylott.",
+            "live_pressure": "The night is won, but the full truth is still unspoken; Watson (and the player) must piece together how it was done.",
+            "player_affordances": [
+                "Ask Holmes how he first went wrong and why",
+                "Probe the ventilator, dummy bell-rope, and clamped bed",
+                "Ask about the poison, the whistle, and the milk",
+                "Ask what the metallic clang and saucer meant",
+                "Ask whether Roylott's death weighs on his conscience"
+            ],
+            "canon_must_keep": [
+                "Holmes first reasoned wrongly from insufficient data (the gipsies and the word 'band')",
+                "The ventilator, the dummy bell-rope, and the clamped bed showed the rope was a bridge for something passing through to the bed",
+                "The method is a trained venomous snake using untraceable Eastern poison, recalled by a whistle and trained with milk",
+                "Evidence: the chair for standing to reach the ventilator, the safe, the saucer of milk, the loop of whipcord, the metallic clang of the safe door closing on the snake",
+                "Holmes lit the light and attacked the snake, driving it back through the ventilator to turn upon and kill Roylott (recoil causality)"
+            ],
+            "allowed_variance": [
+                "Order and framing of the questions the player asks",
+                "Which details are surfaced first",
+                "Watson's degree of moral reflection on Roylott's death"
+            ],
+            "forbidden_expansions": [
+                "Do not restate as an unbroken monologue dump; keep it interactive and brisk",
+                "Do not introduce a new solution or supernatural element",
+                "Do not over-expand aftermath logistics beyond safe removal to Harrow and the accidental-death verdict",
+                "Holmes must remain calm and case-born, not essayistic"
+            ],
+            "source_extracts": [
+                "\"I had... come to an entirely erroneous conclusion which shows, my dear Watson, how dangerous it always is to reason from insufficient data.\"",
+                "\"The discovery that this was a dummy, and that the bed was clamped to the floor, instantly gave rise to the suspicion that the rope was there as a bridge for something passing through the hole and coming to the bed.\"",
+                "\"I heard the creature hiss as I have no doubt that you did also, and I instantly lit the light and attacked it.\" ... \"And also with the result of causing it to turn upon its master at the other side.\""
+            ],
+            "exit_condition_draft": "The pressure resolves when the full clue-to-inference chain and the recoil causality are understood, and the case is closed with Holmes's compact moral verdict — the final cash-out of the session."
+        }
+    ],
+    "cut_material": [],
+    "coverage_check": {
+        "every_event_has_one_role": true,
+        "all_required_canon_routed": true,
+        "first_agency_is_early": true
+    }
+}

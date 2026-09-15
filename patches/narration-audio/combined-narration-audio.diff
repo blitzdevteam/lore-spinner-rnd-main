@@ -1,0 +1,1021 @@
+diff --git a/app/Actions/Game/ProcessGameOpeningAction.php b/app/Actions/Game/ProcessGameOpeningAction.php
+index c7cdd40..307d139 100644
+--- a/app/Actions/Game/ProcessGameOpeningAction.php
++++ b/app/Actions/Game/ProcessGameOpeningAction.php
+@@ -6,8 +6,10 @@
+ 
+ use App\Models\Game;
+ use App\Models\GameSessionCompletion;
++use App\Models\Prompt;
+ use App\Models\UserActivityDay;
+ use App\Services\ChaosEngineService;
++use App\Services\NarrationAudioService;
+ use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Log;
+@@ -20,7 +22,10 @@
+  */
+ final readonly class ProcessGameOpeningAction
+ {
+-    public function __construct(private ChaosEngineService $engine) {}
++    public function __construct(
++        private ChaosEngineService $engine,
++        private NarrationAudioService $audio,
++    ) {}
+ 
+     public function pendingKey(string $gameId): string
+     {
+@@ -36,6 +41,9 @@ public function handleBegin(string $gameId): void
+     {
+         Cache::put($this->pendingKey($gameId), true, 180);
+ 
++        $game = null;
++        $narration = null;
++
+         try {
+             $game = Game::query()->find($gameId);
+             if ($game === null) {
+@@ -79,7 +87,7 @@ public function handleBegin(string $gameId): void
+                 temperature: $this->engine->defaultTemperatureFor($game->model),
+             );
+ 
+-            DB::transaction(function () use ($game, $story, $result, $emptyWorldState, $emptyAlignment): void {
++            DB::transaction(function () use ($game, $story, $result, $emptyWorldState, $emptyAlignment, &$narration): void {
+                 $game->refresh();
+ 
+                 if ($game->prompts()->lockForUpdate()->exists()) {
+@@ -100,7 +108,7 @@ public function handleBegin(string $gameId): void
+                     'current_session_complete' => $result['session_complete'],
+                 ]);
+ 
+-                $game->prompts()->create([
++                $narration = $game->prompts()->create([
+                     'session_number' => 1,
+                     'response' => $result['response'],
+                     'choices' => $result['choices'],
+@@ -147,12 +155,17 @@ public function handleBegin(string $gameId): void
+         } finally {
+             Cache::forget($this->pendingKey($gameId));
+         }
++
++        $this->renderNarrationAudio($game, $narration);
+     }
+ 
+     public function handleNextSession(string $gameId): void
+     {
+         Cache::put($this->pendingKey($gameId), true, 180);
+ 
++        $game = null;
++        $narration = null;
++
+         try {
+             $game = Game::query()->find($gameId);
+             if ($game === null) {
+@@ -227,6 +240,7 @@ public function handleNextSession(string $gameId): void
+                 $carriedMemory,
+                 $currentSessionNumber,
+                 $nextSessionNumber,
++                &$narration,
+             ): void {
+                 $game->refresh();
+ 
+@@ -253,7 +267,7 @@ public function handleNextSession(string $gameId): void
+                     'defining_choice_line' => $result['defining_choice_line'] !== '' ? $result['defining_choice_line'] : $game->defining_choice_line,
+                 ]);
+ 
+-                $game->prompts()->create([
++                $narration = $game->prompts()->create([
+                     'session_number' => $nextSessionNumber,
+                     'response' => $result['response'],
+                     'choices' => $result['choices'],
+@@ -305,6 +319,23 @@ public function handleNextSession(string $gameId): void
+         } finally {
+             Cache::forget($this->pendingKey($gameId));
+         }
++
++        $this->renderNarrationAudio($game, $narration);
++    }
++
++    /**
++     * Render the opening narration's audio while the player is still reading.
++     * Runs after the pending flag is cleared so the voice provider never holds
++     * the UI back.
++     */
++    private function renderNarrationAudio(?Game $game, ?Prompt $narration): void
++    {
++        if ($game === null || $narration === null) {
++            return;
++        }
++
++        $this->audio->markPending($narration);
++        $this->audio->generate($game, $narration);
+     }
+ 
+     /**
+diff --git a/app/Actions/Game/ProcessGameTurnAction.php b/app/Actions/Game/ProcessGameTurnAction.php
+index 1d50851..da140ca 100644
+--- a/app/Actions/Game/ProcessGameTurnAction.php
++++ b/app/Actions/Game/ProcessGameTurnAction.php
+@@ -8,6 +8,7 @@
+ use App\Models\Prompt;
+ use App\Models\UserActivityDay;
+ use App\Services\ChaosEngineService;
++use App\Services\NarrationAudioService;
+ use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Log;
+@@ -22,7 +23,10 @@
+ {
+     private const CONTINUE_MARKER = '__continue__';
+ 
+-    public function __construct(private ChaosEngineService $engine) {}
++    public function __construct(
++        private ChaosEngineService $engine,
++        private NarrationAudioService $audio,
++    ) {}
+ 
+     public function pendingKey(string $gameId): string
+     {
+@@ -43,6 +47,9 @@ public function handle(
+     ): void {
+         Cache::put($this->pendingKey($gameId), $sourcePromptId, 180);
+ 
++        $game = null;
++        $narration = null;
++
+         try {
+             $game = Game::query()->find($gameId);
+             if ($game === null) {
+@@ -111,7 +118,7 @@ public function handle(
+                 temperature: $this->engine->defaultTemperatureFor($game->model),
+             );
+ 
+-            DB::transaction(function () use ($game, $result, $worldState, $alignmentScaffold, $userId, $sourcePromptId): void {
++            DB::transaction(function () use ($game, $result, $worldState, $alignmentScaffold, $userId, $sourcePromptId, &$narration): void {
+                 $game->refresh();
+ 
+                 $sourcePrompt = Prompt::query()
+@@ -147,7 +154,7 @@ public function handle(
+                     'current_session_complete' => $result['session_complete'],
+                 ]);
+ 
+-                $game->prompts()->create([
++                $narration = $game->prompts()->create([
+                     'session_number' => $game->current_session_number,
+                     'response' => $result['response'],
+                     'choices' => $result['choices'],
+@@ -191,6 +198,14 @@ public function handle(
+         } finally {
+             Cache::forget($this->pendingKey($gameId));
+         }
++
++        // Render the narration audio while the player is still reading the text.
++        // Deliberately after the pending flag is cleared so the UI is not held
++        // back by the voice provider.
++        if ($game !== null && $narration instanceof Prompt) {
++            $this->audio->markPending($narration);
++            $this->audio->generate($game, $narration);
++        }
+     }
+ 
+     /**
+diff --git a/app/Http/Controllers/User/Game/TextToSpeechController.php b/app/Http/Controllers/User/Game/TextToSpeechController.php
+index 48ef113..b5f2db1 100644
+--- a/app/Http/Controllers/User/Game/TextToSpeechController.php
++++ b/app/Http/Controllers/User/Game/TextToSpeechController.php
+@@ -4,99 +4,82 @@
+ 
+ namespace App\Http\Controllers\User\Game;
+ 
+-use App\ChaosMode\ChaosStoryConfig;
+ use App\Http\Controllers\Controller;
+ use App\Models\Game;
+ use App\Models\Prompt;
+-use Illuminate\Support\Facades\Http;
++use App\Services\NarrationAudioService;
+ use Illuminate\Support\Facades\Storage;
+ use Symfony\Component\HttpFoundation\BinaryFileResponse;
+-
++use Symfony\Component\HttpFoundation\Response;
++
++/**
++ * Serves narration audio for a prompt.
++ *
++ * Cache hit  → BinaryFileResponse from disk (full byte-range support, which
++ *              iOS Safari needs for duration display and seeking).
++ * Cache miss → 202 + a background render. The provider takes far longer than
++ *              the gateway allows, so the request never waits on it; the client
++ *              re-requests until the mp3 is on disk.
++ */
+ final class TextToSpeechController extends Controller
+ {
+-    public function __invoke(Game $game, Prompt $prompt): BinaryFileResponse
++    public function __construct(private readonly NarrationAudioService $audio) {}
++
++    public function __invoke(Game $game, Prompt $prompt): Response
+     {
+         abort_unless($prompt->game_id === $game->id, 404);
+         abort_unless(filled($prompt->response), 404);
+ 
+-        $provider = (string) config('services.tts_provider', 'elevenlabs');
+-        $path = "tts/{$provider}/{$prompt->id}.mp3";
++        if ($this->audio->isReady($prompt)) {
++            return $this->serve($prompt);
++        }
+ 
+-        if (! Storage::disk('local')->exists($path)) {
+-            $storySlug = $game->story?->slug ?? '';
++        $failure = $this->audio->failure($prompt);
++
++        if ($failure !== null) {
++            return response()->json(['status' => 'failed', 'message' => $failure], 503);
++        }
+ 
+-            match ($provider) {
+-                'deepgram' => $this->generateDeepgram($prompt, $path),
+-                default    => $this->generateElevenLabs($prompt, $path, ChaosStoryConfig::ttsVoiceId($storySlug)),
+-            };
++        if (! $this->audio->isGenerating($prompt)) {
++            $this->audio->markPending($prompt);
++            $this->renderAfterResponse((string) $game->id, (string) $prompt->id);
+         }
+ 
+-        return new BinaryFileResponse(Storage::disk('local')->path($path), 200, [
+-            'Content-Type' => 'audio/mpeg',
+-            'Accept-Ranges' => 'bytes',
+-            'Cache-Control' => 'private, max-age=86400',
+-            'X-Content-Type-Options' => 'nosniff',
+-        ]);
++        return response()->json(['status' => 'generating'], 202)
++            ->header('Retry-After', '2')
++            ->header('Cache-Control', 'no-store');
+     }
+ 
+-    private function generateElevenLabs(Prompt $prompt, string $path, string $voiceId = ''): void
++    private function renderAfterResponse(string $gameId, string $promptId): void
+     {
+-        $text    = strip_tags($prompt->response);
+-        $voiceId = $voiceId !== '' ? $voiceId : (string) config('services.elevenlabs.voice_id');
+-        $apiKey  = config('services.elevenlabs.api_key');
+-
+-        abort_unless(filled($apiKey), 503, 'Voice generation is not configured.');
+-
+-        $response = Http::withHeaders([
+-            'xi-api-key' => $apiKey,
+-        ])->timeout(120)->post("https://api.elevenlabs.io/v1/text-to-speech/{$voiceId}/stream?output_format=mp3_44100_128", [
+-            'text' => $text,
+-            'model_id' => config('services.elevenlabs.model_id', 'eleven_v3'),
+-            'voice_settings' => [
+-                'stability' => 0.50,
+-                'similarity_boost' => 0.75,
+-                'style' => 0.0,
+-                'speed' => 1.0,
+-            ],
+-        ]);
+-
+-        if (! $response->successful()) {
+-            logger()->warning('ElevenLabs TTS failed', [
+-                'status' => $response->status(),
+-                'prompt_id' => $prompt->id,
+-            ]);
+-
+-            abort($response->status() === 403 ? 502 : $response->status(), 'Voice generation unavailable.');
+-        }
++        dispatch(function () use ($gameId, $promptId): void {
++            $game = Game::query()->find($gameId);
++            $prompt = Prompt::query()->whereKey($promptId)->first();
++
++            if ($game === null || $prompt === null) {
++                return;
++            }
+ 
+-        Storage::disk('local')->put($path, $response->body());
++            app(NarrationAudioService::class)->generate($game, $prompt);
++        })->afterResponse();
+     }
+ 
+-    private function generateDeepgram(Prompt $prompt, string $path): void
++    private function serve(Prompt $prompt): BinaryFileResponse
+     {
+-        $text = strip_tags($prompt->response);
+-        $apiKey = (string) config('services.deepgram.api_key');
+-        $voiceModel = (string) config('services.deepgram.voice_model', 'aura-2-thalia-en');
+-
+-        abort_unless(filled($apiKey), 503, 'Deepgram voice generation is not configured.');
+-
+-        // Deepgram TTS REST endpoint — returns audio/mpeg directly
+-        $response = Http::withHeaders([
+-            'Authorization' => "Token {$apiKey}",
+-            'Content-Type'  => 'application/json',
+-        ])->timeout(60)->post("https://api.deepgram.com/v1/speak?model={$voiceModel}&encoding=mp3", [
+-            'text' => $text,
+-        ]);
+-
+-        if (! $response->successful()) {
+-            logger()->warning('Deepgram TTS failed', [
+-                'status' => $response->status(),
+-                'prompt_id' => $prompt->id,
+-            ]);
+-
+-            abort($response->status() === 403 ? 502 : $response->status(), 'Voice generation unavailable.');
+-        }
+-
+-        Storage::disk('local')->put($path, $response->body());
++        $response = new BinaryFileResponse(
++            Storage::disk('local')->path($this->audio->path($prompt)),
++            200,
++            [
++                'Content-Type' => 'audio/mpeg',
++                'Accept-Ranges' => 'bytes',
++                'Cache-Control' => 'private, max-age=86400',
++                'X-Content-Type-Options' => 'nosniff',
++                'X-Accel-Buffering' => 'no',
++            ]
++        );
++
++        $response->setAutoLastModified();
++
++        return $response;
+     }
+ }
+diff --git a/app/Services/NarrationAudioService.php b/app/Services/NarrationAudioService.php
+new file mode 100644
+index 0000000..eb813fe
+--- /dev/null
++++ b/app/Services/NarrationAudioService.php
+@@ -0,0 +1,201 @@
++<?php
++
++declare(strict_types=1);
++
++namespace App\Services;
++
++use App\ChaosMode\ChaosStoryConfig;
++use App\Models\Game;
++use App\Models\Prompt;
++use App\Models\Story;
++use Illuminate\Support\Facades\Cache;
++use Illuminate\Support\Facades\Http;
++use Illuminate\Support\Facades\Log;
++use Illuminate\Support\Facades\Storage;
++use RuntimeException;
++use Throwable;
++
++/**
++ * Renders narration audio for a prompt and caches the mp3 on disk.
++ *
++ * A full turn regularly takes ElevenLabs 30-90s, which is longer than the
++ * nginx / Cloudflare gateway budget, so generate() must only ever run after the
++ * HTTP response has been sent (deferred action or afterResponse callback).
++ */
++final class NarrationAudioService
++{
++    private const LOCK_SECONDS = 240;
++
++    // Kept in step with the lock so a render killed mid-flight (worker recycled)
++    // cannot leave the endpoint reporting "generating" forever.
++    private const PENDING_SECONDS = 240;
++
++    private const ERROR_SECONDS = 120;
++
++    private const FAILURE_MESSAGE = 'Narration audio is unavailable for this turn.';
++
++    public function path(Prompt $prompt): string
++    {
++        return "tts/{$this->provider()}/{$prompt->id}.mp3";
++    }
++
++    public function isReady(Prompt $prompt): bool
++    {
++        return Storage::disk('local')->exists($this->path($prompt));
++    }
++
++    public function isGenerating(Prompt $prompt): bool
++    {
++        return Cache::has($this->pendingKey((string) $prompt->id));
++    }
++
++    public function failure(Prompt $prompt): ?string
++    {
++        $message = Cache::get($this->errorKey((string) $prompt->id));
++
++        return is_string($message) ? $message : null;
++    }
++
++    public function pendingKey(string $promptId): string
++    {
++        return "tts-pending:{$promptId}";
++    }
++
++    public function errorKey(string $promptId): string
++    {
++        return "tts-error:{$promptId}";
++    }
++
++    /**
++     * Flag a render as queued so concurrent player requests wait instead of
++     * kicking off a second (billed) generation.
++     */
++    public function markPending(Prompt $prompt): void
++    {
++        $promptId = (string) $prompt->id;
++
++        Cache::put($this->pendingKey($promptId), true, self::PENDING_SECONDS);
++        Cache::forget($this->errorKey($promptId));
++    }
++
++    /**
++     * Blocking render. Never call this from a request that a browser is
++     * waiting on — the gateway will time out long before the provider answers.
++     */
++    public function generate(Game $game, Prompt $prompt): void
++    {
++        $promptId = (string) $prompt->id;
++        $path = $this->path($prompt);
++
++        if (Storage::disk('local')->exists($path)) {
++            Cache::forget($this->pendingKey($promptId));
++
++            return;
++        }
++
++        $lock = Cache::lock("tts-generate:{$promptId}", self::LOCK_SECONDS);
++
++        if (! $lock->get()) {
++            return;
++        }
++
++        Cache::put($this->pendingKey($promptId), true, self::PENDING_SECONDS);
++
++        // Runs post-response, so the request's execution budget no longer applies.
++        set_time_limit(self::LOCK_SECONDS);
++
++        try {
++            $text = mb_trim(strip_tags((string) $prompt->response));
++
++            if ($text === '') {
++                throw new RuntimeException('Narration has no speakable text.');
++            }
++
++            $audio = $this->provider() === 'deepgram'
++                ? $this->renderDeepgram($text)
++                : $this->renderElevenLabs($text, $this->voiceIdFor($game));
++
++            Storage::disk('local')->put($path, $audio);
++            Cache::forget($this->errorKey($promptId));
++        } catch (Throwable $e) {
++            Cache::put($this->errorKey($promptId), self::FAILURE_MESSAGE, self::ERROR_SECONDS);
++
++            Log::warning('tts.generate_failed', [
++                'prompt_id' => $promptId,
++                'game_id' => (string) $game->id,
++                'provider' => $this->provider(),
++                'exception' => $e::class,
++                'message' => $e->getMessage(),
++            ]);
++        } finally {
++            Cache::forget($this->pendingKey($promptId));
++            $lock->release();
++        }
++    }
++
++    private function provider(): string
++    {
++        return (string) config('services.tts_provider', 'elevenlabs');
++    }
++
++    private function voiceIdFor(Game $game): string
++    {
++        $slug = (string) Story::query()->whereKey($game->story_id)->value('slug');
++
++        return ChaosStoryConfig::ttsVoiceId($slug);
++    }
++
++    private function renderElevenLabs(string $text, string $voiceId): string
++    {
++        $apiKey = (string) config('services.elevenlabs.api_key');
++        $voiceId = $voiceId !== '' ? $voiceId : (string) config('services.elevenlabs.voice_id');
++
++        if ($apiKey === '' || $voiceId === '') {
++            throw new RuntimeException('ElevenLabs is not configured.');
++        }
++
++        $response = Http::withHeaders(['xi-api-key' => $apiKey])
++            ->timeout(180)
++            ->post("https://api.elevenlabs.io/v1/text-to-speech/{$voiceId}/stream?output_format=mp3_44100_128", [
++                'text' => $text,
++                'model_id' => config('services.elevenlabs.model_id', 'eleven_v3'),
++                'voice_settings' => [
++                    'stability' => 0.50,
++                    'similarity_boost' => 0.75,
++                    'style' => 0.0,
++                    'speed' => 1.0,
++                ],
++            ]);
++
++        if (! $response->successful()) {
++            throw new RuntimeException("ElevenLabs responded {$response->status()}: ".mb_substr($response->body(), 0, 300));
++        }
++
++        return $response->body();
++    }
++
++    private function renderDeepgram(string $text): string
++    {
++        $apiKey = (string) config('services.deepgram.api_key');
++        $voiceModel = (string) config('services.deepgram.voice_model', 'aura-2-thalia-en');
++
++        if ($apiKey === '') {
++            throw new RuntimeException('Deepgram is not configured.');
++        }
++
++        $response = Http::withHeaders([
++            'Authorization' => "Token {$apiKey}",
++            'Content-Type' => 'application/json',
++        ])
++            ->timeout(120)
++            ->post("https://api.deepgram.com/v1/speak?model={$voiceModel}&encoding=mp3", [
++                'text' => $text,
++            ]);
++
++        if (! $response->successful()) {
++            throw new RuntimeException("Deepgram responded {$response->status()}: ".mb_substr($response->body(), 0, 300));
++        }
++
++        return $response->body();
++    }
++}
+diff --git a/resources/js/components/GameplayChatCard.vue b/resources/js/components/GameplayChatCard.vue
+index a6a37e2..0b35005 100644
+--- a/resources/js/components/GameplayChatCard.vue
++++ b/resources/js/components/GameplayChatCard.vue
+@@ -113,9 +113,18 @@ const handleNarrationClick = () => {
+     }
+ };
+ 
++// Start typing and, in parallel, warm the narration audio so it is downloaded
++// by the time the text finishes.
++const beginNarration = (response: string) => {
++    typewriter.start(response);
++    if (gameplaySettings.autoplay) {
++        tts.prefetch(props.gameId, props.prompt.id);
++    }
++};
++
+ onMounted(() => {
+     if (props.animate && props.isLatest && props.prompt.response) {
+-        typewriter.start(props.prompt.response);
++        beginNarration(props.prompt.response);
+     } else if (props.prompt.response) {
+         typewriter.complete(props.prompt.response);
+     }
+@@ -126,7 +135,7 @@ watch(
+     (newVal) => {
+         if (!newVal) return;
+         if (props.animate && props.isLatest) {
+-            typewriter.start(newVal);
++            beginNarration(newVal);
+         } else {
+             typewriter.complete(newVal);
+         }
+@@ -137,7 +146,7 @@ watch(
+     () => props.animate,
+     (animate, wasAnimate) => {
+         if (!animate || wasAnimate || !props.isLatest || !props.prompt.response) return;
+-        typewriter.start(props.prompt.response);
++        beginNarration(props.prompt.response);
+     },
+ );
+ 
+diff --git a/resources/js/composables/useTextToSpeech.ts b/resources/js/composables/useTextToSpeech.ts
+index 2c627df..7cd36cd 100644
+--- a/resources/js/composables/useTextToSpeech.ts
++++ b/resources/js/composables/useTextToSpeech.ts
+@@ -6,7 +6,14 @@ const SPEED_OPTIONS = [1, 1.25, 1.5, 1.75, 2] as const;
+ const SILENT_WAV =
+     'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+ 
++// The endpoint answers 202 while the voice provider is still rendering a turn,
++// which can take a couple of minutes for a long narration.
++const NARRATION_POLL_INTERVAL_MS = 2000;
++const NARRATION_MAX_WAIT_MS = 240_000;
++
+ const audioCache = new Map<string, HTMLAudioElement>();
++const objectUrls = new Map<string, string>();
++const inFlightUrls = new Map<string, Promise<string>>();
+ 
+ const isPlaying = ref(false);
+ const isLoading = ref(false);
+@@ -29,6 +36,11 @@ function collapseMediaPlayer() {
+ }
+ 
+ let currentAudio: HTMLAudioElement | null = null;
++
++// The narration `currentAudio` belongs to. Kept separate from activeKey, which
++// is a UI concern that moves ahead of the element while a turn is queued.
++let currentKey: string | null = null;
++
+ let rafId: number | null = null;
+ let unlockAudio: HTMLAudioElement | null = null;
+ let audioUnlocked = false;
+@@ -40,6 +52,14 @@ let pendingAutoplay: { gameId: string; promptId: string } | null = null;
+ // autoplay call can reuse it (src-swap preserves iOS activation).
+ let primedAudio: HTMLAudioElement | null = null;
+ 
++// Key whose element is claimed but has no real source yet, because the mp3 is
++// still downloading. Calling play() on it would fail with NotSupportedError.
++let awaitingSourceKey: string | null = null;
++
++// Identifies the newest playback request. Anything that silences audio bumps it,
++// so a download that lands afterwards knows not to start on its own.
++let playToken = 0;
++
+ // ── Web Audio API unlock ──────────────────────────────────────────────────────
+ // On iOS Safari, audio playback permission is per-page once ANY audio element
+ // plays during a user gesture. Routing all HTMLAudioElements through a shared
+@@ -128,12 +148,41 @@ function isAutoplayBlocked(err: unknown): boolean {
+     return err instanceof DOMException && err.name === 'NotAllowedError';
+ }
+ 
++/**
++ * Only one narration may ever be audible. Every cached turn keeps its own
++ * element, so a previous turn can still be mid-playback when a new one takes
++ * over — pausing `currentAudio` alone would leave it running.
++ */
++function silenceOthers(keep: HTMLAudioElement | null) {
++    const rewind = (audio: HTMLAudioElement) => {
++        if (!audio.paused) audio.pause();
++        if (audio.currentTime) audio.currentTime = 0;
++    };
++
++    for (const audio of audioCache.values()) {
++        if (audio !== keep) rewind(audio);
++    }
++
++    if (currentAudio && currentAudio !== keep) rewind(currentAudio);
++}
++
+ function queuePendingAutoplay(gameId: string, promptId: string) {
++    // The UI is about to point at this turn, so nothing from an earlier one may
++    // keep playing underneath it. A retry of the current turn keeps its position.
++    // Ordered before the queue is recorded because stop() clears the queue.
++    const key = `${gameId}:${promptId}`;
++    if (currentKey !== key) {
++        stop();
++        currentAudio = null;
++        currentKey = null;
++    }
++
+     pendingAutoplay = { gameId, promptId };
++
+     // Show a pending-play indicator on the relevant card while we wait for the
+     // AudioContext to be unlocked via a user gesture.
+     revealMediaPlayer();
+-    activeKey.value = `${gameId}:${promptId}`;
++    activeKey.value = key;
+     isLoading.value = true;
+ }
+ 
+@@ -213,12 +262,21 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
+     if ((audio as any).__ttsListenersAttached) return;
+     (audio as any).__ttsListenersAttached = true;
+ 
++    // Handlers write shared state, so an element from an earlier turn being
++    // silenced must not report over the turn that replaced it.
++    const isCurrent = () => currentKey === key;
++
+     audio.addEventListener('canplay', () => {
++        if (!isCurrent()) return;
+         isLoading.value = false;
+         duration.value = audio.duration || 0;
+         console.debug('[TTS] canplay', key, 'duration', duration.value);
+     });
+     audio.addEventListener('playing', () => {
++        if (!isCurrent()) {
++            audio.pause(); // a stale turn must never be audible
++            return;
++        }
+         isPlaying.value = true;
+         isLoading.value = false;
+         duration.value = audio.duration || 0;
+@@ -227,6 +285,7 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
+         updateTime();
+     });
+     audio.addEventListener('ended', () => {
++        if (!isCurrent()) return;
+         if (isLooping.value && currentAudio) {
+             currentAudio.currentTime = 0;
+             currentAudio.play().catch(() => {
+@@ -239,17 +298,20 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
+         console.debug('[TTS] ended', key);
+     });
+     audio.addEventListener('pause', () => {
++        if (!isCurrent()) return;
+         isPlaying.value = false;
+         stopTimeUpdates();
+         console.debug('[TTS] pause', key);
+     });
+     audio.addEventListener('error', (e) => {
++        if (!isCurrent()) return;
+         isPlaying.value = false;
+         isLoading.value = false;
+         stopTimeUpdates();
+         console.warn('[TTS] error', key, (e.target as HTMLAudioElement).error);
+     });
+     audio.addEventListener('loadedmetadata', () => {
++        if (!isCurrent()) return;
+         duration.value = audio.duration || 0;
+         console.debug('[TTS] loadedmetadata', key, 'duration', duration.value);
+     });
+@@ -257,11 +319,81 @@ function attachListeners(audio: HTMLAudioElement, key: string) {
+         console.warn('[TTS] stalled', key);
+     });
+     audio.addEventListener('waiting', () => {
++        if (!isCurrent()) return;
+         isLoading.value = true;
+         console.debug('[TTS] waiting (buffering)', key);
+     });
+ }
+ 
++function delay(ms: number): Promise<void> {
++    return new Promise((resolve) => setTimeout(resolve, ms));
++}
++
++/**
++ * Download a narration mp3, waiting out the server-side render.
++ *
++ * The audio element is never pointed at the endpoint directly: a cache miss
++ * takes far longer than the gateway timeout, which surfaced as a 504 followed
++ * by a MediaError "Format error" instead of narration.
++ */
++async function downloadNarration(endpoint: string): Promise<Blob> {
++    const deadline = Date.now() + NARRATION_MAX_WAIT_MS;
++
++    while (Date.now() < deadline) {
++        const response = await fetch(endpoint, { headers: { Accept: 'audio/mpeg' } });
++
++        if (response.status === 202) {
++            await delay(NARRATION_POLL_INTERVAL_MS);
++            continue;
++        }
++
++        if (!response.ok) {
++            throw new Error(`narration request failed (${response.status})`);
++        }
++
++        const blob = await response.blob();
++
++        // A redirect to the login page would otherwise reach the audio element as HTML.
++        if (!blob.type.startsWith('audio/')) {
++            throw new Error(`unexpected narration content type "${blob.type || 'unknown'}"`);
++        }
++
++        return blob;
++    }
++
++    throw new Error('narration render timed out');
++}
++
++function narrationUrl(gameId: string, promptId: string): Promise<string> {
++    const key = `${gameId}:${promptId}`;
++    const ready = objectUrls.get(key);
++    if (ready) return Promise.resolve(ready);
++
++    const pending = inFlightUrls.get(key);
++    if (pending) return pending;
++
++    const request = downloadNarration(`/user/games/${gameId}/tts/${promptId}`)
++        .then((blob) => {
++            const url = URL.createObjectURL(blob);
++            objectUrls.set(key, url);
++            return url;
++        })
++        .finally(() => {
++            inFlightUrls.delete(key);
++        });
++
++    inFlightUrls.set(key, request);
++
++    return request;
++}
++
++/** Warm the cache (and kick off the server-side render) without playing. */
++function prefetch(gameId: string, promptId: string) {
++    narrationUrl(gameId, promptId).catch((err) => {
++        console.debug('[TTS] prefetch failed', `${gameId}:${promptId}`, err);
++    });
++}
++
+ function applyAudioSettings(audio: HTMLAudioElement) {
+     audio.playbackRate = playbackRate.value;
+     audio.volume = volume.value;
+@@ -280,8 +412,10 @@ function play(gameId: string, promptId: string) {
+         return;
+     }
+ 
+-    if (currentAudio && activeKey.value === key && !currentAudio.ended) {
++    if (currentAudio && currentKey === key && !currentAudio.ended) {
++        if (awaitingSourceKey === key) return; // download in flight, spinner already up
+         if (currentAudio.paused) {
++            silenceOthers(currentAudio);
+             isLoading.value = true;
+             revealMediaPlayer();
+             currentAudio.play().catch((err) => {
+@@ -296,7 +430,9 @@ function play(gameId: string, promptId: string) {
+ 
+     if (audioCache.has(key)) {
+         currentAudio = audioCache.get(key)!;
++        currentKey = key;
+         activeKey.value = key;
++        silenceOthers(currentAudio);
+         currentAudio.currentTime = 0;
+         applyAudioSettings(currentAudio);
+         isLoading.value = true;
+@@ -309,38 +445,68 @@ function play(gameId: string, promptId: string) {
+     isLoading.value = true;
+     console.debug('[TTS] fetching', key);
+ 
+-    const url = `/user/games/${gameId}/tts/${promptId}`;
+-    let audio: HTMLAudioElement;
+-
+-    if (primedAudio) {
+-        // Reuse the element pre-activated during the last user gesture.
+-        // iOS Safari preserves the activation after a src-swap + load(), so the
+-        // subsequent play() call is permitted even outside the gesture stack.
+-        audio = primedAudio;
+-        primedAudio = null;
+-        audio.src = url;
+-        audio.load();
+-    } else {
+-        audio = new Audio(url);
+-        audio.preload = 'auto';
+-    }
++    // Claim the element pre-activated during the last user gesture *now*, while
++    // we may still be inside the gesture stack. iOS Safari keeps that activation
++    // across a later src-swap + load(), so the deferred play() is permitted.
++    const audio = primedAudio ?? new Audio();
++    primedAudio = null;
++    audio.preload = 'auto';
+ 
+     configureAudioElement(audio);
+     applyAudioSettings(audio);
+-    attachListeners(audio, key);
+-    audioCache.set(key, audio);
+     currentAudio = audio;
++    currentKey = key;
+     activeKey.value = key;
+-    audio.play().catch((err) => {
+-        handlePlayRejected(key, err, gameId, promptId);
+-    });
++    awaitingSourceKey = key;
++    const token = ++playToken;
++
++    narrationUrl(gameId, promptId)
++        .then((url) => {
++            if (currentKey !== key) return; // the player moved on while it rendered
++
++            // Exactly one src assignment on this element, and listeners go on
++            // straight after it, so the silent unlock clip it may still be
++            // holding cannot report events against this narration.
++            audio.src = url;
++            audio.load();
++            attachListeners(audio, key);
++            audioCache.set(key, audio);
++            awaitingSourceKey = null;
++
++            // Paused or stopped while this downloaded — hand over the loaded
++            // element but leave it silent.
++            if (token !== playToken) {
++                isLoading.value = false;
++                return;
++            }
++
++            // A turn that was already playing can have run all the way to this
++            // point while the new one downloaded.
++            silenceOthers(audio);
++
++            return audio.play().catch((err) => {
++                handlePlayRejected(key, err, gameId, promptId);
++            });
++        })
++        .catch((err) => {
++            console.warn('[TTS] unavailable', key, err);
++            if (currentKey === key) {
++                isLoading.value = false;
++            }
++        })
++        .finally(() => {
++            if (awaitingSourceKey === key) {
++                awaitingSourceKey = null;
++            }
++        });
+ }
+ 
+ function stop() {
+-    if (currentAudio) {
+-        currentAudio.pause();
+-        currentAudio.currentTime = 0;
+-    }
++    // A queued turn left behind here would be replayed by the next unrelated
++    // gesture, since every gesture primes audio and primeAudio() flushes.
++    pendingAutoplay = null;
++    playToken++;
++    silenceOthers(null); // rewinds every element, current one included
+     isPlaying.value = false;
+     isLoading.value = false;
+     currentTime.value = 0;
+@@ -349,7 +515,9 @@ function stop() {
+ 
+ function dismiss() {
+     pendingAutoplay = null;
++    awaitingSourceKey = null;
+     stop();
++    currentKey = null;
+     activeKey.value = null;
+ }
+ 
+@@ -357,6 +525,7 @@ function dismiss() {
+ function resetForNewStory() {
+     dismiss();
+     currentAudio = null;
++    currentKey = null;
+     for (const audio of audioCache.values()) {
+         audio.pause();
+         audio.currentTime = 0;
+@@ -364,22 +533,38 @@ function resetForNewStory() {
+         audio.load();
+     }
+     audioCache.clear();
++    for (const url of objectUrls.values()) {
++        URL.revokeObjectURL(url);
++    }
++    objectUrls.clear();
++    inFlightUrls.clear();
+     playedKeys.clear();
+     duration.value = 0;
+     mediaCollapsed.value = false;
+ }
+ 
+ function pause() {
++    // Pausing means silence: drop any queued turn and cancel a download that
++    // would otherwise start playing the moment it lands.
++    pendingAutoplay = null;
++    playToken++;
++    isLoading.value = false;
++
++    // Keep the current turn's position, but leave nothing else running.
++    silenceOthers(currentAudio);
+     if (currentAudio && !currentAudio.paused) {
+         currentAudio.pause();
+     }
++    isPlaying.value = false;
+ }
+ 
+ function resume() {
++    if (awaitingSourceKey !== null) return;
+     if (currentAudio && currentAudio.paused && !currentAudio.ended) {
++        silenceOthers(currentAudio);
+         isLoading.value = true;
+         currentAudio.play().catch((err) => {
+-            const key = activeKey.value ?? 'unknown';
++            const key = currentKey ?? activeKey.value ?? 'unknown';
+             const [gameId = '', promptId = ''] = key.split(':');
+             handlePlayRejected(key, err, gameId, promptId);
+         });
+@@ -387,20 +572,22 @@ function resume() {
+ }
+ 
+ function togglePause() {
+-    if (isPlaying.value) {
++    // Pressing pause mid-load has to cancel the pending start, otherwise
++    // priming for a resume would flush it straight back into playback.
++    if (isPlaying.value || isLoading.value) {
+         pause();
+-    } else {
+-        primeAudio();
+-        resume();
++        return;
+     }
++    primeAudio();
++    resume();
+ }
+ 
+ function toggle(gameId: string, promptId: string) {
+     primeAudio();
+     const key = `${gameId}:${promptId}`;
+-    if (isPlaying.value && activeKey.value === key) {
++    if (currentKey === key && isPlaying.value) {
+         pause();
+-    } else if (activeKey.value === key && currentAudio && !currentAudio.ended) {
++    } else if (currentKey === key && currentAudio && !currentAudio.ended) {
+         revealMediaPlayer();
+         resume();
+     } else {
+@@ -494,6 +681,7 @@ export function useTextToSpeech() {
+         revealMediaPlayer,
+         collapseMediaPlayer,
+         play,
++        prefetch,
+         stop,
+         dismiss,
+         resetForNewStory,

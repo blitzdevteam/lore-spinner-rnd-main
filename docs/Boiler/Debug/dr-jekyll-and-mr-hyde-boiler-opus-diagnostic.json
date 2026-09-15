@@ -1,0 +1,239 @@
+{
+    "brief_for_model": {
+        "goal": "Diagnose why this story Boiler adaptation keeps failing while Speckled Band completed cleanly.",
+        "slug": "dr-jekyll-and-mr-hyde",
+        "story_id": 42,
+        "known_ops_noise": [
+            "Laravel Cloud deploys killed workers mid-Finalize (attempts inflated → MaxAttemptsExceeded).",
+            "Tinker finally-closures orphaned Bus batches (batch pending jobs with empty jobs table).",
+            "Release reserved jobs MUST reset attempts to 0.",
+            "Do not treat MaxAttemptsExceeded as a content bug."
+        ],
+        "known_content_failures_seen": [
+            "Finalize: invalid word or turn budgets on scene cards.",
+            "Editorial: choice_ids vs Phase 5 authority; weak playable rooms; SESSION_END_HOOK binding.",
+            "Draft: duplicate source_event_ids across moments; target_moment_count outside SSM range."
+        ],
+        "ask": "Separate ops/retry damage from true prompt/validator defects. Propose the smallest durable code/prompt fixes."
+    },
+    "exported_at": "2026-09-11T19:00:47+00:00",
+    "story": {
+        "id": 42,
+        "title": "Dr. Jekyll and Mr. Hyde: The Other Self",
+        "slug": "dr-jekyll-and-mr-hyde",
+        "event_count_total": 101,
+        "event_count_by_session": []
+    },
+    "adaptation": {
+        "adaptation_status": "failed",
+        "boiler_enabled": true,
+        "has_voice_profile": false,
+        "has_story_session_map": false,
+        "boiling_profile": null,
+        "session_allocation": null
+    },
+    "queue": {
+        "adaptation_pending": 0,
+        "adaptation_reserved": 0,
+        "jobs_now": [],
+        "recent_batches": [
+            {
+                "id": "a2b8ebf5-8c62-4517-876e-7812c751fb7c",
+                "name": "",
+                "total_jobs": 8,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1789151164,
+                "cancelled_at": null,
+                "finished_at": 1789151743
+            },
+            {
+                "id": "a2b8de3d-f879-4c0a-a2a7-eab43ce0af3c",
+                "name": "",
+                "total_jobs": 8,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1789148862,
+                "cancelled_at": null,
+                "finished_at": 1789149441
+            },
+            {
+                "id": "a2b858e2-8c30-4b8d-ad1e-199df5594449",
+                "name": "",
+                "total_jobs": 36,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1789126489,
+                "cancelled_at": null,
+                "finished_at": 1789133383
+            },
+            {
+                "id": "a2b84e28-2c2e-46d1-9026-6d9ef07057c8",
+                "name": "",
+                "total_jobs": 8,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1789124689,
+                "cancelled_at": null,
+                "finished_at": 1789126279
+            },
+            {
+                "id": "a2b84ab8-c77c-4b11-9605-e91c0c104255",
+                "name": "",
+                "total_jobs": 8,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1789124113,
+                "cancelled_at": null,
+                "finished_at": 1789124648
+            },
+            {
+                "id": "a2b40ea6-b68e-4e9d-a60e-cd9763f5b6a6",
+                "name": "",
+                "total_jobs": 18,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788942236,
+                "cancelled_at": null,
+                "finished_at": 1788948465
+            },
+            {
+                "id": "a2b40d3c-636f-47e3-b5c5-19c8ab302db7",
+                "name": "",
+                "total_jobs": 5,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788941998,
+                "cancelled_at": null,
+                "finished_at": 1788942044
+            },
+            {
+                "id": "a2b40be2-b3d5-4a46-a26e-45be46fa8c8b",
+                "name": "",
+                "total_jobs": 5,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788941772,
+                "cancelled_at": null,
+                "finished_at": 1788941967
+            },
+            {
+                "id": "a2a6be30-3169-42ab-9fcd-f980f81b5c6d",
+                "name": "",
+                "total_jobs": 18,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788370391,
+                "cancelled_at": null,
+                "finished_at": 1788371204
+            },
+            {
+                "id": "a2a6bc9f-d789-4705-997d-9cf530615ea9",
+                "name": "",
+                "total_jobs": 4,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788370128,
+                "cancelled_at": null,
+                "finished_at": 1788370183
+            },
+            {
+                "id": "a2a6bba1-85dc-408b-9c94-759b99e09818",
+                "name": "",
+                "total_jobs": 4,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788369961,
+                "cancelled_at": null,
+                "finished_at": 1788370096
+            },
+            {
+                "id": "a2a3155c-488d-4fa4-bdcf-c5cd0268ed6d",
+                "name": "",
+                "total_jobs": 18,
+                "pending_jobs": 0,
+                "failed_jobs": 0,
+                "created_at": 1788213217,
+                "cancelled_at": null,
+                "finished_at": 1788215086
+            }
+        ],
+        "failed_jobs_matched": [
+            {
+                "failed_at": "2026-08-30 16:36:38",
+                "uuid": "3a253ebc-1546-4195-a7c4-f66a3eb48d8d",
+                "displayName": "App\\Jobs\\Adaptation\\BoilerFinalizeJob",
+                "exception_head": "App\\Exceptions\\Adaptation\\BoilerFinalizeNotClaimedException: Boiler Finalize for session 2 did not claim the session (not_finalizable). in /var/www/html/app/Jobs/Adaptation/BoilerFinalizeJob.php:130 Stack trace: #0 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): App\\Jobs\\Adaptation\\BoilerFinalizeJob->handle() #1 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}() #2 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure() #3 /var/www/html/vendor/laravel/framework/src/Il"
+            },
+            {
+                "failed_at": "2026-08-30 15:47:43",
+                "uuid": "e1975928-8703-4a78-bb8e-88e73e255e1d",
+                "displayName": "App\\Jobs\\Adaptation\\BoilerDraftJob",
+                "exception_head": "RuntimeException: Boiler Draft voice-ban violations: - moment_drafts.3.source_extracts.1: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.8.source_extracts.3: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.9.source_extracts.2: banned semicolon found. Replace with a period, comma, or restructure the sentence. in /var/www/html/app/Ai/Adaptation/BoilerDraftValidator.php:270 Stack trace: #0 /var/www/html/app/Ai/Adaptation/BoilerDraftValidator.php(248): App\\Ai\\Adaptation\\BoilerDraftValidator->validateVoiceBans() #1 /var/www/html/app/Jobs/Adaptation/BoilerDraftJob.php(166): App\\Ai\\Adaptation\\Boil"
+            },
+            {
+                "failed_at": "2026-08-30 15:44:31",
+                "uuid": "bab507e2-4316-4d97-a87c-98b8e9058faa",
+                "displayName": "App\\Jobs\\Adaptation\\BoilerDraftJob",
+                "exception_head": "RuntimeException: Boiler Draft voice-ban violations: - moment_drafts.0.source_extracts.3: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.1.source_extracts.1: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.2.source_extracts.0: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.2.source_extracts.2: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.3.source_extracts.3: banned semicolon found. Replace with a period, comma, or restructure the sentence. - moment_drafts.4.source_extracts.0: banned sem"
+            },
+            {
+                "failed_at": "2026-08-30 14:19:38",
+                "uuid": "90abaf66-4dc3-4ee7-9190-1d5bc519dc96",
+                "displayName": "App\\Jobs\\Adaptation\\IpTrimmingChapterJob",
+                "exception_head": "Illuminate\\Queue\\MaxAttemptsExceededException: App\\Jobs\\Adaptation\\IpTrimmingChapterJob has been attempted too many times. in /var/www/html/vendor/laravel/framework/src/Illuminate/Queue/MaxAttemptsExceededException.php:24 Stack trace: #0 /var/www/html/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(862): Illuminate\\Queue\\MaxAttemptsExceededException::forJob() #1 /var/www/html/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(573): Illuminate\\Queue\\Worker->maxAttemptsExceededException() #2 /var/www/html/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(474): Illuminate\\Queue\\Worker->markJobAsFailedIfAlreadyExceedsMaxAttempts() #3 /var/www/html/vendor/laravel/framework/s"
+            },
+            {
+                "failed_at": "2026-08-29 22:15:58",
+                "uuid": "db9ac0a3-e81e-4062-b7fd-18e799fff825",
+                "displayName": "App\\Jobs\\Adaptation\\BoilerFinalizeJob",
+                "exception_head": "RuntimeException: Boiler Final Cut voice-ban violations: - moments.11.next_bridge: banned em_dash found. Replace with a period, comma, or restructure the sentence. in /var/www/html/app/Ai/Adaptation/BoilerFinalCutValidator.php:233 Stack trace: #0 /var/www/html/app/Ai/Adaptation/BoilerFinalCutValidator.php(215): App\\Ai\\Adaptation\\BoilerFinalCutValidator->validateVoiceBans() #1 /var/www/html/app/Jobs/Adaptation/BoilerFinalizeJob.php(216): App\\Ai\\Adaptation\\BoilerFinalCutValidator->validate() #2 /var/www/html/app/Support/Adaptation/GeneratesValidatedArtifact.php(56): App\\Jobs\\Adaptation\\BoilerFinalizeJob->{closure:App\\Jobs\\Adaptation\\BoilerFinalizeJob::generateValidatedFinalCut():216}() #3 /var"
+            },
+            {
+                "failed_at": "2026-08-29 22:13:37",
+                "uuid": "4befacd7-4686-4572-93c9-e91aa0ba611c",
+                "displayName": "App\\Jobs\\Adaptation\\BoilerFinalizeJob",
+                "exception_head": "RuntimeException: Boiler Final Cut voice-ban violations: - moments.8.next_bridge: banned semicolon found. Replace with a period, comma, or restructure the sentence. in /var/www/html/app/Ai/Adaptation/BoilerFinalCutValidator.php:233 Stack trace: #0 /var/www/html/app/Ai/Adaptation/BoilerFinalCutValidator.php(215): App\\Ai\\Adaptation\\BoilerFinalCutValidator->validateVoiceBans() #1 /var/www/html/app/Jobs/Adaptation/BoilerFinalizeJob.php(216): App\\Ai\\Adaptation\\BoilerFinalCutValidator->validate() #2 /var/www/html/app/Support/Adaptation/GeneratesValidatedArtifact.php(56): App\\Jobs\\Adaptation\\BoilerFinalizeJob->{closure:App\\Jobs\\Adaptation\\BoilerFinalizeJob::generateValidatedFinalCut():216}() #3 /va"
+            }
+        ],
+        "failed_jobs_table_count": 7
+    },
+    "sessions": [],
+    "logs": {
+        "files_scanned": [
+            "narration-2026-09-11.log"
+        ],
+        "hit_count": 2,
+        "hits": [
+            {
+                "at": "2026-09-11 18:27:18",
+                "level": "WARNING",
+                "event": "boiler.opening_progress_repaired",
+                "payload": {
+                    "game_id": "01kt2mt8c2jvw7rpp6f2v3ptyp"
+                },
+                "line_head": "[2026-09-11 18:27:18] production.WARNING: boiler.opening_progress_repaired {\"game_id\":\"01kt2mt8c2jvw7rpp6f2v3ptyp\"} "
+            },
+            {
+                "at": "2026-09-11 18:29:44",
+                "level": "INFO",
+                "event": "boiler.moment_turn_committed",
+                "payload": {
+                    "game_id": "01kt2mt8c2jvw7rpp6f2v3ptyp",
+                    "session_number": 1,
+                    "source_prompt_id": "01m28vjp9nzwvgsctmkjchdkd1",
+                    "moment_key": "S1_M01",
+                    "anchor_event_id": 91,
+                    "exit_condition_met": false,
+                    "result": "retained",
+                    "next_moment_key": null,
+                    "moment_footnote": "The player chose action without hesitation—no pause, no question, no resistance. They are moving toward the frightened woman, not away. They want to be useful.",
+                    "route_relation": "deepened",
+                    "impact_scope": "expressive",
+                    "detour_beats_used": 0
+                },
+                "line_head": "[2026-09-11 18:29:44] production.INFO: boiler.moment_turn_committed {\"game_id\":\"01kt2mt8c2jvw7rpp6f2v3ptyp\",\"session_number\":1,\"source_prompt_id\":\"01m28vjp9nzwvgsctmkjchdkd1\",\"moment_key\":\"S1_M01\",\"anchor_event_id\":91,\"exit_condition_met\":false,\"result\":\"retained\",\"next_moment_key\":null,\"moment_footnote\":\"The player chose action without hesitation—no pause, no question, no resistance. They are mov"
+            }
+        ]
+    }
+}
