@@ -53,6 +53,7 @@ final class ResumeMultiplayerLobbyAction
         }
 
         if (in_array($lobby->turn_status, [
+            MultiplayerArbiterTurnStatusEnum::CollectingProposals,
             MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
             MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
         ], true)) {
@@ -123,6 +124,7 @@ final class ResumeMultiplayerLobbyAction
                 $lockedLobby === null
                 || $lockedLobby->status !== MultiplayerLobbyStatusEnum::Started
                 || ! in_array($lockedLobby->turn_status, [
+                    MultiplayerArbiterTurnStatusEnum::CollectingProposals,
                     MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
                     MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
                 ], true)

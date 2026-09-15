@@ -175,7 +175,13 @@ const isSessionComplete = computed(() => turnStatus.value === 'session_complete'
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isDeparturePausePending = ref(false);
 const isGameplayPaused = computed(() => props.lobby.status === 'paused' || isDeparturePausePending.value);
-const hasDecisionTimer = computed(() => !isGameplayPaused.value && (isAwaitingArbiter.value || isAwaitingRouletteChoice.value));
+const hasDecisionTimer = computed(
+    () =>
+        !isGameplayPaused.value
+        && (isAwaitingArbiter.value
+            || isAwaitingRouletteChoice.value
+            || (props.lobby.mode === 'arbiter' && isCollectingProposals.value && props.arbiter.decision_deadline_at !== null)),
+);
 const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
@@ -245,6 +251,7 @@ const canSubmitProposal = computed(() => {
         && !isCurrentUserArbiter.value
         && !isGameplayPaused.value
         && isCollectingProposals.value
+        && (!hasDecisionTimer.value || decisionSecondsRemaining.value > 0)
         && !ownProposal.value
     );
 });

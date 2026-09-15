@@ -58,6 +58,11 @@ final class MultiplayerLobbyStateException extends RuntimeException
         return new self('You have already submitted a proposal for this turn.');
     }
 
+    public static function proposalWindowExpired(): self
+    {
+        return new self('Time is up. The submitted proposals are being resolved.');
+    }
+
     public static function onlyCurrentArbiterCanChoose(): self
     {
         return new self('Only the current Arbiter can choose the next action.');

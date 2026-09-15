@@ -69,6 +69,13 @@ final class SubmitMultiplayerLobbyProposalAction
                 throw MultiplayerLobbyStateException::isNotCollectingProposals();
             }
 
+            if (
+                $lockedLobby->decision_deadline_at !== null
+                && ! $lockedLobby->decision_deadline_at->isAfter(now())
+            ) {
+                throw MultiplayerLobbyStateException::proposalWindowExpired();
+            }
+
             $existingProposal = MultiplayerLobbyProposal::query()
                 ->where('source_prompt_id', $sourcePrompt->id)
                 ->where('member_id', $member->id)
@@ -85,6 +92,16 @@ final class SubmitMultiplayerLobbyProposalAction
                 'text' => $text,
             ]);
 
+            if ($lockedLobby->decision_deadline_at === null) {
+                $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
+                $decisionSourcePromptId = (string) $sourcePrompt->id;
+
+                $lockedLobby->update([
+                    'decision_deadline_at' => $decisionDeadlineAt,
+                    'decision_remaining_seconds' => null,
+                ]);
+            }
+
             $requiredMemberIds = $members
                 ->reject(static fn (MultiplayerLobbyMember $candidate): bool => $candidate->id === $lockedLobby->current_arbiter_member_id)
                 ->pluck('id')
@@ -97,13 +114,8 @@ final class SubmitMultiplayerLobbyProposalAction
                 ->all();
 
             if (array_diff($requiredMemberIds, $submittedMemberIds) === []) {
-                $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
-                $decisionSourcePromptId = (string) $sourcePrompt->id;
-
                 $lockedLobby->update([
                     'turn_status' => MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
-                    'decision_deadline_at' => $decisionDeadlineAt,
-                    'decision_remaining_seconds' => null,
                 ]);
             }
 

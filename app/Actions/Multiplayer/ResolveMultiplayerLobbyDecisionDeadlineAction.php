@@ -26,7 +26,10 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
                 ->find($lobbyId);
 
             $isArbiterDecision = $lockedLobby?->mode === MultiplayerLobbyModeEnum::Arbiter
-                && $lockedLobby->turn_status === MultiplayerArbiterTurnStatusEnum::AwaitingArbiter;
+                && in_array($lockedLobby->turn_status, [
+                    MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+                    MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
+                ], true);
             $isRouletteDecision = $lockedLobby?->mode === MultiplayerLobbyModeEnum::Roulette
                 && $lockedLobby->turn_status === MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice;
 
