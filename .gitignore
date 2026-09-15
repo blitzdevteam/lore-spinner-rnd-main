@@ -27,4 +27,50 @@ yarn-error.log
 /.vscode
 /.zed
 env.txt
+
+# macOS / Office temp files
 .DS_Store
+**/.DS_Store
+**/~$*
+
+# --- Local R&D workspace (use `git add -f <path>` to publish intentionally) ---
+
+# Boiler QA dumps, cloud exports, session artifacts
+/docs/Boiler/Debug/**/*.json
+/docs/Boiler/Debug/**/Thomas log/
+/docs/Boiler/Debug/**/Tiffnay Log/
+/docs/Boiler/Debug/**/*runtime-injected*.txt
+/docs/Boiler/Debug/**/*-evidence.json
+/docs/Boiler/Debug/**/*-diagnostic*.json
+/Adaptation layer/Boiler Adaptation/Boiled Speckeld band /
+/Adaptation layer/Boiler Adaptation/CLOUD-EXPORT*.md
+/Adaptation layer/Boiler Adaptation/ChatGPT Image*.png
+/Adaptation layer/Boiler Adaptation/*.pdf
+/Adaptation layer/Boiler Adaptation/session*-boiler*.json
+/Adaptation layer/Boiler Adaptation/full-boiler-output.json
+/patches/
+
+# Chaos adaptation exports (V2.3+); V2.2 paths remain tracked unless removed separately
+/Adaptation layer/Chaos adaptation/V2.3 - JUNE 18, 2026/Exported JSON/
+/Adaptation layer/Chaos adaptation/V2.3 - JUNE 18, 2026/V2.3.1/
+
+# RnD ideation sandbox (images, PDFs, notes)
+/RnD Ideas/
+
+# Story source dumps — canonical launch assets live under slug folders + manifest.php
+/database/stories/RnD/
+/database/stories/launch/Launch titles/
+/database/stories/launch/01-baker-street/
+/database/stories/launch/02-world-of-oz/
+/database/stories/launch/03-legends-of-mt-olympus/
+/database/stories/launch/05-jane-austen/
+/database/stories/launch/06-lorespinner-originals/
+
+# Ad-hoc architecture / audit exports (not product docs)
+/docs/IMPLEMENTATION_PRIORITY_MATRIX.html
+/docs/database-erd.html
+/docs/database-erd.md
+/docs/lorespinner_architecture_map.png
+/docs/lorespinner_clean_database_map_v2.png
+/docs/Most-FUN.md
+/docs/PRODUCTION_AUDIT_2026-07-04.md
