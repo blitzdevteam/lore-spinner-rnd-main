@@ -5,6 +5,7 @@ import GameCompletionCeremony from '@/components/GameCompletionCeremony.vue';
 import GameplayChatCard from '@/components/GameplayChatCard.vue';
 import GameplayOrnamentDivider from '@/components/GameplayOrnamentDivider.vue';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
+import { useOpeningMusic } from '@/composables/useOpeningMusic';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import GameplayLayout from '@/layouts/GameplayLayout.vue';
 import { GameInterface, GameplayUsageSummary, PromptChoice, PromptInterface, SubscriptionUsageSummary } from '@/types';
@@ -35,6 +36,12 @@ const props = defineProps<{
 
 const tts = useTextToSpeech();
 const { settings: gameplaySettings } = useGameplaySettings();
+
+// ── Opening sonic-ident ──
+// Plays the looping LoreSpinner ident through the cinematic opening and the
+// loading image, then fades to 0 over ~1.5s when the narration-ready signal
+// arrives. Skip affects the cinematic visual only — the music keeps playing.
+const openingMusic = useOpeningMusic();
 
 const handleBack = () => {
     tts.dismiss();
@@ -246,6 +253,30 @@ function handleNarrationFinished() {
 const showCinematic = ref(!hasPrompts.value && !showOutro.value);
 const cameFromCinematic = ref(!hasPrompts.value);
 const openingNarrationPlayed = ref(false);
+
+// Start the sonic-ident as soon as the cinematic mounts. Autoplay policy is
+// handled inside the composable (retries on the first user gesture, which the
+// cinematic already captures for narration audio priming).
+if (showCinematic.value) {
+    openingMusic.start();
+}
+
+// Narration-ready: the opening narration has landed and is about to display.
+// This is the actual readiness event — not a timer — so the fade tracks the
+// real narration start whether the cinematic completed normally or was skipped.
+watch(shouldAnimate, (ready) => {
+    if (ready && cameFromCinematic.value) {
+        openingMusic.fadeOut();
+    }
+});
+
+// If the cinematic is dismissed without narration (opening error / nav away),
+// stop the music cleanly instead of leaving a loop playing over the retry screen.
+watch(showCinematic, (visible) => {
+    if (!visible && !shouldAnimate.value) {
+        openingMusic.stop();
+    }
+});
 
 // Auto-play the first narration while the showcard is still visible (or when begin finishes).
 watch(
