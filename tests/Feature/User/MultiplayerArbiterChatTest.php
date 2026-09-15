@@ -57,8 +57,11 @@ it('places responsive narration controls in the arbiter proposal dock', function
     $styles = $template;
 
     expect($template)
-        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player"')
-        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player"');
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && !isMobile && !tts.mediaCollapsed.value"')
+        ->toContain('v-if="voiceOverEnabled && tts.isActive.value && isMobile && !tts.mediaCollapsed.value"')
+        ->toContain('label="Audio"')
+        ->toContain("'Show audio player' : 'Hide audio player'")
+        ->toContain('@click="toggleMedia"');
 
     expect($styles)
         ->toContain('gap: 0.75rem;')

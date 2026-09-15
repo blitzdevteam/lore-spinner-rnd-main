@@ -282,6 +282,11 @@ watch(choicesVisible, (visible, wasVisible) => {
             <span v-if="typewriter.isTyping.value && !props.isStreamingResponse" class="mt-1 inline-block h-5 w-0.5 animate-pulse bg-primary-400 align-middle" />
         </div>
 
+        <!-- ── Player's action echo ── -->
+        <div v-if="showPlayerAction" class="border-l-2 border-primary py-2 pl-4">
+            <p class="text-base text-primary italic">"{{ playerActionLabel }}"</p>
+        </div>
+
         <!-- ── Listen Again + Continue ── -->
         <div v-if="showResponseActions && (voiceOverEnabled || showContinueButton)" class="flex flex-row flex-wrap items-center gap-1.5">
             <button
@@ -323,11 +328,6 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <span class="text-xs font-light text-[#7e7e7e]">Let the story progress</span>
                 </span>
             </button>
-        </div>
-
-        <!-- ── Player's action echo ── -->
-        <div v-if="showPlayerAction" class="border-l-2 border-primary py-2 pl-4">
-            <p class="text-base text-primary italic">"{{ playerActionLabel }}"</p>
         </div>
 
         <!-- ── Choices ── -->

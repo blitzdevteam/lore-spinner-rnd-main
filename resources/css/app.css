@@ -207,12 +207,11 @@ body.wl-playground-open [data-feedback-btn] {
 
 .gameplay-header-glass--active {
     background:
-        linear-gradient(145deg, rgba(143, 203, 211, 0.24), rgba(255, 255, 255, 0.06) 45%, rgba(8, 18, 22, 0.28)),
-        rgba(16, 30, 34, 0.4);
-    border-color: rgba(143, 203, 211, 0.52);
+        linear-gradient(145deg, rgba(143, 203, 211, 0.3), rgba(84, 151, 161, 0.2) 45%, rgba(14, 31, 34, 0.34)),
+        rgba(16, 30, 34, 0.5);
+    border-color: rgba(143, 203, 211, 0.58);
     box-shadow:
         0 0 2px rgba(0, 0, 0, 0.1),
-        0 8px 30px rgba(84, 244, 218, 0.18),
         inset 2px 2px 0.5px -1px rgba(255, 255, 255, 0.58),
         inset -2px -2px 0.5px -1px rgba(0, 0, 0, 0.3),
         inset 0 0 22px rgba(143, 203, 211, 0.1);

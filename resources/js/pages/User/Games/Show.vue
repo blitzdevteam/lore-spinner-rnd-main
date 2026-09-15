@@ -464,6 +464,7 @@ const handleSubmit = (prompt: string) => {
     tts.primeAudio();
     const source = awaitingPrompt.value;
     if (!source) return;
+    pendingSelection.value[source.id] = prompt;
     submitPrompt(prompt, { promptId: source.id });
 };
 
@@ -476,9 +477,11 @@ const handleRetryTurn = () => {
 
     // The source card may have been reissued by a refresh since the failure.
     const source = awaitingPrompt.value;
+    const promptId = source ? source.id : attempt.options.promptId;
+    pendingSelection.value[promptId] = attempt.prompt;
     submitPrompt(attempt.prompt, {
         ...attempt.options,
-        promptId: source ? source.id : attempt.options.promptId,
+        promptId,
     });
 };
 

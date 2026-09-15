@@ -35,7 +35,7 @@ import { chooseRouletteChoice as storeRouletteChoice, show as showMultiplayerLob
 import { multiplayer as multiplayerStoryRoute } from '@/wayfinder/routes/stories';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { useConnectionStatus, useEchoPresence, usePresenceChannel } from '@laravel/echo-vue';
-import { LucideCrown, LucideStar, LucideUserRound } from 'lucide-vue-next';
+import { LucideAudioLines, LucideCrown, LucideStar, LucideUserRound } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 defineOptions({ layout: null });
@@ -1145,6 +1145,10 @@ function primeNarrationAudio(): void {
     }
 }
 
+function toggleMedia(): void {
+    tts.mediaCollapsed.value = !tts.mediaCollapsed.value;
+}
+
 function submitProposal(proposal: string): void {
     if (!canSubmitProposal.value || isSubmittingProposal.value) {
         return;
@@ -1590,9 +1594,27 @@ onUnmounted(() => {
 
         <div class="arbiter-shell">
             <header class="arbiter-topbar">
-                <div v-if="voiceOverEnabled && tts.isActive.value && !isMobile" class="arbiter-media-player" aria-label="Narration controls">
-                    <GameplayMediaPlayer />
+                <div
+                    v-if="voiceOverEnabled && tts.isActive.value && !isMobile && !tts.mediaCollapsed.value"
+                    class="arbiter-media-player"
+                    aria-label="Narration controls"
+                >
+                    <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" />
                 </div>
+                <GameplayCapsuleButton
+                    v-if="voiceOverEnabled && !isMobile"
+                    label="Audio"
+                    label-tone="secondary"
+                    class="arbiter-audio-toggle"
+                    :active="tts.isActive.value && !tts.mediaCollapsed.value"
+                    :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
+                    @click="toggleMedia"
+                >
+                    <LucideAudioLines
+                        class="size-5"
+                        :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-secondary-300' : 'text-gray-300'"
+                    />
+                </GameplayCapsuleButton>
 
                 <div class="arbiter-mobile-header-actions" role="group" aria-label="Gameplay actions">
                     <button
@@ -1677,6 +1699,20 @@ onUnmounted(() => {
                             <img :src="headerJournalIcon" alt="" class="size-[18px]" aria-hidden="true" />
                         </GameplayCapsuleButton>
                     </div>
+                    <GameplayCapsuleButton
+                        v-if="voiceOverEnabled"
+                        label="Audio"
+                        label-tone="secondary"
+                        class="arbiter-mobile-header-action"
+                        :active="tts.isActive.value && !tts.mediaCollapsed.value"
+                        :title="tts.mediaCollapsed.value ? 'Show audio player' : 'Hide audio player'"
+                        @click="toggleMedia"
+                    >
+                        <LucideAudioLines
+                            class="size-5"
+                            :class="tts.isActive.value && !tts.mediaCollapsed.value ? 'text-secondary-300' : 'text-gray-300'"
+                        />
+                    </GameplayCapsuleButton>
                 </div>
             </header>
 
@@ -2175,8 +2211,12 @@ onUnmounted(() => {
                 <span class="gameplay-paused-eyebrow">Paused</span>
                 <p class="flex-1">Waiting for {{ pausedMemberLabel }} to rejoin. You can still use the room controls or leave.</p>
             </section>
-            <div v-if="voiceOverEnabled && tts.isActive.value && isMobile" class="arbiter-proposal-media-player" aria-label="Narration controls">
-                <GameplayMediaPlayer />
+            <div
+                v-if="voiceOverEnabled && tts.isActive.value && isMobile && !tts.mediaCollapsed.value"
+                class="arbiter-proposal-media-player"
+                aria-label="Narration controls"
+            >
+                <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" />
             </div>
             <GameplayInput
                 v-if="shouldShowCustomInput"
