@@ -7,8 +7,11 @@ namespace App\Ai\Adaptation;
 /**
  * Deterministic Draft repairs before validation.
  *
- * `boiler_version` is stamped rather than trusted: it is a fixed contract value,
- * so a model that returns "1" or omits it must not cost a full regeneration.
+ * `boiler_version` and `session_number` are stamped rather than trusted. Both are
+ * values the caller already knows, so a model that echoes them loosely must not cost
+ * a full regeneration. Drafting the wrong session is still caught: every moment_key
+ * must match S{session_number}_M{nn} and every source event must belong to the
+ * session's own event set.
  *
  * When a moment is missing source_event_ids but event_role_map rows bind
  * events to that moment_key, fill the IDs from the role map. When moments
@@ -22,9 +25,10 @@ final class BoilerDraftCanonicalizer
      * @param  array<string, mixed>  $draft
      * @return array<string, mixed>
      */
-    public function canonicalize(array $draft): array
+    public function canonicalize(array $draft, int $sessionNumber): array
     {
         $draft['boiler_version'] = '1.0';
+        $draft['session_number'] = $sessionNumber;
 
         $roles = (array) ($draft['event_role_map'] ?? []);
         $moments = (array) ($draft['moment_drafts'] ?? []);

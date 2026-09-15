@@ -162,7 +162,8 @@ final class BoilerDraftJob implements ShouldQueue
             artifact: 'draft',
             originalPrompt: $originalPrompt,
             generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new BoilerDraftAgent)->prompt($prompt)->toArray()
+                (new BoilerDraftAgent)->prompt($prompt)->toArray(),
+                $session->session_number,
             ),
             validate: fn (array $result) => $validator->validate($result, $session, $storyMap, $events),
             repairPrompt: fn (string $error, array $previousDraft): string => view(

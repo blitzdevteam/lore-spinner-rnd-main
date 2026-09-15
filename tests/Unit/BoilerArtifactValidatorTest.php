@@ -154,7 +154,7 @@ it('fills empty moment source_event_ids from event_role_map bindings', function 
     $draft = boilerTestDraft();
     $draft['moment_drafts'][0]['source_event_ids'] = [];
 
-    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
 
     expect($canonicalized['moment_drafts'][0]['source_event_ids'])->toBe([101]);
 
@@ -166,13 +166,15 @@ it('fills empty moment source_event_ids from event_role_map bindings', function 
     );
 });
 
-it('stamps the contract boiler_version instead of regenerating the draft', function () {
+it('stamps the caller-known draft identity instead of regenerating', function () {
     $draft = boilerTestDraft();
     $draft['boiler_version'] = '1';
+    $draft['session_number'] = '1';
 
-    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
 
-    expect($canonicalized['boiler_version'])->toBe('1.0');
+    expect($canonicalized['boiler_version'])->toBe('1.0')
+        ->and($canonicalized['session_number'])->toBe(1);
 
     (new BoilerDraftValidator())->validate(
         $canonicalized,
@@ -182,6 +184,21 @@ it('stamps the contract boiler_version instead of regenerating the draft', funct
     );
 });
 
+it('still rejects a draft written for another session after identity stamping', function () {
+    $draft = boilerTestDraft();
+    $draft['moment_drafts'][0]['moment_key'] = 'S2_M01';
+    $draft['event_role_map'][0]['included_moment_key'] = 'S2_M01';
+
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
+
+    (new BoilerDraftValidator())->validate(
+        $canonicalized,
+        boilerTestSession(),
+        boilerTestStoryMap(),
+        boilerTestEvents(),
+    );
+})->throws(RuntimeException::class);
+
 it('rejects empty source_event_ids when role map cannot recover them', function () {
     $draft = boilerTestDraft();
     $draft['moment_drafts'][0]['source_event_ids'] = [];
@@ -190,7 +207,7 @@ it('rejects empty source_event_ids when role map cannot recover them', function 
     $draft['event_role_map'][0]['included_moment_key'] = '';
     $draft['event_role_map'][0]['reintroduction_note'] = 'The shard returns through dialogue later.';
 
-    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
 
     expect($canonicalized['moment_drafts'][0]['source_event_ids'] ?? [])->toBe([]);
 
@@ -210,7 +227,7 @@ it('neutralizes banned punctuation in draft prose fields before validation', fun
     ];
     $draft['event_role_map'][0]['why'] = 'It lands late; the reader feels it.';
 
-    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
 
     expect($canonicalized['playable_promise'])->not->toContain(';')
         ->and($canonicalized['moment_drafts'][0]['source_extracts'][0])->not->toContain(';')
@@ -232,7 +249,7 @@ it('fills empty source_event_ids from the moment anchor when roles do not bind',
     $draft['event_role_map'][0]['reintroduction_note'] = 'Returns later.';
 
     // Anchor alone recovers the ID; role map deliberately unbound.
-    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft);
+    $canonicalized = (new BoilerDraftCanonicalizer())->canonicalize($draft, 1);
 
     expect($canonicalized['moment_drafts'][0]['source_event_ids'])->toBe([101]);
 });
