@@ -6,6 +6,7 @@ namespace App\Http\Middleware\Guard;
 
 use App\Models\User;
 use App\Services\SubscriptionEntitlementService;
+use App\Support\ReturnToUrl;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -48,6 +49,10 @@ final class EnsureActiveSubscription
             ], 403);
         }
 
-        return to_route('pricing')->with('warning', $message);
+        $returnTo = ReturnToUrl::fromRequest($request);
+
+        return to_route('pricing', array_filter([
+            'return_to' => $returnTo,
+        ], static fn (?string $value): bool => $value !== null))->with('warning', $message);
     }
 }

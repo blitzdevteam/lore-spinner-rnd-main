@@ -26,6 +26,7 @@ final class StoreGameRequest extends FormRequest
     {
         return [
             'story_id' => ['required', 'exists:stories,id'],
+            'return_to' => ['nullable', 'string', 'max:2048'],
         ];
     }
 }

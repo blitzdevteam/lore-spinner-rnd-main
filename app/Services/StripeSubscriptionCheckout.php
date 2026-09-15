@@ -11,12 +11,12 @@ use Laravel\Cashier\Checkout;
 
 final class StripeSubscriptionCheckout
 {
-    public function redirect(User $user, SubscriptionPlan $plan): RedirectResponse
+    public function redirect(User $user, SubscriptionPlan $plan, ?string $returnTo = null): RedirectResponse
     {
-        return $this->session($user, $plan)->redirect();
+        return $this->session($user, $plan, $returnTo)->redirect();
     }
 
-    public function session(User $user, SubscriptionPlan $plan): Checkout
+    public function session(User $user, SubscriptionPlan $plan, ?string $returnTo = null): Checkout
     {
         $priceId = $plan->stripe_price_id;
 
@@ -24,9 +24,11 @@ final class StripeSubscriptionCheckout
             abort(503, 'This plan is not available for checkout yet.');
         }
 
+        $returnQuery = $returnTo === null ? [] : ['return_to' => $returnTo];
+
         return $user->newSubscription('default', $priceId)->checkout([
-            'success_url' => route('pricing', ['checkout' => 'success']).'&session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url' => route('pricing', ['checkout' => 'cancel']),
+            'success_url' => route('pricing', ['checkout' => 'success', ...$returnQuery]).'&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => route('pricing', ['checkout' => 'cancel', ...$returnQuery]),
         ]);
     }
 }

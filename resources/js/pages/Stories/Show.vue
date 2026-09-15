@@ -88,6 +88,7 @@ const startStory = (): void => {
         store(),
         {
             story_id: props.story.id,
+            return_to: storyShowRoute.url(props.story.slug),
         },
         {
             onFinish: () => {

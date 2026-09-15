@@ -8,8 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\StripeSubscriptionCheckout;
+use App\Support\ReturnToUrl;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 final class CheckoutController extends Controller
 {
@@ -17,7 +19,8 @@ final class CheckoutController extends Controller
         #[CurrentUser] User $user,
         SubscriptionPlan $plan,
         StripeSubscriptionCheckout $checkout,
+        Request $request,
     ): RedirectResponse {
-        return $checkout->redirect($user, $plan);
+        return $checkout->redirect($user, $plan, ReturnToUrl::fromRequest($request));
     }
 }
