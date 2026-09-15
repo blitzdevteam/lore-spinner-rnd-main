@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-it('filters the library grid by all, single player, and multiplayer tabs', function (): void {
+it('renders the library as a single story grid without multiplayer tabs or rooms', function (): void {
     $library = file_get_contents(resource_path('js/pages/Stories/Index.vue'));
+    $storyController = file_get_contents(app_path('Http/Controllers/StoryController.php'));
 
     expect($library)
-        ->toContain("type LibraryTab = 'all' | 'single' | 'multiplayer'")
-        ->toContain("activeLibraryTab.value !== 'multiplayer'")
-        ->toContain('const filteredRooms = computed')
-        ->toContain('filteredStories.value.length + filteredRooms.value.length')
-        ->toContain('LibraryMultiplayerCard')
-        ->toContain('mood: activeMood.value || null')
+        ->toContain('HomePortraitStoryCard')
         ->toContain('v-if="showMoodTopPicks"')
-        ->toContain('px-5 pt-6 pb-10 sm:px-8 lg:px-16')
-        ->toContain("activeLibraryTab.value === 'all'")
-        ->not->toContain('MultiplayerRoomSection');
+        ->not->toContain('LibraryMultiplayerCard')
+        ->not->toContain('Single Player')
+        ->not->toContain('Join Room')
+        ->not->toContain('multiplayerRooms');
+
+    expect($storyController)
+        ->not->toContain('multiplayerRooms');
 });
 
 it('uses a shared 22px font for all homepage section titles', function (): void {
@@ -109,11 +109,11 @@ it('shows the fixed episode duration and data-driven episode completion', functi
         ->toContain('Events completed');
 
     expect($storyController)
-        ->toContain("'completedEpisodeNumbers' => $completedEpisodeNumbers")
+        ->toContain("'completedEpisodeNumbers'")
         ->toContain('$existingGame->current_session_complete');
 });
 
-it('adds pricing to the home navigation without profile usage details', function (): void {
+it('adds pricing to the home navigation and keeps subscription usage in the profile menu only', function (): void {
     $headerMenu = file_get_contents(resource_path('js/components/HomeHeaderMenu.vue'));
     $mobileMenu = file_get_contents(resource_path('js/components/HomeHeaderMobileMenu.vue'));
     $profile = file_get_contents(resource_path('js/components/HomeHeaderProfile.vue'));
@@ -126,8 +126,8 @@ it('adds pricing to the home navigation without profile usage details', function
         ->toContain('Pricing');
 
     expect($profile)
-        ->not->toContain('subscription_usage')
-        ->not->toContain('Actions')
-        ->not->toContain('Voice')
-        ->not->toContain('Remaining subscription allowances');
+        ->toContain('subscription_usage')
+        ->toContain('subscription-summary')
+        ->not->toContain('Remaining subscription allowances')
+        ->not->toContain('w-[9.5rem]');
 });

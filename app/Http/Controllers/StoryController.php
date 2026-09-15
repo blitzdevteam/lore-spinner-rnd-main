@@ -5,14 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\Comment\CommentStatusEnum;
-use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
-use App\Http\Resources\MultiplayerLobbyCardResource;
 use App\Models\Chapter;
-use App\Models\MultiplayerLobby;
 use App\Models\Story;
 use App\Support\StoryLibraryVisibility;
 use App\Support\StoryPlayability;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Http\Request;
@@ -23,19 +19,6 @@ final class StoryController extends Controller
 {
     public function index(): Response
     {
-        $multiplayerRooms = MultiplayerLobby::query()
-            ->where('status', MultiplayerLobbyStatusEnum::Waiting)
-            ->with([
-                'story' => function (BelongsTo $query): void {
-                    $query->with('media');
-                },
-            ])
-            ->withCount('members')
-            ->latest()
-            ->get()
-            ->filter(static fn (MultiplayerLobby $lobby): bool => (int) $lobby->members_count < $lobby->max_players)
-            ->values();
-
         return inertia('Stories/Index', [
             'stories' => Story::query()
                 ->with([
@@ -57,8 +40,6 @@ final class StoryController extends Controller
                 ->filter(static fn (Story $story): bool => ! StoryLibraryVisibility::isHidden($story->slug))
                 ->values()
                 ->toResourceCollection(),
-
-            'multiplayerRooms' => MultiplayerLobbyCardResource::collection($multiplayerRooms),
         ]);
     }
 

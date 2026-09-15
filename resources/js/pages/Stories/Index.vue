@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
-import LibraryMultiplayerCard from '@/components/LibraryMultiplayerCard.vue';
 import LibrarySortMenu, { type LibrarySortMode } from '@/components/LibrarySortMenu.vue';
 import MoodHeroBanner from '@/components/MoodHeroBanner.vue';
 import MoodSelector from '@/components/MoodSelector.vue';
@@ -17,10 +16,9 @@ import { compareStoriesByPlayableOrder, isStoryPlayable } from '@/data/playableS
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { mergeLibraryStoriesWithMocks } from '@/utils/mergeLibraryStories';
 import HomeLayout from '@/layouts/HomeLayout.vue';
-import type { MultiplayerLobbyCardInterface, StoryInterface } from '@/types';
+import type { StoryInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
-import { index as storiesIndex } from '@/wayfinder/routes/stories';
-import { Head, router } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 interface StoryGridGame {
@@ -35,56 +33,16 @@ interface StoryGridGame {
     rating?: string;
 }
 
-type LibraryTab = 'all' | 'single' | 'multiplayer';
-
 const props = withDefaults(
     defineProps<{
         stories?: StoryInterface[];
-        multiplayerRooms?: MultiplayerLobbyCardInterface[];
     }>(),
     {
         stories: () => [],
-        multiplayerRooms: () => [],
     },
 );
 
 const { activeMood } = useHomeHeaderNav();
-
-function tabFromUrl(): LibraryTab {
-    if (typeof window === 'undefined') {
-        return 'all';
-    }
-
-    const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'single' || tab === 'multiplayer') {
-        return tab;
-    }
-
-    return 'all';
-}
-
-const activeLibraryTab = ref<LibraryTab>(tabFromUrl());
-
-function switchLibraryTab(tab: LibraryTab): void {
-    activeLibraryTab.value = tab;
-
-    router.get(
-        storiesIndex.url({
-            query: {
-                mood: activeMood.value || null,
-                tab: tab === 'all' ? null : tab,
-            },
-        }),
-        {},
-        {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        },
-    );
-}
-
-const showSinglePlayer = computed(() => activeLibraryTab.value !== 'multiplayer');
 
 const normalizedMood = computed(() => normalizeMood(activeMood.value));
 
@@ -119,31 +77,9 @@ const libraryStories = computed((): StoryInterface[] => {
 });
 
 const isMoodPage = computed(() => normalizedMood.value !== null);
-const showMoodTopPicks = computed(() => isMoodPage.value && activeLibraryTab.value === 'all');
+const showMoodTopPicks = computed(() => isMoodPage.value);
 
-const filteredStories = computed((): StoryInterface[] => {
-    if (!showSinglePlayer.value) {
-        return [];
-    }
-
-    return sortedStories.value;
-});
-
-const filteredRooms = computed((): MultiplayerLobbyCardInterface[] => {
-    if (activeLibraryTab.value !== 'multiplayer') {
-        return [];
-    }
-
-    const rooms = props.multiplayerRooms ?? [];
-    const mood = normalizedMood.value;
-    if (!mood) {
-        return rooms;
-    }
-
-    return rooms.filter((room) => storyMatchesMood(room.story.slug, mood));
-});
-
-const visibleCount = computed(() => filteredStories.value.length + filteredRooms.value.length);
+const visibleCount = computed(() => sortedStories.value.length);
 
 const headerTitle = computed(() => {
     if (normalizedMood.value) {
@@ -181,7 +117,7 @@ const sortedStories = computed(() => {
 });
 
 const games = computed<StoryGridGame[]>(() =>
-    filteredStories.value.map((story) => ({
+    sortedStories.value.map((story) => ({
         id: String(story.id),
         storyId: story.id,
         title: story.title,
@@ -225,25 +161,6 @@ function openSheet(game: StoryGridGame): void {
 
     <HomeLayout>
         <MoodHeroBanner :mood="activeMood" />
-
-        <div class="mx-auto flex w-full justify-center px-5 pt-6 pb-10 sm:px-8 lg:px-16">
-            <div class="flex items-center gap-2.5 rounded-[150px] bg-[#0f0f0f] p-[5px]">
-                <button
-                    v-for="tab in [
-                        { key: 'all', label: 'All Stories' },
-                        { key: 'single', label: 'Single Player' },
-                        { key: 'multiplayer', label: 'Multiplayer' },
-                    ]"
-                    :key="tab.key"
-                    type="button"
-                    class="flex h-[35px] w-[122px] items-center justify-center rounded-[150px] px-2.5 py-2 text-[13px] transition-colors"
-                    :class="activeLibraryTab === tab.key ? 'bg-[#232323] text-[#59c1ca]' : 'text-[#7e7e7e] hover:text-white'"
-                    @click="switchLibraryTab(tab.key as LibraryTab)"
-                >
-                    {{ tab.label }}
-                </button>
-            </div>
-        </div>
 
         <div :class="isMoodPage ? 'mood-page-flow' : ''">
             <template v-if="isMoodPage && normalizedMood">
@@ -293,18 +210,13 @@ function openSheet(game: StoryGridGame): void {
                                 />
                             </StoryExpandableCard>
                         </div>
-                        <LibraryMultiplayerCard v-for="room in filteredRooms" :key="`room-${room.id}`" :room="room" />
                     </div>
 
                     <div
                         v-else
                         class="rounded-lg border border-dashed border-[#373737] bg-[#0f0f0f] px-6 py-10 text-center text-sm text-[#7e7e7e]"
                     >
-                        {{
-                            activeLibraryTab === 'multiplayer'
-                                ? 'No multiplayer rooms are waiting for players right now.'
-                                : 'No stories to show.'
-                        }}
+                        No stories to show.
                     </div>
                 </div>
             </div>
