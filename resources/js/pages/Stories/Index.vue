@@ -85,7 +85,6 @@ function switchLibraryTab(tab: LibraryTab): void {
 }
 
 const showSinglePlayer = computed(() => activeLibraryTab.value !== 'multiplayer');
-const showMultiplayer = computed(() => activeLibraryTab.value !== 'single');
 
 const normalizedMood = computed(() => normalizeMood(activeMood.value));
 
@@ -131,7 +130,7 @@ const filteredStories = computed((): StoryInterface[] => {
 });
 
 const filteredRooms = computed((): MultiplayerLobbyCardInterface[] => {
-    if (!showMultiplayer.value) {
+    if (activeLibraryTab.value !== 'multiplayer') {
         return [];
     }
 

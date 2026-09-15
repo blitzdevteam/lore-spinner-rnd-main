@@ -10,6 +10,7 @@ use App\Http\Resources\MultiplayerLobbyCardResource;
 use App\Models\Chapter;
 use App\Models\MultiplayerLobby;
 use App\Models\Story;
+use App\Support\StoryLibraryVisibility;
 use App\Support\StoryPlayability;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -53,6 +54,8 @@ final class StoryController extends Controller
                 ->published()
                 ->latest()
                 ->get()
+                ->filter(static fn (Story $story): bool => ! StoryLibraryVisibility::isHidden($story->slug))
+                ->values()
                 ->toResourceCollection(),
 
             'multiplayerRooms' => MultiplayerLobbyCardResource::collection($multiplayerRooms),
@@ -115,10 +118,10 @@ final class StoryController extends Controller
         $isPlayable = StoryPlayability::isPlayable($story);
 
         return inertia('Stories/Show', [
-            'story'          => $story->toResource(),
+            'story' => $story->toResource(),
             'existingGameId' => $existingGameId,
             'completedEpisodeNumbers' => $completedEpisodeNumbers,
-            'isPlayable'     => $isPlayable,
+            'isPlayable' => $isPlayable,
             'showFirstStoryTutorial' => $showFirstStoryTutorial,
         ]);
     }
@@ -138,7 +141,7 @@ final class StoryController extends Controller
         return inertia('Multiplayer/Multiplayer', [
             'story' => $story->toResource(),
             'inviteRoomCode' => is_string($inviteRoomCode)
-                ? mb_strtoupper(trim($inviteRoomCode))
+                ? mb_strtoupper(mb_trim($inviteRoomCode))
                 : null,
         ]);
     }

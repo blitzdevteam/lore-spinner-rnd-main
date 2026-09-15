@@ -29,8 +29,8 @@ it('lists every launch playable slug in the catalog', function (): void {
 });
 
 it('keeps already-boiled rnd titles playable', function (): void {
-    expect(StoryPlayability::isLaunchSlug('momotaro-the-peach-boy'))->toBeTrue()
-        ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeTrue()
+    expect(StoryPlayability::isLaunchSlug('momotaro-the-peach-boy'))->toBeFalse()
+        ->and(StoryPlayability::isLaunchSlug('the-unwritten-ones'))->toBeFalse()
         ->and(StoryPlayability::isLaunchSlug('dr-jekyll-and-mr-hyde'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('the-strange-case-of-dr-jekyll-and-mr-hyde'))->toBeTrue()
         ->and(StoryPlayability::isLaunchSlug('treasure-island'))->toBeTrue()

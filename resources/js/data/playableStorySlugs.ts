@@ -29,8 +29,6 @@ export const LAUNCH_PLAYABLE_SLUGS = [
 export const BOILED_PLAYABLE_SLUGS = [
     'dr-jekyll-and-mr-hyde',
     'the-strange-case-of-dr-jekyll-and-mr-hyde',
-    'momotaro-the-peach-boy',
-    'the-unwritten-ones',
 ] as const;
 
 export const PLAYABLE_ALLOWLIST_SLUGS = [

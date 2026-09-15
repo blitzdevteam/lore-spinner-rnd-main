@@ -13,8 +13,7 @@ it('orders launch slugs ahead of boiled extras and unknown titles', function () 
         ->and(StoryPlayability::orderIndex('peter-pan'))->toBe(1)
         ->and(StoryPlayability::orderIndex('the-strange-case-of-dr-jekyll-and-mr-hyde'))
         ->toBe(StoryPlayability::orderIndex('dr-jekyll-and-mr-hyde'))
-        ->and(StoryPlayability::orderIndex('momotaro-the-peach-boy'))
-        ->toBeGreaterThan(StoryPlayability::orderIndex('sir-gawain-and-the-green-knight'))
+        ->and(StoryPlayability::orderIndex('momotaro-the-peach-boy'))->toBe(PHP_INT_MAX)
         ->and(StoryPlayability::orderIndex('wasteland'))->toBe(PHP_INT_MAX);
 });
 
@@ -60,7 +59,7 @@ it('blocks play for launch-list slugs still boiling', function () {
     expect(StoryPlayability::isPlayable($story))->toBeFalse();
 });
 
-it('allows play for boiled extras with completed adaptation', function () {
+it('blocks play for former boiled extras removed from the allowlist', function () {
     $story = Story::factory()->create([
         'slug' => 'the-unwritten-ones',
         'status' => StoryStatusEnum::PUBLISHED,
@@ -74,7 +73,7 @@ it('allows play for boiled extras with completed adaptation', function () {
 
     $story->load('adaptation');
 
-    expect(StoryPlayability::isPlayable($story))->toBeTrue();
+    expect(StoryPlayability::isPlayable($story))->toBeFalse();
 });
 
 it('allows play for legacy jekyll slug with completed adaptation', function () {

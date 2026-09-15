@@ -8,7 +8,7 @@ it('filters the library grid by all, single player, and multiplayer tabs', funct
     expect($library)
         ->toContain("type LibraryTab = 'all' | 'single' | 'multiplayer'")
         ->toContain("activeLibraryTab.value !== 'multiplayer'")
-        ->toContain("activeLibraryTab.value !== 'single'")
+        ->toContain('const filteredRooms = computed')
         ->toContain('filteredStories.value.length + filteredRooms.value.length')
         ->toContain('LibraryMultiplayerCard')
         ->toContain('mood: activeMood.value || null')

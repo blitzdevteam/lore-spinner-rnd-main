@@ -35,7 +35,16 @@ return [
     'boiled_playable_slugs' => [
         'dr-jekyll-and-mr-hyde',
         'the-strange-case-of-dr-jekyll-and-mr-hyde',
+    ],
+
+    /** Published stories omitted from library index and homepage story grids (mirrors TS hidden list). */
+    'library_hidden_slugs' => [
+        'driftheart',
+        'the-snow-queen',
         'momotaro-the-peach-boy',
+        'the-matrix',
+        'i-love-lucy-job-switching',
+        'dream-police',
         'the-unwritten-ones',
     ],
 
