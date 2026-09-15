@@ -7,7 +7,7 @@ defineProps<{
 </script>
 
 <template>
-    <div class="flex min-h-48 flex-col justify-center gap-5 py-5">
+    <div class="flex flex-col justify-center gap-5 py-1">
         <div v-if="loading" class="flex flex-col gap-3" aria-live="polite">
             <div class="h-4 w-11/12 animate-pulse rounded bg-white/10" />
             <div class="h-4 w-full animate-pulse rounded bg-white/10" />
@@ -17,7 +17,7 @@ defineProps<{
         <p v-else-if="error" class="text-center text-sm text-red-300/90" role="alert">
             {{ error }}
         </p>
-        <p v-else-if="text" class="text-base leading-8 text-gray-100" aria-live="polite">
+        <p v-else-if="text" class="text-base leading-7 text-gray-100" aria-live="polite">
             {{ text }}
         </p>
         <p v-else class="text-center text-sm leading-7 text-gray-400">

@@ -120,9 +120,18 @@ type Panel = 'journal' | 'settings' | 'audio' | null;
 const activePanel = ref<Panel>(null);
 const recapView = ref<'closed' | 'actions' | 'recap'>('closed');
 const recapDrawerEl = ref<HTMLElement | null>(null);
+const recapDockEl = ref<HTMLElement | null>(null);
 const recapDragOffset = ref(0);
 const recapDragging = ref(false);
 let recapDragStartY = 0;
+let recapDragStartTime = 0;
+
+/** Drag distance (px) past which releasing dismisses the drawer. */
+const RECAP_DISMISS_DISTANCE = 96;
+/** Downward fling speed (px/ms) that dismisses regardless of distance. */
+const RECAP_DISMISS_VELOCITY = 0.55;
+
+const recapOpen = computed(() => recapView.value === 'recap');
 const journalTab = ref<'journals' | 'characters'>('journals');
 const journalSheetTab = ref<'timeline' | 'characters'>('timeline');
 const isMobile = ref(false);
@@ -144,10 +153,14 @@ onMounted(() => {
     syncMobile();
     window.matchMedia(MOBILE_MQ).addEventListener('change', syncMobile);
     isIos.value = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    window.addEventListener('keydown', onRecapKeydown);
+    document.addEventListener('pointerdown', onRecapPointerDownOutside);
 });
 
 onUnmounted(() => {
     window.matchMedia(MOBILE_MQ).removeEventListener('change', syncMobile);
+    window.removeEventListener('keydown', onRecapKeydown);
+    document.removeEventListener('pointerdown', onRecapPointerDownOutside);
 });
 
 watch(isMobile, (mobile) => {
@@ -183,24 +196,51 @@ const closeRecap = () => {
     recapView.value = 'actions';
 };
 
+function onRecapKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || recapView.value === 'closed') return;
+
+    if (recapOpen.value) {
+        closeRecap();
+    } else {
+        recapView.value = 'closed';
+    }
+}
+
+function onRecapPointerDownOutside(event: PointerEvent): void {
+    if (!recapOpen.value) return;
+    if (recapDockEl.value?.contains(event.target as Node)) return;
+
+    closeRecap();
+}
+
 function startRecapDrag(event: PointerEvent): void {
     recapDragStartY = event.clientY;
+    recapDragStartTime = event.timeStamp;
     recapDragging.value = true;
-    recapDrawerEl.value?.setPointerCapture(event.pointerId);
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
 
 function moveRecapDrag(event: PointerEvent): void {
     if (!recapDragging.value) return;
-    recapDragOffset.value = Math.max(0, event.clientY - recapDragStartY);
+
+    const delta = event.clientY - recapDragStartY;
+
+    recapDragOffset.value = delta >= 0 ? delta : delta / 5;
 }
 
-function endRecapDrag(): void {
+function endRecapDrag(event: PointerEvent): void {
     if (!recapDragging.value) return;
+
+    const travelled = recapDragOffset.value;
+    const elapsed = Math.max(1, event.timeStamp - recapDragStartTime);
+    const velocity = travelled / elapsed;
+
     recapDragging.value = false;
-    if (recapDragOffset.value > 72) {
+    recapDragOffset.value = 0;
+
+    if (velocity > RECAP_DISMISS_VELOCITY || travelled > RECAP_DISMISS_DISTANCE) {
         closeRecap();
     }
-    recapDragOffset.value = 0;
 }
 
 const refreshUsage = () => {
@@ -411,100 +451,109 @@ const handleInputSubmit = (prompt: string) => {
                         class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
-                        <div class="relative flex flex-col items-center gap-0 px-0">
-                            <!-- ── Recap drawer (behind chat bar, slides up) ── -->
+                        <div ref="recapDockEl" class="flex flex-col items-center px-0">
+                            <!-- ── Recap drawer (in flow above the bar, so it never covers narration) ── -->
                             <Transition name="recap-drawer">
-                                <div
-                                    v-if="recapView === 'recap'"
-                                    ref="recapDrawerEl"
-                                    class="absolute right-0 bottom-[4.5rem] left-0 z-0 mx-auto w-full max-w-3xl overflow-hidden rounded-t-2xl border border-primary/20 bg-gray-950/97 px-5 pt-2 pb-5 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl md:bottom-[5.5rem] md:px-6"
-                                    :class="{ 'recap-drawer--dragging': recapDragging }"
-                                    :style="{ transform: `translateY(${recapDragOffset}px)` }"
-                                    @pointermove="moveRecapDrag"
-                                    @pointerup="endRecapDrag"
-                                    @pointercancel="endRecapDrag"
-                                >
-                                    <button
-                                        type="button"
-                                        class="mx-auto flex h-7 w-full cursor-grab touch-none items-start justify-center pt-1 active:cursor-grabbing"
-                                        aria-label="Drag down to close recap"
-                                        @pointerdown="startRecapDrag"
-                                    >
-                                        <span class="h-1 w-12 rounded-full bg-white/35 transition-colors hover:bg-white/60" />
-                                    </button>
-                                    <div class="mb-2 flex items-center justify-between">
-                                        <span class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-300">Recap</span>
-                                        <button
-                                            type="button"
-                                            class="text-xs text-gray-500 transition hover:text-gray-200"
-                                            aria-label="Close recap"
-                                            @click="closeRecap"
+                                <div v-if="recapOpen" class="recap-drawer w-full max-w-3xl">
+                                    <div class="min-h-0 overflow-hidden pb-2">
+                                        <div
+                                            ref="recapDrawerEl"
+                                            class="flex max-h-[42vh] flex-col overflow-hidden rounded-2xl border border-primary/20 bg-gray-950/95 shadow-[0_-12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                                            :class="recapDragging ? 'transition-none' : 'transition-transform duration-200 ease-out'"
+                                            :style="{ transform: `translateY(${recapDragOffset}px)` }"
+                                            role="dialog"
+                                            aria-label="Story recap"
                                         >
-                                            Close
-                                        </button>
+                                            <button
+                                                type="button"
+                                                class="group flex h-8 w-full shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+                                                aria-label="Drag down to close recap"
+                                                @pointerdown="startRecapDrag"
+                                                @pointermove="moveRecapDrag"
+                                                @pointerup="endRecapDrag"
+                                                @pointercancel="endRecapDrag"
+                                            >
+                                                <span class="h-1 w-10 rounded-full bg-white/30 transition-colors group-hover:bg-white/60" />
+                                            </button>
+                                            <div class="flex shrink-0 items-center justify-between px-5 pb-2 md:px-6">
+                                                <span class="text-xs font-semibold tracking-[0.18em] text-primary-300 uppercase">Recap</span>
+                                                <button
+                                                    type="button"
+                                                    class="text-xs text-gray-500 transition hover:text-gray-200"
+                                                    aria-label="Close recap"
+                                                    @click="closeRecap"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 md:px-6">
+                                                <GameplayRecapPanel
+                                                    :text="props.recapText"
+                                                    :loading="props.recapLoading"
+                                                    :error="props.recapError"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <GameplayRecapPanel
-                                        :text="props.recapText"
-                                        :loading="props.recapLoading"
-                                        :error="props.recapError"
-                                    />
                                 </div>
                             </Transition>
 
-                            <!-- ── Chat bar shell (always in front) ── -->
-                            <div class="relative z-10 flex w-full max-w-3xl flex-col items-center gap-2">
-                                <!-- Subtle toggle handle (hidden by default, expands action strip) -->
+                            <!-- ── Toggle nub: only shown while the drawer is closed ── -->
+                            <Transition name="recap-nub">
                                 <button
+                                    v-if="!recapOpen"
                                     type="button"
-                                    class="group flex h-6 w-full max-w-3xl items-center justify-center"
+                                    class="group flex h-6 shrink-0 items-center justify-center"
                                     :title="recapView === 'closed' ? 'Show recap' : 'Hide'"
                                     :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    :aria-expanded="recapView !== 'closed'"
                                     @click="toggleRecapPanel"
                                 >
-                                    <span class="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
+                                    <span class="flex items-center rounded-full border border-white/10 bg-black/40 px-2.5 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
                                         <LucideChevronUp v-if="recapView === 'closed'" class="size-3.5" />
                                         <LucideChevronDown v-else class="size-3.5" />
                                     </span>
                                 </button>
+                            </Transition>
 
-                                <!-- Action strip (expands on toggle, shows Recap button) -->
-                                <Transition name="action-strip">
-                                    <div
-                                        v-if="recapView !== 'closed'"
-                                        class="flex w-full items-center gap-2 overflow-x-auto rounded-2xl border border-white/12 bg-[#111]/95 px-3 py-2 md:px-4"
-                                    >
-                                        <button
-                                            type="button"
-                                            class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
-                                            :class="recapView === 'recap'
-                                                ? 'border-primary/60 bg-primary/15 text-primary-300'
-                                                : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
-                                            :title="recapView === 'recap' ? 'Close recap' : 'Catch me up'"
-                                            @click="recapView === 'recap' ? closeRecap() : toggleRecap()"
-                                        >
-                                            <LucideX v-if="recapView === 'recap'" class="size-4" />
-                                            <LucideMenu v-else class="size-4 text-primary-300" />
-                                            <span>Recap</span>
-                                        </button>
+                            <!-- ── Action strip ── -->
+                            <Transition name="action-strip">
+                                <div v-if="recapView !== 'closed'" class="action-strip w-full max-w-3xl">
+                                    <div class="min-h-0 overflow-hidden">
+                                        <div class="mb-2 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/95 px-3 py-2 md:px-4">
+                                            <button
+                                                type="button"
+                                                class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
+                                                :class="recapOpen
+                                                    ? 'border-primary/60 bg-primary/15 text-primary-300'
+                                                    : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
+                                                :title="recapOpen ? 'Close recap' : 'Catch me up'"
+                                                @click="recapOpen ? closeRecap() : toggleRecap()"
+                                            >
+                                                <LucideX v-if="recapOpen" class="size-4" />
+                                                <LucideMenu v-else class="size-4 text-primary-300" />
+                                                <span>Recap</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </Transition>
-
-                                <!-- Mobile media player -->
-                                <div class="flex w-full items-center justify-start md:hidden">
-                                    <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                                 </div>
+                            </Transition>
 
-                                <!-- Chat input -->
-                                <GameplayInput
-                                    :disabled="props.inputDisabled"
-                                    :glow-variant="inputGlowVariant"
-                                    :placeholder="props.inputPlaceholder"
-                                    @submit="handleInputSubmit"
-                                    @ready-to-type="onInputReadyToType"
-                                    @focus="inputFocused = true"
-                                    @blur="inputFocused = false"
-                                />
+                            <!-- Mobile media player -->
+                            <div class="flex w-full max-w-3xl items-center justify-start md:hidden">
+                                <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
+
+                            <!-- Chat input -->
+                            <GameplayInput
+                                :disabled="props.inputDisabled"
+                                :glow-variant="inputGlowVariant"
+                                :placeholder="props.inputPlaceholder"
+                                @submit="handleInputSubmit"
+                                @ready-to-type="onInputReadyToType"
+                                @focus="inputFocused = true"
+                                @blur="inputFocused = false"
+                            />
                         </div>
                     </div>
                 </div>
@@ -605,37 +654,64 @@ const handleInputSubmit = (prompt: string) => {
     opacity: 0;
 }
 
+/*
+ * The drawer and action strip animate their real content height via
+ * grid-template-rows (0fr -> 1fr), so no hard-coded max-height can clip them.
+ */
+.recap-drawer,
+.action-strip {
+    display: grid;
+    grid-template-rows: 1fr;
+}
+
 .recap-drawer-enter-active,
 .recap-drawer-leave-active {
-    transition: opacity 0.22s ease, transform 0.22s ease;
+    transition:
+        grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.2s ease;
 }
 
 .recap-drawer-enter-from,
 .recap-drawer-leave-to {
+    grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateY(1rem);
-}
-
-.recap-drawer--dragging {
-    transition: none !important;
 }
 
 .action-strip-enter-active,
 .action-strip-leave-active {
-    transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease;
-    overflow: hidden;
+    transition:
+        grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.18s ease;
 }
 
 .action-strip-enter-from,
 .action-strip-leave-to {
+    grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateY(0.5rem);
-    max-height: 0;
 }
 
-.action-strip-enter-to,
-.action-strip-leave-from {
-    max-height: 4rem;
+.recap-nub-enter-active,
+.recap-nub-leave-active {
+    transition:
+        opacity 0.18s ease,
+        transform 0.18s ease;
+}
+
+.recap-nub-enter-from,
+.recap-nub-leave-to {
+    opacity: 0;
+    transform: translateY(0.25rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recap-drawer-enter-active,
+    .recap-drawer-leave-active,
+    .action-strip-enter-active,
+    .action-strip-leave-active,
+    .recap-nub-enter-active,
+    .recap-nub-leave-active {
+        transition-duration: 0.01ms;
+    }
 }
 
 .backdrop-fade-enter-active,
