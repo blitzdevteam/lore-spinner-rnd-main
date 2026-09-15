@@ -47,12 +47,11 @@ const onVolumeInput = (event: Event) => {
             v-if="tts.isActive.value && !props.collapsed"
             class="player-bar pointer-events-auto relative isolate z-10 flex w-full items-center gap-2 overflow-hidden rounded-full px-2 py-2 sm:gap-2.5 sm:px-2.5 md:w-auto"
         >
-            <span class="player-bar__backdrop" aria-hidden="true" />
             <div class="player-bar__controls relative z-[1] flex items-center justify-between gap-2 sm:gap-2.5">
                 <!-- Play / Pause -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color,background-color] hover:scale-105 hover:text-white active:scale-95"
+                    class="player-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color] hover:scale-105 hover:text-white active:scale-95"
                     :title="tts.isLoading.value ? 'Loading…' : tts.isPlaying.value ? 'Pause' : 'Play'"
                     :disabled="tts.isLoading.value"
                     @click="tts.togglePause"
@@ -70,7 +69,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Mute (mobile) -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:text-white active:scale-95 md:hidden"
+                    class="player-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color,opacity] hover:scale-105 hover:text-white active:scale-95 md:hidden"
                     :class="isVolumeMuted ? 'text-white' : 'opacity-80 hover:opacity-100'"
                     :aria-pressed="isVolumeMuted"
                     :title="isVolumeMuted ? 'Unmute' : 'Mute'"
@@ -84,7 +83,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Settings (mobile) -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:text-primary-600 active:scale-95 md:hidden"
+                    class="player-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color] hover:scale-105 hover:text-primary-600 active:scale-95 md:hidden"
                     title="Settings"
                     aria-label="Settings"
                     @click.stop="emit('open-audio-settings')"
@@ -96,7 +95,7 @@ const onVolumeInput = (event: Event) => {
                 <div class="volume-control hidden items-center gap-1.5 md:flex">
                     <button
                         type="button"
-                        class="player-btn gameplay-player-btn grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color,opacity,background-color] hover:scale-105 hover:text-white active:scale-95"
+                        class="player-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-primary-600 transition-[transform,color,opacity] hover:scale-105 hover:text-white active:scale-95"
                         :class="isVolumeMuted ? 'text-white' : 'opacity-80 hover:opacity-100'"
                         :aria-pressed="isVolumeMuted"
                         :title="isVolumeMuted ? 'Unmute' : 'Mute'"
@@ -106,7 +105,7 @@ const onVolumeInput = (event: Event) => {
                         <LucideVolumeX class="player-btn-icon" :stroke-width="1.75" />
                     </button>
                     <span
-                        class="player-btn gameplay-player-btn grid shrink-0 place-items-center text-primary-600"
+                        class="player-btn grid shrink-0 place-items-center text-primary-600"
                         :class="{ 'opacity-40': isVolumeMuted }"
                         aria-hidden="true"
                     >
@@ -133,7 +132,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Skip back 15s (desktop) -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn relative hidden shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:text-primary-600 active:scale-95 md:grid"
+                    class="player-btn bg-muted-glass-effect relative grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color] hover:scale-105 hover:text-primary-600 active:scale-95 md:grid"
                     title="Skip back 15s"
                     @click="tts.seekBy(-15)"
                 >
@@ -144,7 +143,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Skip forward 15s (desktop) -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn relative hidden shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:text-primary-600 active:scale-95 md:grid"
+                    class="player-btn bg-muted-glass-effect relative grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color] hover:scale-105 hover:text-primary-600 active:scale-95 md:grid"
                     title="Skip forward 15s"
                     @click="tts.seekBy(15)"
                 >
@@ -155,7 +154,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Speed -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn player-speed-btn grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:text-primary-600 active:scale-95"
+                    class="player-btn player-speed-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color] hover:scale-105 hover:text-primary-600 active:scale-95"
                     :class="{ 'text-primary-600': tts.playbackRate.value !== 1 }"
                     title="Playback speed"
                     aria-label="Playback speed"
@@ -167,7 +166,7 @@ const onVolumeInput = (event: Event) => {
                 <!-- Close -->
                 <button
                     type="button"
-                    class="player-btn gameplay-player-btn grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color,background-color] hover:scale-105 hover:text-primary-600 active:scale-95"
+                    class="player-btn bg-muted-glass-effect grid shrink-0 place-items-center rounded-full text-gray-300 transition-[transform,color] hover:scale-105 hover:text-primary-600 active:scale-95"
                     title="Close player"
                     @click="tts.dismiss"
                 >
@@ -193,20 +192,13 @@ const onVolumeInput = (event: Event) => {
 .player-bar {
     border: 0.5px solid rgba(255, 255, 255, 0.14);
     box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.55),
-        0 0 0 1px rgba(0, 0, 0, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.player-bar__backdrop {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.025) 42%, rgba(8, 18, 22, 0.2)),
-        rgba(6, 10, 12, 0.5);
-    backdrop-filter: blur(32px) saturate(180%);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
+        inset 3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.12),
+        inset -3px -3px 0.5px -3.5px rgba(255, 255, 255, 0.1),
+        inset 1px 1px 1px -0.5px rgba(255, 255, 255, 0.08),
+        inset -1px -1px 1px -0.5px rgba(255, 255, 255, 0.08),
+        inset 0 0 1px 1px rgba(0, 0, 0, 0.4),
+        0 8px 30px rgba(0, 0, 0, 0.55);
+    background-color: #1e1e1e;
 }
 
 .player-bar__controls {
@@ -221,30 +213,6 @@ const onVolumeInput = (event: Event) => {
 .player-btn {
     width: 2.25rem;
     height: 2.25rem;
-}
-
-.gameplay-player-btn {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.035)),
-        rgba(255, 255, 255, 0.035);
-    box-shadow:
-        inset 1.5px 1.5px 0.5px -1px rgba(255, 255, 255, 0.5),
-        inset -1px -1px 0.5px -1px rgba(0, 0, 0, 0.35),
-        inset 0 0 12px rgba(255, 255, 255, 0.045);
-    backdrop-filter: blur(14px) saturate(150%);
-    -webkit-backdrop-filter: blur(14px) saturate(150%);
-}
-
-.gameplay-player-btn:hover {
-    background:
-        linear-gradient(145deg, rgba(143, 203, 211, 0.28), rgba(255, 255, 255, 0.06)),
-        rgba(84, 244, 218, 0.08);
-    border-color: rgba(143, 203, 211, 0.45);
-    box-shadow:
-        0 4px 16px rgba(84, 244, 218, 0.16),
-        inset 1.5px 1.5px 0.5px -1px rgba(255, 255, 255, 0.6),
-        inset 0 0 14px rgba(143, 203, 211, 0.1);
 }
 
 .player-btn-icon {
