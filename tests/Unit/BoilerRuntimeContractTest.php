@@ -25,7 +25,7 @@ it('pins both Boiler agents to the IP Trimming Opus tier', function () {
 
         expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
             ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5')
-            ->and($reflection->getAttributes(Timeout::class)[0]->getArguments()[0])->toBe(300);
+            ->and($reflection->getAttributes(Timeout::class)[0]->getArguments()[0])->toBe(600);
     }
 });
 

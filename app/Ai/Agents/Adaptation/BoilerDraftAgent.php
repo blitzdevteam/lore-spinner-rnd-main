@@ -16,7 +16,7 @@ use Throwable;
 
 #[Provider('anthropic')]
 #[Model('claude-opus-5')]
-#[Timeout(300)]
+#[Timeout(600)]
 final class BoilerDraftAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
