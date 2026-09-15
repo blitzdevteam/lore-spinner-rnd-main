@@ -292,18 +292,19 @@ const handleInputSubmit = (prompt: string) => {
                                     @click="toggleSettings"
                                 >
                                     <LucideX v-if="activePanel === 'settings'" class="size-5 text-secondary-300" />
-                                    <LucideSettings v-else class="size-5 text-secondary-300" />
+                                    <LucideSettings v-else class="size-5 text-gray-300" />
                                 </GameplayCapsuleButton>
                             </div>
                             <div class="hidden md:inline-flex">
                                 <GameplayCapsuleButton
                                     label="Usage"
+                                    label-tone="secondary"
                                     :title="activePanel === 'usage' ? 'Close subscription usage' : 'Subscription usage'"
                                     :active="activePanel === 'usage'"
                                     @click="toggleUsage"
                                 >
                                     <LucideX v-if="activePanel === 'usage'" class="size-5 text-secondary-300" />
-                                    <LucideGauge v-else class="size-5 text-primary" />
+                                    <LucideGauge v-else class="size-5 text-gray-300" />
                                 </GameplayCapsuleButton>
                             </div>
                         </div>
@@ -324,7 +325,7 @@ const handleInputSubmit = (prompt: string) => {
                             >
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
@@ -346,7 +347,7 @@ const handleInputSubmit = (prompt: string) => {
                                 @click="toggleJournal"
                             >
                                 <LucideX v-if="activePanel === 'journal'" class="size-5 text-secondary-300" />
-                                <LucideNotebookText v-else class="size-5 text-secondary-300" />
+                                <LucideNotebookText v-else class="size-5 text-gray-300" />
                             </GameplayCapsuleButton>
                         </div>
 
@@ -373,7 +374,7 @@ const handleInputSubmit = (prompt: string) => {
                             <button class="mobile-pill__btn" :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'" @click="toggleAutoplay">
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
                                 />
                             </button>
                             <button
@@ -614,8 +615,15 @@ const handleInputSubmit = (prompt: string) => {
     cursor: pointer;
     transition:
         background 0.15s ease,
-        box-shadow 0.15s ease;
+        box-shadow 0.15s ease,
+        color 0.15s ease;
     flex-shrink: 0;
+}
+
+.mobile-pill__btn:hover :deep(svg),
+.mobile-pill__btn:focus-visible :deep(svg),
+.mobile-pill__btn--active :deep(svg) {
+    color: var(--color-secondary-300);
 }
 
 .mobile-pill__btn--active {
