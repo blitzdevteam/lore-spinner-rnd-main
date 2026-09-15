@@ -192,30 +192,30 @@ body.wl-playground-open [data-feedback-btn] {
 /* Header controls — dark liquid glass */
 .gameplay-header-glass {
     background:
-        linear-gradient(180deg, rgba(66, 66, 66, 0.48) 0%, rgba(35, 35, 35, 0.42) 48%, rgba(18, 18, 18, 0.56) 100%),
-        rgba(20, 20, 20, 0.42);
-    backdrop-filter: blur(6px) saturate(115%);
-    -webkit-backdrop-filter: blur(6px) saturate(115%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+        linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(8, 18, 22, 0.22)),
+        rgba(16, 24, 28, 0.34);
+    backdrop-filter: blur(18px) saturate(155%);
+    -webkit-backdrop-filter: blur(18px) saturate(155%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow:
         0 0 2px rgba(0, 0, 0, 0.1),
-        0 1px 8px rgba(0, 0, 0, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-        inset 0 0 12px rgba(255, 255, 255, 0.025);
+        0 8px 28px rgba(0, 0, 0, 0.32),
+        inset 2px 2px 0.5px -1px rgba(255, 255, 255, 0.52),
+        inset -2px -2px 0.5px -1px rgba(0, 0, 0, 0.3),
+        inset 0 0 20px rgba(255, 255, 255, 0.05);
 }
 
 .gameplay-header-glass--active {
     background:
-        linear-gradient(180deg, rgba(72, 72, 72, 0.52) 0%, rgba(38, 38, 38, 0.46) 48%, rgba(20, 20, 20, 0.6) 100%),
-        rgba(22, 22, 22, 0.46);
-    border-color: rgba(255, 255, 255, 0.17);
+        linear-gradient(145deg, rgba(143, 203, 211, 0.24), rgba(255, 255, 255, 0.06) 45%, rgba(8, 18, 22, 0.28)),
+        rgba(16, 30, 34, 0.4);
+    border-color: rgba(143, 203, 211, 0.52);
     box-shadow:
         0 0 2px rgba(0, 0, 0, 0.1),
-        0 1px 8px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-        inset 0 0 14px rgba(255, 255, 255, 0.035);
+        0 8px 30px rgba(84, 244, 218, 0.18),
+        inset 2px 2px 0.5px -1px rgba(255, 255, 255, 0.58),
+        inset -2px -2px 0.5px -1px rgba(0, 0, 0, 0.3),
+        inset 0 0 22px rgba(143, 203, 211, 0.1);
 }
 
 button {

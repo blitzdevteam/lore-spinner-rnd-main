@@ -281,7 +281,7 @@ const handleInputSubmit = (prompt: string) => {
                 <!-- ── Top header bar ── -->
                 <div class="sticky top-0 right-0 left-0 z-30 w-full">
                     <div
-                        class="z-50 flex h-20 items-center justify-between gap-3 bg-linear-to-b from-gray-950 via-gray-950/60 to-transparent px-4 transition-all duration-300 sm:px-8 md:h-24"
+                        class="z-50 flex h-20 items-center justify-between gap-3 bg-linear-to-b from-black/45 via-black/15 to-transparent px-4 transition-all duration-300 sm:px-8 md:h-24"
                     >
                         <!-- Left: back + settings (desktop) -->
                         <div class="flex shrink-0 items-center gap-2 sm:gap-3">
