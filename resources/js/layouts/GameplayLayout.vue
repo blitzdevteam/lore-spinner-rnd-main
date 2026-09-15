@@ -140,9 +140,19 @@ const inputFocused = ref(false);
 
 const MOBILE_MQ = '(max-width: 767px)';
 
-const { settings } = useGameplaySettings();
+const { settings, syncVoiceForStory } = useGameplaySettings();
 const tts = useTextToSpeech();
 const { audioSheetOpen } = useFeedbackWidget();
+
+watch(
+    () => props.storySlug,
+    (slug) => {
+        if (syncVoiceForStory(slug)) {
+            tts.invalidateCache();
+        }
+    },
+    { immediate: true },
+);
 
 function syncMobile() {
     if (typeof window === 'undefined') return;

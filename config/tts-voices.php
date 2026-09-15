@@ -122,30 +122,35 @@ return [
     ],
 
     /**
-     * Launch world slug → default voice. Baker Street is always Ellis.
-     * Story-specific entries below take priority over these.
+     * Launch world slug → recommended narrator. Players can override in
+     * gameplay settings; switching titles restores that title's recommended voice.
+     *
+     * Launch sheet: Oz/Austen → Imogen, Baker Street → Ellis,
+     * Gothic Horrors → Jonathan, High Adventure / Extraordinary Voyages → David (Deep).
+     * Camelot is TBD and stays Declan Sage until a voice is chosen.
+     * Standalone titles are set per story below, not here.
      */
     'world_defaults' => [
         'baker-street' => $ellis,
         '01-baker-street' => $ellis,
         'jane-austen' => $imogen,
         '05-jane-austen' => $imogen,
-        'world-of-oz' => $amelia,
-        '02-world-of-oz' => $amelia,
-        'gothic-horrors' => $ianCartwell,
-        'poes-gothic' => $ianCartwell,
-        'hydes-london' => $ianCartwell,
-        'draculas-england' => $ianCartwell,
-        'frankensteins-world' => $henry,
+        'world-of-oz' => $imogen,
+        '02-world-of-oz' => $imogen,
+        'gothic-horrors' => $jonathan,
+        'poes-gothic' => $jonathan,
+        'hydes-london' => $jonathan,
+        'draculas-england' => $jonathan,
+        'frankensteins-world' => $jonathan,
         'high-adventure' => $davidDeep,
         'treasure-island' => $davidDeep,
-        'musketeer-france' => $jake,
-        'sherwood-forest' => $jofra,
+        'musketeer-france' => $davidDeep,
+        'sherwood-forest' => $davidDeep,
         'camelot' => $declanSage,
         'arthurian-britain' => $declanSage,
-        'extraordinary-voyages' => $jonathan,
+        'extraordinary-voyages' => $davidDeep,
         'neverland' => $emmaTaylor,
-        'the-unseen-world' => $ianCartwell,
+        'the-unseen-world' => $jonathan,
         'legends-of-mt-olympus' => $declanSage,
         '03-legends-of-mt-olympus' => $declanSage,
         'journey-to-the-west' => $jofra,
@@ -153,14 +158,22 @@ return [
     ],
 
     /**
-     * Story slug → voice. Used for titles without a launch world, and for
-     * overrides (Emma uses Emma Taylor instead of the Austen default).
+     * Story slug → voice. Used for standalones, titles without a launch world,
+     * and explicit Baker Street locks. Jane Austen titles inherit Imogen from
+     * the world (Emma Taylor is Peter and Wendy only).
      */
     'story_defaults' => [
         'the-adventure-of-the-speckled-band' => $ellis,
         'the-adventure-of-the-blue-carbuncle' => $ellis,
         'a-scandal-in-bohemia' => $ellis,
-        'emma' => $emmaTaylor,
+        'peter-pan' => $emmaTaylor,
+        'peter-and-wendy' => $emmaTaylor,
+        'the-invisible-man' => $jonathan,
+        'the-masque-of-the-red-death' => $jonathan,
+        'the-murders-in-the-rue-morgue' => $jonathan,
+        'twenty-thousand-leagues-under-the-seas' => $davidDeep,
+        'the-island-of-doctor-moreau' => $davidDeep,
+        'the-marvelous-land-of-oz' => $imogen,
         'anima-machina' => $amelia,
         'nocturne' => $autumnVeil,
         'driftheart' => $declanSage,
@@ -172,8 +185,6 @@ return [
         'momotaro-the-peach-boy' => $jofra,
         'alices-adventures-in-wonderland' => $amelia,
         'the-snow-queen' => $autumnVeil,
-        'the-masque-of-the-red-death' => $ianCartwell,
-        'the-marvelous-land-of-oz' => $amelia,
         'theseus-and-the-minotaur' => $declanSage,
         'orpheus-and-eurydice' => $henry,
         'havoc-in-heaven' => $jofra,

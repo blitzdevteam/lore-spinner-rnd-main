@@ -7,6 +7,8 @@ export interface GameplaySettings {
     autoplay: boolean;
     /** Empty string = use the story's recommended voice. */
     voiceId: string;
+    /** Story the current voiceId belongs to; switching titles restores recommended. */
+    voiceStorySlug: string;
 }
 
 const STORAGE_KEY = 'gameplay-settings';
@@ -17,6 +19,7 @@ const defaults: GameplaySettings = {
     backgroundColor: '',
     autoplay: true,
     voiceId: '',
+    voiceStorySlug: '',
 };
 
 const fontColorPresets = [
@@ -57,7 +60,25 @@ watch(settings, (val) => {
 }, { deep: true });
 
 function reset() {
-    Object.assign(settings, { ...defaults });
+    const voiceStorySlug = settings.voiceStorySlug;
+    Object.assign(settings, { ...defaults, voiceStorySlug });
+}
+
+/**
+ * Bind the narrator override to the current title. An empty voiceId means the
+ * recommended world/title voice. Switching titles clears the previous pick.
+ */
+function syncVoiceForStory(slug: string | null | undefined): boolean {
+    const next = typeof slug === 'string' ? slug.trim() : '';
+
+    if (next === '' || settings.voiceStorySlug === next) {
+        return false;
+    }
+
+    settings.voiceStorySlug = next;
+    settings.voiceId = '';
+
+    return true;
 }
 
 export function useGameplaySettings() {
@@ -67,5 +88,6 @@ export function useGameplaySettings() {
         fontColorPresets,
         backgroundPresets,
         reset,
+        syncVoiceForStory,
     };
 }
