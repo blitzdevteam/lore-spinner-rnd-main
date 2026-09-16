@@ -50,7 +50,7 @@ final class StoryController extends Controller
                 'creator:id,first_name,last_name,username,avatar',
                 'media',
                 'adaptation',
-                'adaptation.sessionAdaptations:id,story_adaptation_id,session_number,session_status,boiler_status',
+                'adaptation.sessionAdaptations:id,story_adaptation_id,session_number,session_status,boiler_status,entry_point_diagnosis',
                 'comments' => function (MorphMany $query): void {
                     $query
                         ->with('author')

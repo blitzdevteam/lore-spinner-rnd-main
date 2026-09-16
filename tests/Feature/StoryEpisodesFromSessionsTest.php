@@ -57,6 +57,11 @@ function storyWithSessions(int $sessionCount = 3): Story
             'session_number' => $sessionNumber,
             'session_status' => SessionAdaptationStatusEnum::COMPLETED,
             'boiler_status' => BoilerStatus::FINALIZED,
+            // Session 3 has no cold open, so it must fall back to the session map.
+            'entry_point_diagnosis' => $sessionNumber === 3 ? [] : [
+                'cold_open' => "Session {$sessionNumber}: the carriage stops where the road gives up."
+                    ."\n\nA later paragraph that must not reach the card.",
+            ],
         ]);
     }
 
@@ -101,7 +106,7 @@ it('lists one episode per adaptation session instead of one per chapter', functi
                 ->component('Stories/Show')
                 ->has('episodes', 8)
                 ->where('episodes.0.number', 1)
-                ->where('episodes.0.teaser', 'Can the guest survive the first night?')
+                ->where('episodes.0.teaser', 'Session 1: the carriage stops where the road gives up.')
                 ->where('episodes.2.teaser', 'Is escape still possible?')
                 ->etc()
         );

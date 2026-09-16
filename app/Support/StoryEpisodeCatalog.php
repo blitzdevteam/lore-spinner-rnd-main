@@ -51,7 +51,7 @@ final class StoryEpisodeCatalog
             return [];
         }
 
-        $teasers = self::teasersBySession($adaptation);
+        $fallbackTeasers = self::teasersBySession($adaptation);
         $covers = self::coversBySession($story);
         $completed = self::completedSessionNumbers($game);
 
@@ -59,10 +59,11 @@ final class StoryEpisodeCatalog
 
         foreach ($sessions as $session) {
             $number = (int) $session->session_number;
+            $teaser = self::coldOpenHook($session) ?: ($fallbackTeasers[$number] ?? '');
 
             $episodes[] = [
                 'number' => $number,
-                'teaser' => $teasers[$number] ?? null,
+                'teaser' => $teaser === '' ? null : $teaser,
                 'cover' => $covers[$number] ?? '',
                 'is_playable' => self::isSessionPlayable($session, $adaptation),
                 'is_completed' => in_array($number, $completed, true),
@@ -87,8 +88,26 @@ final class StoryEpisodeCatalog
     }
 
     /**
-     * Session dramatic questions read as spoiler-light hooks; the raw chapter
-     * teaser is script prose and is never used here.
+     * The cold open is authored prose for the session's first minute, so its
+     * opening paragraph hooks the player without spoiling later beats.
+     */
+    private static function coldOpenHook(SessionAdaptation $session): string
+    {
+        $coldOpen = data_get($session->entry_point_diagnosis, 'cold_open');
+
+        if (! is_string($coldOpen)) {
+            return '';
+        }
+
+        $paragraphs = preg_split('/\R{2,}/u', mb_trim($coldOpen)) ?: [];
+        $opening = is_string($paragraphs[0] ?? null) ? $paragraphs[0] : '';
+
+        return self::normalizeTeaser(str_replace(['*', '_'], '', $opening));
+    }
+
+    /**
+     * Dramatic questions cover sessions whose cold open is not written yet; the
+     * raw chapter teaser is script prose and is never used here.
      *
      * @return array<int, string>
      */
