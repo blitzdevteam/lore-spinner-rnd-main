@@ -298,6 +298,20 @@ watch(shouldAnimate, (ready) => {
     }
 });
 
+// Backstop: fade the music the instant the opening narration text is ready,
+// independent of shouldAnimate and of the narration autoplay setting. The
+// composable's fadeOut() is a no-op when no music is playing, so this is safe
+// to call unconditionally — it guarantees the loop stops even when the user
+// has narration autoplay disabled (TTS never starts in that case).
+watch(
+    () => prompts.value[0]?.response,
+    (response) => {
+        if (response) {
+            openingMusic.fadeOut();
+        }
+    },
+);
+
 // Auto-play the first narration while the showcard is still visible (or when begin finishes).
 watch(
     [() => prompts.value[0]?.response, shouldAnimate],
@@ -871,6 +885,10 @@ onMounted(() => {
     // Start after mount so browser audio APIs are available. If autoplay is
     // blocked, the composable retries on the first cinematic gesture.
     if (showCinematic.value) {
+        // Narration autoplay defaults to on at the start of every story so the
+        // opening voice-over plays and the sonic-ident hands off cleanly. The
+        // player can still toggle it off mid-game from the settings panel.
+        gameplaySettings.autoplay = true;
         openingMusic.start();
     }
 
