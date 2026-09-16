@@ -1038,7 +1038,6 @@ onUnmounted(() => {
                 <GameplayChatCard
                     :prompt="prompt"
                     :game-id="game.id"
-                    :cover-url="game.story?.cover ?? null"
                     :is-latest="prompt.id === prompts[prompts.length - 1]?.id && !sessionComplete"
                     :pending-choice="pendingSelection[prompt.id]"
                     :is-submitting="isSubmitting"
