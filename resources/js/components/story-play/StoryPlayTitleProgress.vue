@@ -26,7 +26,7 @@ defineProps<{
             <span
                 class="relative z-[1] font-['Inter',sans-serif] text-[0.8125rem] font-semibold not-italic text-[#59c1ca]"
             >
-                {{ String(Math.round(Math.min(100, Math.max(0, progressPercent ?? 0)))).padStart(2, '0') }}%
+                {{ Math.round(Math.min(100, Math.max(0, progressPercent ?? 0))) }}%
             </span>
             <span
                 aria-hidden="true"

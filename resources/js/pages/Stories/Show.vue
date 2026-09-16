@@ -179,6 +179,16 @@ const durationLabel = 'Approx. 25m per episode';
 
 const completedEpisodeNumbers = computed(() => props.completedEpisodeNumbers ?? []);
 
+const episodeCount = computed(() => props.story.chapters_count ?? props.story.chapters?.length ?? 0);
+
+const progressPercent = computed(() => {
+    if (episodeCount.value <= 0) {
+        return 0;
+    }
+
+    return (completedEpisodeNumbers.value.length / episodeCount.value) * 100;
+});
+
 type StatValuePart = { text: string; muted?: boolean };
 
 function formatUpdatedParts(dateIso: string | null | undefined): StatValuePart[] {
@@ -308,7 +318,7 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
                         <div v-if="panel === 'details'" class="flex flex-col gap-[33px] pt-[41px] pb-4">
                             <div class="flex flex-col gap-[21px]">
                                 <div class="flex flex-col gap-2.5">
-                                    <StoryPlayTitleProgress :title="displayTitle" />
+                                    <StoryPlayTitleProgress :title="displayTitle" :progress-percent="progressPercent" />
                                     <StoryPlayMetaRow :duration-label="durationLabel" :themes="descriptorThemes" />
                                 </div>
                                 <StoryPlayStatStrip :items="statItems" />

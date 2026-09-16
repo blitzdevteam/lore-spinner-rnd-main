@@ -113,6 +113,27 @@ it('shows the fixed episode duration and data-driven episode completion', functi
         ->toContain('$existingGame->current_session_complete');
 });
 
+it('marks only completed episodes and derives the story progress percentage', function (): void {
+    $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
+    $chapterCard = file_get_contents(resource_path('js/components/StoryChapterCard.vue'));
+    $titleProgress = file_get_contents(resource_path('js/components/story-play/StoryPlayTitleProgress.vue'));
+
+    expect($chapterCard)
+        ->toContain("statusIcon = computed<'locked' | 'completed' | null>")
+        ->toContain("return props.isCompleted ? 'completed' : null")
+        ->toContain('line-clamp-4')
+        ->not->toContain('text-justify')
+        ->not->toContain('mt-auto');
+
+    expect($storyShow)
+        ->toContain('const progressPercent = computed')
+        ->toContain('completedEpisodeNumbers.value.length / episodeCount.value')
+        ->toContain(':progress-percent="progressPercent"');
+
+    expect($titleProgress)
+        ->not->toContain("padStart(2, '0')");
+});
+
 it('adds pricing to the home navigation and keeps subscription usage in the profile menu only', function (): void {
     $headerMenu = file_get_contents(resource_path('js/components/HomeHeaderMenu.vue'));
     $mobileMenu = file_get_contents(resource_path('js/components/HomeHeaderMobileMenu.vue'));
