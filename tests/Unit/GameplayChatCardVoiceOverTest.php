@@ -14,10 +14,13 @@ it('defaults the listen pill on so single-player gameplay keeps play narration',
         ->toContain('bg-glass-effect')
         ->toContain('listen-again-backdrop')
         ->toContain('listen-again-shine')
+        ->toContain('coverUrl')
         ->toContain('<!-- ── Player\'s action echo ── -->');
 
     expect(mb_strpos($card, 'listen-again-backdrop'))
         ->toBeLessThan(mb_strpos($card, '<!-- ── Player\'s action echo ── -->'))
         ->and($show)
-        ->toContain('<GameplayChatCard');
+        ->toContain('<GameplayChatCard')
+        ->and($show)
+        ->toContain(':cover-url="game.story?.cover ?? null"');
 });

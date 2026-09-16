@@ -313,7 +313,6 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <LucidePause v-else-if="isThisPlaying" class="size-4" fill="currentColor" />
                     <LucidePlay v-else class="size-4" fill="currentColor" />
                 </span>
-                <!-- Label -->
                 <span class="relative flex min-w-0 flex-col items-start leading-tight tracking-[0.5px]">
                     <span class="text-sm text-primary-600">{{ hasPlayedOnce ? 'Listen Again' : 'Listen' }}</span>
                     <span class="text-xs font-light text-[#7e7e7e]">{{ hasPlayedOnce ? 'Replay Narration' : 'Play Narration' }}</span>
