@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import backChevronIcon from '@/assets/story-play/back-chevron.svg';
 import FirstStoryTutorialModal from '@/components/FirstStoryTutorialModal.vue';
-import StoryChapterCard from '@/components/StoryChapterCard.vue';
+import StoryEpisodeCard from '@/components/StoryEpisodeCard.vue';
 import StoryCommentCard from '@/components/StoryCommentCard.vue';
 import StoryPlayAmbientGlows from '@/components/story-play/StoryPlayAmbientGlows.vue';
 import StoryPlayAuthorDescription from '@/components/story-play/StoryPlayAuthorDescription.vue';
@@ -18,7 +18,7 @@ import { formatCreatorDisplayName, resolveClassicsCreatorAvatar } from '@/data/l
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { resolveStoryDisplayTitle } from '@/data/storyDisplayTitleBySlug';
-import { StoryInterface } from '@/types';
+import { StoryEpisodeInterface, StoryInterface } from '@/types';
 import { reset as resetGame, show as showGame, store } from '@/wayfinder/actions/App/Http/Controllers/User/GameController';
 import { multiplayer as multiplayerStoryRoute, show as storyShowRoute } from '@/wayfinder/routes/stories';
 import { router } from '@inertiajs/vue3';
@@ -27,8 +27,9 @@ import { toast } from 'vue-sonner';
 
 const props = defineProps<{
     story: StoryInterface;
+    /** Adaptation sessions surfaced to players as episodes. */
+    episodes?: StoryEpisodeInterface[];
     existingGameId?: string | null;
-    completedEpisodeNumbers?: number[];
     isPlayable?: boolean;
     showFirstStoryTutorial?: boolean;
 }>();
@@ -177,16 +178,18 @@ const coverImageUrl = computed(() => {
 
 const durationLabel = 'Approx. 25m per episode';
 
-const completedEpisodeNumbers = computed(() => props.completedEpisodeNumbers ?? []);
+const episodes = computed(() => props.episodes ?? []);
 
-const episodeCount = computed(() => props.story.chapters_count ?? props.story.chapters?.length ?? 0);
+const episodeCount = computed(() => episodes.value.length);
+
+const completedEpisodeCount = computed(() => episodes.value.filter((episode) => episode.is_completed).length);
 
 const progressPercent = computed(() => {
     if (episodeCount.value <= 0) {
         return 0;
     }
 
-    return (completedEpisodeNumbers.value.length / episodeCount.value) * 100;
+    return (completedEpisodeCount.value / episodeCount.value) * 100;
 });
 
 type StatValuePart = { text: string; muted?: boolean };
@@ -228,7 +231,7 @@ function formatUpdatedParts(dateIso: string | null | undefined): StatValuePart[]
 const statItems = computed(() => [
     {
         label: 'EPISODES',
-        value: `${props.story.chapters_count ?? props.story.chapters?.length ?? 0}`,
+        value: `${episodeCount.value}`,
     },
     {
         label: 'RATING',
@@ -248,9 +251,9 @@ const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story'
 
 const creatorAvatar = computed(() => resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar));
 
-const leftColumnChapters = computed(() => props.story.chapters?.filter((_, index) => index % 2 === 0) ?? []);
+const leftColumnEpisodes = computed(() => episodes.value.filter((_, index) => index % 2 === 0));
 
-const rightColumnChapters = computed(() => props.story.chapters?.filter((_, index) => index % 2 === 1) ?? []);
+const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => index % 2 === 1));
 </script>
 
 <template>
@@ -347,23 +350,19 @@ const rightColumnChapters = computed(() => props.story.chapters?.filter((_, inde
 
                         <!-- Episodes panel -->
                         <div v-else class="pt-[41px] pb-4">
-                            <div v-if="story.chapters?.length" class="flex flex-col gap-2.5 sm:flex-row sm:items-start">
+                            <div v-if="episodes.length" class="flex flex-col gap-2.5 sm:flex-row sm:items-start">
                                 <div class="flex min-w-0 flex-1 flex-col gap-2.5">
-                                    <StoryChapterCard
-                                        v-for="(chapter, index) in leftColumnChapters"
-                                        :key="chapter.id"
-                                        :chapter
-                                        :episode-number="index * 2 + 1"
-                                        :is-completed="completedEpisodeNumbers.includes(chapter.position)"
+                                    <StoryEpisodeCard
+                                        v-for="episode in leftColumnEpisodes"
+                                        :key="episode.number"
+                                        :episode
                                     />
                                 </div>
                                 <div class="flex min-w-0 flex-1 flex-col gap-2.5">
-                                    <StoryChapterCard
-                                        v-for="(chapter, index) in rightColumnChapters"
-                                        :key="chapter.id"
-                                        :chapter
-                                        :episode-number="index * 2 + 2"
-                                        :is-completed="completedEpisodeNumbers.includes(chapter.position)"
+                                    <StoryEpisodeCard
+                                        v-for="episode in rightColumnEpisodes"
+                                        :key="episode.number"
+                                        :episode
                                     />
                                 </div>
                             </div>

@@ -42,30 +42,8 @@ const episodeNumber = computed(() => props.game.current_session_number);
 
 const episodeBadgeLabel = computed(() => (episodeNumber.value ? `Episode ${episodeNumber.value}` : null));
 
-const currentEpisodeTitle = computed(() => {
-    const n = episodeNumber.value;
-    if (!n) {
-        return null;
-    }
-
-    const chapters = story.value?.chapters ?? [];
-    const match = chapters.find((chapter) => chapter.position === n) ?? chapters[n - 1];
-    const title = match?.title?.trim();
-
-    return title || null;
-});
-
-const currentEpisodeLine = computed(() => {
-    if (!episodeNumber.value) {
-        return null;
-    }
-
-    if (currentEpisodeTitle.value) {
-        return `Episode ${episodeNumber.value}: ${currentEpisodeTitle.value}`;
-    }
-
-    return `Episode ${episodeNumber.value}`;
-});
+// An episode is an adaptation session, so a same-numbered chapter title would mislabel it.
+const currentEpisodeLine = computed(() => (episodeNumber.value ? `Episode ${episodeNumber.value}` : null));
 
 const timeAgo = computed(() => {
     if (!props.game.updated_at) {

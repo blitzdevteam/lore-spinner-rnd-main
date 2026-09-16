@@ -93,41 +93,43 @@ it('exposes restart story on the story details page when a game already exists',
         ->toContain('resetGame.url(props.existingGameId)');
 });
 
-it('shows the fixed episode duration and data-driven episode completion', function (): void {
+it('shows the fixed episode duration and builds the episode list from sessions', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
-    $chapterCard = file_get_contents(resource_path('js/components/StoryChapterCard.vue'));
+    $episodeCard = file_get_contents(resource_path('js/components/StoryEpisodeCard.vue'));
     $storyController = file_get_contents(app_path('Http/Controllers/StoryController.php'));
 
     expect($storyShow)
         ->toContain('Approx. 25m per episode')
-        ->toContain('completedEpisodeNumbers')
-        ->toContain(':is-completed="completedEpisodeNumbers.includes(chapter.position)"');
+        ->toContain('const episodes = computed(() => props.episodes ?? [])')
+        ->toContain('v-for="episode in leftColumnEpisodes"')
+        ->not->toContain('leftColumnChapters');
 
-    expect($chapterCard)
+    expect($episodeCard)
         ->not->toContain('Spins Earned')
-        ->toContain('if (props.isCompleted)')
-        ->toContain('Events completed');
+        ->not->toContain('Events');
 
     expect($storyController)
-        ->toContain("'completedEpisodeNumbers'")
-        ->toContain('$existingGame->current_session_complete');
+        ->toContain('StoryEpisodeCatalog::for($story, $existingGame)')
+        ->toContain("'episodes' => \$episodes")
+        ->not->toContain("'completedEpisodeNumbers'");
+
+    expect(file_exists(resource_path('js/components/StoryChapterCard.vue')))->toBeFalse();
 });
 
 it('marks only completed episodes and derives the story progress percentage', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
-    $chapterCard = file_get_contents(resource_path('js/components/StoryChapterCard.vue'));
+    $episodeCard = file_get_contents(resource_path('js/components/StoryEpisodeCard.vue'));
     $titleProgress = file_get_contents(resource_path('js/components/story-play/StoryPlayTitleProgress.vue'));
 
-    expect($chapterCard)
+    expect($episodeCard)
         ->toContain("statusIcon = computed<'locked' | 'completed' | null>")
-        ->toContain("return props.isCompleted ? 'completed' : null")
+        ->toContain("return props.episode.is_completed ? 'completed' : null")
         ->toContain('line-clamp-4')
-        ->not->toContain('text-justify')
-        ->not->toContain('mt-auto');
+        ->not->toContain('text-justify');
 
     expect($storyShow)
         ->toContain('const progressPercent = computed')
-        ->toContain('completedEpisodeNumbers.value.length / episodeCount.value')
+        ->toContain('completedEpisodeCount.value / episodeCount.value')
         ->toContain(':progress-percent="progressPercent"');
 
     expect($titleProgress)

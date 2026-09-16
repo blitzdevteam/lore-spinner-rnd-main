@@ -228,6 +228,15 @@ export interface ChapterInterface {
     events_count?: number;
 }
 
+/** A playable episode — one adaptation session, not an extracted book chapter. */
+export interface StoryEpisodeInterface {
+    number: number;
+    teaser: string | null;
+    cover: string;
+    is_playable: boolean;
+    is_completed: boolean;
+}
+
 export interface CommentInterface {
     id: number;
     content: string;
