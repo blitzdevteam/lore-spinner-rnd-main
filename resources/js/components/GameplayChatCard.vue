@@ -82,7 +82,7 @@ const normalizedChoices = computed(() =>
 // streamed turn this is sourced from pendingChoice before the server commits it.
 const showPlayerAction = computed(() => !!effectiveSelection.value);
 const playerActionLabel = computed(() => {
-    return isContinued.value ? 'Continued the story' : effectiveSelection.value ?? '';
+    return isContinued.value ? 'Continue story' : effectiveSelection.value ?? '';
 });
 
 // Continue is always available when the player can interact and a response exists.

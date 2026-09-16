@@ -32,6 +32,34 @@ final class ProcessGameTurnAction
 {
     private const CONTINUE_MARKER = '__continue__';
 
+    private const CONTINUE_MODE_INSTRUCTION = <<<'PROMPT'
+CONTINUE MODE — MEANINGFUL FAST-FORWARD:
+The player explicitly wants to move past low-agency material. Use the future
+session context already available to you (the beat map, source events, current
+moment context, and conversation history) to judge what is connective and what
+is meaningful. Compress or resolve routine travel, waiting, scenery, and other
+uneventful material instead of making the player repeat it.
+
+Move the story forward until the next meaningful playable moment. If the
+remaining material in the active moment is optional connective material and the
+player's Continue makes it safe to bypass, you may set exit_condition_met=true
+and advance normally. Do not hold the player in a low-agency loop merely
+because the ordinary moment budget has not been exhausted.
+
+Stop and return control to the player before an authored branch, crisis,
+relationship or moral decision, required interaction, or session-ending choice.
+Continue may bring the player to that decision, but it must never choose an
+authored branch, invent a player action, or commit a canonical choice for them.
+Preserve established state and consequences. In Boiler, keep
+moment_progress.moment_key accurate and use the existing resolver contract; in
+legacy mode, set session_complete only when the actual session close is
+reached.
+Keep the fast-forward response concise: a short transition or montage followed
+by the meaningful situation and its choices. Do not offer more filler actions
+such as "keep walking" or "look around" when the player has explicitly chosen
+to move past that material.
+PROMPT;
+
     /** How far back to look for a player restating the same intent. */
     private const REPEAT_INTENT_LOOKBACK = 4;
 
@@ -212,6 +240,10 @@ final class ProcessGameTurnAction
                 $systemPrompt .= "\n\nVALIDATED PLAYER SELECTION (authoritative): "
                     .$explicitBranch['defining_choice_id'].' path '.$explicitBranch['defining_path_label']
                     .'. Resolve this selected authored path; do not infer a different one.';
+            }
+
+            if ($storedPromptValue === self::CONTINUE_MARKER) {
+                $systemPrompt .= "\n\n".self::CONTINUE_MODE_INSTRUCTION;
             }
 
             $repeatedAttempts = $this->countRepeatedIntent($game, $playerAction);
