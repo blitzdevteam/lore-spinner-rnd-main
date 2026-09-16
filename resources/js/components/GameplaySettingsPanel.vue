@@ -58,7 +58,16 @@ const formatVoiceDuration = (milliseconds: number) => {
     return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 };
 
-const formatRenewalDate = (value: string) => {
+const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
+const formatRenewalDate = (value: string | null | undefined) => {
+    if (isComplimentary.value) {
+        return 'Complimentary access';
+    }
+
+    if (! value) {
+        return '';
+    }
+
     const date = new Date(value);
 
     return Number.isNaN(date.getTime())
@@ -236,15 +245,15 @@ const onVolumeInput = (event: Event) => {
                     <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
                         <span class="block text-xs text-gray-400">Actions left</span>
                         <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
-                            {{ formatUsageCount(subscriptionUsage.actions.remaining) }} / {{ formatUsageCount(subscriptionUsage.actions.limit) }}
+                            {{ isComplimentary ? 'Unlimited' : `${formatUsageCount(subscriptionUsage.actions.remaining)} / ${formatUsageCount(subscriptionUsage.actions.limit)}` }}
                         </strong>
                     </div>
                     <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
                         <span class="block text-xs text-gray-400">Voice left</span>
                         <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
-                            {{ formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
+                            {{ isComplimentary ? 'Unlimited' : formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
                         </strong>
-                        <span class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
+                        <span v-if="!isComplimentary" class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
                     </div>
                 </div>
             </div>
@@ -431,15 +440,15 @@ const onVolumeInput = (event: Event) => {
                     <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
                         <span class="block text-xs text-gray-400">Actions left</span>
                         <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
-                            {{ formatUsageCount(subscriptionUsage.actions.remaining) }} / {{ formatUsageCount(subscriptionUsage.actions.limit) }}
+                            {{ isComplimentary ? 'Unlimited' : `${formatUsageCount(subscriptionUsage.actions.remaining)} / ${formatUsageCount(subscriptionUsage.actions.limit)}` }}
                         </strong>
                     </div>
                     <div class="rounded-lg border border-white/8 bg-black/10 p-2.5">
                         <span class="block text-xs text-gray-400">Voice left</span>
                         <strong class="mt-1 block text-base font-semibold tabular-nums text-primary-100">
-                            {{ formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
+                            {{ isComplimentary ? 'Unlimited' : formatVoiceDuration(subscriptionUsage.voice.remaining_milliseconds) }}
                         </strong>
-                        <span class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
+                        <span v-if="!isComplimentary" class="mt-0.5 block text-[0.6875rem] text-gray-500">of {{ subscriptionUsage.voice.limit_minutes }}m</span>
                     </div>
                 </div>
             </div>

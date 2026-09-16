@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -52,6 +53,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read int|null $bookmarked_stories_count
  * @property-read Collection<int, SubscriptionEntitlement> $subscriptionEntitlements
  * @property-read Collection<int, SubscriptionUsageEvent> $subscriptionUsageEvents
+ * @property-read Investor|null $investor
  */
 final class User extends Authenticatable implements CanResetPassword, HasMedia
 {
@@ -147,6 +149,23 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     public function multiplayerLobbyMemberships(): HasMany
     {
         return $this->hasMany(MultiplayerLobbyMember::class);
+    }
+
+    /**
+     * @return HasOne<Investor, $this>
+     */
+    public function investor(): HasOne
+    {
+        return $this->hasOne(Investor::class);
+    }
+
+    public function hasActiveInvestorAccess(): bool
+    {
+        $investor = $this->relationLoaded('investor')
+            ? $this->investor
+            : $this->investor()->first();
+
+        return $investor?->access_enabled === true;
     }
 
     /**

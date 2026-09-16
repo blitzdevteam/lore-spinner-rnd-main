@@ -26,6 +26,7 @@ const page = usePage();
 
 const auth = computed(() => page.props.auth);
 const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => auth.value?.subscription_usage ?? null);
+const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
 const planName = computed(() => subscriptionUsage.value?.plan.name ?? null);
 const avatarSrc = computed(() => resolvePublicStorageUrl(auth.value?.avatar));
 const profileName = computed(() => auth.value?.full_name?.trim() || auth.value?.username || 'Player');
@@ -39,9 +40,13 @@ const actionsLimit = computed(() => subscriptionUsage.value?.actions.limit ?? 0)
 const voiceMillisecondsRemaining = computed(() => Math.max(0, subscriptionUsage.value?.voice.remaining_milliseconds ?? 0));
 const voiceMinutesLimit = computed(() => subscriptionUsage.value?.voice.limit_minutes ?? 0);
 const voiceMillisecondsLimit = computed(() => voiceMinutesLimit.value * 60_000);
-const actionsProgress = computed(() => allowancePercent(actionsRemaining.value, actionsLimit.value));
-const voiceProgress = computed(() => allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value));
+const actionsProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(actionsRemaining.value, actionsLimit.value)));
+const voiceProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value)));
 const renewalLabel = computed(() => {
+    if (isComplimentary.value) {
+        return 'Complimentary';
+    }
+
     const periodEndsAt = subscriptionUsage.value?.period_ends_at;
 
     if (! periodEndsAt) {
@@ -184,10 +189,12 @@ onClickOutside(profileWrap, closeDropdown);
                                     <span class="text-[0.625rem] font-medium text-[#aab4b7]">Actions</span>
                                 </div>
                                 <p class="mt-3 text-lg font-semibold leading-none tabular-nums text-[#f2faf9]">
-                                    {{ formatNumber(actionsRemaining) }}
-                                    <span class="text-xs font-medium text-[#95a1a4]">left</span>
+                                    {{ isComplimentary ? 'Unlimited' : formatNumber(actionsRemaining) }}
+                                    <span v-if="!isComplimentary" class="text-xs font-medium text-[#95a1a4]">left</span>
                                 </p>
-                                <p class="mt-1 text-[0.6875rem] text-[#849094]">of {{ formatNumber(actionsLimit) }} actions</p>
+                                <p class="mt-1 text-[0.6875rem] text-[#849094]">
+                                    {{ isComplimentary ? 'Complimentary access' : `of ${formatNumber(actionsLimit)} actions` }}
+                                </p>
                                 <div class="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
                                     <span class="block h-full rounded-full bg-primary transition-[width] duration-300" :style="{ width: `${actionsProgress}%` }" />
                                 </div>
@@ -201,9 +208,11 @@ onClickOutside(profileWrap, closeDropdown);
                                     <span class="text-[0.625rem] font-medium text-[#aab4b7]">Voice</span>
                                 </div>
                                 <p class="mt-3 text-lg font-semibold leading-none tabular-nums text-[#f2faf9]">
-                                    {{ formatVoiceDuration(voiceMillisecondsRemaining) }}
+                                    {{ isComplimentary ? 'Unlimited' : formatVoiceDuration(voiceMillisecondsRemaining) }}
                                 </p>
-                                <p class="mt-1 text-[0.6875rem] text-[#849094]">of {{ formatNumber(voiceMinutesLimit) }} min</p>
+                                <p class="mt-1 text-[0.6875rem] text-[#849094]">
+                                    {{ isComplimentary ? 'Complimentary access' : `of ${formatNumber(voiceMinutesLimit)} min` }}
+                                </p>
                                 <div class="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
                                     <span class="block h-full rounded-full bg-secondary-300 transition-[width] duration-300" :style="{ width: `${voiceProgress}%` }" />
                                 </div>

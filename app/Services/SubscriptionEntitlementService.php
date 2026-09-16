@@ -32,6 +32,10 @@ final class SubscriptionEntitlementService
 
     public function hasPlayAccess(User $user): bool
     {
+        if ($user->hasActiveInvestorAccess()) {
+            return true;
+        }
+
         if ($this->currentEntitlement($user) !== null) {
             return true;
         }
@@ -46,11 +50,16 @@ final class SubscriptionEntitlementService
      *     plan:array{name:string},
      *     actions:array{limit:int,used:int,remaining:int},
      *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
-     *     period_ends_at:string
+     *     period_ends_at:?string,
+     *     is_complimentary:bool
      * }|null
      */
     public function summary(User $user): ?array
     {
+        if ($user->hasActiveInvestorAccess()) {
+            return $this->complimentarySummary();
+        }
+
         $entitlement = $this->currentEntitlement($user);
         if ($entitlement === null) {
             return null;
@@ -73,11 +82,16 @@ final class SubscriptionEntitlementService
                 'remaining_milliseconds' => $entitlement->remainingVoiceMilliseconds(),
             ],
             'period_ends_at' => $entitlement->period_end->toIso8601String(),
+            'is_complimentary' => false,
         ];
     }
 
-    public function shouldTrackUsageFor(Game $game): bool
+    public function shouldTrackUsageFor(User $user, Game $game): bool
     {
+        if ($user->hasActiveInvestorAccess()) {
+            return false;
+        }
+
         return ! MultiplayerLobby::query()->where('game_id', $game->id)->exists();
     }
 
@@ -133,13 +147,21 @@ final class SubscriptionEntitlementService
         });
     }
 
-    public function commitAction(string $reservationId): void
+    public function commitAction(?string $reservationId): void
     {
+        if ($reservationId === null || $reservationId === '') {
+            return;
+        }
+
         $this->commitReservation($reservationId, SubscriptionUsageEvent::TYPE_ACTION);
     }
 
-    public function releaseAction(string $reservationId): void
+    public function releaseAction(?string $reservationId): void
     {
+        if ($reservationId === null || $reservationId === '') {
+            return;
+        }
+
         $this->releaseReservation($reservationId, SubscriptionUsageEvent::TYPE_ACTION);
     }
 
@@ -507,6 +529,36 @@ final class SubscriptionEntitlementService
         return $this->stripeTimestamp(
             $stripeSubscription['cancel_at'] ?? data_get($stripeSubscription, 'canceled_at'),
         );
+    }
+
+    /**
+     * @return array{
+     *     plan:array{name:string},
+     *     actions:array{limit:int,used:int,remaining:int},
+     *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
+     *     period_ends_at:null,
+     *     is_complimentary:true
+     * }
+     */
+    private function complimentarySummary(): array
+    {
+        return [
+            'plan' => [
+                'name' => 'Investor Access',
+            ],
+            'actions' => [
+                'limit' => 0,
+                'used' => 0,
+                'remaining' => 0,
+            ],
+            'voice' => [
+                'limit_minutes' => 0,
+                'used_milliseconds' => 0,
+                'remaining_milliseconds' => 0,
+            ],
+            'period_ends_at' => null,
+            'is_complimentary' => true,
+        ];
     }
 
     private function currentEntitlement(User $user): ?SubscriptionEntitlement

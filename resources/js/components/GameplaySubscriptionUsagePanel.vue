@@ -10,14 +10,19 @@ const props = defineProps<{
 }>();
 
 const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => props.subscriptionUsage ?? null);
+const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
 const actionsRemaining = computed(() => subscriptionUsage.value?.actions.remaining ?? 0);
 const actionsLimit = computed(() => subscriptionUsage.value?.actions.limit ?? 0);
 const voiceMillisecondsRemaining = computed(() => Math.max(0, subscriptionUsage.value?.voice.remaining_milliseconds ?? 0));
 const voiceMinutesLimit = computed(() => subscriptionUsage.value?.voice.limit_minutes ?? 0);
 const voiceMillisecondsLimit = computed(() => voiceMinutesLimit.value * 60_000);
-const actionsProgress = computed(() => allowancePercent(actionsRemaining.value, actionsLimit.value));
-const voiceProgress = computed(() => allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value));
+const actionsProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(actionsRemaining.value, actionsLimit.value)));
+const voiceProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value)));
 const renewalLabel = computed(() => {
+    if (isComplimentary.value) {
+        return 'Complimentary access';
+    }
+
     const periodEndsAt = subscriptionUsage.value?.period_ends_at;
 
     if (! periodEndsAt) {
@@ -85,7 +90,7 @@ function formatVoiceDuration(milliseconds: number): string {
                                 Actions
                             </span>
                             <strong class="text-sm font-semibold tabular-nums text-primary-100">
-                                {{ formatNumber(actionsRemaining) }} left
+                                {{ isComplimentary ? 'Unlimited' : `${formatNumber(actionsRemaining)} left` }}
                             </strong>
                         </div>
                         <div
@@ -102,7 +107,9 @@ function formatVoiceDuration(milliseconds: number): string {
                                 :style="{ width: `${actionsProgress}%` }"
                             />
                         </div>
-                        <p class="mt-2 text-xs text-gray-500">of {{ formatNumber(actionsLimit) }} actions this period</p>
+                        <p class="mt-2 text-xs text-gray-500">
+                            {{ isComplimentary ? 'Complimentary investor access is not metered' : `of ${formatNumber(actionsLimit)} actions this period` }}
+                        </p>
                     </div>
 
                     <div class="rounded-lg border border-white/8 bg-black/10 p-3">
@@ -112,7 +119,7 @@ function formatVoiceDuration(milliseconds: number): string {
                                 Voice generation
                             </span>
                             <strong class="text-sm font-semibold tabular-nums text-secondary-200">
-                                {{ formatVoiceDuration(voiceMillisecondsRemaining) }} left
+                                {{ isComplimentary ? 'Unlimited' : `${formatVoiceDuration(voiceMillisecondsRemaining)} left` }}
                             </strong>
                         </div>
                         <div
@@ -129,11 +136,14 @@ function formatVoiceDuration(milliseconds: number): string {
                                 :style="{ width: `${voiceProgress}%` }"
                             />
                         </div>
-                        <p class="mt-2 text-xs text-gray-500">of {{ formatNumber(voiceMinutesLimit) }} minutes this period</p>
+                        <p class="mt-2 text-xs text-gray-500">
+                            {{ isComplimentary ? 'Complimentary investor access is not metered' : `of ${formatNumber(voiceMinutesLimit)} minutes this period` }}
+                        </p>
                     </div>
                 </div>
 
                 <Link
+                    v-if="!isComplimentary"
                     :href="pricing().url"
                     class="mt-4 inline-flex h-9 w-full items-center justify-center rounded-lg border border-primary/50 bg-primary/10 px-3 text-xs font-semibold text-primary-100 transition-colors hover:border-primary hover:bg-primary/20"
                 >

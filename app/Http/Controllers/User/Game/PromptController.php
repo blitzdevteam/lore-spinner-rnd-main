@@ -80,9 +80,11 @@ final class PromptController extends Controller
                 $game,
                 $sourcePrompt,
             );
-            $actionReservationId = (string) $this->subscriptionUsage
-                ->reserveAction($user, $game, $sourcePrompt)
-                ->id;
+            $actionReservationId = $this->subscriptionUsage->shouldTrackUsageFor($user, $game)
+                ? (string) $this->subscriptionUsage
+                    ->reserveAction($user, $game, $sourcePrompt)
+                    ->id
+                : null;
 
             if ($this->wantsStreamingTurn($request)) {
                 Cache::put($this->processGameTurn->pendingKey($game->id), $sourcePromptId, 180);
@@ -238,7 +240,7 @@ final class PromptController extends Controller
         string $playerAction,
         ?array $explicitBranch,
         int $userId,
-        string $actionReservationId,
+        ?string $actionReservationId,
     ): StreamedResponse {
         return response()->stream(function () use (
             $request,

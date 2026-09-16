@@ -147,13 +147,10 @@ final class NarrationAudioService
                 throw new RuntimeException('Narration has no speakable text.');
             }
 
-            if ($this->subscriptionUsage->shouldTrackUsageFor($game)) {
-                $game->loadMissing('user');
-                $user = $game->user;
-                if (! $user instanceof User) {
-                    throw new RuntimeException('Narration game has no player.');
-                }
+            $game->loadMissing('user');
+            $user = $game->user;
 
+            if ($user instanceof User && $this->subscriptionUsage->shouldTrackUsageFor($user, $game)) {
                 $voiceReservationId = (string) $this->subscriptionUsage
                     ->reserveVoice($user, $game, $prompt, $text)
                     ->id;
