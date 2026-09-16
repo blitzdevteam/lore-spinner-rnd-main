@@ -403,7 +403,7 @@ const handleInputSubmit = (prompt: string) => {
                             >
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
                                 />
                             </GameplayCapsuleButton>
                             <GameplayCapsuleButton
@@ -453,7 +453,7 @@ const handleInputSubmit = (prompt: string) => {
                             <button class="mobile-pill__btn" :title="settings.autoplay ? 'Autoplay on' : 'Autoplay off'" @click="toggleAutoplay">
                                 <LucideZap
                                     class="size-5 transition-colors"
-                                    :class="settings.autoplay ? 'text-secondary-300' : 'text-gray-300'"
+                                    :class="settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'"
                                 />
                             </button>
                             <button

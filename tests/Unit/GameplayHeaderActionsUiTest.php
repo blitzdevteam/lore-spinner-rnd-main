@@ -16,8 +16,7 @@ it('keeps inactive singleplayer header actions gray and active actions yellow', 
         ->toContain("label=\"Usage\"\n                                    label-tone=\"secondary\"")
         ->toContain('<LucideGauge v-else class="size-5 text-gray-300" />')
         ->toContain('<LucideNotebookText v-else class="size-5 text-gray-300" />')
-        ->toContain(":class=\"settings.autoplay ? 'text-secondary-300' : 'text-gray-300'\"")
-        ->not->toContain('fill-secondary-300');
+        ->toContain(":class=\"settings.autoplay ? 'fill-secondary-300 text-secondary-300' : 'text-gray-300'\"");
 
     expect($capsule)
         ->toContain('.gameplay-capsule:hover .gameplay-capsule__icon :deep(svg),')
