@@ -59,7 +59,7 @@ function toggleItem(index: number) {
     <div class="home-section-gap w-full">
         <SectionHeader
             title="Frequently Asked Questions"
-            subtitle="Can’t find what you need? Visit our community forum, reach out on Twitter, or email our support team."
+            subtitle="Can’t find what you need? Visit our community forum, reach out on X, or email our support team."
         />
 
         <!-- Collapsed: Show More -->
