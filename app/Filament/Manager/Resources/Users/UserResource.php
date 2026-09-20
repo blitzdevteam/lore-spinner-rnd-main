@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Override;
 use UnitEnum;
 
@@ -29,6 +30,13 @@ final class UserResource extends Resource
     public static function getNavigationBadge(): string
     {
         return (string) self::getEloquentQuery()->count();
+    }
+
+    /** @return Builder<User> */
+    #[Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('plan');
     }
 
     #[Override]
@@ -51,7 +59,7 @@ final class UserResource extends Resource
         ];
     }
 
-    #[\Override]
+    #[Override]
     public static function getPages(): array
     {
         return [

@@ -89,6 +89,13 @@ Route::middleware('auth:user')->group(function (): void {
         ->name('multiplayer.lobbies.destroy');
 });
 
+Route::middleware('signed')->group(function (): void {
+    Route::get('investor-access/{user}', [Controllers\User\InvestorMagicLoginController::class, 'show'])
+        ->name('investor.access');
+    Route::post('investor-access/{user}', [Controllers\User\InvestorMagicLoginController::class, 'store'])
+        ->name('investor.access.store');
+});
+
 Route::get('old-homepage', Controllers\OldHomepageController::class)->name('old-homepage');
 
 Route::get('design-rnd', fn () => inertia('DesignRnd'))->name('design-rnd');

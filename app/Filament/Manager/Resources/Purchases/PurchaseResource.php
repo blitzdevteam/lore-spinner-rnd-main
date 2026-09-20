@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Purchases;
 
+use App\Enums\UserType;
 use App\Filament\Manager\Resources\Purchases\Pages\ListPurchases;
 use App\Filament\Manager\Resources\Purchases\Pages\ViewPurchase;
 use App\Filament\Manager\Resources\Purchases\Schemas\PurchaseInfolist;
@@ -56,7 +57,9 @@ final class PurchaseResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('user:id,email,first_name,last_name,stripe_id');
+        return parent::getEloquentQuery()
+            ->where('type', '!=', UserType::Investor->value)
+            ->with('user:id,email,first_name,last_name,stripe_id');
     }
 
     #[Override]

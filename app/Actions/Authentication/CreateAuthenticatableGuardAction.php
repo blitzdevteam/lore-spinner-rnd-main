@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Authentication;
 
+use App\Enums\UserType;
 use App\Models\Creator;
 use App\Models\User;
 use App\Models\Writer;
@@ -24,10 +25,15 @@ final readonly class CreateAuthenticatableGuardAction
         }
 
         $model = self::GUARD_MODELS[$guard];
-
-        return $model::create([
+        $attributes = [
             'email' => $email,
             'password' => $password,
-        ]);
+        ];
+
+        if ($model === User::class) {
+            $attributes['type'] = UserType::User;
+        }
+
+        return $model::create($attributes);
     }
 }

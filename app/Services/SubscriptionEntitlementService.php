@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\UserType;
 use App\Exceptions\Subscription\SubscriptionAccessRequiredException;
 use App\Exceptions\Subscription\SubscriptionUsageLimitExceededException;
 use App\Models\Game;
@@ -46,7 +47,8 @@ final class SubscriptionEntitlementService
      *     plan:array{name:string},
      *     actions:array{limit:int,used:int,remaining:int},
      *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
-     *     period_ends_at:string
+     *     period_ends_at:?string,
+     *     is_complimentary:bool
      * }|null
      */
     public function summary(User $user): ?array
@@ -73,10 +75,11 @@ final class SubscriptionEntitlementService
                 'remaining_milliseconds' => $entitlement->remainingVoiceMilliseconds(),
             ],
             'period_ends_at' => $entitlement->period_end->toIso8601String(),
+            'is_complimentary' => false,
         ];
     }
 
-    public function shouldTrackUsageFor(Game $game): bool
+    public function shouldTrackUsageFor(User $user, Game $game): bool
     {
         return ! MultiplayerLobby::query()->where('game_id', $game->id)->exists();
     }
@@ -133,13 +136,21 @@ final class SubscriptionEntitlementService
         });
     }
 
-    public function commitAction(string $reservationId): void
+    public function commitAction(?string $reservationId): void
     {
+        if ($reservationId === null || $reservationId === '') {
+            return;
+        }
+
         $this->commitReservation($reservationId, SubscriptionUsageEvent::TYPE_ACTION);
     }
 
-    public function releaseAction(string $reservationId): void
+    public function releaseAction(?string $reservationId): void
     {
+        if ($reservationId === null || $reservationId === '') {
+            return;
+        }
+
         $this->releaseReservation($reservationId, SubscriptionUsageEvent::TYPE_ACTION);
     }
 
@@ -544,10 +555,19 @@ final class SubscriptionEntitlementService
 
     private function activeSubscriptionFor(User $user): ?Subscription
     {
-        return $user->subscriptions()
-            ->where('type', 'default')
-            ->get()
-            ->first(static fn (Subscription $subscription): bool => $subscription->valid());
+        $subscriptions = $user->subscriptions()->get();
+
+        $paidSubscription = $subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->type === 'default' && $subscription->valid(),
+        );
+
+        if ($paidSubscription !== null) {
+            return $paidSubscription;
+        }
+
+        return $subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->type === UserType::Investor->value && $subscription->valid(),
+        );
     }
 
     private function entitlementCovering(Subscription $subscription, CarbonImmutable $at): ?SubscriptionEntitlement

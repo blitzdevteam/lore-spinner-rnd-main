@@ -358,7 +358,8 @@ export interface SubscriptionUsageSummary {
         used_milliseconds: number;
         remaining_milliseconds: number;
     };
-    period_ends_at: string;
+    period_ends_at: string | null;
+    is_complimentary?: boolean;
 }
 
 export interface CompletionIdentity {

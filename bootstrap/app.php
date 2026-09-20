@@ -76,6 +76,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('backup:clean')->daily()->at('01:00');
         $schedule->command('backup:run')->daily()->at('01:30');
+        $schedule->command('investors:expire-access')
+            ->daily()
+            ->withoutOverlapping();
         $schedule->command('multiplayer:lobbies:close-inactive')
             ->everyFiveMinutes()
             ->withoutOverlapping();
