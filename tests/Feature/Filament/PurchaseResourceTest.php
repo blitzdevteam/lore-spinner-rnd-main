@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\PricingPlan;
+use App\Enums\UserType;
 use App\Filament\Manager\Resources\Purchases\Pages\ListPurchases;
 use App\Filament\Manager\Resources\Purchases\PurchaseResource;
 use App\Filament\Manager\Resources\Purchases\Tables\PurchasesTable;
@@ -12,6 +13,7 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Cashier\Subscription;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -89,4 +91,19 @@ it('shows the purchased-plan details without invoice history', function () {
         ->assertSee('Mythic Pass')
         ->assertSee('Stripe references')
         ->assertDontSee('Invoice history');
+});
+
+it('hides investor test subscriptions from purchased plans', function (): void {
+    $manager = Manager::factory()->create();
+    $investor = User::factory()->investor()->create();
+    $subscription = $investor->subscriptions()
+        ->where('type', UserType::Investor->value)
+        ->first();
+
+    expect($subscription)->not->toBeNull();
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(ListPurchases::class)
+        ->assertCanNotSeeTableRecords([$subscription]);
 });

@@ -9,7 +9,7 @@ use App\Filament\Manager\Resources\Investors\Pages\EditInvestor;
 use App\Filament\Manager\Resources\Investors\Pages\ListInvestors;
 use App\Filament\Manager\Resources\Investors\Schemas\InvestorForm;
 use App\Filament\Manager\Resources\Investors\Tables\InvestorsTable;
-use App\Models\Investor;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -21,7 +21,9 @@ use UnitEnum;
 
 final class InvestorResource extends Resource
 {
-    protected static ?string $model = Investor::class;
+    protected static ?string $model = User::class;
+
+    protected static ?string $slug = 'investors';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSparkles;
 
@@ -31,7 +33,9 @@ final class InvestorResource extends Resource
 
     protected static ?string $modelLabel = 'investor';
 
-    protected static ?string $recordTitleAttribute = 'id';
+    protected static ?string $recordTitleAttribute = 'first_name';
+
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getNavigationBadge(): string
     {
@@ -41,7 +45,9 @@ final class InvestorResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('user');
+        return parent::getEloquentQuery()
+            ->investors()
+            ->with('plan');
     }
 
     #[Override]

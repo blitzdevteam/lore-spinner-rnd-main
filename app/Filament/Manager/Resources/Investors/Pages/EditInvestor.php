@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Investors\Pages;
 
+use App\Actions\Investor\SyncInvestorPlanAccessAction;
 use App\Actions\Investor\UpdateInvestorAccessAction;
 use App\Filament\Manager\Resources\Investors\InvestorResource;
-use App\Models\Investor;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -23,31 +24,31 @@ final class EditInvestor extends EditRecord
     {
         return [
             Action::make('blockAccess')
-                ->label('Block free access')
+                ->label('Block test access')
                 ->color('danger')
                 ->requiresConfirmation()
-                ->modalHeading('Block complimentary access?')
+                ->modalHeading('Block test access?')
                 ->modalDescription('This investor will need a paid subscription to keep playing stories.')
-                ->successNotificationTitle('Complimentary access blocked')
-                ->visible(fn (): bool => $this->record instanceof Investor && $this->record->access_enabled)
+                ->successNotificationTitle('Test access blocked')
+                ->visible(fn (): bool => $this->record instanceof User && $this->record->access_enabled)
                 ->action(function (): void {
                     $record = $this->getInvestor();
                     $this->record = app(UpdateInvestorAccessAction::class)->block($record);
                 }),
             Action::make('restoreAccess')
-                ->label('Restore free access')
+                ->label('Restore test access')
                 ->color('success')
                 ->requiresConfirmation()
-                ->modalHeading('Restore complimentary access?')
-                ->modalDescription('This investor will be able to play stories again without a paid plan.')
-                ->successNotificationTitle('Complimentary access restored')
-                ->visible(fn (): bool => $this->record instanceof Investor && ! $this->record->access_enabled)
+                ->modalHeading('Restore test access?')
+                ->modalDescription('This investor will receive a new access window on the assigned plan.')
+                ->successNotificationTitle('Test access restored')
+                ->visible(fn (): bool => $this->record instanceof User && ! $this->record->hasActiveAccess())
                 ->action(function (): void {
                     $record = $this->getInvestor();
                     $this->record = app(UpdateInvestorAccessAction::class)->restore($record);
                 }),
             DeleteAction::make()
-                ->modalDescription('Removes this investor record and complimentary access. The player account stays in Users.'),
+                ->modalDescription('Removes this investor account and test access.'),
         ];
     }
 
@@ -58,14 +59,12 @@ final class EditInvestor extends EditRecord
     #[Override]
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $user = $this->getInvestor()->user;
+        $investor = $this->getInvestor();
 
         return [
             ...$data,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'username' => $user->username,
-            'email' => $user->email,
+            'email' => $investor->hasCompletedSetup() ? $investor->email : null,
+            'magic_login_url' => $investor->magicLoginUrl(),
         ];
     }
 
@@ -75,31 +74,39 @@ final class EditInvestor extends EditRecord
     #[Override]
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $investor = $record instanceof Investor ? $record : $this->getInvestor();
-        $userPayload = [
+        $investor = $record instanceof User ? $record : $this->getInvestor();
+        $durationMonths = max(1, (int) $data['duration_months']);
+        $planId = (int) $data['subscription_plan_id'];
+        $planChanged = (int) $investor->subscription_plan_id !== $planId;
+        $durationChanged = (int) $investor->duration_months !== $durationMonths;
+
+        $payload = [
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
-            'username' => $data['username'],
-            'email' => $data['email'],
+            'notes' => $data['notes'] ?? null,
+            'subscription_plan_id' => $planId,
+            'duration_months' => $durationMonths,
         ];
 
-        if (filled($data['password'] ?? null)) {
-            $userPayload['password'] = $data['password'];
+        if ($investor->access_enabled && $durationChanged) {
+            $grantedAt = $investor->access_granted_at ?? now();
+            $payload['expires_at'] = $grantedAt->copy()->addMonthsNoOverflow($durationMonths);
         }
 
-        $investor->user->update($userPayload);
-        $investor->update([
-            'notes' => $data['notes'] ?? null,
-        ]);
+        $investor->update($payload);
 
-        return $investor->refresh()->load('user');
+        if ($investor->access_enabled && ($planChanged || $durationChanged)) {
+            app(SyncInvestorPlanAccessAction::class)->grant($investor->refresh());
+        }
+
+        return $investor->refresh()->load('plan');
     }
 
-    private function getInvestor(): Investor
+    private function getInvestor(): User
     {
         $record = $this->getRecord();
 
-        if (! $record instanceof Investor) {
+        if (! $record instanceof User || ! $record->isInvestor()) {
             throw new RuntimeException('The current record is not an investor.');
         }
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Investors\Schemas;
 
-use App\Models\Investor;
+use App\Models\SubscriptionPlan;
+use App\Models\User;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Unique;
 
 final class InvestorForm
 {
@@ -22,7 +22,7 @@ final class InvestorForm
                     ->columnSpanFull()
                     ->columns(2)
                     ->heading('Investor account')
-                    ->description('Registers a player who can play stories without a paid plan until complimentary access is blocked.')
+                    ->description('Enter the investor\'s name, assign a plan, and copy the magic link. They will set their own email and password from that link.')
                     ->schema([
                         TextInput::make('first_name')
                             ->required()
@@ -30,26 +30,36 @@ final class InvestorForm
                         TextInput::make('last_name')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('username')
+                        Select::make('subscription_plan_id')
+                            ->label('Subscription plan')
+                            ->options(fn (): array => SubscriptionPlan::query()
+                                ->orderBy('sort_order')
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->searchable()
                             ->required()
-                            ->maxLength(255)
-                            ->rules([
-                                fn (?Investor $record): Unique => Rule::unique('users', 'username')->ignore($record?->user_id),
-                            ]),
+                            ->helperText('Usage is metered against this plan. This is not an unlimited account.'),
+                        Select::make('duration_months')
+                            ->label('Access duration')
+                            ->options(User::durationOptions())
+                            ->required()
+                            ->default(1)
+                            ->helperText('The test account is blocked when this window ends.'),
                         TextInput::make('email')
                             ->label('Email address')
-                            ->email()
-                            ->required()
-                            ->maxLength(255)
-                            ->rules([
-                                fn (?Investor $record): Unique => Rule::unique('users', 'email')->ignore($record?->user_id),
-                            ]),
-                        TextInput::make('password')
-                            ->password()
-                            ->required(fn (string $operation): bool => $operation === 'create')
-                            ->dehydrated(fn (?string $state): bool => filled($state))
-                            ->maxLength(255)
-                            ->helperText('Leave blank on edit to keep the current password.'),
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->visible(fn (?User $record): bool => $record?->hasCompletedSetup() === true)
+                            ->columnSpanFull(),
+                        TextInput::make('magic_login_url')
+                            ->label('Magic login link')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->copyable()
+                            ->visible(fn (?User $record): bool => filled($record?->magicLoginUrl()))
+                            ->helperText('Share this link so the investor can set their email and password, then access the site.')
+                            ->columnSpanFull(),
                         Textarea::make('notes')
                             ->rows(3)
                             ->columnSpanFull()

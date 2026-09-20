@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\UserType;
 use App\Exceptions\Subscription\SubscriptionAccessRequiredException;
 use App\Exceptions\Subscription\SubscriptionUsageLimitExceededException;
 use App\Models\Game;
@@ -32,10 +33,6 @@ final class SubscriptionEntitlementService
 
     public function hasPlayAccess(User $user): bool
     {
-        if ($user->hasActiveInvestorAccess()) {
-            return true;
-        }
-
         if ($this->currentEntitlement($user) !== null) {
             return true;
         }
@@ -56,10 +53,6 @@ final class SubscriptionEntitlementService
      */
     public function summary(User $user): ?array
     {
-        if ($user->hasActiveInvestorAccess()) {
-            return $this->complimentarySummary();
-        }
-
         $entitlement = $this->currentEntitlement($user);
         if ($entitlement === null) {
             return null;
@@ -88,10 +81,6 @@ final class SubscriptionEntitlementService
 
     public function shouldTrackUsageFor(User $user, Game $game): bool
     {
-        if ($user->hasActiveInvestorAccess()) {
-            return false;
-        }
-
         return ! MultiplayerLobby::query()->where('game_id', $game->id)->exists();
     }
 
@@ -531,36 +520,6 @@ final class SubscriptionEntitlementService
         );
     }
 
-    /**
-     * @return array{
-     *     plan:array{name:string},
-     *     actions:array{limit:int,used:int,remaining:int},
-     *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
-     *     period_ends_at:null,
-     *     is_complimentary:true
-     * }
-     */
-    private function complimentarySummary(): array
-    {
-        return [
-            'plan' => [
-                'name' => 'Investor Access',
-            ],
-            'actions' => [
-                'limit' => 0,
-                'used' => 0,
-                'remaining' => 0,
-            ],
-            'voice' => [
-                'limit_minutes' => 0,
-                'used_milliseconds' => 0,
-                'remaining_milliseconds' => 0,
-            ],
-            'period_ends_at' => null,
-            'is_complimentary' => true,
-        ];
-    }
-
     private function currentEntitlement(User $user): ?SubscriptionEntitlement
     {
         $subscription = $this->activeSubscriptionFor($user);
@@ -596,10 +555,19 @@ final class SubscriptionEntitlementService
 
     private function activeSubscriptionFor(User $user): ?Subscription
     {
-        return $user->subscriptions()
-            ->where('type', 'default')
-            ->get()
-            ->first(static fn (Subscription $subscription): bool => $subscription->valid());
+        $subscriptions = $user->subscriptions()->get();
+
+        $paidSubscription = $subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->type === 'default' && $subscription->valid(),
+        );
+
+        if ($paidSubscription !== null) {
+            return $paidSubscription;
+        }
+
+        return $subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->type === UserType::Investor->value && $subscription->valid(),
+        );
     }
 
     private function entitlementCovering(Subscription $subscription, CarbonImmutable $at): ?SubscriptionEntitlement
