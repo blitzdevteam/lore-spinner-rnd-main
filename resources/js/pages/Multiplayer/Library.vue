@@ -116,8 +116,8 @@ function playersLabel(room: MultiplayerLobbyInterface): string {
                     <button
                         v-for="tab in [
                             { key: 'all', label: 'All Stories' },
-                            { key: 'single', label: 'Single Player' },
-                            { key: 'multiplayer', label: 'Multiplayer' },
+                            { key: 'single', label: 'Solo Spin' },
+                            { key: 'multiplayer', label: 'Group Spin' },
                         ]"
                         :key="tab.key"
                         type="button"

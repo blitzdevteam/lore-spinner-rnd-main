@@ -247,7 +247,7 @@ const statItems = computed(() => [
     },
 ]);
 
-const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Single Player'));
+const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Solo Spin'));
 
 const creatorAvatar = computed(() => resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar));
 
@@ -382,7 +382,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                         <div class="flex flex-col gap-6">
                             <div class="flex gap-2.5">
                                 <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                                <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                                <StoryPlayStartCta label="Group Spin" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
                             </div>
                             <button
                                 v-if="isPlayable"
@@ -409,7 +409,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                 <div class="flex flex-col gap-6">
                     <div class="flex gap-2.5">
                         <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                        <StoryPlayStartCta label="Multiplayer" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                        <StoryPlayStartCta label="Group Spin" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
                     </div>
                     <button
                         v-if="isPlayable"

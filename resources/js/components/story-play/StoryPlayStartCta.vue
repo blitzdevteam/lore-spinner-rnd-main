@@ -7,7 +7,7 @@ withDefaults(
         comingSoon?: boolean;
     }>(),
     {
-        label: 'Single Player',
+        label: 'Solo Spin',
         variant: 'primary',
         comingSoon: false,
     },

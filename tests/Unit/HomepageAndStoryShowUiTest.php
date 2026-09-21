@@ -39,16 +39,19 @@ it('adds top spacing to the hero branch graphic', function (): void {
         ->toContain('margin-top: 40px');
 });
 
-it('labels the story details primary cta as single player', function (): void {
+it('labels the story details primary cta as solo spin', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
     $startCta = file_get_contents(resource_path('js/components/story-play/StoryPlayStartCta.vue'));
 
     expect($storyShow)
-        ->toContain("'Single Player'")
-        ->not->toContain('Enter The Story');
+        ->toContain("'Solo Spin'")
+        ->toContain('label="Group Spin"')
+        ->not->toContain('Enter The Story')
+        ->not->toContain("'Single Player'")
+        ->not->toContain('label="Multiplayer"');
 
     expect($startCta)
-        ->toContain("label: 'Single Player'")
+        ->toContain("label: 'Solo Spin'")
         ->not->toContain('Enter The Story');
 });
 
