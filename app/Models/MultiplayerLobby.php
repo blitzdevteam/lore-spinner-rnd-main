@@ -49,15 +49,17 @@ use Override;
  */
 final class MultiplayerLobby extends Model
 {
-    public const int DEFAULT_DECISION_WINDOW_SECONDS = 180;
-
-    /** @var list<int> */
-    public const array DECISION_WINDOW_SECONDS = [180, 240, 300, 360];
-
     /** @use HasFactory<MultiplayerLobbyFactory> */
     use HasFactory;
 
     use HasUlids;
+
+    public const int DEFAULT_DECISION_WINDOW_SECONDS = 180;
+
+    public const int DISABLED_DECISION_WINDOW_SECONDS = 0;
+
+    /** @var list<int> */
+    public const array DECISION_WINDOW_SECONDS = [self::DISABLED_DECISION_WINDOW_SECONDS, 180, 240, 300, 360];
 
     protected $guarded = [
         'id', 'created_at', 'updated_at',
@@ -141,6 +143,36 @@ final class MultiplayerLobby extends Model
         return in_array($decisionWindowSeconds, self::DECISION_WINDOW_SECONDS, true)
             ? $decisionWindowSeconds
             : self::DEFAULT_DECISION_WINDOW_SECONDS;
+    }
+
+    public function hasDecisionTimer(): bool
+    {
+        return $this->decisionWindowSeconds() > self::DISABLED_DECISION_WINDOW_SECONDS;
+    }
+
+    /**
+     * @return array{decision_deadline_at: Carbon|null, decision_remaining_seconds: int|null}
+     */
+    public function nextDecisionTimerAttributes(?Carbon $now = null): array
+    {
+        if (! $this->hasDecisionTimer()) {
+            return [
+                'decision_deadline_at' => null,
+                'decision_remaining_seconds' => null,
+            ];
+        }
+
+        if ($this->status === MultiplayerLobbyStatusEnum::Started) {
+            return [
+                'decision_deadline_at' => ($now ?? now())->copy()->addSeconds($this->decisionWindowSeconds()),
+                'decision_remaining_seconds' => null,
+            ];
+        }
+
+        return [
+            'decision_deadline_at' => null,
+            'decision_remaining_seconds' => $this->decisionWindowSeconds(),
+        ];
     }
 
     public function customInputEnabled(): bool

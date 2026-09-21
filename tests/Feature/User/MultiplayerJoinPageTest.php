@@ -54,6 +54,6 @@ it('offers mode-specific lobby settings before a room is created', function () {
         ->toContain("if (selectedModeName.value === 'Roulette')")
         ->toContain("{ key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] }")
         ->toContain("{ key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] }")
-        ->toContain("return [{ key: 'votingTime', label: 'Voting Time', options: ['10 Sec', '20 Sec', '30 Sec'] }]")
+        ->toContain("{ key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] }")
         ->not->toContain('Power-ups Per User');
 });

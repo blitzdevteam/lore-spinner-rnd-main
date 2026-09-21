@@ -42,13 +42,13 @@ const lobbySettingOptions = computed<LobbySettingOption[]>(() => {
         return [
             { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
             { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
+            { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
         ];
     }
 
     return [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-        { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
+        { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
 });
 const lobbyCreationForm = useForm<{
@@ -161,7 +161,7 @@ function chooseMode(mode: StoryMode): void {
 }
 
 function decisionWindowSeconds(value: string): number {
-    return Number.parseInt(value, 10) * 60;
+    return value === 'Off' ? 0 : Number.parseInt(value, 10) * 60;
 }
 
 function createLobby(): void {

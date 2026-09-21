@@ -170,20 +170,19 @@ final class ProcessMultiplayerLobbyTurnAction
                         ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
                         : MultiplayerArbiterTurnStatusEnum::AwaitingArbiter,
                 ];
-                $decisionWindowSeconds = $lockedLobby->decisionWindowSeconds();
+                $decisionTimer = $lockedLobby->nextDecisionTimerAttributes();
+                $decisionDeadlineAt = $decisionTimer['decision_deadline_at'];
 
-                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
-                    $decisionDeadlineAt = now()->addSeconds($decisionWindowSeconds);
+                if ($decisionDeadlineAt !== null) {
                     $decisionSourcePromptId = (string) $sourcePrompt->id;
                     $decisionDeadlineGraceSeconds = $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette ? 1 : 3;
-                    $attributes['decision_deadline_at'] = $decisionDeadlineAt;
-                    $attributes['decision_remaining_seconds'] = null;
-                } else {
-                    $attributes['decision_deadline_at'] = null;
-                    $attributes['decision_remaining_seconds'] = $decisionWindowSeconds;
                 }
 
-                $lockedLobby->update($attributes);
+                $lockedLobby->update([
+                    ...$attributes,
+                    'decision_deadline_at' => $decisionTimer['decision_deadline_at'],
+                    'decision_remaining_seconds' => $decisionTimer['decision_remaining_seconds'],
+                ]);
 
                 return $lockedLobby;
             }
@@ -212,18 +211,18 @@ final class ProcessMultiplayerLobbyTurnAction
             }
 
             $isAwaitingRouletteChoice = $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette;
-            $nextDecisionDeadlineAt = null;
-            $nextDecisionRemainingSeconds = null;
+            $decisionTimer = $isAwaitingRouletteChoice
+                ? $lockedLobby->nextDecisionTimerAttributes()
+                : [
+                    'decision_deadline_at' => null,
+                    'decision_remaining_seconds' => null,
+                ];
+            $nextDecisionDeadlineAt = $decisionTimer['decision_deadline_at'];
 
-            if ($isAwaitingRouletteChoice) {
-                if ($lockedLobby->status === MultiplayerLobbyStatusEnum::Started) {
-                    $nextDecisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
-                    $decisionDeadlineAt = $nextDecisionDeadlineAt;
-                    $decisionSourcePromptId = (string) $responsePrompt->id;
-                    $decisionDeadlineGraceSeconds = 1;
-                } else {
-                    $nextDecisionRemainingSeconds = $lockedLobby->decisionWindowSeconds();
-                }
+            if ($nextDecisionDeadlineAt !== null) {
+                $decisionDeadlineAt = $nextDecisionDeadlineAt;
+                $decisionSourcePromptId = (string) $responsePrompt->id;
+                $decisionDeadlineGraceSeconds = 1;
             }
 
             $lockedLobby->update([
@@ -232,8 +231,8 @@ final class ProcessMultiplayerLobbyTurnAction
                 'turn_status' => $isAwaitingRouletteChoice
                     ? MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice
                     : MultiplayerArbiterTurnStatusEnum::CollectingProposals,
-                'decision_deadline_at' => $nextDecisionDeadlineAt,
-                'decision_remaining_seconds' => $nextDecisionRemainingSeconds,
+                'decision_deadline_at' => $decisionTimer['decision_deadline_at'],
+                'decision_remaining_seconds' => $decisionTimer['decision_remaining_seconds'],
             ]);
 
             return $lockedLobby;

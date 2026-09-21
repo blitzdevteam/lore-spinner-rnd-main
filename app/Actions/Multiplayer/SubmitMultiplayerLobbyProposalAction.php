@@ -92,7 +92,7 @@ final class SubmitMultiplayerLobbyProposalAction
                 'text' => $text,
             ]);
 
-            if ($lockedLobby->decision_deadline_at === null) {
+            if ($lockedLobby->decision_deadline_at === null && $lockedLobby->hasDecisionTimer()) {
                 $decisionDeadlineAt = now()->addSeconds($lockedLobby->decisionWindowSeconds());
                 $decisionSourcePromptId = (string) $sourcePrompt->id;
 

@@ -333,3 +333,122 @@ it('does not expose narration audio for a roulette lobby with voice over disable
         ->get(route('user.games.tts', [$game, $prompt]))
         ->assertForbidden();
 });
+
+it('treats a countdown of zero as an untimed decision window', function (): void {
+    Event::fake([MultiplayerLobbyCreated::class]);
+
+    $host = User::factory()->create();
+    $story = Story::factory()->create();
+    $lobby = app(CreateMultiplayerLobbyAction::class)->handle(
+        $host,
+        $story,
+        MultiplayerLobbyModeEnum::Arbiter,
+        3,
+        [
+            'voice_over_enabled' => true,
+            'decision_window_seconds' => MultiplayerLobby::DISABLED_DECISION_WINDOW_SECONDS,
+        ],
+    );
+
+    expect($lobby->decisionWindowSeconds())->toBe(0)
+        ->and($lobby->hasDecisionTimer())->toBeFalse();
+
+    $lobby->forceFill(['status' => MultiplayerLobbyStatusEnum::Started]);
+
+    expect($lobby->nextDecisionTimerAttributes()['decision_deadline_at'])->toBeNull()
+        ->and($lobby->nextDecisionTimerAttributes()['decision_remaining_seconds'])->toBeNull();
+});
+
+it('allows the host to turn the countdown off before the story starts', function (): void {
+    $host = User::factory()->withCompleteProfile()->markEmailAsVerified()->create([
+        'is_active' => true,
+    ]);
+    $lobby = MultiplayerLobby::factory()->create([
+        'host_user_id' => $host->id,
+    ]);
+    MultiplayerLobbyMember::factory()->host()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $host->id,
+    ]);
+
+    $this->actingAs($host)
+        ->patch(route('multiplayer.lobbies.settings.update', $lobby), [
+            'settings' => [
+                'voice_over_enabled' => true,
+                'decision_window_seconds' => MultiplayerLobby::DISABLED_DECISION_WINDOW_SECONDS,
+            ],
+        ])
+        ->assertRedirect(route('multiplayer.lobbies.show', $lobby));
+
+    $lobby->refresh();
+
+    expect($lobby->decisionWindowSeconds())->toBe(0)
+        ->and($lobby->hasDecisionTimer())->toBeFalse();
+});
+
+it('does not start a decision deadline when countdown is off', function (): void {
+    Event::fake([MultiplayerArbiterStateChanged::class]);
+    Queue::fake();
+
+    $host = User::factory()->create();
+    $firstContributor = User::factory()->create();
+    $secondContributor = User::factory()->create();
+    $story = Story::factory()->create();
+    $game = Game::query()->create([
+        'story_id' => $story->id,
+        'user_id' => $host->id,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $lobby = MultiplayerLobby::factory()->create([
+        'story_id' => $story->id,
+        'host_user_id' => $host->id,
+        'game_id' => $game->id,
+        'mode' => MultiplayerLobbyModeEnum::Arbiter,
+        'status' => MultiplayerLobbyStatusEnum::Started,
+        'turn_status' => MultiplayerArbiterTurnStatusEnum::CollectingProposals,
+        'settings' => [
+            'custom_input_enabled' => false,
+            'voice_over_enabled' => false,
+            'power_ups_per_user' => 10,
+            'decision_window_seconds' => MultiplayerLobby::DISABLED_DECISION_WINDOW_SECONDS,
+        ],
+    ]);
+    $arbiter = MultiplayerLobbyMember::factory()->host()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $host->id,
+    ]);
+    MultiplayerLobbyMember::factory()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $firstContributor->id,
+    ]);
+    MultiplayerLobbyMember::factory()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $secondContributor->id,
+    ]);
+    $sourcePrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'A crossroads opens before the party.',
+        'choices' => [],
+    ]);
+    $lobby->update([
+        'current_arbiter_member_id' => $arbiter->id,
+        'current_source_prompt_id' => $sourcePrompt->id,
+    ]);
+
+    app(SubmitMultiplayerLobbyProposalAction::class)->handle($firstContributor, $lobby, 'Take the path through the woods.');
+
+    $lobby->refresh();
+
+    expect($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::CollectingProposals)
+        ->and($lobby->decision_deadline_at)->toBeNull();
+
+    app(SubmitMultiplayerLobbyProposalAction::class)->handle($secondContributor, $lobby, 'Wait for the storm to pass.');
+
+    $lobby->refresh();
+
+    expect($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::AwaitingArbiter)
+        ->and($lobby->decision_deadline_at)->toBeNull();
+
+    Queue::assertNotPushed(ResolveMultiplayerLobbyDecisionDeadlineJob::class);
+});

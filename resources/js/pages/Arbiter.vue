@@ -185,14 +185,15 @@ const isSessionComplete = computed(() => turnStatus.value === 'session_complete'
 const isStoryComplete = computed(() => props.lobby.status === 'completed');
 const isDeparturePausePending = ref(false);
 const isGameplayPaused = computed(() => props.lobby.status === 'paused' || isDeparturePausePending.value);
+const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const hasDecisionTimer = computed(
     () =>
-        !isGameplayPaused.value
+        decisionWindowSeconds.value > 0
+        && !isGameplayPaused.value
         && (isAwaitingArbiter.value
             || isAwaitingRouletteChoice.value
             || (props.lobby.mode === 'arbiter' && isCollectingProposals.value && props.arbiter.decision_deadline_at !== null)),
 );
-const decisionWindowSeconds = computed(() => props.arbiter.decision_window_seconds ?? props.lobby.settings.decision_window_seconds);
 const decisionTimerNow = ref(Date.now());
 const decisionSecondsRemaining = computed(() => {
     if (!hasDecisionTimer.value) {
@@ -273,7 +274,7 @@ const canSubmitRouletteCustomInput = computed(() => {
         && !isGameplayPaused.value
         && isAwaitingRouletteChoice.value
         && isCurrentUserChooser.value
-        && decisionSecondsRemaining.value > 0
+        && (!hasDecisionTimer.value || decisionSecondsRemaining.value > 0)
     );
 });
 const canSubmitCustomInput = computed(() => (isRouletteMode.value ? canSubmitRouletteCustomInput.value : canSubmitProposal.value));
@@ -332,7 +333,7 @@ const canChooseRouletteChoice = computed(
         && isRouletteMode.value
         && isAwaitingRouletteChoice.value
         && isCurrentUserChooser.value
-        && decisionSecondsRemaining.value > 0
+        && (!hasDecisionTimer.value || decisionSecondsRemaining.value > 0)
         && generatedChoices.value.length > 0,
 );
 const isAdvancingSession = ref(false);

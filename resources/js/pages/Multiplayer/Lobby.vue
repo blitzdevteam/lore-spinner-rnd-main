@@ -67,7 +67,10 @@ const lobbySettingsForm = reactive<LobbySettingsForm>({
 function syncLobbySettingsForm(): void {
     lobbySettingsForm.customInput = liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off';
     lobbySettingsForm.voiceOver = (liveLobby.value.settings.voice_over_enabled ?? true) ? 'On' : 'Off';
-    lobbySettingsForm.votingTime = `${liveLobby.value.settings.decision_window_seconds / 60} Min`;
+    lobbySettingsForm.votingTime =
+        liveLobby.value.settings.decision_window_seconds === 0
+            ? 'Off'
+            : `${liveLobby.value.settings.decision_window_seconds / 60} Min`;
 }
 
 watch(
@@ -150,13 +153,13 @@ const displayedLobbySettings = computed<LobbySettingOption[]>(() => {
         return [
             { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
             { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
+            { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
         ];
     }
 
     return [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-        { key: 'votingTime', label: 'Countdown', options: ['3 Min', '4 Min', '5 Min', '6 Min'] },
+        { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
 });
 
@@ -313,7 +316,7 @@ function csrfToken(): string {
 }
 
 function decisionWindowSeconds(value: string): number {
-    return Number.parseInt(value, 10) * 60;
+    return value === 'Off' ? 0 : Number.parseInt(value, 10) * 60;
 }
 
 function sendLobbyHeartbeat(): void {

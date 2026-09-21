@@ -52,6 +52,7 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
             'mode.required' => 'Choose a multiplayer mode.',
             'max_players.between' => 'A multiplayer room can have between 3 and 4 players.',
             'settings.required' => 'Choose the lobby settings before creating the room.',
+            'settings.decision_window_seconds.in' => 'Choose a countdown of 3, 4, 5, or 6 minutes, or turn it off.',
         ];
     }
 }

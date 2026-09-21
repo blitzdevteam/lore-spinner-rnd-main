@@ -47,7 +47,7 @@ final class UpdateMultiplayerLobbySettingsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'settings.decision_window_seconds.in' => 'Choose a countdown of 3, 4, 5, or 6 minutes.',
+            'settings.decision_window_seconds.in' => 'Choose a countdown of 3, 4, 5, or 6 minutes, or turn it off.',
         ];
     }
 }
