@@ -15,6 +15,7 @@ final class MultiplayerLobbyBroadcastPayload
     public static function forLobby(MultiplayerLobby $lobby): array
     {
         $lobby->loadMissing('members.user');
+        $lobby->members->loadCount(MultiplayerLobbyMember::playStatCounts());
 
         return [
             'id' => $lobby->id,
@@ -37,6 +38,8 @@ final class MultiplayerLobbyBroadcastPayload
                         'joined_at' => $member->joined_at?->toISOString(),
                         'left_at' => $member->left_at?->toISOString(),
                         'last_seen_at' => $member->last_seen_at?->toISOString(),
+                        'score' => (int) ($member->score ?? 0),
+                        'turns_played' => (int) ($member->turns_played ?? 0),
                         'user' => [
                             'id' => $member->user->id,
                             'full_name' => $member->user->full_name,

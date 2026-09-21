@@ -91,6 +91,8 @@ export interface MultiplayerLobbyMemberInterface {
     joined_at: string | null;
     left_at: string | null;
     last_seen_at: string | null;
+    score: number;
+    turns_played: number;
     user: MultiplayerLobbyPlayerInterface;
 }
 

@@ -65,6 +65,7 @@ final class MultiplayerLobbyController extends Controller
                 'members' => function (HasMany $query): void {
                     $query
                         ->with('user')
+                        ->withPlayStats()
                         ->orderBy('joined_at');
                 },
             ])
@@ -128,6 +129,7 @@ final class MultiplayerLobbyController extends Controller
             'members' => function (HasMany $query): void {
                 $query
                     ->with('user')
+                    ->withPlayStats()
                     ->orderBy('joined_at');
             },
         ]);

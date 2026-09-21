@@ -28,6 +28,8 @@ final class MultiplayerLobbyMemberResource extends BaseResource
             'joined_at' => $this->joined_at,
             'left_at' => $this->left_at,
             'last_seen_at' => $this->last_seen_at,
+            'score' => (int) ($this->score ?? 0),
+            'turns_played' => (int) ($this->turns_played ?? 0),
 
             'user' => $this->whenLoaded('user', function (): array {
                 return [

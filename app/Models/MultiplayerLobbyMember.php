@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\Multiplayer\MultiplayerLobbyMemberRoleEnum;
 use Database\Factories\MultiplayerLobbyMemberFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,9 +27,12 @@ use Override;
  * @property Carbon|null $last_seen_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property int $score
+ * @property int $turns_played
  * @property-read MultiplayerLobby $lobby
  * @property-read User $user
  * @property-read Collection<int, MultiplayerLobbyProposal> $proposals
+ * @property-read Collection<int, MultiplayerLobbyProposal> $selectedProposals
  */
 final class MultiplayerLobbyMember extends Model
 {
@@ -63,6 +67,35 @@ final class MultiplayerLobbyMember extends Model
     public function proposals(): HasMany
     {
         return $this->hasMany(MultiplayerLobbyProposal::class, 'member_id');
+    }
+
+    /**
+     * @return HasMany<MultiplayerLobbyProposal, $this>
+     */
+    public function selectedProposals(): HasMany
+    {
+        return $this->hasMany(MultiplayerLobbyProposal::class, 'member_id')
+            ->whereNotNull('selected_at');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function playStatCounts(): array
+    {
+        return [
+            'proposals as turns_played',
+            'selectedProposals as score',
+        ];
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeWithPlayStats(Builder $query): Builder
+    {
+        return $query->withCount(self::playStatCounts());
     }
 
     #[Override]

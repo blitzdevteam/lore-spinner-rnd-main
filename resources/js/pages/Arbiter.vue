@@ -60,6 +60,8 @@ type Player = {
     isCurrentUser: boolean;
     isArbiter: boolean;
     host?: boolean;
+    score: number;
+    turnsPlayed: number;
 };
 
 type ChatMessage = {
@@ -842,6 +844,8 @@ const players = computed<Player[]>(() =>
             isCurrentUser: member.user.id === currentUserId.value,
             isArbiter: member.id === props.arbiter.current_arbiter_member_id,
             host: member.role === 'host',
+            score: member.score ?? 0,
+            turnsPlayed: member.turns_played ?? 0,
         };
     }),
 );
@@ -1799,7 +1803,11 @@ onUnmounted(() => {
                                         <template v-else>{{ player.state }}</template>
                                     </span>
                                 </div>
-                                <span class="player-score">{{ player.role }}</span>
+                                <div v-if="!isRouletteMode" class="player-score">
+                                    <span>Score: {{ player.score }}</span>
+                                    <span>Turns Played: {{ player.turnsPlayed }}</span>
+                                </div>
+                                <span v-else class="player-score">{{ player.role }}</span>
                             </article>
                         </div>
 
@@ -1969,7 +1977,11 @@ onUnmounted(() => {
                                         <template v-else>{{ player.state }}</template>
                                     </span>
                                 </div>
-                                <span class="player-score">{{ player.role }}</span>
+                                <div v-if="!isRouletteMode" class="player-score">
+                                    <span>Score: {{ player.score }}</span>
+                                    <span>Turns Played: {{ player.turnsPlayed }}</span>
+                                </div>
+                                <span v-else class="player-score">{{ player.role }}</span>
                             </article>
                         </div>
 
@@ -2553,7 +2565,7 @@ onUnmounted(() => {
 
 .player-card {
     display: grid;
-    height: 5.4375rem;
+    min-height: 5.4375rem;
     grid-template-columns: 2.5rem minmax(0, 1fr);
     gap: 0 0.375rem;
     border-radius: 0.5rem;
@@ -2758,11 +2770,19 @@ onUnmounted(() => {
 
 .player-score {
     grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     margin-top: 0.5rem;
     border-top: 1px solid #2f2f2f;
     padding-top: 0.5rem;
     color: #8f8f8f;
     font-size: 0.75rem;
+}
+
+.player-score span {
+    white-space: nowrap;
 }
 
 .leave-room-button {
