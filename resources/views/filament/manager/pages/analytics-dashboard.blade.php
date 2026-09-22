@@ -75,7 +75,7 @@
                         value="{{ $analyticsFilters['from'] ?? '' }}"
                         min="{{ $filterSummary['min'] }}"
                         max="{{ $filterSummary['max'] }}"
-                        @disabled($analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM)
+                        :disabled="$analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM"
                     />
                 </x-filament::input.wrapper>
                 <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">Dates before {{ $baselineLabel }} are excluded.</p>
@@ -95,7 +95,7 @@
                         value="{{ $analyticsFilters['to'] ?? '' }}"
                         min="{{ $filterSummary['min'] }}"
                         max="{{ $filterSummary['max'] }}"
-                        @disabled($analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM)
+                        :disabled="$analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM"
                     />
                 </x-filament::input.wrapper>
                 <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">The range ends at today.</p>

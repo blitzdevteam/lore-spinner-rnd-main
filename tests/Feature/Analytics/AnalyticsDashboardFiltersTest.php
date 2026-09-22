@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Filament\Manager\Pages\AnalyticsDashboard;
+use App\Models\Manager;
 use App\Support\Analytics;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
+use Livewire\Livewire;
 use Tests\Support\Analytics\AnalyticsTestContext;
 
 beforeEach(function (): void {
@@ -148,4 +151,31 @@ it('populates visible dates when a custom range is selected', function (): void 
             'from' => Analytics::baselineDateString(),
             'to' => Analytics::asOf()->toDateString(),
         ]);
+});
+
+it('renders real date inputs that accept a custom range', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('manager'));
+
+    $manager = Manager::factory()->create();
+    $this->actingAs($manager, 'manager');
+
+    $from = Analytics::baselineDateString();
+    $to = Analytics::asOf()->toDateString();
+
+    try {
+        Livewire::test(AnalyticsDashboard::class)
+            ->call('setDateRange', 'custom')
+            ->assertSeeHtml('id="analytics-date-from"')
+            ->assertSeeHtml('type="date"')
+            ->assertSeeHtml('value="'.$from.'"')
+            ->assertSeeHtml('value="'.$to.'"')
+            ->assertDontSeeHtml('<x-filament::input')
+            ->set('filters.from', '2026-06-10')
+            ->set('filters.to', '2026-06-20')
+            ->assertSet('filters.range', 'custom')
+            ->assertSet('filters.from', '2026-06-10')
+            ->assertSet('filters.to', '2026-06-20');
+    } finally {
+        $manager->delete();
+    }
 });
