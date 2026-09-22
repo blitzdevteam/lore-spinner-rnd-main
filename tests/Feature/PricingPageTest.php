@@ -106,5 +106,7 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('items-stretch')
         ->toContain('Try 20 actions and 10 minutes of voice free')
         ->toContain('One-time allowance for new accounts.')
-        ->toContain('Try Free');
+        ->toContain('Try Free')
+        ->not->toContain('View FAQs')
+        ->not->toContain('pricing-faq');
 });

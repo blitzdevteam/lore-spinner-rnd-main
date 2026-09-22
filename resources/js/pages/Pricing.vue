@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import arrowRight from '@/assets/pricing/arrow-right.svg';
-import faqBackground from '@/assets/pricing/faq-background.png';
 import footprints from '@/assets/pricing/footprints.svg';
 import iconBook from '@/assets/pricing/icon-book.png';
 import iconBooksPlus from '@/assets/pricing/icon-books-plus.png';
@@ -126,36 +125,6 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
                     Subscription plans are being prepared. Please check back shortly.
                 </p>
             </section>
-
-            <section class="pricing-faq relative overflow-hidden">
-                <img :src="faqBackground" alt="" class="absolute inset-0 size-full object-cover object-center" />
-                <div class="pricing-faq__shade pointer-events-none absolute inset-0" aria-hidden="true" />
-
-                <div class="relative z-10 container">
-                    <div class="container-content flex min-h-[22.5rem] items-center py-10 md:py-[1.875rem]">
-                        <div class="flex w-full max-w-[25.5rem] flex-col gap-6">
-                            <div>
-                                <h2
-                                    class="font-marcellus-sc text-[1.75rem] leading-[1.35] text-white uppercase text-shadow-[0px_0px_21.2px_black] md:text-[2rem] md:leading-[3.75rem]"
-                                >
-                                    not sure which path<br />
-                                    is right for you?
-                                </h2>
-                                <p class="mt-0 max-w-[22rem] text-lg leading-[1.625rem] text-[#8f8f8f]">
-                                    Our FAQs and support team are here to help you find your way
-                                </p>
-                            </div>
-
-                            <a href="/#faq" class="pricing-faq__cta inline-flex h-[3.125rem] w-[9.375rem] items-center justify-center gap-2.5">
-                                <span class="text-base leading-normal text-white">View FAQs</span>
-                                <span class="relative size-[18px] shrink-0 overflow-hidden">
-                                    <img :src="arrowRight" alt="" class="absolute inset-0 size-full object-contain" width="18" height="18" />
-                                </span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </section>
         </main>
     </HomeLayout>
 </template>
@@ -186,39 +155,5 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
 
 .pricing-trial__cta:hover {
     background: #163f46;
-}
-
-.pricing-faq {
-    min-height: 22.5rem;
-}
-
-.pricing-faq__shade {
-    background:
-        linear-gradient(90deg, rgb(0, 0, 0) 14.201%, rgba(0, 0, 0, 0) 43.507%),
-        linear-gradient(265.57deg, rgb(0, 0, 0) 2.685%, rgba(0, 0, 0, 0) 18.843%),
-        linear-gradient(180deg, rgb(0, 0, 0) 12.656%, rgba(0, 0, 0, 0) 44.831%, rgb(0, 0, 0) 102.32%);
-}
-
-.pricing-faq__cta {
-    border: 0.5px solid #fdd24f;
-    border-radius: 0.625rem;
-    background: #0f0f0f;
-    transition:
-        background-color 180ms ease,
-        border-color 180ms ease,
-        transform 180ms ease;
-}
-
-.pricing-faq__cta:hover {
-    background: #163f46;
-    transform: translateY(-1px);
-}
-
-@media (max-width: 47.999rem) {
-    .pricing-faq__shade {
-        background:
-            linear-gradient(180deg, rgb(0, 0, 0) 8%, rgba(0, 0, 0, 0.35) 42%, rgb(0, 0, 0) 100%),
-            linear-gradient(90deg, rgb(0, 0, 0) 0%, rgba(0, 0, 0, 0.45) 55%, rgba(0, 0, 0, 0.2) 100%);
-    }
 }
 </style>
