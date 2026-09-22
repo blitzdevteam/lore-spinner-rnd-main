@@ -37,8 +37,8 @@
     </div>
 
     {{-- ── Shared analytics filters ─────────────────────────────────── --}}
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" wire:loading.class="opacity-60" wire:target="filters,setDateRange,resetFilters">
-        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 bg-gray-50 px-6 pb-3 pt-4 dark:border-gray-800 dark:bg-gray-800/60">
+    <div class="relative z-20 overflow-visible rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" wire:loading.class="opacity-60" wire:target="filters,setDateRange,resetFilters">
+        <div class="flex flex-wrap items-start justify-between gap-3 rounded-t-xl border-b border-gray-100 bg-gray-50 px-6 pb-3 pt-4 dark:border-gray-800 dark:bg-gray-800/60">
             <div>
                 <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Filters</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Every gameplay metric below uses the selected date, player, and story scope.</p>

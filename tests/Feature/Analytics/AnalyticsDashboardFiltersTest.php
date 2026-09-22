@@ -133,8 +133,10 @@ it('makes the player and story filters searchable', function (): void {
 
     expect($player)->toBeInstanceOf(Select::class)
         ->and($player->isSearchable())->toBeTrue()
+        ->and($player->getPosition())->toBe('bottom')
         ->and($story)->toBeInstanceOf(Select::class)
-        ->and($story->isSearchable())->toBeTrue();
+        ->and($story->isSearchable())->toBeTrue()
+        ->and($story->getPosition())->toBe('bottom');
 });
 
 it('populates visible dates when a custom range is selected', function (): void {

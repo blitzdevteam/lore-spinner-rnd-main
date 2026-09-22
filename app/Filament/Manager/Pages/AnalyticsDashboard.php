@@ -538,6 +538,7 @@ final class AnalyticsDashboard extends Page
             ->searchPrompt($searchPrompt)
             ->noOptionsMessage($emptyMessage)
             ->noSearchResultsMessage($emptyMessage)
+            ->position('bottom')
             ->preload()
             ->native(false)
             ->live();
