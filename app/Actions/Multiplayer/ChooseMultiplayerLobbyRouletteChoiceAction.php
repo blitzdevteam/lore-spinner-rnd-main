@@ -68,7 +68,11 @@ final class ChooseMultiplayerLobbyRouletteChoiceAction
                 throw MultiplayerLobbyStateException::rouletteChoicesAreNotReady();
             }
 
-            if ($choiceIndex === null && ! $lockedLobby->customInputEnabled()) {
+            if ($choiceIndex !== null && ! $lockedLobby->choicesEnabled()) {
+                throw MultiplayerLobbyStateException::rouletteChoicesAreDisabled();
+            }
+
+            if ($choiceIndex === null && $lockedLobby->choicesEnabled() && ! $lockedLobby->customInputEnabled()) {
                 throw MultiplayerLobbyStateException::rouletteCustomInputIsDisabled();
             }
 

@@ -32,7 +32,8 @@ final class UpdateMultiplayerLobbySettingsRequest extends FormRequest
             && $lobby->mode === MultiplayerLobbyModeEnum::Roulette;
 
         return [
-            'settings' => ['required', 'array:custom_input_enabled,voice_over_enabled,decision_window_seconds'],
+            'settings' => ['required', 'array:choices_enabled,custom_input_enabled,voice_over_enabled,decision_window_seconds'],
+            'settings.choices_enabled' => ['sometimes', 'boolean'],
             'settings.custom_input_enabled' => [Rule::requiredIf($isRoulette), 'nullable', 'boolean'],
             'settings.voice_over_enabled' => ['required', 'boolean'],
             'settings.decision_window_seconds' => ['required', 'integer', Rule::in(MultiplayerLobby::DECISION_WINDOW_SECONDS)],

@@ -13,6 +13,7 @@ use App\Enums\Story\StoryStatusEnum;
 use App\Events\MultiplayerArbiterStateChanged;
 use App\Events\MultiplayerLobbyCreated;
 use App\Exceptions\Multiplayer\MultiplayerLobbyStateException;
+use App\Http\Resources\MultiplayerArbiterStateResource;
 use App\Jobs\Multiplayer\ResolveMultiplayerLobbyDecisionDeadlineJob;
 use App\Models\Game;
 use App\Models\MultiplayerLobby;
@@ -57,9 +58,11 @@ it('normalizes settings to the capabilities of each multiplayer mode', function 
     );
 
     expect($arbiterLobby->decisionWindowSeconds())->toBe(30)
+        ->and($arbiterLobby->choicesEnabled())->toBeTrue()
         ->and($arbiterLobby->customInputEnabled())->toBeFalse()
         ->and($arbiterLobby->voiceOverEnabled())->toBeFalse()
         ->and($rouletteLobby->decisionWindowSeconds())->toBe(10)
+        ->and($rouletteLobby->choicesEnabled())->toBeTrue()
         ->and($rouletteLobby->customInputEnabled())->toBeTrue()
         ->and($rouletteLobby->voiceOverEnabled())->toBeTrue();
 });
@@ -451,4 +454,127 @@ it('does not start a decision deadline when countdown is off', function (): void
         ->and($lobby->decision_deadline_at)->toBeNull();
 
     Queue::assertNotPushed(ResolveMultiplayerLobbyDecisionDeadlineJob::class);
+});
+
+it('uses a typed prompt when suggested choices are turned off', function (): void {
+    Event::fake([MultiplayerArbiterStateChanged::class]);
+
+    $host = User::factory()->create();
+    $chooser = User::factory()->create();
+    $story = Story::factory()->create();
+    $game = Game::query()->create([
+        'story_id' => $story->id,
+        'user_id' => $host->id,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $lobby = MultiplayerLobby::factory()->roulette()->create([
+        'story_id' => $story->id,
+        'host_user_id' => $host->id,
+        'game_id' => $game->id,
+        'status' => MultiplayerLobbyStatusEnum::Started,
+        'turn_status' => MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
+        'settings' => [
+            'choices_enabled' => false,
+            'custom_input_enabled' => false,
+            'voice_over_enabled' => false,
+            'power_ups_per_user' => 10,
+            'decision_window_seconds' => 180,
+        ],
+    ]);
+    $chooserMember = MultiplayerLobbyMember::factory()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $chooser->id,
+    ]);
+    $sourcePrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'The road splits beneath the storm clouds.',
+        'choices' => [
+            ['text' => 'Follow the yellow road.'],
+            ['text' => 'Shelter in the nearby cottage.'],
+            ['text' => 'Call out into the dark.'],
+        ],
+    ]);
+    $lobby->update([
+        'current_arbiter_member_id' => $chooserMember->id,
+        'current_source_prompt_id' => $sourcePrompt->id,
+    ]);
+
+    $state = MultiplayerArbiterStateResource::make($lobby->fresh())->resolve(request());
+
+    expect($state['generated_choices'])->toBe([]);
+
+    $chooseRouletteChoice = app(ChooseMultiplayerLobbyRouletteChoiceAction::class);
+
+    expect(fn (): array => $chooseRouletteChoice->handle($chooser, $lobby->fresh(), 0))
+        ->toThrow(MultiplayerLobbyStateException::class, 'Suggested choices are turned off. Write your own prompt.');
+
+    $selection = $chooseRouletteChoice->handle($chooser, $lobby->fresh(), null, 'I step into the storm and call their names.');
+
+    expect($selection['lobby']->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::Narrating)
+        ->and($selection['lobby']->proposals()->sole()->text)->toBe('I step into the storm and call their names.')
+        ->and($selection['lobby']->proposals()->sole()->choice_index)->toBeNull();
+});
+
+it('does not auto-select a suggested choice after the countdown when choices are turned off', function (): void {
+    Event::fake([MultiplayerArbiterStateChanged::class]);
+    Carbon::setTestNow('2026-09-22 12:00:00');
+
+    $host = User::factory()->create();
+    $chooser = User::factory()->create();
+    $story = Story::factory()->create();
+    $game = Game::query()->create([
+        'story_id' => $story->id,
+        'user_id' => $host->id,
+        'current_session_number' => 1,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+    $deadline = now()->subSecond();
+    $lobby = MultiplayerLobby::factory()->roulette()->create([
+        'story_id' => $story->id,
+        'host_user_id' => $host->id,
+        'game_id' => $game->id,
+        'status' => MultiplayerLobbyStatusEnum::Started,
+        'turn_status' => MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice,
+        'decision_deadline_at' => $deadline,
+        'settings' => [
+            'choices_enabled' => false,
+            'custom_input_enabled' => false,
+            'voice_over_enabled' => true,
+            'power_ups_per_user' => 10,
+            'decision_window_seconds' => 180,
+        ],
+    ]);
+    $chooserMember = MultiplayerLobbyMember::factory()->create([
+        'lobby_id' => $lobby->id,
+        'user_id' => $chooser->id,
+    ]);
+    $sourcePrompt = $game->prompts()->create([
+        'session_number' => 1,
+        'response' => 'The road splits beneath the storm clouds.',
+        'choices' => [
+            ['text' => 'Follow the yellow road.'],
+            ['text' => 'Shelter in the nearby cottage.'],
+            ['text' => 'Call out into the dark.'],
+        ],
+    ]);
+    $lobby->update([
+        'current_arbiter_member_id' => $chooserMember->id,
+        'current_source_prompt_id' => $sourcePrompt->id,
+    ]);
+
+    $selection = app(ResolveMultiplayerLobbyDecisionDeadlineAction::class)->handle(
+        $lobby->id,
+        (string) $sourcePrompt->id,
+        $deadline->getTimestamp(),
+    );
+
+    $lobby->refresh();
+
+    expect($selection)->toBeNull()
+        ->and($lobby->proposals)->toHaveCount(0)
+        ->and($lobby->turn_status)->toBe(MultiplayerArbiterTurnStatusEnum::AwaitingRouletteChoice)
+        ->and($lobby->decision_deadline_at)->toBeNull();
+
+    Carbon::setTestNow();
 });

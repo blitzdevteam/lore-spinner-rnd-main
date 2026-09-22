@@ -21,7 +21,7 @@ final class CreateMultiplayerLobbyAction
     private const int ROOM_CODE_ATTEMPTS = 5;
 
     /**
-     * @param  array{custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
+     * @param  array{choices_enabled?: bool, custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
      */
     public function handle(
         User $host,
@@ -72,14 +72,15 @@ final class CreateMultiplayerLobbyAction
     }
 
     /**
-     * @param  array{custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
-     * @return array{custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int}
+     * @param  array{choices_enabled?: bool, custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
+     * @return array{choices_enabled: bool, custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int}
      */
     private function normalizeSettings(MultiplayerLobbyModeEnum $mode, array $settings): array
     {
         $isRoulette = $mode === MultiplayerLobbyModeEnum::Roulette;
 
         return [
+            'choices_enabled' => (bool) ($settings['choices_enabled'] ?? true),
             'custom_input_enabled' => $isRoulette && (bool) ($settings['custom_input_enabled'] ?? false),
             'voice_over_enabled' => (bool) ($settings['voice_over_enabled'] ?? true),
             'power_ups_per_user' => 10,

@@ -256,6 +256,7 @@ const availableProposals = computed(() => props.arbiter.proposals.filter((propos
 const selectedProposal = computed(() => props.arbiter.proposals.find((proposal) => proposal.is_selected && proposal.text !== null) ?? null);
 const generatedChoices = computed(() => props.arbiter.generated_choices);
 const turnRoleLabel = computed(() => (isRouletteMode.value ? 'Chooser' : 'Arbiter'));
+const choicesEnabled = computed(() => props.lobby.settings.choices_enabled !== false);
 const customInputEnabled = computed(() => props.lobby.settings.custom_input_enabled);
 const canSubmitProposal = computed(() => {
     return !!(
@@ -271,7 +272,7 @@ const canSubmitProposal = computed(() => {
 const canSubmitRouletteCustomInput = computed(() => {
     return !!(
         isRouletteMode.value
-        && customInputEnabled.value
+        && (!choicesEnabled.value || customInputEnabled.value)
         && currentMember.value
         && !isGameplayPaused.value
         && isAwaitingRouletteChoice.value
@@ -280,7 +281,7 @@ const canSubmitRouletteCustomInput = computed(() => {
     );
 });
 const canSubmitCustomInput = computed(() => (isRouletteMode.value ? canSubmitRouletteCustomInput.value : canSubmitProposal.value));
-const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value);
+const shouldShowCustomInput = computed(() => !isRouletteMode.value || !choicesEnabled.value || customInputEnabled.value);
 const customInputPlaceholder = computed(() => {
     if (isGameplayPaused.value) {
         return 'Story paused';
@@ -331,7 +332,8 @@ const isSubmittingProposal = ref(false);
 const isSelectingProposal = ref(false);
 const canChooseRouletteChoice = computed(
     () =>
-        !isGameplayPaused.value
+        choicesEnabled.value
+        && !isGameplayPaused.value
         && isRouletteMode.value
         && isAwaitingRouletteChoice.value
         && isCurrentUserChooser.value
@@ -903,7 +905,9 @@ const decisionDescription = computed(() => {
     }
 
     if (isAwaitingRouletteChoice.value) {
-        return 'Xen has presented the paths. The current player chooses what becomes canon.';
+        return choicesEnabled.value
+            ? 'Xen has presented the paths. The current player chooses what becomes canon.'
+            : 'Suggested choices are off. The current player writes the prompt that becomes canon.';
     }
 
     if (isNarrating.value) {
@@ -919,7 +923,7 @@ const decisionDescription = computed(() => {
     }
 
     return isRouletteMode.value
-        ? 'The next player receives Xen’s generated paths.'
+        ? (choicesEnabled.value ? 'The next player receives Xen’s generated paths.' : 'The next player writes their own prompt.')
         : 'Write your choice. The Arbiter will make the final decision after everyone has contributed.';
 });
 
@@ -2055,7 +2059,7 @@ onUnmounted(() => {
                             </span>
                         </div>
 
-                        <div v-if="isRouletteMode && isAwaitingRouletteChoice" class="proposal-choice-list">
+                        <div v-if="choicesEnabled && isRouletteMode && isAwaitingRouletteChoice" class="proposal-choice-list">
                             <button
                                 v-for="choice in generatedChoices"
                                 :key="choice.index"

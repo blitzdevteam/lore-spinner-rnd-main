@@ -114,7 +114,8 @@ it('shows only the settings supported by the lobby mode', function () {
 
     expect($template)
         ->toContain("if (liveLobby.value.mode === 'roulette')")
-        ->toContain("{ key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] }")
+        ->toContain("{ key: 'choices', label: 'Choices', options: ['On', 'Off'] }")
+        ->toContain("{ key: 'customInput' as const, label: 'Custom Input', options: ['On', 'Off'] }")
         ->toContain("{ key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] }")
         ->toContain("{ key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] }")
         ->not->toContain('Power-ups Per User');

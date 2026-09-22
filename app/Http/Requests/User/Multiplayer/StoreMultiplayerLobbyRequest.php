@@ -30,7 +30,8 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
         return [
             'mode' => ['required', Rule::enum(MultiplayerLobbyModeEnum::class)],
             'max_players' => ['required', 'integer', 'between:3,4'],
-            'settings' => ['required', 'array:custom_input_enabled,voice_over_enabled,decision_window_seconds'],
+            'settings' => ['required', 'array:choices_enabled,custom_input_enabled,voice_over_enabled,decision_window_seconds'],
+            'settings.choices_enabled' => ['sometimes', 'boolean'],
             'settings.custom_input_enabled' => [
                 Rule::requiredIf(fn (): bool => $this->input('mode') === MultiplayerLobbyModeEnum::Roulette->value),
                 'nullable',

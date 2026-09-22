@@ -22,7 +22,7 @@ const props = defineProps<{
     inviteRoomCode?: string | null;
 }>();
 
-type LobbySettingKey = 'customInput' | 'voiceOver' | 'votingTime';
+type LobbySettingKey = 'choices' | 'customInput' | 'voiceOver' | 'votingTime';
 
 type LobbySettingOption = {
     key: LobbySettingKey;
@@ -33,29 +33,36 @@ type LobbySettingOption = {
 const showHostSetup = ref(false);
 const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
+    choices: 'On',
     customInput: 'On',
     voiceOver: 'On',
     votingTime: '3 Min',
 });
 const lobbySettingOptions = computed<LobbySettingOption[]>(() => {
-    if (selectedModeName.value === 'Roulette') {
-        return [
-            { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
-            { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
-        ];
-    }
-
-    return [
+    const choicesSetting: LobbySettingOption = { key: 'choices', label: 'Choices', options: ['On', 'Off'] };
+    const sharedSettings: LobbySettingOption[] = [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
         { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
+
+    if (selectedModeName.value === 'Roulette') {
+        return [
+            choicesSetting,
+            ...(lobbySettings.value.choices === 'On'
+                ? [{ key: 'customInput' as const, label: 'Custom Input', options: ['On', 'Off'] }]
+                : []),
+            ...sharedSettings,
+        ];
+    }
+
+    return [choicesSetting, ...sharedSettings];
 });
 const lobbyCreationForm = useForm<{
     mode: 'arbiter' | 'roulette';
     max_players: number;
     settings: {
         decision_window_seconds: number;
+        choices_enabled?: boolean;
         custom_input_enabled?: boolean;
         voice_over_enabled?: boolean;
     };
@@ -170,6 +177,7 @@ function createLobby(): void {
     lobbyCreationForm.mode = mode;
     lobbyCreationForm.max_players = 4;
     lobbyCreationForm.settings = {
+        choices_enabled: lobbySettings.value.choices === 'On',
         voice_over_enabled: lobbySettings.value.voiceOver === 'On',
         decision_window_seconds: decisionWindowSeconds(lobbySettings.value.votingTime),
         ...(mode === 'roulette' ? { custom_input_enabled: lobbySettings.value.customInput === 'On' } : {}),

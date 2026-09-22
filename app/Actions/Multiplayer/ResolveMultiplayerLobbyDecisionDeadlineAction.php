@@ -20,7 +20,8 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
      */
     public function handle(string $lobbyId, string $sourcePromptId, int $deadlineTimestamp): ?array
     {
-        $resolvedSelection = DB::transaction(function () use ($lobbyId, $sourcePromptId, $deadlineTimestamp): ?array {
+        $clearedChoiceTimer = false;
+        $resolvedSelection = DB::transaction(function () use ($lobbyId, $sourcePromptId, $deadlineTimestamp, &$clearedChoiceTimer): ?array {
             $lockedLobby = MultiplayerLobby::query()
                 ->lockForUpdate()
                 ->find($lobbyId);
@@ -69,6 +70,14 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
                     ->first();
 
             if ($proposal === null) {
+                if ($isRouletteDecision && ! $lockedLobby->choicesEnabled()) {
+                    $lockedLobby->update([
+                        'decision_deadline_at' => null,
+                        'decision_remaining_seconds' => null,
+                    ]);
+                    $clearedChoiceTimer = true;
+                }
+
                 return null;
             }
 
@@ -90,13 +99,27 @@ final class ResolveMultiplayerLobbyDecisionDeadlineAction
 
         if ($resolvedSelection !== null) {
             MultiplayerArbiterStateChanged::dispatch($resolvedSelection['lobby']);
+
+            return $resolvedSelection;
         }
 
-        return $resolvedSelection;
+        if ($clearedChoiceTimer) {
+            $lobby = MultiplayerLobby::query()->find($lobbyId);
+
+            if ($lobby instanceof MultiplayerLobby) {
+                MultiplayerArbiterStateChanged::dispatch($lobby);
+            }
+        }
+
+        return null;
     }
 
     private function selectRandomRouletteChoice(MultiplayerLobby $lobby, Prompt $sourcePrompt): ?MultiplayerLobbyProposal
     {
+        if (! $lobby->choicesEnabled()) {
+            return null;
+        }
+
         $choice = collect((array) $sourcePrompt->choices)
             ->map(function (mixed $choice, mixed $index): ?array {
                 $text = match (true) {

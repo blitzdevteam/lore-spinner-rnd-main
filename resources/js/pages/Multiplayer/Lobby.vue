@@ -47,7 +47,7 @@ type MultiplayerLobbyClosedPayload = {
 
 type MultiplayerLobbyEventPayload = MultiplayerLobbyRealtimePayload | MultiplayerLobbyDeletedPayload | MultiplayerLobbyClosedPayload;
 
-type LobbySettingKey = 'customInput' | 'voiceOver' | 'votingTime';
+type LobbySettingKey = 'choices' | 'customInput' | 'voiceOver' | 'votingTime';
 
 type LobbySettingOption = {
     key: LobbySettingKey;
@@ -59,12 +59,14 @@ type LobbySettingsForm = Record<LobbySettingKey, string>;
 
 const liveLobby = ref(props.lobby);
 const lobbySettingsForm = reactive<LobbySettingsForm>({
+    choices: 'On',
     customInput: 'Off',
     voiceOver: 'On',
     votingTime: '3 Min',
 });
 
 function syncLobbySettingsForm(): void {
+    lobbySettingsForm.choices = liveLobby.value.settings.choices_enabled === false ? 'Off' : 'On';
     lobbySettingsForm.customInput = liveLobby.value.settings.custom_input_enabled ? 'On' : 'Off';
     lobbySettingsForm.voiceOver = (liveLobby.value.settings.voice_over_enabled ?? true) ? 'On' : 'Off';
     lobbySettingsForm.votingTime =
@@ -149,30 +151,41 @@ const hostLabel = computed(() => {
     return `${firstName}${suffix}`;
 });
 const displayedLobbySettings = computed<LobbySettingOption[]>(() => {
-    if (liveLobby.value.mode === 'roulette') {
-        return [
-            { key: 'customInput', label: 'Custom Input', options: ['On', 'Off'] },
-            { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
-            { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
-        ];
-    }
-
-    return [
+    const choicesSetting: LobbySettingOption = { key: 'choices', label: 'Choices', options: ['On', 'Off'] };
+    const sharedSettings: LobbySettingOption[] = [
         { key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] },
         { key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] },
     ];
+
+    if (liveLobby.value.mode === 'roulette') {
+        return [
+            choicesSetting,
+            ...(lobbySettingsForm.choices === 'On'
+                ? [{ key: 'customInput' as const, label: 'Custom Input', options: ['On', 'Off'] }]
+                : []),
+            ...sharedSettings,
+        ];
+    }
+
+    return [choicesSetting, ...sharedSettings];
 });
 
 const rules = computed(() => {
     if (liveLobby.value.mode === 'roulette') {
+        const choicesAreOn = liveLobby.value.settings.choices_enabled !== false;
+
         return [
             {
-                title: 'Xen presents the paths',
-                description: 'Each turn, Xen generates the choices for the current player.',
+                title: choicesAreOn ? 'Xen presents the paths' : 'Write your own prompt',
+                description: choicesAreOn
+                    ? 'Each turn, Xen generates the choices for the current player.'
+                    : 'Suggested choices are off. The current player types the prompt that becomes canon.',
             },
             {
                 title: 'One player chooses',
-                description: 'Only the current player chooses which path becomes canon.',
+                description: choicesAreOn
+                    ? 'Only the current player chooses which path becomes canon.'
+                    : 'Only the current player writes the prompt for this turn.',
             },
             {
                 title: 'The turn rotates',
@@ -431,11 +444,13 @@ function updateLobbySettings(): void {
 
     const settings = liveLobby.value.mode === 'roulette'
         ? {
+            choices_enabled: lobbySettingsForm.choices === 'On',
             custom_input_enabled: lobbySettingsForm.customInput === 'On',
             voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
             decision_window_seconds: decisionWindowSeconds(lobbySettingsForm.votingTime),
         }
         : {
+            choices_enabled: lobbySettingsForm.choices === 'On',
             voice_over_enabled: lobbySettingsForm.voiceOver === 'On',
             decision_window_seconds: decisionWindowSeconds(lobbySettingsForm.votingTime),
         };
@@ -447,6 +462,7 @@ function updateLobbySettings(): void {
             preserveScroll: true,
             onError: (errors) => {
                 lobbySettingsError.value = errors['settings.decision_window_seconds']
+                    ?? errors['settings.choices_enabled']
                     ?? errors['settings.custom_input_enabled']
                     ?? errors['settings.voice_over_enabled']
                     ?? errors.lobby

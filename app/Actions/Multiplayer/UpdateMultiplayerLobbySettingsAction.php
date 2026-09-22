@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 final class UpdateMultiplayerLobbySettingsAction
 {
     /**
-     * @param  array{custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
+     * @param  array{choices_enabled?: bool, custom_input_enabled?: bool, voice_over_enabled?: bool, decision_window_seconds: int}  $settings
      */
     public function handle(User $user, MultiplayerLobby $lobby, array $settings): MultiplayerLobby
     {
@@ -38,6 +38,9 @@ final class UpdateMultiplayerLobbySettingsAction
             $isRoulette = $lockedLobby->mode === MultiplayerLobbyModeEnum::Roulette;
             $updatedSettings = [
                 ...$currentSettings,
+                'choices_enabled' => array_key_exists('choices_enabled', $settings)
+                    ? (bool) $settings['choices_enabled']
+                    : (bool) ($currentSettings['choices_enabled'] ?? true),
                 'custom_input_enabled' => $isRoulette && (bool) ($settings['custom_input_enabled'] ?? false),
                 'voice_over_enabled' => (bool) ($settings['voice_over_enabled'] ?? true),
                 'power_ups_per_user' => (int) ($currentSettings['power_ups_per_user'] ?? 10),

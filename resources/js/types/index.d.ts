@@ -71,6 +71,7 @@ export type MultiplayerLobbyStatus = 'waiting' | 'started' | 'paused' | 'closed'
 export type MultiplayerLobbyMemberRole = 'host' | 'player';
 
 export interface MultiplayerLobbySettingsInterface {
+    choices_enabled?: boolean;
     custom_input_enabled: boolean;
     voice_over_enabled: boolean;
     power_ups_per_user: number;

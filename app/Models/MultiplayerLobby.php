@@ -31,7 +31,7 @@ use Override;
  * @property Carbon|null $decision_deadline_at
  * @property int|null $decision_remaining_seconds
  * @property int $max_players
- * @property array{custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int} $settings
+ * @property array{choices_enabled: bool, custom_input_enabled: bool, voice_over_enabled: bool, power_ups_per_user: int, decision_window_seconds: int} $settings
  * @property Carbon|null $last_activity_at
  * @property Carbon|null $closed_at
  * @property string|null $closed_reason
@@ -173,6 +173,11 @@ final class MultiplayerLobby extends Model
             'decision_deadline_at' => null,
             'decision_remaining_seconds' => $this->decisionWindowSeconds(),
         ];
+    }
+
+    public function choicesEnabled(): bool
+    {
+        return (bool) ($this->settings['choices_enabled'] ?? true);
     }
 
     public function customInputEnabled(): bool

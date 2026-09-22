@@ -76,7 +76,6 @@ it('uses the lobby voice-over and custom-input settings in roulette gameplay', f
 
     expect($template)
         ->toContain('const voiceOverEnabled = computed(() => isRouletteMode.value && props.lobby.settings.voice_over_enabled)')
-        ->toContain('const shouldShowCustomInput = computed(() => !isRouletteMode.value || customInputEnabled.value)')
         ->toContain(':voice-over-enabled="voiceOverEnabled"');
 
     expect($chatCard)
@@ -84,6 +83,15 @@ it('uses the lobby voice-over and custom-input settings in roulette gameplay', f
         ->toContain('voiceOverEnabled: true')
         ->toContain('const voiceOverEnabled = computed(() => props.voiceOverEnabled ?? true);')
         ->toContain('v-if="voiceOverEnabled"');
+});
+
+it('hides suggested choices and keeps the prompt field when choices are turned off', function () {
+    $template = file_get_contents(resource_path('js/pages/Arbiter.vue'));
+
+    expect($template)
+        ->toContain('const choicesEnabled = computed(() => props.lobby.settings.choices_enabled !== false)')
+        ->toContain('const shouldShowCustomInput = computed(() => !isRouletteMode.value || !choicesEnabled.value || customInputEnabled.value)')
+        ->toContain('v-if="choicesEnabled && isRouletteMode && isAwaitingRouletteChoice"');
 });
 
 it('uses header controls and bottom sheets for arbiter panels on mobile', function () {

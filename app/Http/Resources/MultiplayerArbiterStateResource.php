@@ -67,7 +67,7 @@ final class MultiplayerArbiterStateResource extends BaseResource
                 ->values()
                 ->all()
             : [];
-        $generatedChoices = $this->mode === MultiplayerLobbyModeEnum::Roulette
+        $generatedChoices = $this->mode === MultiplayerLobbyModeEnum::Roulette && $this->choicesEnabled()
             ? collect((array) ($currentSourcePrompt?->choices ?? []))
                 ->map(static fn (mixed $choice, mixed $index): array => is_array($choice)
                     ? [

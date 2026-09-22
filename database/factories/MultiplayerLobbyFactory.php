@@ -32,6 +32,7 @@ final class MultiplayerLobbyFactory extends Factory
             'max_players' => 4,
             'last_activity_at' => now(),
             'settings' => [
+                'choices_enabled' => true,
                 'custom_input_enabled' => true,
                 'voice_over_enabled' => true,
                 'power_ups_per_user' => 10,
