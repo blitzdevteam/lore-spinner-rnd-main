@@ -4,8 +4,6 @@
         $analyticsFilters = $this->getAnalyticsFilters();
         $filterSummary = $this->getFilterSummary();
         $dateRangeOptions = $this->getDateRangeOptions();
-        $userOptions = $this->getUserOptions();
-        $storyOptions = $this->getStoryOptions();
         $filterKey = md5((string) json_encode($analyticsFilters));
         $acquisition = $this->getAcquisitionMetrics();
         $funnel      = $this->getEngagementFunnel();
@@ -105,27 +103,17 @@
 
             <div>
                 <label for="analytics-user" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Player</label>
-                <x-filament::input.wrapper class="w-full" prefix-icon="heroicon-m-user">
-                    <x-filament::input.select id="analytics-user" wire:model.live="filters.user_id">
-                        <option value="">All players</option>
-                        @foreach ($userOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
+                <div id="analytics-user">
+                    {{ $this->playerFilter }}
+                </div>
                 <p class="mt-1.5 truncate text-[11px] text-gray-500 dark:text-gray-400">{{ $filterSummary['user'] }}</p>
             </div>
 
             <div class="md:col-span-2 xl:col-span-4">
                 <label for="analytics-story" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Story</label>
-                <x-filament::input.wrapper class="w-full" prefix-icon="heroicon-m-book-open">
-                    <x-filament::input.select id="analytics-story" wire:model.live="filters.story_id">
-                        <option value="">All stories</option>
-                        @foreach ($storyOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
+                <div id="analytics-story">
+                    {{ $this->storyFilter }}
+                </div>
                 <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">{{ $filterSummary['story'] }} · story filtering applies to gameplay metrics and matching public story-page visits.</p>
             </div>
         </div>

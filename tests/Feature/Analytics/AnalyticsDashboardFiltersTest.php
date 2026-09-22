@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Filament\Manager\Pages\AnalyticsDashboard;
 use App\Support\Analytics;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Tests\Support\Analytics\AnalyticsTestContext;
 
@@ -94,6 +96,45 @@ it('resets quick ranges and custom dates to the baseline view', function (): voi
         'user_id' => null,
         'story_id' => null,
     ]);
+});
+
+it('searches players by name or email and stories by title', function (): void {
+    $story = $this->ctx->createStory(['title' => 'Searchable Lantern Tale']);
+    $otherStory = $this->ctx->createStory(['title' => 'Unrelated Chronicle']);
+    $user = $this->ctx->createUser([
+        'first_name' => 'Maren',
+        'last_name' => 'Quill',
+        'email' => 'maren.quill@example.com',
+    ]);
+    $other = $this->ctx->createUser([
+        'first_name' => 'Otto',
+        'last_name' => 'Vale',
+        'email' => 'otto.vale@example.com',
+    ]);
+
+    $this->ctx->createGame($user, $story);
+    $this->ctx->createGame($other, $otherStory);
+
+    $players = $this->page->getUserOptions('maren.quill');
+    $playersByName = $this->page->getUserOptions('Maren Quill');
+    $stories = $this->page->getStoryOptions('lantern');
+
+    expect($players)->toHaveKey((string) $user->id)
+        ->and($players)->not->toHaveKey((string) $other->id)
+        ->and($playersByName)->toHaveKey((string) $user->id)
+        ->and($stories)->toHaveKey((string) $story->id)
+        ->and($stories)->not->toHaveKey((string) $otherStory->id)
+        ->and($stories[(string) $story->id])->toBe('Searchable Lantern Tale');
+});
+
+it('makes the player and story filters searchable', function (): void {
+    $player = $this->page->playerFilter(Schema::make($this->page))->getFlatFields(withHidden: true)['user_id'];
+    $story = $this->page->storyFilter(Schema::make($this->page))->getFlatFields(withHidden: true)['story_id'];
+
+    expect($player)->toBeInstanceOf(Select::class)
+        ->and($player->isSearchable())->toBeTrue()
+        ->and($story)->toBeInstanceOf(Select::class)
+        ->and($story->isSearchable())->toBeTrue();
 });
 
 it('populates visible dates when a custom range is selected', function (): void {

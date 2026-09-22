@@ -12,7 +12,9 @@ use App\Models\User;
 use App\Support\Analytics;
 use App\Support\AnalyticsFilters;
 use BackedEnum;
+use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -98,32 +100,70 @@ final class AnalyticsDashboard extends Page
         return AnalyticsFilters::dateRangeOptions();
     }
 
+    public function playerFilter(Schema $schema): Schema
+    {
+        return $schema
+            ->statePath('filters')
+            ->components([
+                $this->scopeSelect('user_id', 'Player', 'All players', Heroicon::User, 'Search name or email', 'No players match that search')
+                    ->options(fn (): array => $this->getUserOptions())
+                    ->getSearchResultsUsing(fn (string $search): array => $this->getUserOptions($search))
+                    ->getOptionLabelUsing(fn (mixed $value): ?string => $this->userOptionLabel($value)),
+            ]);
+    }
+
+    public function storyFilter(Schema $schema): Schema
+    {
+        return $schema
+            ->statePath('filters')
+            ->components([
+                $this->scopeSelect('story_id', 'Story', 'All stories', Heroicon::BookOpen, 'Search stories', 'No stories match that search')
+                    ->options(fn (): array => $this->getStoryOptions())
+                    ->getSearchResultsUsing(fn (string $search): array => $this->getStoryOptions($search))
+                    ->getOptionLabelUsing(fn (mixed $value): ?string => $this->storyOptionLabel($value)),
+            ]);
+    }
+
     /**
      * @return array<string, string>
      */
-    public function getUserOptions(): array
+    public function getUserOptions(?string $search = null): array
     {
+        $search = mb_trim((string) $search);
+
         return User::query()
             ->whereHas('games', static fn (Builder $query): Builder => $query->where('is_preview', false))
-            ->orderBy('email')
-            ->get(['id', 'first_name', 'last_name', 'email'])
-            ->mapWithKeys(static function (User $user): array {
-                $name = mb_trim($user->full_name);
-                $label = $name !== '' ? $name.' · '.$user->email : $user->email;
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = $this->searchLike($search);
 
-                return [(string) $user->id => $label];
+                $query->where(function (Builder $query) use ($like): void {
+                    $query->whereLike('email', $like)
+                        ->orWhereLike('first_name', $like)
+                        ->orWhereLike('last_name', $like)
+                        ->orWhereRaw("concat_ws(' ', first_name, last_name) ilike ?", [$like]);
+                });
             })
+            ->orderBy('email')
+            ->limit(50)
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->mapWithKeys(fn (User $user): array => [(string) $user->id => $this->formatUserOption($user)])
             ->all();
     }
 
     /**
      * @return array<string, string>
      */
-    public function getStoryOptions(): array
+    public function getStoryOptions(?string $search = null): array
     {
+        $search = mb_trim((string) $search);
+
         return Story::query()
             ->whereHas('games', static fn (Builder $query): Builder => $query->where('is_preview', false))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $query->whereLike('title', $this->searchLike($search));
+            })
             ->orderBy('title')
+            ->limit(50)
             ->pluck('title', 'id')
             ->mapWithKeys(static fn (mixed $title, mixed $id): array => [(string) $id => (string) $title])
             ->all();
@@ -136,13 +176,11 @@ final class AnalyticsDashboard extends Page
     {
         $filters = $this->getAnalyticsFilters();
         [$from, $to] = AnalyticsFilters::dateRange($filters);
-        $users = $this->getUserOptions();
-        $stories = $this->getStoryOptions();
 
         return [
             'date' => AnalyticsFilters::dateRangeLabel($filters),
-            'user' => $filters['user_id'] === null ? 'All users' : ($users[(string) $filters['user_id']] ?? 'Selected user'),
-            'story' => $filters['story_id'] === null ? 'All stories' : ($stories[(string) $filters['story_id']] ?? 'Selected story'),
+            'user' => $this->userOptionLabel($filters['user_id']) ?? 'All users',
+            'story' => $this->storyOptionLabel($filters['story_id']) ?? 'All stories',
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'min' => Analytics::baselineDateString(),
@@ -486,6 +524,61 @@ final class AnalyticsDashboard extends Page
         } catch (Throwable) {
             return [];
         }
+    }
+
+    private function scopeSelect(string $name, string $label, string $placeholder, Heroicon $icon, string $searchPrompt, string $emptyMessage): Select
+    {
+        return Select::make($name)
+            ->label($label)
+            ->hiddenLabel()
+            ->placeholder($placeholder)
+            ->prefixIcon($icon)
+            ->searchable()
+            ->searchDebounce(300)
+            ->searchPrompt($searchPrompt)
+            ->noOptionsMessage($emptyMessage)
+            ->noSearchResultsMessage($emptyMessage)
+            ->preload()
+            ->native(false)
+            ->live();
+    }
+
+    private function userOptionLabel(mixed $userId): ?string
+    {
+        $id = AnalyticsFilters::normalizeId($userId);
+
+        if ($id === null) {
+            return null;
+        }
+
+        $user = User::query()->find($id, ['id', 'first_name', 'last_name', 'email']);
+
+        return $user instanceof User ? $this->formatUserOption($user) : null;
+    }
+
+    private function storyOptionLabel(mixed $storyId): ?string
+    {
+        $id = AnalyticsFilters::normalizeId($storyId);
+
+        if ($id === null) {
+            return null;
+        }
+
+        $title = Story::query()->whereKey($id)->value('title');
+
+        return is_string($title) && $title !== '' ? $title : null;
+    }
+
+    private function formatUserOption(User $user): string
+    {
+        $name = mb_trim($user->full_name);
+
+        return $name !== '' ? $name.' · '.$user->email : $user->email;
+    }
+
+    private function searchLike(string $search): string
+    {
+        return '%'.addcslashes($search, '%_\\').'%';
     }
 
     private function populateCustomDateRangeDefaults(): void

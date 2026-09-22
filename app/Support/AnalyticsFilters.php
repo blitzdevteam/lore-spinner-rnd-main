@@ -200,7 +200,7 @@ final class AnalyticsFilters
         return $query;
     }
 
-    private static function normalizeId(mixed $value): ?int
+    public static function normalizeId(mixed $value): ?int
     {
         if (! is_numeric($value) || (int) $value < 1) {
             return null;
