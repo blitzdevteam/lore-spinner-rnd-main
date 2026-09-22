@@ -149,7 +149,7 @@ defineProps<{
         #59c1ca 48deg,
         transparent 108deg,
         transparent 180deg,
-        #ffbe58 228deg,
+        #59c1ca 228deg,
         transparent 300deg
     );
     opacity: 0;
