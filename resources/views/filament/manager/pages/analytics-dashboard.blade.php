@@ -1,6 +1,12 @@
 <x-filament-panels::page>
 
     @php
+        $analyticsFilters = $this->getAnalyticsFilters();
+        $filterSummary = $this->getFilterSummary();
+        $dateRangeOptions = $this->getDateRangeOptions();
+        $userOptions = $this->getUserOptions();
+        $storyOptions = $this->getStoryOptions();
+        $filterKey = md5((string) json_encode($analyticsFilters));
         $acquisition = $this->getAcquisitionMetrics();
         $funnel      = $this->getEngagementFunnel();
         $topStories  = $this->getTopStories();
@@ -11,7 +17,7 @@
         $defs = [
             ['Unique Visits',       'A distinct visitor cookie session that loaded a tracked public page. This is NOT a gameplay session. Direct /register arrivals are not counted here.'],
             ['Signups',             'New registered accounts created in the period, from any entry point including direct registration.'],
-            ['Story Starts',        'Non-preview game instances created since the baseline. One row per user per story. Includes games from users who registered before the baseline.'],
+            ['Story Starts',        'Non-preview game instances created in the selected period. One row per user per story. Includes games from users who registered before the baseline.'],
             ['Session 1 Completed', 'Games where the player finished Session 1 and advanced to Session 2 (completed_at set on session_number = 1 in game_session_completions).'],
             ['Story Completions',   'Distinct games that reached the story end state and generated a game_completions record. One game counted once regardless of how many times it was completed.'],
             ['Replayed Games',      'Distinct non-preview games reset after the player had already completed the story at least once.'],
@@ -32,8 +38,101 @@
         </div>
     </div>
 
+    {{-- ── Shared analytics filters ─────────────────────────────────── --}}
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" wire:loading.class="opacity-60" wire:target="filters,setDateRange,resetFilters">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 bg-gray-50 px-6 pb-3 pt-4 dark:border-gray-800 dark:bg-gray-800/60">
+            <div>
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Filters</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Every gameplay metric below uses the selected date, player, and story scope.</p>
+            </div>
+            <button type="button" wire:click="resetFilters" class="text-xs font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
+                Reset filters
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+                <label for="analytics-date-range" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Date range</label>
+                <x-filament::input.wrapper class="w-full" prefix-icon="heroicon-m-calendar-days">
+                    <x-filament::input.select id="analytics-date-range" wire:change="setDateRange($event.target.value)">
+                        @foreach ($dateRangeOptions as $value => $label)
+                            <option value="{{ $value }}" @selected($analyticsFilters['range'] === $value)>{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">{{ $filterSummary['date'] }}</p>
+            </div>
+
+            <div>
+                <label for="analytics-date-from" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">From</label>
+                <x-filament::input.wrapper
+                    :disabled="$analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM"
+                    class="w-full"
+                    prefix-icon="heroicon-m-calendar"
+                >
+                    <x-filament::input
+                        id="analytics-date-from"
+                        type="date"
+                        wire:model.live="filters.from"
+                        value="{{ $analyticsFilters['from'] ?? '' }}"
+                        min="{{ $filterSummary['min'] }}"
+                        max="{{ $filterSummary['max'] }}"
+                        @disabled($analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM)
+                    />
+                </x-filament::input.wrapper>
+                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">Dates before {{ $baselineLabel }} are excluded.</p>
+            </div>
+
+            <div>
+                <label for="analytics-date-to" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">To</label>
+                <x-filament::input.wrapper
+                    :disabled="$analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM"
+                    class="w-full"
+                    prefix-icon="heroicon-m-calendar"
+                >
+                    <x-filament::input
+                        id="analytics-date-to"
+                        type="date"
+                        wire:model.live="filters.to"
+                        value="{{ $analyticsFilters['to'] ?? '' }}"
+                        min="{{ $filterSummary['min'] }}"
+                        max="{{ $filterSummary['max'] }}"
+                        @disabled($analyticsFilters['range'] !== \App\Support\AnalyticsFilters::RANGE_CUSTOM)
+                    />
+                </x-filament::input.wrapper>
+                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">The range ends at today.</p>
+            </div>
+
+            <div>
+                <label for="analytics-user" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Player</label>
+                <x-filament::input.wrapper class="w-full" prefix-icon="heroicon-m-user">
+                    <x-filament::input.select id="analytics-user" wire:model.live="filters.user_id">
+                        <option value="">All players</option>
+                        @foreach ($userOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+                <p class="mt-1.5 truncate text-[11px] text-gray-500 dark:text-gray-400">{{ $filterSummary['user'] }}</p>
+            </div>
+
+            <div class="md:col-span-2 xl:col-span-4">
+                <label for="analytics-story" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Story</label>
+                <x-filament::input.wrapper class="w-full" prefix-icon="heroicon-m-book-open">
+                    <x-filament::input.select id="analytics-story" wire:model.live="filters.story_id">
+                        <option value="">All stories</option>
+                        @foreach ($storyOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+                <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">{{ $filterSummary['story'] }} · story filtering applies to gameplay metrics and matching public story-page visits.</p>
+            </div>
+        </div>
+    </div>
+
     {{-- ── KPI Stat Cards ──────────────────────────────────────────── --}}
-    @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget::class)
+    @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget::class, ['pageFilters' => $analyticsFilters], key('analytics-kpi-'.$filterKey))
 
     {{-- ── Acquisition (Visits + Signups — independent counts) ────── --}}
     @if (!empty($acquisition))
@@ -43,7 +142,7 @@
                 <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Acquisition</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Platform-wide counts — these are independent metrics, not a subset funnel</p>
             </div>
-            <span class="mt-0.5 whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-gray-700 dark:text-gray-300">since baseline</span>
+            <span class="mt-0.5 whitespace-nowrap rounded-md bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-gray-700 dark:text-gray-300">{{ $filterSummary['date'] }}</span>
         </div>
         <div class="flex flex-col gap-3.5 px-6 py-5">
             @foreach ($acquisition as $row)
@@ -136,7 +235,7 @@
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
                 <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Key Insights</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Computed from live data since baseline</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Computed from live data for {{ $filterSummary['date'] }}</p>
             </div>
             <div class="flex flex-col gap-3 px-6 py-4">
                 @foreach ($keyInsights as $insight)
@@ -172,7 +271,7 @@
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-100 bg-gray-50 px-6 pb-2.5 pt-3.5 dark:border-gray-800 dark:bg-gray-800/60">
                 <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Top Stories</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Ranked by game starts since baseline</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Ranked by game starts for {{ $filterSummary['date'] }}</p>
             </div>
             <div class="flex flex-col gap-3 px-6 py-4">
                 @foreach ($topStories as $rank => $story)
@@ -207,7 +306,7 @@
     @endif
 
     {{-- ── Retention ────────────────────────────────────────────────── --}}
-    @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget::class)
+    @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget::class, ['pageFilters' => $analyticsFilters], key('analytics-retention-'.$filterKey))
 
     {{-- ── Metric Glossary ─────────────────────────────────────────── --}}
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

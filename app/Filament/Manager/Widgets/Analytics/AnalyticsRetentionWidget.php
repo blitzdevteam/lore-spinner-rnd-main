@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Widgets\Analytics;
 
-use App\Support\Analytics;
+use App\Support\AnalyticsFilters;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +25,11 @@ use Throwable;
  */
 final class AnalyticsRetentionWidget extends StatsOverviewWidget
 {
+    /**
+     * @var array<string, mixed>
+     */
+    public array $pageFilters = [];
+
     protected static ?int $sort = 3;
 
     protected int|string|array $columnSpan = 'full';
@@ -35,8 +40,8 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
 
     protected function getDescription(): ?string
     {
-        return 'Cohort: users whose first observed gameplay session (Session 1 narration delivered) is on or after '
-            .Analytics::baselineLabel()
+        return 'Cohort: users whose first observed gameplay session (Session 1 narration delivered) is within '
+            .AnalyticsFilters::dateRangeLabel($this->pageFilters)
             .'. D1/D7/D30 use only mature cohorts.';
     }
 
@@ -79,20 +84,50 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
                 ->color('warning'),
 
             Stat::make('Return Rate', $returnRate)
-                ->description('Users with more than one active day after first play (since '.Analytics::baselineLabel().')')
+                ->description('Users with more than one active day after first play ('.$this->dateRangeLabel().')')
                 ->color('success'),
         ];
+    }
+
+    private function dateRangeLabel(): string
+    {
+        return AnalyticsFilters::dateRangeLabel($this->pageFilters);
     }
 
     /**
      * Computes all three retention rates in a single pass.
      *
-     * Cohort: users whose first session started_at is >= analytics baseline.
+     * Cohort: users whose first session started_at is within the selected range.
      */
     private function retentionStats(): object
     {
-        $asOfDateTime = Analytics::asOfDateTimeString();
-        $asOfDate = Analytics::asOf()->toDateString();
+        $filters = AnalyticsFilters::normalize($this->pageFilters);
+        [$from, $to] = AnalyticsFilters::dateRange($filters);
+        $asOfDateTime = $to->toDateTimeString();
+        $asOfDate = $to->toDateString();
+        $cohortUserFilter = $filters['user_id'] !== null ? 'AND gsc.user_id = ?' : '';
+        $cohortStoryFilter = $filters['story_id'] !== null ? 'AND g.story_id = ?' : '';
+        $bindings = [$asOfDateTime];
+
+        if ($filters['user_id'] !== null) {
+            $bindings[] = $filters['user_id'];
+        }
+
+        if ($filters['story_id'] !== null) {
+            $bindings[] = $filters['story_id'];
+        }
+
+        $bindings[] = $from->toDateTimeString();
+        $bindings[] = $asOfDateTime;
+        $bindings = [
+            ...$bindings,
+            $asOfDate,
+            $asOfDate,
+            $asOfDate,
+            $asOfDate,
+            $asOfDate,
+            $asOfDate,
+        ];
 
         $result = DB::select("
             WITH cohort AS (
@@ -102,8 +137,11 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
                 WHERE g.is_preview = false
                   AND gsc.started_at IS NOT NULL
                   AND gsc.started_at <= ?
+                  {$cohortUserFilter}
+                  {$cohortStoryFilter}
                 GROUP BY gsc.user_id
                 HAVING MIN(gsc.started_at) >= ?
+                   AND MIN(gsc.started_at) <= ?
             )
             SELECT
                 COUNT(DISTINCT CASE WHEN c.first_play <= ?::date - INTERVAL '1 day' THEN c.user_id END) AS d1_cohort_size,
@@ -124,16 +162,7 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
                 ON  d30.user_id       = c.user_id
                 AND d30.activity_date BETWEEN c.first_play + INTERVAL '1 day'
                                           AND c.first_play + INTERVAL '30 days'
-        ", [
-            $asOfDateTime,
-            Analytics::baselineDateTimeString(),
-            $asOfDate,
-            $asOfDate,
-            $asOfDate,
-            $asOfDate,
-            $asOfDate,
-            $asOfDate,
-        ]);
+        ", $bindings);
 
         return $result[0] ?? (object) [
             'd1_cohort_size' => 0,
@@ -151,8 +180,24 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
      */
     private function returnRate(): string
     {
-        $asOfDateTime = Analytics::asOfDateTimeString();
-        $asOfDate = Analytics::asOf()->toDateString();
+        $filters = AnalyticsFilters::normalize($this->pageFilters);
+        [$from, $to] = AnalyticsFilters::dateRange($filters);
+        $asOfDateTime = $to->toDateTimeString();
+        $asOfDate = $to->toDateString();
+        $cohortUserFilter = $filters['user_id'] !== null ? 'AND gsc.user_id = ?' : '';
+        $cohortStoryFilter = $filters['story_id'] !== null ? 'AND g.story_id = ?' : '';
+        $bindings = [$asOfDateTime];
+
+        if ($filters['user_id'] !== null) {
+            $bindings[] = $filters['user_id'];
+        }
+
+        if ($filters['story_id'] !== null) {
+            $bindings[] = $filters['story_id'];
+        }
+
+        $bindings[] = $from->toDateTimeString();
+        $bindings[] = $asOfDate;
 
         $row = DB::select('
             WITH cohort AS (
@@ -162,6 +207,8 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
                 WHERE g.is_preview = false
                   AND gsc.started_at IS NOT NULL
                   AND gsc.started_at <= ?
+                  '.$cohortUserFilter.'
+                  '.$cohortStoryFilter.'
                 GROUP BY gsc.user_id
                 HAVING MIN(gsc.started_at) >= ?
             )
@@ -178,11 +225,7 @@ final class AnalyticsRetentionWidget extends StatsOverviewWidget
                    AND a2.activity_date <= ?::date
                 GROUP BY c2.user_id
             ) a ON a.user_id = c.user_id
-        ', [
-            $asOfDateTime,
-            Analytics::baselineDateTimeString(),
-            $asOfDate,
-        ]);
+        ', $bindings);
 
         $data = $row[0] ?? null;
 

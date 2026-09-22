@@ -9,6 +9,7 @@ use App\Models\GameReset;
 use App\Models\GameSessionCompletion;
 use App\Models\User;
 use App\Support\Analytics;
+use App\Support\AnalyticsFilters;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
@@ -31,6 +32,11 @@ use Throwable;
  */
 final class AnalyticsKpiWidget extends StatsOverviewWidget
 {
+    /**
+     * @var array<string, mixed>
+     */
+    public array $pageFilters = [];
+
     protected static ?int $sort = 1;
 
     protected int|string|array $columnSpan = 'full';
@@ -41,12 +47,24 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
 
     protected function getHeading(): ?string
     {
-        return 'Platform KPIs (all time since '.Analytics::baselineLabel().')';
+        return 'Platform KPIs ('.AnalyticsFilters::dateRangeLabel($this->pageFilters).')';
     }
 
     protected function getDescription(): ?string
     {
-        return 'All metrics are capped at the '.Analytics::baselineLabel().' baseline. No data before this date is included.';
+        $filters = AnalyticsFilters::normalize($this->pageFilters);
+        $scope = [];
+
+        if ($filters['user_id'] !== null) {
+            $scope[] = 'selected player';
+        }
+
+        if ($filters['story_id'] !== null) {
+            $scope[] = 'selected story';
+        }
+
+        return 'No data before the '.Analytics::baselineLabel().' baseline is included.'
+            .($scope === [] ? '' : ' Scope: '.implode(' + ', $scope).'.');
     }
 
     protected function getStats(): array
@@ -65,18 +83,19 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     private function buildStats(): array
     {
         [$from, $to] = $this->dateRange();
+        $filters = AnalyticsFilters::normalize($this->pageFilters);
 
-        $visits = $this->visits($from, $to);
-        $signups = $this->signups($from, $to);
-        $starts = $this->storyStarts($from, $to);
-        $s1 = $this->firstSessionCompletions($from, $to);
-        $completionEvents = $this->completionEvents($from, $to);
-        $uniqueCompleted = $this->uniqueGamesCompleted($from, $to);
-        $incomplete = $this->incompleteStories($from, $to);
-        $abandoned = $this->abandonedStories($from, $to);
-        $returns = $this->returns($from, $to);
-        $replayEvents = $this->replayEvents($from, $to);
-        $uniqueReplayers = $this->uniqueReplayers($from, $to);
+        $visits = $this->visits($filters);
+        $signups = $this->signups($filters, $from, $to);
+        $starts = $this->storyStarts($filters);
+        $s1 = $this->firstSessionCompletions($filters, $from, $to);
+        $completionEvents = $this->completionEvents($filters, $from, $to);
+        $uniqueCompleted = $this->uniqueGamesCompleted($filters, $from, $to);
+        $incomplete = $this->incompleteStories($filters);
+        $abandoned = $this->abandonedStories($filters);
+        $returns = $this->returns($filters, $from, $to);
+        $replayEvents = $this->replayEvents($filters, $from, $to);
+        $uniqueReplayers = $this->uniqueReplayers($filters, $from, $to);
 
         $incompletePct = $starts > 0
             ? number_format(($incomplete / $starts) * 100, 1)
@@ -96,7 +115,7 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                 ->color('gray'),
 
             Stat::make('Signups', number_format($signups))
-                ->description('New user accounts created since the baseline')
+                ->description('New user accounts created in the selected period')
                 ->color('primary'),
 
             Stat::make('Story Starts', number_format($starts))
@@ -130,46 +149,66 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
     }
 
     /**
-     * Returns [baseline, now] — StatsOverviewWidget does not support getFilters()
-     * in Filament 4, so this widget always shows all-time data since the baseline.
+     * Returns the selected range, capped at the analytics baseline and current as-of time.
      *
      * @return array{Carbon, Carbon}
      */
     private function dateRange(): array
     {
-        return [Analytics::baseline(), Analytics::asOf()];
+        return AnalyticsFilters::dateRange($this->pageFilters);
     }
 
-    private function visits(Carbon $from, Carbon $to): int
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function visits(array $filters): int
     {
-        return DB::table('page_views')
-            ->where('view_date', '>=', $from->toDateString())
-            ->where('view_date', '<=', $to->toDateString())
+        $query = DB::table('page_views');
+        AnalyticsFilters::applyToPageViewQuery($query, $filters);
+
+        return $query
             ->distinct('session_id')
             ->count('session_id');
     }
 
-    private function signups(Carbon $from, Carbon $to): int
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function signups(array $filters, Carbon $from, Carbon $to): int
     {
         return User::query()
             ->where('created_at', '>=', $from)
             ->where('created_at', '<=', $to)
+            ->when(
+                $filters['user_id'] !== null,
+                fn ($query) => $query->whereKey($filters['user_id']),
+            )
             ->count();
     }
 
-    private function storyStarts(Carbon $from, Carbon $to): int
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function storyStarts(array $filters): int
     {
-        return DB::table('games')
-            ->where('is_preview', false)
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<=', $to)
-            ->count();
+        $query = DB::table('games');
+        AnalyticsFilters::applyToGameQuery($query, $filters);
+
+        return $query->count();
     }
 
-    private function firstSessionCompletions(Carbon $from, Carbon $to): int
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function firstSessionCompletions(array $filters, Carbon $from, Carbon $to): int
     {
         return (int) GameSessionCompletion::query()
-            ->whereHas('game', fn ($query) => $query->where('is_preview', false))
+            ->whereHas('game', function ($query) use ($filters): void {
+                $query
+                    ->where('is_preview', false)
+                    ->when($filters['user_id'] !== null, fn ($query) => $query->where('user_id', $filters['user_id']))
+                    ->when($filters['story_id'] !== null, fn ($query) => $query->where('story_id', $filters['story_id']));
+            })
             ->where('session_number', 1)
             ->whereNotNull('completed_at')
             ->whereBetween('completed_at', [$from, $to])
@@ -177,22 +216,34 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
             ->count('game_id');
     }
 
-    /** Total completion events — one per completed story cycle (can exceed starts). */
-    private function completionEvents(Carbon $from, Carbon $to): int
+    /**
+     * Total completion events — one per completed story cycle (can exceed starts).
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function completionEvents(array $filters, Carbon $from, Carbon $to): int
     {
         return GameCompletion::query()
             ->whereHas('game', fn ($query) => $query->where('is_preview', false))
+            ->when($filters['user_id'] !== null, fn ($query) => $query->where('user_id', $filters['user_id']))
+            ->when($filters['story_id'] !== null, fn ($query) => $query->where('story_id', $filters['story_id']))
             ->whereBetween('completed_at', [$from, $to])
             ->count();
     }
 
-    /** Distinct games that completed at least once in the period. Used for completion rate. */
-    private function uniqueGamesCompleted(Carbon $from, Carbon $to): int
+    /**
+     * Distinct games that completed at least once in the period. Used for completion rate.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function uniqueGamesCompleted(array $filters, Carbon $from, Carbon $to): int
     {
         return (int) GameCompletion::query()
             ->whereHas('game', fn ($query) => $query
                 ->where('is_preview', false)
                 ->whereBetween('created_at', [$from, $to]))
+            ->when($filters['user_id'] !== null, fn ($query) => $query->where('user_id', $filters['user_id']))
+            ->when($filters['story_id'] !== null, fn ($query) => $query->where('story_id', $filters['story_id']))
             ->whereBetween('completed_at', [$from, $to])
             ->distinct('game_id')
             ->count('game_id');
@@ -202,14 +253,15 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
      * Games created since the baseline (within the period) that are still
      * incomplete. A user may still be actively playing — this is current
      * state, not a permanent label.
+     *
+     * @param  array<string, mixed>  $filters
      */
-    private function incompleteStories(Carbon $from, Carbon $to): int
+    private function incompleteStories(array $filters): int
     {
-        return DB::table('games')
-            ->where('is_preview', false)
-            ->whereBetween('created_at', [$from, $to])
-            ->whereNull('completed_at')
-            ->count();
+        $query = DB::table('games')->whereNull('completed_at');
+        AnalyticsFilters::applyToGameQuery($query, $filters);
+
+        return $query->count();
     }
 
     /**
@@ -221,12 +273,15 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
      *   - prompts.created_at
      *   - game_session_completions.started_at / completed_at
      *   - game_resets.created_at
+     *
+     * @param  array<string, mixed>  $filters
      */
-    private function abandonedStories(Carbon $from, Carbon $to): int
+    private function abandonedStories(array $filters): int
     {
+        [$from, $to] = AnalyticsFilters::dateRange($filters);
         $cutoff = Analytics::abandonedCutoff()->toDateTimeString();
 
-        $result = DB::select('
+        $sql = '
             SELECT COUNT(*) AS cnt
             FROM (
                 SELECT g.id,
@@ -244,44 +299,87 @@ final class AnalyticsKpiWidget extends StatsOverviewWidget
                 WHERE g.is_preview = false
                   AND g.completed_at IS NULL
                   AND g.created_at >= ?
-                  AND g.created_at <= ?
+                  AND g.created_at <= ?';
+        $bindings = [$from->toDateTimeString(), $to->toDateTimeString()];
+
+        if ($filters['user_id'] !== null) {
+            $sql .= ' AND g.user_id = ?';
+            $bindings[] = $filters['user_id'];
+        }
+
+        if ($filters['story_id'] !== null) {
+            $sql .= ' AND g.story_id = ?';
+            $bindings[] = $filters['story_id'];
+        }
+
+        $sql .= '
                 GROUP BY g.id, g.created_at
             ) sub
             WHERE last_active_at <= ?
-        ', [$from->toDateTimeString(), $to->toDateTimeString(), $cutoff]);
+        ';
+        $bindings[] = $cutoff;
+        $result = DB::select($sql, $bindings);
 
         return (int) ($result[0]->cnt ?? 0);
     }
 
-    private function returns(Carbon $from, Carbon $to): int
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function returns(array $filters, Carbon $from, Carbon $to): int
     {
-        return (int) DB::table('user_activity_days as a')
+        $query = DB::table('user_activity_days as a')
             ->where('a.activity_date', '>=', $from->toDateString())
             ->where('a.activity_date', '<=', $to->toDateString())
-            ->whereExists(function ($q) use ($from): void {
+            ->when($filters['user_id'] !== null, fn ($query) => $query->where('a.user_id', $filters['user_id']))
+            ->whereExists(function ($q) use ($filters, $from, $to): void {
                 $q->from('user_activity_days as b')
                     ->whereColumn('b.user_id', 'a.user_id')
                     ->where('b.activity_date', '<', $from->toDateString());
+
+                if ($filters['story_id'] !== null) {
+                    $q->whereExists(function ($storyQuery) use ($filters, $from, $to): void {
+                        $storyQuery->from('games as filtered_games')
+                            ->whereColumn('filtered_games.user_id', 'a.user_id')
+                            ->where('filtered_games.story_id', $filters['story_id'])
+                            ->where('filtered_games.is_preview', false)
+                            ->whereBetween('filtered_games.created_at', [$from, $to]);
+                    });
+                }
             })
             ->distinct('a.user_id')
             ->count('a.user_id');
+
+        return (int) $query;
     }
 
-    /** Total replay events — resets after a prior completion. */
-    private function replayEvents(Carbon $from, Carbon $to): int
+    /**
+     * Total replay events — resets after a prior completion.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function replayEvents(array $filters, Carbon $from, Carbon $to): int
     {
         return GameReset::query()
             ->whereHas('game', fn ($query) => $query->where('is_preview', false))
+            ->when($filters['user_id'] !== null, fn ($query) => $query->where('user_id', $filters['user_id']))
+            ->when($filters['story_id'] !== null, fn ($query) => $query->where('story_id', $filters['story_id']))
             ->where('had_prior_completion', true)
             ->whereBetween('created_at', [$from, $to])
             ->count();
     }
 
-    /** Distinct users who replayed at least once in the period. */
-    private function uniqueReplayers(Carbon $from, Carbon $to): int
+    /**
+     * Distinct users who replayed at least once in the period.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function uniqueReplayers(array $filters, Carbon $from, Carbon $to): int
     {
         return (int) GameReset::query()
             ->whereHas('game', fn ($query) => $query->where('is_preview', false))
+            ->when($filters['user_id'] !== null, fn ($query) => $query->where('user_id', $filters['user_id']))
+            ->when($filters['story_id'] !== null, fn ($query) => $query->where('story_id', $filters['story_id']))
             ->where('had_prior_completion', true)
             ->whereBetween('created_at', [$from, $to])
             ->distinct('user_id')

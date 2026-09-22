@@ -7,16 +7,30 @@ namespace App\Filament\Manager\Pages;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsFunnelWidget;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget;
+use App\Models\Story;
 use App\Models\User;
 use App\Support\Analytics;
+use App\Support\AnalyticsFilters;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final class AnalyticsDashboard extends Page
 {
+    /**
+     * @var array{range: string, from: string|null, to: string|null, user_id: int|null, story_id: int|null}
+     */
+    public array $filters = [
+        'range' => AnalyticsFilters::RANGE_ALL,
+        'from' => null,
+        'to' => null,
+        'user_id' => null,
+        'story_id' => null,
+    ];
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartBar;
 
     protected static ?string $navigationLabel = 'Analytics';
@@ -26,6 +40,118 @@ final class AnalyticsDashboard extends Page
     protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.manager.pages.analytics-dashboard';
+
+    public function mount(): void
+    {
+        $this->filters = AnalyticsFilters::normalize($this->filters);
+        $this->populateCustomDateRangeDefaults();
+    }
+
+    public function setDateRange(string $range): void
+    {
+        $normalized = AnalyticsFilters::normalize(['range' => $range]);
+
+        $this->filters['range'] = $normalized['range'];
+
+        if ($normalized['range'] === AnalyticsFilters::RANGE_CUSTOM) {
+            $this->populateCustomDateRangeDefaults();
+
+            return;
+        }
+
+        $this->filters['from'] = null;
+        $this->filters['to'] = null;
+    }
+
+    public function updatedFiltersFrom(mixed $value): void
+    {
+        if ($value !== null && $value !== '') {
+            $this->filters['range'] = AnalyticsFilters::RANGE_CUSTOM;
+        }
+    }
+
+    public function updatedFiltersTo(mixed $value): void
+    {
+        if ($value !== null && $value !== '') {
+            $this->filters['range'] = AnalyticsFilters::RANGE_CUSTOM;
+        }
+    }
+
+    public function resetFilters(): void
+    {
+        $this->filters = AnalyticsFilters::defaults();
+    }
+
+    /**
+     * @return array{range: string, from: string|null, to: string|null, user_id: int|null, story_id: int|null}
+     */
+    public function getAnalyticsFilters(): array
+    {
+        return AnalyticsFilters::normalize($this->filters);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getDateRangeOptions(): array
+    {
+        return AnalyticsFilters::dateRangeOptions();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getUserOptions(): array
+    {
+        return User::query()
+            ->whereHas('games', static fn (Builder $query): Builder => $query->where('is_preview', false))
+            ->orderBy('email')
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->mapWithKeys(static function (User $user): array {
+                $name = mb_trim($user->full_name);
+                $label = $name !== '' ? $name.' · '.$user->email : $user->email;
+
+                return [(string) $user->id => $label];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getStoryOptions(): array
+    {
+        return Story::query()
+            ->whereHas('games', static fn (Builder $query): Builder => $query->where('is_preview', false))
+            ->orderBy('title')
+            ->pluck('title', 'id')
+            ->mapWithKeys(static fn (mixed $title, mixed $id): array => [(string) $id => (string) $title])
+            ->all();
+    }
+
+    /**
+     * @return array{date: string, user: string, story: string, from: string, to: string, min: string, max: string, is_filtered: bool}
+     */
+    public function getFilterSummary(): array
+    {
+        $filters = $this->getAnalyticsFilters();
+        [$from, $to] = AnalyticsFilters::dateRange($filters);
+        $users = $this->getUserOptions();
+        $stories = $this->getStoryOptions();
+
+        return [
+            'date' => AnalyticsFilters::dateRangeLabel($filters),
+            'user' => $filters['user_id'] === null ? 'All users' : ($users[(string) $filters['user_id']] ?? 'Selected user'),
+            'story' => $filters['story_id'] === null ? 'All stories' : ($stories[(string) $filters['story_id']] ?? 'Selected story'),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'min' => Analytics::baselineDateString(),
+            'max' => Analytics::asOf()->toDateString(),
+            'is_filtered' => $filters['range'] !== AnalyticsFilters::RANGE_ALL
+                || $filters['user_id'] !== null
+                || $filters['story_id'] !== null,
+        ];
+    }
 
     /**
      * @return array<class-string>
@@ -56,18 +182,20 @@ final class AnalyticsDashboard extends Page
     public function getAcquisitionMetrics(): array
     {
         try {
-            $from = Analytics::baseline();
-            $to = Analytics::asOf();
+            $filters = $this->getAnalyticsFilters();
+            [$from, $to] = AnalyticsFilters::dateRange($filters);
 
-            $visits = DB::table('page_views')
-                ->where('view_date', '>=', $from->toDateString())
-                ->where('view_date', '<=', $to->toDateString())
-                ->distinct('session_id')
-                ->count('session_id');
+            $visitsQuery = DB::table('page_views');
+            AnalyticsFilters::applyToPageViewQuery($visitsQuery, $filters);
+            $visits = $visitsQuery->distinct('session_id')->count('session_id');
 
             $signups = User::query()
                 ->where('created_at', '>=', $from)
                 ->where('created_at', '<=', $to)
+                ->when(
+                    $filters['user_id'] !== null,
+                    static fn (Builder $query): Builder => $query->whereKey($filters['user_id']),
+                )
                 ->count();
 
             $max = max($visits, $signups, 1);
@@ -117,41 +245,39 @@ final class AnalyticsDashboard extends Page
     public function getEngagementFunnel(): array
     {
         try {
-            $from = Analytics::baseline();
-            $to = Analytics::asOf();
+            $filters = $this->getAnalyticsFilters();
+            [$from, $to] = AnalyticsFilters::dateRange($filters);
 
-            $starts = DB::table('games')
-                ->where('is_preview', false)
-                ->where('created_at', '>=', $from)
-                ->where('created_at', '<=', $to)
-                ->count();
+            $startsQuery = DB::table('games');
+            AnalyticsFilters::applyToGameQuery($startsQuery, $filters);
+            $starts = $startsQuery->count();
 
             // Count distinct games so replay cycles cannot make a nested step
             // larger than Story Starts.
-            $session1Completed = DB::table('game_session_completions as gsc')
-                ->join('games as g', 'g.id', '=', 'gsc.game_id')
-                ->where('g.is_preview', false)
-                ->whereBetween('g.created_at', [$from, $to])
+            $session1Query = DB::table('game_session_completions as gsc')
+                ->join('games as g', 'g.id', '=', 'gsc.game_id');
+            AnalyticsFilters::applyToGameQuery($session1Query, $filters, 'g');
+            $session1Completed = $session1Query
                 ->whereBetween('gsc.completed_at', [$from, $to])
                 ->where('gsc.session_number', 1)
                 ->distinct('gsc.game_id')
                 ->count('gsc.game_id');
 
             // Unique games that completed at least once (completion rate denominator)
-            $uniqueCompleted = DB::table('game_completions as gc')
-                ->join('games as g', 'g.id', '=', 'gc.game_id')
-                ->where('g.is_preview', false)
-                ->whereBetween('g.created_at', [$from, $to])
+            $completionQuery = DB::table('game_completions as gc')
+                ->join('games as g', 'g.id', '=', 'gc.game_id');
+            AnalyticsFilters::applyToGameQuery($completionQuery, $filters, 'g');
+            $uniqueCompleted = $completionQuery
                 ->whereBetween('gc.completed_at', [$from, $to])
                 ->distinct('gc.game_id')
                 ->count('gc.game_id');
 
             // Use distinct games here; the KPI card separately reports replay
             // events, which can legitimately exceed the number of games.
-            $replayedGames = DB::table('game_resets as gr')
-                ->join('games as g', 'g.id', '=', 'gr.game_id')
-                ->where('g.is_preview', false)
-                ->whereBetween('g.created_at', [$from, $to])
+            $replayQuery = DB::table('game_resets as gr')
+                ->join('games as g', 'g.id', '=', 'gr.game_id');
+            AnalyticsFilters::applyToGameQuery($replayQuery, $filters, 'g');
+            $replayedGames = $replayQuery
                 ->whereBetween('gr.created_at', [$from, $to])
                 ->where('gr.had_prior_completion', true)
                 ->distinct('gr.game_id')
@@ -217,17 +343,16 @@ final class AnalyticsDashboard extends Page
     public function getTopStories(): array
     {
         try {
-            $rows = DB::select('
-                SELECT s.title, COUNT(g.id) AS starts
-                FROM stories s
-                JOIN games g ON g.story_id = s.id
-                WHERE g.is_preview = false
-                  AND g.created_at >= ?
-                  AND g.created_at <= ?
-                GROUP BY s.id, s.title
-                ORDER BY starts DESC
-                LIMIT 5
-            ', [Analytics::baselineDateTimeString(), Analytics::asOfDateTimeString()]);
+            $filters = $this->getAnalyticsFilters();
+            $query = DB::table('stories as s')->join('games as g', 'g.story_id', '=', 's.id');
+            AnalyticsFilters::applyToGameQuery($query, $filters, 'g');
+            $rows = $query
+                ->select('s.title', DB::raw('COUNT(g.id) AS starts'))
+                ->groupBy('s.id', 's.title')
+                ->orderByDesc('starts')
+                ->limit(5)
+                ->get()
+                ->all();
 
             if (empty($rows)) {
                 return [];
@@ -253,20 +378,34 @@ final class AnalyticsDashboard extends Page
     public function getKeyInsights(): array
     {
         try {
-            $from = Analytics::baseline();
-            $to = Analytics::asOf();
+            $filters = $this->getAnalyticsFilters();
+            [$from, $to] = AnalyticsFilters::dateRange($filters);
 
-            $starts = DB::table('games')->where('is_preview', false)->whereBetween('created_at', [$from, $to])->count();
-            $completions = DB::table('game_completions as gc')
-                ->join('games as g', 'g.id', '=', 'gc.game_id')
-                ->where('g.is_preview', false)
-                ->whereBetween('g.created_at', [$from, $to])
+            $startsQuery = DB::table('games');
+            AnalyticsFilters::applyToGameQuery($startsQuery, $filters);
+            $starts = $startsQuery->count();
+
+            $completionQuery = DB::table('game_completions as gc')
+                ->join('games as g', 'g.id', '=', 'gc.game_id');
+            AnalyticsFilters::applyToGameQuery($completionQuery, $filters, 'g');
+            $completions = $completionQuery
                 ->whereBetween('gc.completed_at', [$from, $to])
                 ->distinct('gc.game_id')
                 ->count('gc.game_id');
-            $signups = User::query()->where('created_at', '>=', $from)->where('created_at', '<=', $to)->count();
-            $stories = DB::table('games')->where('is_preview', false)->whereBetween('created_at', [$from, $to])->distinct('story_id')->count('story_id');
-            $abandoned = (int) (DB::select('
+
+            $signups = User::query()
+                ->whereBetween('created_at', [$from, $to])
+                ->when(
+                    $filters['user_id'] !== null,
+                    static fn (Builder $query): Builder => $query->whereKey($filters['user_id']),
+                )
+                ->count();
+
+            $storiesQuery = DB::table('games');
+            AnalyticsFilters::applyToGameQuery($storiesQuery, $filters);
+            $stories = $storiesQuery->distinct('story_id')->count('story_id');
+
+            $abandonedSql = '
                 SELECT COUNT(*) AS cnt FROM (
                     SELECT g.id, GREATEST(g.created_at, MAX(p.created_at), MAX(gsc.started_at), MAX(gsc.completed_at), MAX(gr.created_at)) AS last_active_at
                     FROM games g
@@ -276,16 +415,30 @@ final class AnalyticsDashboard extends Page
                     WHERE g.is_preview = false
                       AND g.completed_at IS NULL
                       AND g.created_at >= ?
-                      AND g.created_at <= ?
+                      AND g.created_at <= ?';
+            $abandonedBindings = [$from->toDateTimeString(), $to->toDateTimeString()];
+
+            if ($filters['user_id'] !== null) {
+                $abandonedSql .= ' AND g.user_id = ?';
+                $abandonedBindings[] = $filters['user_id'];
+            }
+
+            if ($filters['story_id'] !== null) {
+                $abandonedSql .= ' AND g.story_id = ?';
+                $abandonedBindings[] = $filters['story_id'];
+            }
+
+            $abandonedSql .= '
                     GROUP BY g.id, g.created_at
-                ) sub WHERE last_active_at <= ?
-            ', [$from->toDateTimeString(), $to->toDateTimeString(), Analytics::abandonedCutoff()->toDateTimeString()])[0]->cnt ?? 0);
+                ) sub WHERE last_active_at <= ?';
+            $abandonedBindings[] = Analytics::abandonedCutoff()->toDateTimeString();
+            $abandoned = (int) (DB::select($abandonedSql, $abandonedBindings)[0]->cnt ?? 0);
 
             $insights = [];
 
             // Signup insight
             $insights[] = [
-                'text' => 'signed up since the baseline across',
+                'text' => 'signed up in the selected period across',
                 'highlight' => number_format($signups).' users',
                 'tone' => 'primary',
             ];
@@ -301,7 +454,7 @@ final class AnalyticsDashboard extends Page
             // Completion insight
             if ($starts > 0 && $completions === 0) {
                 $insights[] = [
-                    'text' => 'story starts recorded since the baseline — no completed games recorded yet.',
+                    'text' => 'story starts recorded in the selected period — no completed games recorded yet.',
                     'highlight' => number_format($starts),
                     'tone' => 'warning',
                 ];
@@ -333,5 +486,17 @@ final class AnalyticsDashboard extends Page
         } catch (Throwable) {
             return [];
         }
+    }
+
+    private function populateCustomDateRangeDefaults(): void
+    {
+        if ($this->filters['range'] !== AnalyticsFilters::RANGE_CUSTOM) {
+            return;
+        }
+
+        [$from, $to] = AnalyticsFilters::dateRange($this->filters);
+
+        $this->filters['from'] ??= $from->toDateString();
+        $this->filters['to'] ??= $to->toDateString();
     }
 }
