@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 final class SubscriptionPlanForm
@@ -30,7 +31,16 @@ final class SubscriptionPlanForm
                     Toggle::make('is_featured')
                         ->label('Feature this plan on pricing')
                         ->default(false)
+                        ->live()
                         ->required(),
+                    TextInput::make('featured_label')
+                        ->label('Featured badge')
+                        ->maxLength(255)
+                        ->default('Most Recommended')
+                        ->dehydrated()
+                        ->visible(fn (Get $get): bool => (bool) $get('is_featured'))
+                        ->helperText('Tab above the card. Example: Most Recommended.')
+                        ->columnSpanFull(),
                     Fieldset::make('Identity and Stripe price')
                         ->columns(2)
                         ->schema([
@@ -79,26 +89,41 @@ final class SubscriptionPlanForm
                                 ->label('Actions')
                                 ->numeric()
                                 ->required()
-                                ->minValue(0),
+                                ->minValue(0)
+                                ->helperText('Shown as the actions figure on the pricing card.'),
                             TextInput::make('voice_minutes_limit')
                                 ->label('Voice minutes')
                                 ->numeric()
                                 ->required()
-                                ->minValue(0),
+                                ->minValue(0)
+                                ->helperText('Whole hours display as hours. 120 minutes becomes 2 hours.'),
                         ])
                         ->columnSpanFull(),
                     TextInput::make('tagline')
                         ->maxLength(255)
+                        ->helperText('Shown under the plan name. Example: Base rate.')
+                        ->columnSpanFull(),
+                    TextInput::make('bonus_label')
+                        ->label('Bonus badge')
+                        ->maxLength(255)
+                        ->helperText('Optional badge beside the price. Example: 25% Bonus. Leave empty to hide it.')
                         ->columnSpanFull(),
                     Textarea::make('description')
                         ->rows(3)
                         ->maxLength(1000)
+                        ->helperText('Short paragraph under the price.')
+                        ->columnSpanFull(),
+                    Textarea::make('action_hint')
+                        ->label('Actions info')
+                        ->rows(2)
+                        ->maxLength(500)
+                        ->helperText('Tooltip for the info icon beside Actions / month.')
                         ->columnSpanFull(),
                     TagsInput::make('features')
-                        ->placeholder('225 Actions')
+                        ->placeholder('Access to all interactive stories')
                         ->default([])
                         ->required()
-                        ->helperText('One item per line in the pricing card.')
+                        ->helperText('Checkmark lines under the allowance. Actions and voice are already shown from the limits above.')
                         ->columnSpanFull(),
                     Fieldset::make('Pricing card appearance')
                         ->columns(3)
@@ -109,16 +134,22 @@ final class SubscriptionPlanForm
                                     'gold' => 'Gold',
                                 ])
                                 ->required()
-                                ->default('teal'),
+                                ->default('teal')
+                                ->helperText('Kept on the plan record. Featured cards use the teal treatment.'),
                             Select::make('icon_key')
                                 ->label('Icon')
                                 ->options([
+                                    'book' => 'Open book',
+                                    'books-plus' => 'Books with plus',
+                                    'library' => 'Bookshelf',
+                                    'crown' => 'Crown',
+                                    'star' => 'Star',
+                                    'people' => 'People',
                                     'footprints' => 'Footprints',
                                     'mountains' => 'Mountains',
-                                    'crown' => 'Crown',
                                 ])
                                 ->required()
-                                ->default('footprints'),
+                                ->default('book'),
                         ])
                         ->columnSpanFull(),
                 ]),

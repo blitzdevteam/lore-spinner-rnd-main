@@ -18,13 +18,16 @@ use Override;
  * @property int $price_cents
  * @property string $currency
  * @property string|null $tagline
+ * @property string|null $bonus_label
  * @property string|null $description
  * @property array<int, string> $features
  * @property int $action_limit
+ * @property string|null $action_hint
  * @property int $voice_minutes_limit
  * @property string $accent
  * @property string $icon_key
  * @property bool $is_featured
+ * @property string|null $featured_label
  * @property bool $is_active
  * @property int $sort_order
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SubscriptionEntitlement> $entitlements
@@ -58,6 +61,32 @@ final class SubscriptionPlan extends Model
     public function voiceMillisecondsLimit(): int
     {
         return $this->voice_minutes_limit * 60_000;
+    }
+
+    public function voiceAllowanceLabel(): string
+    {
+        $hours = intdiv($this->voice_minutes_limit, 60);
+        $minutes = $this->voice_minutes_limit % 60;
+        $parts = [];
+
+        if ($hours > 0) {
+            $parts[] = $hours === 1 ? '1 hour' : "{$hours} hours";
+        }
+
+        if ($minutes > 0 || $hours === 0) {
+            $parts[] = $minutes === 1 ? '1 minute' : "{$minutes} minutes";
+        }
+
+        return implode(' ', $parts);
+    }
+
+    public function featuredBadge(): ?string
+    {
+        if (! $this->is_featured) {
+            return null;
+        }
+
+        return filled($this->featured_label) ? $this->featured_label : 'Most Recommended';
     }
 
     #[Override]

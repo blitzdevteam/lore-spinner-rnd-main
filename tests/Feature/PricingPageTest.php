@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\SubscriptionPlan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+
+uses(RefreshDatabase::class);
 
 it('renders the pricing page', function () {
     $this->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
@@ -13,48 +17,94 @@ it('renders the pricing page', function () {
             ->where('checkoutStatus', null));
 });
 
-it('displays the current monthly plan prices', function () {
-    $pricing = file_get_contents(resource_path('js/pages/Pricing.vue'));
+it('sends allowance, bonus, and featured badge copy to the pricing cards', function () {
+    SubscriptionPlan::factory()->create([
+        'name' => 'Story',
+        'slug' => 'story',
+        'price_cents' => 1500,
+        'tagline' => 'Base rate',
+        'bonus_label' => null,
+        'description' => 'A little adventure, whenever you need it.',
+        'features' => ['Access to all interactive stories', 'Full multiplayer access'],
+        'action_limit' => 225,
+        'action_hint' => null,
+        'voice_minutes_limit' => 135,
+        'is_featured' => false,
+        'featured_label' => null,
+        'icon_key' => 'book',
+        'sort_order' => 0,
+    ]);
 
-    expect($pricing)
-        ->toContain("price: '$14.9'")
-        ->toContain("price: '$29.9'")
-        ->toContain("price: '$39.9'")
-        ->not->toContain("price: '$9.9'")
-        ->not->toContain("price: '$19.9'");
+    SubscriptionPlan::factory()->create([
+        'name' => 'Story Plus',
+        'slug' => 'story-plus',
+        'price_cents' => 3000,
+        'tagline' => null,
+        'bonus_label' => '25% Bonus',
+        'description' => 'For adventures you return to every week.',
+        'features' => ['Access to all interactive stories', 'Full multiplayer access'],
+        'action_limit' => 550,
+        'action_hint' => 'An action is one choice in a story.',
+        'voice_minutes_limit' => 300,
+        'is_featured' => true,
+        'featured_label' => 'Most Recommended',
+        'icon_key' => 'books-plus',
+        'sort_order' => 0,
+    ]);
+
+    $this->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Pricing')
+            ->where('plans.0.name', 'Story')
+            ->where('plans.0.price', '$15')
+            ->where('plans.0.tagline', 'Base rate')
+            ->where('plans.0.bonus', null)
+            ->where('plans.0.actionAllowance', '225')
+            ->where('plans.0.voiceAllowance', '2 hours 15 minutes')
+            ->where('plans.0.badge', null)
+            ->where('plans.0.featured', false)
+            ->where('plans.1.name', 'Story Plus')
+            ->where('plans.1.price', '$30')
+            ->where('plans.1.bonus', '25% Bonus')
+            ->where('plans.1.description', 'For adventures you return to every week.')
+            ->where('plans.1.actionAllowance', '550')
+            ->where('plans.1.actionHint', 'An action is one choice in a story.')
+            ->where('plans.1.voiceAllowance', '5 hours')
+            ->where('plans.1.badge', 'Most Recommended')
+            ->where('plans.1.featured', true)
+            ->where('plans.1.features', ['Access to all interactive stories', 'Full multiplayer access']));
 });
 
-it('displays the current plan descriptions and feature lists', function () {
-    $pricing = file_get_contents(resource_path('js/pages/Pricing.vue'));
+it('falls back to the recommended badge when a featured plan has no label', function () {
+    $plan = SubscriptionPlan::factory()->create([
+        'is_featured' => true,
+        'featured_label' => null,
+        'voice_minutes_limit' => 60,
+    ]);
 
-    expect($pricing)
-        ->toContain('Built for casual players stepping into interactive stories with standard Actions and multiplayer privileges.')
-        ->toContain('Best for solo adventurers and duos wanting steady voice immersion and private lobby access.')
-        ->toContain('Built for active role-players wanting deeper campaign arcs, frequent voice immersion, and lobby hosting.')
-        ->toContain("'225 Actions'")
-        ->toContain("'450 Actions'")
-        ->toContain("'600 Actions'")
-        ->toContain("'135 Minutes of Voice Narration'")
-        ->toContain("'270 Minutes of Voice Narration'")
-        ->toContain("'360 Minutes of Voice Narration'")
-        ->toContain("'Access to All Interactive Stories'")
-        ->toContain("'Full Multiplayer Access'")
-        ->toContain("'2-3 Full solo story experiences'")
-        ->toContain("'4-5 Full solo story experiences'")
-        ->toContain("'5-6 Full solo story experiences'")
-        ->toContain("'Shared token pooling for hosted lobbies'")
-        ->not->toContain('100 Spinners');
+    expect($plan->featuredBadge())->toBe('Most Recommended')
+        ->and($plan->voiceAllowanceLabel())->toBe('1 hour');
 });
 
-it('sizes pricing cards to their feature lists instead of a shared min height', function () {
+it('renders allowance lines and a four-column pricing card row', function () {
     $card = file_get_contents(resource_path('js/components/PricingPlanCard.vue'));
     $pricing = file_get_contents(resource_path('js/pages/Pricing.vue'));
 
     expect($card)
-        ->not->toContain('min-h-[40.3125rem]')
-        ->not->toContain('flex h-full min-h-');
+        ->toContain('Actions / month')
+        ->toContain('Voice Narration / month')
+        ->toContain('>/month<')
+        ->toContain('pricing-border-flow')
+        ->not->toContain('/monthly')
+        ->not->toContain('what you will get')
+        ->not->toContain('min-h-[40.3125rem]');
 
     expect($pricing)
-        ->toContain('items-start')
-        ->not->toContain('items-stretch');
+        ->toContain('xl:grid-cols-4')
+        ->toContain('items-stretch')
+        ->toContain('Try 20 actions and 10 minutes of voice free')
+        ->toContain('One-time allowance for new accounts.')
+        ->toContain('Try Free');
 });

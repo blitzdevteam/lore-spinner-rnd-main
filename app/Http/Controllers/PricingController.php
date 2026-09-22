@@ -38,10 +38,14 @@ final class PricingController extends Controller
                 ->orderBy('id')
                 ->get()
                 ->map(fn (SubscriptionPlan $plan): array => [
-                    'name' => mb_strtoupper($plan->name),
+                    'name' => $plan->name,
                     'tagline' => $plan->tagline ?? '',
                     'price' => $this->formattedPrice($plan),
+                    'bonus' => filled($plan->bonus_label) ? $plan->bonus_label : null,
                     'description' => $plan->description ?? '',
+                    'actionAllowance' => (string) $plan->action_limit,
+                    'actionHint' => filled($plan->action_hint) ? $plan->action_hint : null,
+                    'voiceAllowance' => $plan->voiceAllowanceLabel(),
                     'features' => array_values(array_filter($plan->features, 'is_string')),
                     'cta' => 'Choose Plan',
                     'checkoutUrl' => route('user.checkout', array_filter([
@@ -49,8 +53,8 @@ final class PricingController extends Controller
                         'return_to' => $returnTo,
                     ], static fn (?string $value): bool => $value !== null)),
                     'iconKey' => $plan->icon_key,
-                    'accent' => in_array($plan->accent, ['teal', 'gold'], true) ? $plan->accent : 'teal',
                     'featured' => $plan->is_featured,
+                    'badge' => $plan->featuredBadge(),
                 ])
                 ->all(),
         ]);
@@ -91,7 +95,9 @@ final class PricingController extends Controller
 
     private function formattedPrice(SubscriptionPlan $plan): string
     {
-        $amount = number_format($plan->price_cents / 100, 2);
+        $amount = $plan->price_cents % 100 === 0
+            ? number_format(intdiv($plan->price_cents, 100))
+            : number_format($plan->price_cents / 100, 2);
 
         return mb_strtoupper($plan->currency) === 'USD'
             ? '$'.$amount
