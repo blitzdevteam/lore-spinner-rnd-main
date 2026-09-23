@@ -88,7 +88,6 @@ function openSheet(story: NewStoryCard) {
     if (story.playable) return;
     sheetStory.value = toSheetData(story);
 }
-
 </script>
 
 <template>
@@ -173,3 +172,29 @@ function openSheet(story: NewStoryCard) {
 
     <StoryDetailsSheet :story="sheetStory" @close="sheetStory = null" />
 </template>
+
+<style scoped>
+/* Same portrait carousel sizing Featured Worlds used before the format swap. */
+.story-slider-viewport--portrait {
+    --story-portrait-card-width: min(11.475rem, 75vw);
+}
+
+@media (min-width: 768px) {
+    .story-slider-viewport--portrait {
+        --story-portrait-card-width: 11.475rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .story-slider-viewport--portrait {
+        --story-portrait-card-width: 166px;
+    }
+}
+
+:deep(.hp-card__cta--active),
+:deep(.hp-card__cta--disabled) {
+    padding: 0.55rem 0.6875rem 0.55rem 0.55rem;
+    border-radius: 0.34rem;
+    font-size: 0.9rem;
+}
+</style>
