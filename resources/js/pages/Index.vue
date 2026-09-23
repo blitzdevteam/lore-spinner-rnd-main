@@ -51,7 +51,7 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <!-- Continue Stories -->
         <ContinueStories v-if="lastGame" :game="lastGame" />
 
-        <!-- Step into Worlds -->
+        <!-- Step into Stories -->
         <StepIntoWorlds :worlds="worlds" />
 
         <!-- New Stories -->

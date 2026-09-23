@@ -141,7 +141,7 @@ onUnmounted(() => {
         <div class="container">
             <div class="container-content home-section-gap">
                 <SectionHeader
-                    title="Step into Worlds"
+                    title="Step into Stories"
                     subtitle="Choose a world to enter. Each has its own stories, and they remember who you become."
                     :href="viewAllHref"
                 />
