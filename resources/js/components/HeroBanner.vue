@@ -686,8 +686,12 @@ function goNext() {
     }
 }
 
-/* Tablet / small desktop overlay: pin controls to bottom corners (clear of copy stack) */
-@media (min-width: 48rem) and (max-width: 74.9375rem) {
+/*
+ * Touch-first tablet widths: pin controls low so they clear the left copy stack.
+ * Skip for hover-capable pointers — browser zoom shrinks the layout viewport on
+ * desktop/laptop but should keep arrows vertically centered on the hero image.
+ */
+@media (min-width: 48rem) and (max-width: 74.9375rem) and (hover: none) {
     .hero-arrow {
         top: auto;
         bottom: 3.75rem;

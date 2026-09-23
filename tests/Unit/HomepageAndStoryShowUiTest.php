@@ -39,6 +39,14 @@ it('adds top spacing to the hero branch graphic', function (): void {
         ->toContain('margin-top: 40px');
 });
 
+it('keeps hero carousel arrows vertically centered when the layout viewport narrows on hover-capable devices', function (): void {
+    $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
+
+    expect($heroBanner)
+        ->toContain('max-width: 74.9375rem) and (hover: none)')
+        ->toContain('bottom: 3.75rem');
+});
+
 it('labels the story details primary cta as solo spin', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
     $startCta = file_get_contents(resource_path('js/components/story-play/StoryPlayStartCta.vue'));

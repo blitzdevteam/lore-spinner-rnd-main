@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import sherlockCover from '@/assets/featured/sherlock.png';
 import wizardozCover from '@/assets/featured/wizardoz.png';
-import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
+import HomeBannerStoryCard from '@/components/HomeBannerStoryCard.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
@@ -113,7 +113,7 @@ function openSheet(game: FeaturedGame) {
                     :href="storiesIndex().url"
                 />
 
-                <div class="story-slider-viewport story-slider-viewport--portrait relative overflow-visible">
+                <div class="story-slider-viewport story-slider-viewport--banner relative overflow-visible">
                     <div class="story-slider-row">
                         <button type="button" class="story-slider-arrow" aria-label="Scroll left" @click="scrollSlider(-1)">
                             <svg
@@ -143,11 +143,13 @@ function openSheet(game: FeaturedGame) {
                                         @mouseleave="isDesktopHover && onCardLeave()"
                                         @click="!game.playable && openSheet(game)"
                                     >
-                                        <HomePortraitStoryCard
+                                        <HomeBannerStoryCard
                                             :title="game.title"
                                             :cover="game.cover"
                                             :themes="getStoryDescriptorThemes(game.slug ?? String(game.id))"
                                             :teaser="game.teaser"
+                                            category="World"
+                                            rating=""
                                             :playable="game.playable"
                                             :slug="game.slug"
                                             :focused="isDesktopHover && isExpanded(String(game.id))"
@@ -182,30 +184,3 @@ function openSheet(game: FeaturedGame) {
 
     <StoryDetailsSheet :story="sheetStory" @close="sheetStory = null" />
 </template>
-
-<style scoped>
-/* Featured Worlds cards ~15% smaller than the shared portrait card size. */
-.story-slider-viewport--portrait {
-    --story-portrait-card-width: min(11.475rem, 75vw);
-}
-
-@media (min-width: 768px) {
-    .story-slider-viewport--portrait {
-        --story-portrait-card-width: 11.475rem;
-    }
-}
-
-@media (min-width: 1280px) {
-    .story-slider-viewport--portrait {
-        --story-portrait-card-width: 166px;
-    }
-}
-
-/* Coming Soon badge ~10% bigger to stay legible on the smaller card. */
-:deep(.hp-card__cta--active),
-:deep(.hp-card__cta--disabled) {
-    padding: 0.55rem 0.6875rem 0.55rem 0.55rem;
-    border-radius: 0.34rem;
-    font-size: 0.9rem;
-}
-</style>
