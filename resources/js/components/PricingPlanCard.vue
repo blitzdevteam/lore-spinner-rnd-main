@@ -21,11 +21,12 @@ defineProps<{
     icon: string;
     featured?: boolean;
     badge: string | null;
+    current?: boolean;
 }>();
 </script>
 
 <template>
-    <article class="pricing-card font-inter" :class="{ 'pricing-card--featured': featured }">
+    <article class="pricing-card font-inter" :class="{ 'pricing-card--featured': featured, 'pricing-card--current': current }">
         <div v-if="featured && badge" class="pricing-card__badge">
             <p class="text-center text-xs leading-normal font-medium text-black">{{ badge }}</p>
         </div>
@@ -48,7 +49,8 @@ defineProps<{
                                 >
                                     {{ name }}
                                 </h2>
-                                <p v-if="tagline" class="text-sm leading-normal text-[#8f8f8f]">{{ tagline }}</p>
+                                <p v-if="current" class="text-sm leading-normal font-medium text-primary">Current plan</p>
+                                <p v-else-if="tagline" class="text-sm leading-normal text-[#8f8f8f]">{{ tagline }}</p>
                             </div>
                         </div>
 
@@ -109,7 +111,19 @@ defineProps<{
                 </div>
             </div>
 
-            <a :href="href" class="pricing-card__cta" :class="featured ? 'pricing-card__cta--filled' : 'pricing-card__cta--outline'">
+            <span
+                v-if="current"
+                class="pricing-card__cta pricing-card__cta--current"
+                aria-current="true"
+            >
+                {{ cta }}
+            </span>
+            <a
+                v-else
+                :href="href"
+                class="pricing-card__cta"
+                :class="featured ? 'pricing-card__cta--filled' : 'pricing-card__cta--outline'"
+            >
                 {{ cta }}
             </a>
         </div>
@@ -192,6 +206,10 @@ defineProps<{
 
 .pricing-card--featured {
     z-index: 1;
+}
+
+.pricing-card--current .pricing-card__body {
+    border-color: #59c1ca;
 }
 
 .pricing-card__badge {
@@ -300,6 +318,15 @@ defineProps<{
 
 .pricing-card__cta--filled:hover {
     filter: brightness(1.08);
+}
+
+.pricing-card__cta--current {
+    border-width: 0.5px;
+    border-color: #59c1ca;
+    background: #163f46;
+    color: #59c1ca;
+    font-weight: 600;
+    cursor: default;
 }
 
 @media (prefers-reduced-motion: reduce) {

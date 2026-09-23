@@ -36,6 +36,13 @@ final class SubscriptionEntitlementService
 
     private const int VOICE_RESERVATION_WORDS_PER_MINUTE = 120;
 
+    public function activePlan(User $user): ?SubscriptionPlan
+    {
+        $subscription = $this->activeSubscriptionFor($user);
+
+        return $subscription === null ? null : $this->planForSubscription($subscription);
+    }
+
     public function hasPlayAccess(User $user): bool
     {
         if ($this->currentEntitlement($user) !== null) {

@@ -30,6 +30,10 @@ final class PricingController extends Controller
             }
         }
 
+        $currentPlanId = $user instanceof User
+            ? $entitlements->activePlan($user)?->id
+            : null;
+
         return inertia('Pricing', [
             'checkoutStatus' => in_array($status, ['success', 'cancel'], true) ? $status : null,
             'plans' => SubscriptionPlan::query()
@@ -47,7 +51,7 @@ final class PricingController extends Controller
                     'actionHint' => filled($plan->action_hint) ? $plan->action_hint : null,
                     'voiceAllowance' => $plan->voiceAllowanceLabel(),
                     'features' => array_values(array_filter($plan->features, 'is_string')),
-                    'cta' => 'Choose Plan',
+                    'cta' => $plan->id === $currentPlanId ? 'Current plan' : 'Choose Plan',
                     'checkoutUrl' => route('user.checkout', array_filter([
                         'plan' => $plan->slug,
                         'return_to' => $returnTo,
@@ -55,6 +59,7 @@ final class PricingController extends Controller
                     'iconKey' => $plan->icon_key,
                     'featured' => $plan->is_featured,
                     'badge' => $plan->featuredBadge(),
+                    'current' => $plan->id === $currentPlanId,
                 ])
                 ->all(),
         ]);

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Models\SubscriptionPlan;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Cashier\Subscription;
 
 uses(RefreshDatabase::class);
 
@@ -77,6 +79,74 @@ it('sends allowance, bonus, and featured badge copy to the pricing cards', funct
             ->where('plans.1.features', ['Access to all interactive stories', 'Full multiplayer access']));
 });
 
+it('marks the purchased subscription as the current plan', function () {
+    SubscriptionPlan::factory()->create([
+        'name' => 'Owned Path',
+        'slug' => 'owned-path',
+        'stripe_price_id' => 'price_owned_path',
+        'sort_order' => 1,
+    ]);
+    SubscriptionPlan::factory()->create([
+        'name' => 'Other Path',
+        'slug' => 'other-path',
+        'stripe_price_id' => 'price_other_path',
+        'sort_order' => 2,
+    ]);
+
+    $user = User::factory()->create();
+    Subscription::factory()
+        ->for($user)
+        ->withPrice('price_owned_path')
+        ->create();
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('plans', function (mixed $plans): bool {
+                $plans = collect($plans);
+                $owned = $plans->firstWhere('name', 'Owned Path');
+                $other = $plans->firstWhere('name', 'Other Path');
+
+                return is_array($owned)
+                    && is_array($other)
+                    && $owned['current'] === true
+                    && $owned['cta'] === 'Current plan'
+                    && $other['current'] === false
+                    && $other['cta'] === 'Choose Plan';
+            }));
+});
+
+it('does not mark a canceled subscription as the current plan', function () {
+    SubscriptionPlan::factory()->create([
+        'name' => 'Ended Path',
+        'slug' => 'ended-path',
+        'stripe_price_id' => 'price_ended_path',
+        'sort_order' => 1,
+    ]);
+
+    $user = User::factory()->create();
+    Subscription::factory()
+        ->for($user)
+        ->withPrice('price_ended_path')
+        ->canceled()
+        ->create();
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('plans', function (mixed $plans): bool {
+                $ended = collect($plans)->firstWhere('name', 'Ended Path');
+
+                return is_array($ended)
+                    && $ended['current'] === false
+                    && $ended['cta'] === 'Choose Plan';
+            }));
+});
+
 it('falls back to the recommended badge when a featured plan has no label', function () {
     $plan = SubscriptionPlan::factory()->create([
         'is_featured' => true,
@@ -99,6 +169,8 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('Voice Narration / month')
         ->toContain('>/month<')
         ->toContain('pricing-border-flow')
+        ->toContain('Current plan')
+        ->toContain('pricing-card--current')
         ->not->toContain('/monthly')
         ->not->toContain('what you will get')
         ->not->toContain('min-h-[40.3125rem]');
@@ -108,6 +180,7 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('items-stretch')
         ->toContain('Try 20 actions and 10 minutes of voice free')
         ->toContain('One-time allowance for new accounts.')
+        ->toContain(':current="plan.current"')
         ->toContain('Try Free')
         ->toContain('* Percentages are not exact.')
         ->toContain('Prices are subject to change at any time.')

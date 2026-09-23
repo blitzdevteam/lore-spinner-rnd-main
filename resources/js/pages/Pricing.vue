@@ -31,6 +31,7 @@ type Plan = {
     iconKey: string;
     featured: boolean;
     badge: string | null;
+    current: boolean;
 };
 
 const props = withDefaults(
@@ -136,6 +137,7 @@ const isAuthenticated = computed(() => page.props.auth !== null);
                         :icon="iconFor(plan.iconKey)"
                         :featured="plan.featured"
                         :badge="plan.badge"
+                        :current="plan.current"
                     />
                 </div>
                 <div
