@@ -12,6 +12,7 @@ import trialHero from '@/assets/pricing/trial-hero.jpg';
 import PricingPlanCard from '@/components/PricingPlanCard.vue';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import register from '@/wayfinder/routes/user/authentication/register';
+import { store as claimFreeTrial } from '@/wayfinder/routes/user/free-trial';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -57,7 +58,7 @@ const planIcons: Record<string, string> = {
 const iconFor = (iconKey: string) => planIcons[iconKey] ?? iconBook;
 
 const page = usePage();
-const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().url));
+const isAuthenticated = computed(() => page.props.auth !== null);
 </script>
 
 <template>
@@ -81,11 +82,28 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
                             <p class="max-w-[22rem] text-base leading-[26px] text-[#8f8f8f]">One-time allowance for new accounts.</p>
                         </div>
 
-                        <Link :href="tryFreeHref" class="pricing-trial__cta">
+                        <Link
+                            v-if="isAuthenticated"
+                            :href="claimFreeTrial.url()"
+                            method="post"
+                            as="button"
+                            type="button"
+                            class="pricing-trial__cta"
+                        >
+                            <span>Try Free</span>
+                            <img :src="arrowRight" alt="" width="18" height="18" />
+                        </Link>
+                        <Link v-else :href="register.create().url" class="pricing-trial__cta">
                             <span>Try Free</span>
                             <img :src="arrowRight" alt="" width="18" height="18" />
                         </Link>
 
+                        <p v-for="message in page.props.flash?.success ?? []" :key="message" class="text-base text-primary">
+                            {{ message }}
+                        </p>
+                        <p v-for="message in page.props.flash?.error ?? []" :key="message" class="text-base text-[#ff8f8f]">
+                            {{ message }}
+                        </p>
                         <p v-if="props.checkoutStatus === 'success'" class="text-base text-primary">
                             Payment received. Your subscription will appear in a moment.
                         </p>
@@ -157,6 +175,7 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
     color: #fff;
     font-size: 16px;
     line-height: normal;
+    cursor: pointer;
     transition: background-color 180ms ease;
 }
 

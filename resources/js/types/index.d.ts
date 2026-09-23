@@ -363,6 +363,7 @@ export interface SubscriptionUsageSummary {
     };
     period_ends_at: string | null;
     is_complimentary?: boolean;
+    is_one_time?: boolean;
 }
 
 export interface CompletionIdentity {

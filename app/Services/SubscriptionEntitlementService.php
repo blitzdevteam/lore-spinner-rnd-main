@@ -15,6 +15,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionUsageEvent;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Cashier\Subscription;
@@ -22,11 +23,15 @@ use Throwable;
 
 /**
  * Owns the application's allowance ledger. Cashier remains the source of truth
- * for whether a subscription is active; this service snapshots plan allowances
- * per Stripe billing period and atomically reserves player usage against them.
+ * for whether a paid subscription is active; the one-time free entitlement is
+ * stored directly against the player and atomically reserves usage against it.
  */
 final class SubscriptionEntitlementService
 {
+    public const string FREE_PLAN_SLUG = 'free';
+
+    private const string FREE_ENTITLEMENT_KEY_PREFIX = 'free:';
+
     private const int RESERVATION_MINUTES = 10;
 
     private const int VOICE_RESERVATION_WORDS_PER_MINUTE = 120;
@@ -48,7 +53,8 @@ final class SubscriptionEntitlementService
      *     actions:array{limit:int,used:int,remaining:int},
      *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
      *     period_ends_at:?string,
-     *     is_complimentary:bool
+     *     is_complimentary:bool,
+     *     is_one_time:bool
      * }|null
      */
     public function summary(User $user): ?array
@@ -74,9 +80,59 @@ final class SubscriptionEntitlementService
                 'used_milliseconds' => $entitlement->voice_milliseconds_used,
                 'remaining_milliseconds' => $entitlement->remainingVoiceMilliseconds(),
             ],
-            'period_ends_at' => $entitlement->period_end->toIso8601String(),
+            'period_ends_at' => $entitlement->period_end?->toIso8601String(),
             'is_complimentary' => false,
+            'is_one_time' => (bool) $entitlement->is_one_time,
         ];
+    }
+
+    public function claimFreeTrial(User $user): FreeTrialClaimResult
+    {
+        if ($this->activeSubscriptionFor($user) !== null) {
+            return FreeTrialClaimResult::alreadySubscribed();
+        }
+
+        $plan = SubscriptionPlan::query()
+            ->where('slug', self::FREE_PLAN_SLUG)
+            ->where('is_active', true)
+            ->first();
+
+        if ($plan === null) {
+            return FreeTrialClaimResult::unavailable();
+        }
+
+        $oneTimeKey = self::FREE_ENTITLEMENT_KEY_PREFIX.$user->getKey();
+
+        return DB::transaction(function () use ($user, $plan, $oneTimeKey): FreeTrialClaimResult {
+            $existing = SubscriptionEntitlement::query()
+                ->where('one_time_key', $oneTimeKey)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing !== null) {
+                return FreeTrialClaimResult::alreadyClaimed();
+            }
+
+            $now = now()->toImmutable()->utc();
+
+            try {
+                SubscriptionEntitlement::query()->create([
+                    'user_id' => $user->id,
+                    'subscription_id' => null,
+                    'subscription_plan_id' => $plan->id,
+                    'period_start' => $now,
+                    'period_end' => null,
+                    'is_one_time' => true,
+                    'one_time_key' => $oneTimeKey,
+                    'action_limit' => $plan->action_limit,
+                    'voice_milliseconds_limit' => $plan->voiceMillisecondsLimit(),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                return FreeTrialClaimResult::alreadyClaimed();
+            }
+
+            return FreeTrialClaimResult::granted($plan);
+        });
     }
 
     public function shouldTrackUsageFor(User $user, Game $game): bool
@@ -524,13 +580,21 @@ final class SubscriptionEntitlementService
     {
         $subscription = $this->activeSubscriptionFor($user);
         if ($subscription === null) {
-            return null;
+            return $this->existingFreeEntitlement($user);
         }
 
         $now = now()->toImmutable()->utc();
         $entitlement = $this->entitlementCovering($subscription, $now);
 
         return $entitlement ?? $this->createFallbackEntitlement($user, $subscription, $now);
+    }
+
+    private function existingFreeEntitlement(User $user): ?SubscriptionEntitlement
+    {
+        return SubscriptionEntitlement::query()
+            ->with('plan')
+            ->where('one_time_key', self::FREE_ENTITLEMENT_KEY_PREFIX.$user->getKey())
+            ->first();
     }
 
     private function lockedCurrentEntitlement(User $user): ?SubscriptionEntitlement

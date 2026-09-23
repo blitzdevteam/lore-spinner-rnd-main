@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => props.subscriptionUsage ?? null);
 const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
+const isOneTime = computed(() => Boolean(subscriptionUsage.value?.is_one_time));
 const actionsRemaining = computed(() => subscriptionUsage.value?.actions.remaining ?? 0);
 const actionsLimit = computed(() => subscriptionUsage.value?.actions.limit ?? 0);
 const voiceMillisecondsRemaining = computed(() => Math.max(0, subscriptionUsage.value?.voice.remaining_milliseconds ?? 0));
@@ -19,6 +20,10 @@ const voiceMillisecondsLimit = computed(() => voiceMinutesLimit.value * 60_000);
 const actionsProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(actionsRemaining.value, actionsLimit.value)));
 const voiceProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value)));
 const renewalLabel = computed(() => {
+    if (isOneTime.value) {
+        return 'One-time free allowance';
+    }
+
     if (isComplimentary.value) {
         return 'Complimentary access';
     }
@@ -108,7 +113,7 @@ function formatVoiceDuration(milliseconds: number): string {
                             />
                         </div>
                         <p class="mt-2 text-xs text-gray-500">
-                            {{ isComplimentary ? 'Complimentary investor access is not metered' : `of ${formatNumber(actionsLimit)} actions this period` }}
+                            {{ isComplimentary ? 'Complimentary investor access is not metered' : isOneTime ? 'One-time free allowance' : `of ${formatNumber(actionsLimit)} actions this period` }}
                         </p>
                     </div>
 
@@ -137,7 +142,7 @@ function formatVoiceDuration(milliseconds: number): string {
                             />
                         </div>
                         <p class="mt-2 text-xs text-gray-500">
-                            {{ isComplimentary ? 'Complimentary investor access is not metered' : `of ${formatNumber(voiceMinutesLimit)} minutes this period` }}
+                            {{ isComplimentary ? 'Complimentary investor access is not metered' : isOneTime ? 'One-time free allowance' : `of ${formatNumber(voiceMinutesLimit)} minutes this period` }}
                         </p>
                     </div>
                 </div>

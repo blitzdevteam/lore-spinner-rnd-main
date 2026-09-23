@@ -59,7 +59,12 @@ const formatVoiceDuration = (milliseconds: number) => {
 };
 
 const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
+const isOneTime = computed(() => Boolean(subscriptionUsage.value?.is_one_time));
 const formatRenewalDate = (value: string | null | undefined) => {
+    if (isOneTime.value) {
+        return 'One-time free allowance';
+    }
+
     if (isComplimentary.value) {
         return 'Complimentary access';
     }

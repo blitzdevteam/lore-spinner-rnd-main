@@ -15,16 +15,18 @@ use Override;
 /**
  * @property string $id
  * @property int $user_id
- * @property int $subscription_id
+ * @property int|null $subscription_id
  * @property int $subscription_plan_id
  * @property Carbon $period_start
- * @property Carbon $period_end
+ * @property Carbon|null $period_end
+ * @property bool $is_one_time
+ * @property string|null $one_time_key
  * @property int $action_limit
  * @property int $actions_used
  * @property int $voice_milliseconds_limit
  * @property int $voice_milliseconds_used
  * @property-read User $user
- * @property-read Subscription $subscription
+ * @property-read Subscription|null $subscription
  * @property-read SubscriptionPlan $plan
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SubscriptionUsageEvent> $usageEvents
  */
@@ -76,6 +78,7 @@ final class SubscriptionEntitlement extends Model
         return [
             'period_start' => 'immutable_datetime',
             'period_end' => 'immutable_datetime',
+            'is_one_time' => 'boolean',
             'action_limit' => 'integer',
             'actions_used' => 'integer',
             'voice_milliseconds_limit' => 'integer',

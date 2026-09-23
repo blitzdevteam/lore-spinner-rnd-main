@@ -27,6 +27,7 @@ const page = usePage();
 const auth = computed(() => page.props.auth);
 const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => auth.value?.subscription_usage ?? null);
 const isComplimentary = computed(() => Boolean(subscriptionUsage.value?.is_complimentary));
+const isOneTime = computed(() => Boolean(subscriptionUsage.value?.is_one_time));
 const planName = computed(() => subscriptionUsage.value?.plan.name ?? null);
 const avatarSrc = computed(() => resolvePublicStorageUrl(auth.value?.avatar));
 const profileName = computed(() => auth.value?.full_name?.trim() || auth.value?.username || 'Player');
@@ -43,6 +44,10 @@ const voiceMillisecondsLimit = computed(() => voiceMinutesLimit.value * 60_000);
 const actionsProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(actionsRemaining.value, actionsLimit.value)));
 const voiceProgress = computed(() => (isComplimentary.value ? 100 : allowancePercent(voiceMillisecondsRemaining.value, voiceMillisecondsLimit.value)));
 const renewalLabel = computed(() => {
+    if (isOneTime.value) {
+        return 'One-time free';
+    }
+
     if (isComplimentary.value) {
         return 'Complimentary';
     }
@@ -193,7 +198,7 @@ onClickOutside(profileWrap, closeDropdown);
                                     <span v-if="!isComplimentary" class="text-xs font-medium text-[#95a1a4]">left</span>
                                 </p>
                                 <p class="mt-1 text-[0.6875rem] text-[#849094]">
-                                    {{ isComplimentary ? 'Complimentary access' : `of ${formatNumber(actionsLimit)} actions` }}
+                                    {{ isComplimentary ? 'Complimentary access' : isOneTime ? 'One-time free allowance' : `of ${formatNumber(actionsLimit)} actions` }}
                                 </p>
                                 <div class="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
                                     <span class="block h-full rounded-full bg-primary transition-[width] duration-300" :style="{ width: `${actionsProgress}%` }" />
@@ -211,7 +216,7 @@ onClickOutside(profileWrap, closeDropdown);
                                     {{ isComplimentary ? 'Unlimited' : formatVoiceDuration(voiceMillisecondsRemaining) }}
                                 </p>
                                 <p class="mt-1 text-[0.6875rem] text-[#849094]">
-                                    {{ isComplimentary ? 'Complimentary access' : `of ${formatNumber(voiceMinutesLimit)} min` }}
+                                    {{ isComplimentary ? 'Complimentary access' : isOneTime ? 'One-time free allowance' : `of ${formatNumber(voiceMinutesLimit)} min` }}
                                 </p>
                                 <div class="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
                                     <span class="block h-full rounded-full bg-secondary-300 transition-[width] duration-300" :style="{ width: `${voiceProgress}%` }" />

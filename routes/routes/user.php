@@ -36,6 +36,9 @@ Route::prefix('user')->name('user.')->group(function (): void {
     Route::middleware('auth:user')->get('checkout/{plan:slug}', User\CheckoutController::class)
         ->name('checkout');
 
+    Route::middleware('auth:user')->post('free-trial', User\ClaimFreeTrialController::class)
+        ->name('free-trial.store');
+
     Route::middleware('auth:user')
         ->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
         ->name('games.tts');
