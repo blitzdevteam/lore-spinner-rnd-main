@@ -41,13 +41,24 @@ it('lets an investor finish setup from the magic link and sign in', function ():
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('index'));
 
-    $investor->refresh();
+    $investor->refresh()->load('plan');
 
     expect($investor->hasCompletedSetup())->toBeTrue()
         ->and($investor->email)->toBe('mira.investor@example.test')
         ->and(Hash::check('password', $investor->password))->toBeTrue();
 
     $this->assertAuthenticatedAs($investor, 'user');
+
+    $this->get(route('index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('flash.investor_welcome.plan_name', $investor->plan?->name)
+            ->where('flash.investor_welcome.duration', '1 month')
+            ->where('flash.investor_welcome.expires_on', $investor->expires_at?->format('F j, Y')));
+
+    $this->get(route('index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('flash.investor_welcome', null));
 });
 
 it('rejects an unsigned investor access link', function (): void {
@@ -84,6 +95,10 @@ it('signs a completed investor in with the same magic login link', function (): 
         ->assertRedirect(route('index'));
 
     $this->assertAuthenticatedAs($investor, 'user');
+
+    $this->get(route('index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('flash.investor_welcome', null));
 });
 
 it('replaces an existing player session when a completed magic login link is used', function (): void {

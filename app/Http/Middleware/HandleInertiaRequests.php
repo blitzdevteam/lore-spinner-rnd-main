@@ -52,6 +52,7 @@ final class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success') ? Arr::wrap($request->session()->get('success')) : [],
                 'warning' => $request->session()->get('warning') ? Arr::wrap($request->session()->get('warning')) : [],
                 'story_complete' => (bool) $request->session()->get('story_complete', false),
+                'investor_welcome' => $request->session()->get('investor_welcome'),
             ],
             'auth' => function () use ($request) {
                 $user = $request->user('user');

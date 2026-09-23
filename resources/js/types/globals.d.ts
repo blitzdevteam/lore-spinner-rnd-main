@@ -25,6 +25,11 @@ declare module '@inertiajs/core' {
             error?: string[];
             success?: string[];
             warning?: string[];
+            investor_welcome?: {
+                plan_name: string;
+                duration: string;
+                expires_on: string;
+            } | null;
         };
         auth: null | UserInterface;
     }

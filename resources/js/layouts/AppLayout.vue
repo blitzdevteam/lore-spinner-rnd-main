@@ -1,14 +1,25 @@
 <script setup lang="ts">
 import FeedbackWidget from '@/components/FeedbackWidget.vue';
+import InvestorWelcomeModal from '@/components/InvestorWelcomeModal.vue';
 import { usePage } from '@inertiajs/vue3';
 import { Check, CircleAlert, X } from 'lucide-vue-next';
-import { computed, nextTick, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Toaster, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 
 const page = usePage();
 
 const flash = computed(() => page.props.flash);
+const investorWelcome = computed(() => flash.value.investor_welcome ?? null);
+const investorWelcomeOpen = ref(false);
+
+watch(
+    investorWelcome,
+    (welcome) => {
+        investorWelcomeOpen.value = welcome !== null;
+    },
+    { immediate: true },
+);
 
 onMounted(() => {
     watch(
@@ -46,6 +57,13 @@ onMounted(() => {
         </template>
     </Toaster>
     <slot />
+    <InvestorWelcomeModal
+        :open="investorWelcomeOpen"
+        :plan-name="investorWelcome?.plan_name ?? ''"
+        :duration="investorWelcome?.duration ?? ''"
+        :expires-on="investorWelcome?.expires_on ?? ''"
+        @close="investorWelcomeOpen = false"
+    />
     <FeedbackWidget />
 </template>
 

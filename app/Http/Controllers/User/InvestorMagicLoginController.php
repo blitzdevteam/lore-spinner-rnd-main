@@ -49,7 +49,9 @@ final class InvestorMagicLoginController extends Controller
             return $this->expiredResponse();
         }
 
-        if (! $user->hasCompletedSetup()) {
+        $isFirstLogin = ! $user->hasCompletedSetup();
+
+        if ($isFirstLogin) {
             $completeInvestorAccess->handle(
                 $user,
                 $request->string('email')->toString(),
@@ -57,9 +59,29 @@ final class InvestorMagicLoginController extends Controller
             );
         }
 
-        $this->loginInvestor($request, $user->refresh());
+        $user->refresh();
+        $this->loginInvestor($request, $user);
 
-        return to_route('index')->with('success', 'Your investor account is ready.');
+        if ($isFirstLogin) {
+            return to_route('index')->with('investor_welcome', $this->welcomePayload($user));
+        }
+
+        return to_route('index')->with('success', 'You are signed in with investor access.');
+    }
+
+    /**
+     * @return array{plan_name: string, duration: string, expires_on: string}
+     */
+    private function welcomePayload(User $user): array
+    {
+        $user->loadMissing('plan');
+        $months = max(1, (int) $user->duration_months);
+
+        return [
+            'plan_name' => $user->plan?->name ?? 'Your plan',
+            'duration' => User::durationOptions()[$months] ?? ($months === 1 ? '1 month' : $months.' months'),
+            'expires_on' => $user->expires_at?->format('F j, Y') ?? '',
+        ];
     }
 
     private function loginInvestor(Request $request, User $user): void
