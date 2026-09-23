@@ -133,11 +133,15 @@ defineProps<{
 <style scoped>
 .pricing-card {
     position: relative;
+    z-index: 0;
     display: flex;
     width: 100%;
     min-width: 0;
     height: 100%;
     flex-direction: column;
+    transform: translateY(0) scale(1);
+    transform-origin: center top;
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .pricing-card__body {
@@ -153,6 +157,9 @@ defineProps<{
     border-radius: 22px;
     background: #000;
     padding: 1.25rem 0.625rem;
+    transition:
+        box-shadow 320ms ease,
+        border-color 320ms ease;
 }
 
 .pricing-card__body::before {
@@ -184,6 +191,19 @@ defineProps<{
     animation: pricing-border-flow 2.6s linear infinite;
     animation-play-state: paused;
     transition: opacity 200ms ease;
+}
+
+.pricing-card:hover,
+.pricing-card:focus-within {
+    z-index: 2;
+    transform: translateY(-8px) scale(1.035);
+}
+
+.pricing-card:hover .pricing-card__body,
+.pricing-card:focus-within .pricing-card__body {
+    box-shadow:
+        0 22px 40px rgb(0 0 0 / 0.45),
+        0 0 32px rgb(89 193 202 / 0.28);
 }
 
 .pricing-card:hover .pricing-card__body::before,
@@ -329,12 +349,26 @@ defineProps<{
     cursor: default;
 }
 
+@media (max-width: 767px) {
+    .pricing-card:hover,
+    .pricing-card:focus-within {
+        transform: translateY(-6px) scale(1.015);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .pricing-card,
     .pricing-card__cta,
     .pricing-card__hint-bubble,
+    .pricing-card__body,
     .pricing-card__body::before {
         transition: none;
         animation: none;
+    }
+
+    .pricing-card:hover,
+    .pricing-card:focus-within {
+        transform: none;
     }
 }
 </style>

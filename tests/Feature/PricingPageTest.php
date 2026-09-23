@@ -169,6 +169,7 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('Voice Narration / month')
         ->toContain('>/month<')
         ->toContain('pricing-border-flow')
+        ->toContain('scale(1.035)')
         ->toContain('Current plan')
         ->toContain('pricing-card--current')
         ->not->toContain('/monthly')

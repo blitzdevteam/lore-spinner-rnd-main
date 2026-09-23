@@ -119,7 +119,7 @@ const isAuthenticated = computed(() => page.props.auth !== null);
 
                 <div
                     v-if="props.plans.length"
-                    class="mt-2 grid w-full grid-cols-1 items-stretch gap-2.5 overflow-visible pt-8 md:grid-cols-2 xl:grid-cols-4"
+                    class="mt-2 grid w-full grid-cols-1 items-stretch gap-2.5 overflow-visible pt-12 md:grid-cols-2 xl:grid-cols-4"
                 >
                     <PricingPlanCard
                         v-for="plan in props.plans"
