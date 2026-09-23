@@ -8,7 +8,7 @@ import '../css/fonts/source-sans-3/source-sans-3.css';
 import 'swiper/css';
 import 'swiper/css/free-mode';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
@@ -32,13 +32,14 @@ import Rating from 'primevue/rating';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import { configureEcho } from '@laravel/echo-vue';
+import { appNameFromPage } from './utils/appName';
 
 configureEcho({
     broadcaster: 'reverb',
     forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+let appName = appNameFromPage();
 
 const voiceLabPages = import.meta.glob<DefineComponent>('./voice-lab/pages/**/*.vue');
 const xenRndPages = import.meta.glob<DefineComponent>('./xen-rnd/pages/**/*.vue');
@@ -61,6 +62,11 @@ createInertiaApp({
         });
     },
     setup({ el, App, props, plugin }) {
+        appName = appNameFromPage(props.initialPage);
+        router.on('navigate', (event) => {
+            appName = appNameFromPage(event.detail.page);
+        });
+
         createApp({ render: () => h(App, props) })
             .use(plugin)
 

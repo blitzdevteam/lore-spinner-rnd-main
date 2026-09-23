@@ -13,8 +13,6 @@ use Override;
 
 final class HandleInertiaRequests extends Middleware
 {
-    public function __construct(private readonly SubscriptionEntitlementService $subscriptionEntitlements) {}
-
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -23,6 +21,8 @@ final class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    public function __construct(private readonly SubscriptionEntitlementService $subscriptionEntitlements) {}
 
     /**
      * Determines the current asset version.
@@ -78,6 +78,7 @@ final class HandleInertiaRequests extends Middleware
             },
             // Lightweight writer-auth flag for nav — avoids full model query on every page.
             'writerLoggedIn' => fn () => (bool) $request->user('writer'),
+            'appName' => config('app.name'),
         ];
     }
 }
