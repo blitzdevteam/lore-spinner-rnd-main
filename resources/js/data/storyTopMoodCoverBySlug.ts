@@ -9,6 +9,7 @@ import redDeathTopMood from '@/assets/top-moods/Masque red death 16_9 untitled.p
 import nocturneTopMood from '@/assets/top-moods/Nocturne 16_9 untitled.png';
 import lucyHomeLandscape from '@/assets/newStories/lucy-landscape-banner.jpeg';
 import ozHomeLandscape from '@/assets/newStories/Oz landscape titled.png';
+import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
 import sherlockHomeLandscape from '@/assets/newStories/sherlock-new.png';
 import tellTaleHomeLandscape from '@/assets/newStories/Tell Tale 5_3 landscape.png';
 import pjsTopMood from '@/assets/top-moods/PJS 16_9 untitled.JPG';
@@ -39,7 +40,7 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'the-adventure-of-the-speckled-band': sherlockHomeLandscape,
     'the-adventure-of-the-blue-carbuncle': sherlockHomeLandscape,
     'a-scandal-in-bohemia': sherlockHomeLandscape,
-    'the-marvelous-land-of-oz': ozHomeLandscape,
+    'the-marvelous-land-of-oz': marvelousOzCover,
     emma: prideTopMood,
     'momotaro-the-peach-boy': momotaroFeatured,
     'the-unwritten-ones': tellTaleHomeLandscape,

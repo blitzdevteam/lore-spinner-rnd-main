@@ -205,6 +205,7 @@ return [
             'teaser' => 'Oz is in revolt, armies march, and impossible companions join the cause — explore wonder and self-belief in a land where friendship is the real magic.',
             'rating' => 'everyone',
             'creator' => 'classics',
+            'story_cover' => 'database:covers/the-marvelous-land-of-oz.png',
         ],
 
         // ── 03 Legends of Mt. Olympus ─────────────────────────────────────
@@ -414,6 +415,7 @@ return [
             'teaser' => "Beneath the fog-covered streets of Victorian London, a terrifying secret grows inside Dr. Jekyll's laboratory, threatening to consume everyone around him.",
             'rating' => 'teen',
             'creator' => 'classics',
+            'story_cover' => 'database:covers/dr-jekyll-and-mr-hyde.png',
         ],
 
         // ── Gothic Horrors (launch) ───────────────────────────────────────

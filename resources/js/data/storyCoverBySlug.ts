@@ -17,6 +17,7 @@ import treasureCover from '@/assets/featured/treasure.png';
 import sherlockCover from '@/assets/featured/sherlock.png';
 import tellTaleCover from '@/assets/featured/Tell Tale portrait titled.png';
 import wizardOzCover from '@/assets/featured/wizardoz.jpg';
+import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
 import momotaroCover from '@/assets/featured/momotaro.png';
 import { canonicalMoodStorySlug } from '@/data/moodStories';
 
@@ -34,6 +35,7 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     // New Stories
     'the-adventure-of-the-speckled-band': sherlockCover,
     'the-wonderful-wizard-of-oz': wizardOzCover,
+    'the-marvelous-land-of-oz': marvelousOzCover,
     'the-tell-tale-heart': tellTaleCover,
     'i-love-lucy-job-switching': iLoveLucyCover,
     'the-matrix': theMatrixCover,

@@ -39,3 +39,21 @@ it('keeps non-launch pipeline titles out of the launch playable allowlist', func
         expect($launchSlugs)->not->toContain($slug);
     }
 });
+
+it('keeps launch story cover assets on disk for titles that declare them', function (): void {
+    $manifest = require database_path('stories/launch/manifest.php');
+
+    foreach ($manifest['titles'] as $entry) {
+        if (! isset($entry['story_cover'])) {
+            continue;
+        }
+
+        $relative = (string) $entry['story_cover'];
+
+        if (str_starts_with($relative, 'database:')) {
+            $path = database_path('stories/'.mb_substr($relative, mb_strlen('database:')));
+
+            expect($path)->toBeFile();
+        }
+    }
+});
