@@ -16,7 +16,7 @@ it('renders the pricing page', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Pricing')
-            ->where('appName', config('app.name'))
+            ->where('appName', config('app.display_name'))
             ->where('checkoutStatus', null));
 });
 

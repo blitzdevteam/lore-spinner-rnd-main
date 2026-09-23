@@ -78,7 +78,7 @@ final class HandleInertiaRequests extends Middleware
             },
             // Lightweight writer-auth flag for nav — avoids full model query on every page.
             'writerLoggedIn' => fn () => (bool) $request->user('writer'),
-            'appName' => config('app.name'),
+            'appName' => config('app.display_name'),
         ];
     }
 }

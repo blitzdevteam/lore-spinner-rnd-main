@@ -1,7 +1,7 @@
 {
   "name": "LoreSpinner",
   "short_name": "LoreSpinner",
-  "description": "Step inside the story. Your choices shape the narrative.",
+  "description": "LoreSpinner",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

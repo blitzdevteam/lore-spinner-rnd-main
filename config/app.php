@@ -19,6 +19,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Display Name
+    |--------------------------------------------------------------------------
+    |
+    | User-facing browser title, PWA labels, and Inertia page titles. Kept
+    | separate from APP_NAME so internal slugs (e.g. lore-spinner-rnd) do not
+    | appear in tabs or bookmarks.
+    |
+    */
+
+    'display_name' => env('APP_DISPLAY_NAME', 'LoreSpinner'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

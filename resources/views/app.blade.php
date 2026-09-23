@@ -4,12 +4,12 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 
-        <title inertia>{{ config('app.name', 'LoreSpinner') }}</title>
+        <title inertia>{{ config('app.display_name', 'LoreSpinner') }}</title>
 
         <!-- Favicon — versioned to bust browser/Google cache -->
-        <link rel="icon" href="/favicon.ico?v=2" sizes="any">
-        <link rel="icon" href="/favicon.png?v=2" type="image/png">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+        <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+        <link rel="icon" href="/favicon.png?v=3" type="image/png">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
         <link rel="manifest" href="/site.webmanifest">
 
         <!-- Google Search Console verification -->

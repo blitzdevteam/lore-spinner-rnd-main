@@ -11,11 +11,5 @@ export function appNameFromPage(page?: PageLike): string {
         return shared;
     }
 
-    const viteName = import.meta.env.VITE_APP_NAME;
-
-    if (typeof viteName === 'string' && viteName.trim() !== '') {
-        return viteName;
-    }
-
     return FALLBACK_APP_NAME;
 }
