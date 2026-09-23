@@ -210,6 +210,31 @@ final class SubscriptionEntitlementService
         $this->releaseReservation($reservationId, SubscriptionUsageEvent::TYPE_ACTION);
     }
 
+    public function assertCanReserveVoice(User $user, Game $game, Prompt $prompt): void
+    {
+        if (! $this->shouldTrackUsageFor($user, $game)) {
+            return;
+        }
+
+        $text = mb_trim(strip_tags((string) $prompt->response));
+
+        if ($text === '') {
+            return;
+        }
+
+        $entitlement = $this->currentEntitlement($user);
+
+        if ($entitlement === null) {
+            throw new SubscriptionAccessRequiredException;
+        }
+
+        $this->assertAvailable(
+            $entitlement,
+            SubscriptionUsageEvent::TYPE_VOICE,
+            $this->estimatedVoiceMilliseconds($text),
+        );
+    }
+
     public function reserveVoice(
         User $user,
         Game $game,

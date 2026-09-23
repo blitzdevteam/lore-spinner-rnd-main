@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\User\Game;
 
+use App\Exceptions\Subscription\SubscriptionAccessRequiredException;
+use App\Exceptions\Subscription\SubscriptionUsageLimitExceededException;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\MultiplayerLobby;
@@ -60,10 +62,31 @@ final class TextToSpeechController extends Controller
             return $this->serve($prompt);
         }
 
+        if ($multiplayerLobby === null) {
+            try {
+                $this->entitlements->assertCanReserveVoice($user, $game, $prompt);
+            } catch (SubscriptionUsageLimitExceededException|SubscriptionAccessRequiredException $e) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'reason' => $e instanceof SubscriptionUsageLimitExceededException
+                        ? 'voice_allowance_exceeded'
+                        : 'subscription_required',
+                    'pricing_url' => route('pricing'),
+                ], $e instanceof SubscriptionUsageLimitExceededException ? 429 : 403);
+            }
+        }
+
         $failure = $this->audio->failure($prompt);
 
         if ($failure !== null) {
-            return response()->json(['status' => 'failed', 'message' => $failure], 503);
+            $voiceAllowanceExceeded = $failure === SubscriptionUsageLimitExceededException::VOICE_UPGRADE_MESSAGE;
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $failure,
+                'reason' => $voiceAllowanceExceeded ? 'voice_allowance_exceeded' : null,
+                'pricing_url' => $voiceAllowanceExceeded ? route('pricing') : null,
+            ], 503);
         }
 
         if ($this->audio->reserve($prompt)) {

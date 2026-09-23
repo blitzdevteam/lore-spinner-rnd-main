@@ -12,10 +12,12 @@ final class SubscriptionUsageLimitExceededException extends RuntimeException
 
     public const VOICE = 'voice';
 
+    public const VOICE_UPGRADE_MESSAGE = 'This narration is longer than your remaining voice time. Update your subscription plan to keep listening.';
+
     public function __construct(private readonly string $resource)
     {
         parent::__construct($resource === self::VOICE
-            ? 'Your voice narration allowance has been reached for this billing period.'
+            ? self::VOICE_UPGRADE_MESSAGE
             : 'Your action allowance has been reached for this billing period.');
     }
 

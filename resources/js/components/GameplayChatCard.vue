@@ -7,6 +7,8 @@ import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { useTypewriter } from '@/composables/useTypewriter';
 import { PromptChoice, PromptInterface } from '@/types';
 import { glassTintVars } from '@/utils/color';
+import { pricing } from '@/wayfinder/routes';
+import { Link } from '@inertiajs/vue3';
 import { LucideCheck, LucideLoader, LucidePause, LucidePlay } from 'lucide-vue-next';
 import { computed, onMounted, watch } from 'vue';
 
@@ -172,6 +174,10 @@ const handleListenAgain = () => {
     tts.toggle(props.gameId, props.prompt.id);
 };
 
+const voiceUpgradeNotice = computed(() =>
+    tts.playbackNoticeKey.value === thisKey.value ? tts.playbackNotice.value : null,
+);
+
 const handleNarrationClick = () => {
     if (typewriter.isTyping.value && props.prompt.response) {
         typewriter.skipToEnd(props.prompt.response);
@@ -303,6 +309,14 @@ watch(choicesVisible, (visible, wasVisible) => {
                     <span class="text-xs font-light text-[#7e7e7e]">{{ hasPlayedOnce ? 'Replay Narration' : 'Play Narration' }}</span>
                 </span>
             </button>
+
+            <p
+                v-if="voiceUpgradeNotice"
+                class="basis-full rounded-xl border border-primary-400/30 bg-primary-400/10 px-4 py-3 text-sm text-primary-100"
+            >
+                {{ voiceUpgradeNotice }}
+                <Link :href="pricing().url" class="font-medium text-primary underline">View plans</Link>
+            </p>
 
             <button
                 v-if="showContinueButton"

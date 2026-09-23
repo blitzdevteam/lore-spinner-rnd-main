@@ -25,6 +25,19 @@ const isLooping = ref(false);
 const activeKey = ref<string | null>(null);
 const playedKeys = new Set<string>();
 const mediaCollapsed = ref(false);
+const playbackNotice = ref<string | null>(null);
+const playbackNoticeKey = ref<string | null>(null);
+
+class NarrationRequestError extends Error {
+    constructor(
+        message: string,
+        readonly reason: string | null,
+        readonly pricingUrl: string | null,
+    ) {
+        super(message);
+        this.name = 'NarrationRequestError';
+    }
+}
 
 function revealMediaPlayer() {
     mediaCollapsed.value = false;
@@ -407,7 +420,14 @@ async function downloadNarration(endpoint: string): Promise<Blob> {
                 window.location.assign(payload.pricing_url);
             }
 
-            throw new Error(payload?.message ?? `narration request failed (${response.status})`);
+            const reason = payload?.reason
+                ?? (payload?.message?.includes('remaining voice time') ? 'voice_allowance_exceeded' : null);
+
+            throw new NarrationRequestError(
+                payload?.message ?? `narration request failed (${response.status})`,
+                reason,
+                payload?.pricing_url ?? null,
+            );
         }
 
         const blob = await response.blob();
@@ -463,6 +483,8 @@ function applyAudioSettings(audio: HTMLAudioElement) {
 
 function play(gameId: string, promptId: string) {
     const key = `${gameId}:${promptId}`;
+    playbackNotice.value = null;
+    playbackNoticeKey.value = null;
 
     if (currentAudio && currentKey === key && !currentAudio.ended) {
         if (awaitingSourceKey === key) return; // download in flight, spinner already up
@@ -546,8 +568,24 @@ function play(gameId: string, promptId: string) {
         })
         .catch((err) => {
             console.warn('[TTS] unavailable', key, err);
-            if (isCurrentRequest(audio, key, token)) {
-                isLoading.value = false;
+            if (!isCurrentRequest(audio, key, token)) {
+                return;
+            }
+
+            isLoading.value = false;
+
+            if (err instanceof NarrationRequestError && err.reason === 'voice_allowance_exceeded') {
+                playbackNotice.value = err.message;
+                playbackNoticeKey.value = key;
+                activeKey.value = null;
+
+                if (currentAudio === audio) {
+                    currentAudio = null;
+                    currentKey = null;
+                }
+
+                audio.pause();
+                audio.removeAttribute('src');
             }
         })
         .finally(() => {
@@ -789,6 +827,8 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}) {
         formattedCurrentTime,
         formattedDuration,
         activeKey,
+        playbackNotice,
+        playbackNoticeKey,
         mediaCollapsed,
         revealMediaPlayer,
         collapseMediaPlayer,
