@@ -111,7 +111,6 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
                         :bonus="plan.bonus"
                         :description="plan.description"
                         :action-allowance="plan.actionAllowance"
-                        :action-hint="plan.actionHint"
                         :voice-allowance="plan.voiceAllowance"
                         :features="plan.features"
                         :cta="plan.cta"

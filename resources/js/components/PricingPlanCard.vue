@@ -3,6 +3,10 @@ import actionInfo from '@/assets/pricing/action-info.svg';
 import cardDivider from '@/assets/pricing/card-divider.svg';
 import checkTeal from '@/assets/pricing/check-teal.svg';
 
+const actionInfoTitle = 'What is an Action?';
+const actionInfoBody =
+    'Actions are credits you use to advance your story and access features such as choice reshuffles, time extensions, and recap. Voice narration uses a separate allowance.';
+
 defineProps<{
     name: string;
     tagline: string;
@@ -10,7 +14,6 @@ defineProps<{
     bonus: string | null;
     description: string;
     actionAllowance: string;
-    actionHint: string | null;
     voiceAllowance: string;
     features: readonly string[];
     cta: string;
@@ -71,31 +74,33 @@ defineProps<{
                     </p>
                 </div>
 
-                <div class="flex flex-col gap-[18px] opacity-80">
-                    <img :src="cardDivider" alt="" class="h-px w-full" aria-hidden="true" />
+                <div class="flex flex-col gap-[18px]">
+                    <img :src="cardDivider" alt="" class="h-px w-full opacity-80" aria-hidden="true" />
 
                     <div class="flex flex-col gap-3.5 px-2.5">
                         <div>
-                            <p class="text-base leading-normal font-medium tracking-[-0.16px] text-white">{{ actionAllowance }}</p>
+                            <p class="text-base leading-normal font-medium tracking-[-0.16px] text-white opacity-80">{{ actionAllowance }}</p>
                             <div class="flex items-center gap-2">
-                                <p class="text-[13px] leading-normal tracking-[-0.13px] text-white">Actions / month</p>
-                                <button v-if="actionHint" type="button" class="pricing-card__hint" :aria-label="actionHint">
-                                    <img :src="actionInfo" alt="" width="16" height="16" />
-                                    <span class="pricing-card__hint-bubble" role="tooltip">{{ actionHint }}</span>
+                                <p class="text-[13px] leading-normal tracking-[-0.13px] text-white opacity-80">Actions / month</p>
+                                <button type="button" class="pricing-card__hint" :aria-label="`${actionInfoTitle} ${actionInfoBody}`">
+                                    <img :src="actionInfo" alt="" class="opacity-80" width="16" height="16" />
+                                    <span class="pricing-card__hint-bubble" role="tooltip">
+                                        <span class="pricing-card__hint-title">{{ actionInfoTitle }}</span>
+                                        <span>{{ actionInfoBody }}</span>
+                                    </span>
                                 </button>
-                                <img v-else :src="actionInfo" alt="" width="16" height="16" aria-hidden="true" />
                             </div>
                         </div>
 
-                        <div>
+                        <div class="opacity-80">
                             <p class="text-base leading-normal font-medium tracking-[-0.16px] text-white">{{ voiceAllowance }}</p>
                             <p class="text-[13px] leading-normal tracking-[-0.13px] text-white">Voice Narration / month</p>
                         </div>
                     </div>
 
-                    <img :src="cardDivider" alt="" class="h-px w-full" aria-hidden="true" />
+                    <img :src="cardDivider" alt="" class="h-px w-full opacity-80" aria-hidden="true" />
 
-                    <ul class="flex flex-col gap-[18px]">
+                    <ul class="flex flex-col gap-[18px] opacity-80">
                         <li v-for="feature in features" :key="feature" class="flex items-center gap-2">
                             <img :src="checkTeal" alt="" width="22" height="22" class="shrink-0" />
                             <span class="text-[13px] leading-normal tracking-[-0.13px] text-white">{{ feature }}</span>
@@ -219,22 +224,36 @@ defineProps<{
     bottom: calc(100% + 8px);
     left: 50%;
     z-index: 5;
-    width: max-content;
-    max-width: 14rem;
+    display: flex;
+    width: 15.5rem;
+    max-width: min(15.5rem, 70vw);
+    flex-direction: column;
+    gap: 4px;
     border: 0.5px solid #373737;
     border-radius: 8px;
     background: #1e1e1e;
     padding: 8px 10px;
-    color: #fff;
+    color: #d8d8d8;
     font-size: 12px;
     font-weight: 400;
     line-height: 1.4;
     text-align: left;
     letter-spacing: normal;
+    white-space: normal;
     opacity: 0;
     pointer-events: none;
     transform: translateX(-50%);
     transition: opacity 160ms ease;
+}
+
+.pricing-card__hint-title {
+    color: #fff;
+    font-weight: 600;
+}
+
+.pricing-card:has(.pricing-card__hint:hover),
+.pricing-card:has(.pricing-card__hint:focus-visible) {
+    z-index: 3;
 }
 
 .pricing-card__hint:hover .pricing-card__hint-bubble,

@@ -94,6 +94,8 @@ it('renders allowance lines and a four-column pricing card row', function () {
 
     expect($card)
         ->toContain('Actions / month')
+        ->toContain('What is an Action?')
+        ->toContain('Actions are credits you use to advance your story and access features such as choice reshuffles, time extensions, and recap. Voice narration uses a separate allowance.')
         ->toContain('Voice Narration / month')
         ->toContain('>/month<')
         ->toContain('pricing-border-flow')
