@@ -121,6 +121,14 @@ const tryFreeHref = computed(() => (page.props.auth ? '/' : register.create().ur
                         :badge="plan.badge"
                     />
                 </div>
+                <div
+                    v-if="props.plans.length"
+                    class="mt-[3.75rem] text-center font-inter text-xs leading-4 font-light tracking-[0.5px] text-[#838383]"
+                >
+                    <p>* Percentages are not exact.</p>
+                    <p>Prices are subject to change at any time.</p>
+                    <p>Plans are subject to change at any time.</p>
+                </div>
                 <p v-else class="container-content mt-12 text-center text-base text-[#838383]">
                     Subscription plans are being prepared. Please check back shortly.
                 </p>
