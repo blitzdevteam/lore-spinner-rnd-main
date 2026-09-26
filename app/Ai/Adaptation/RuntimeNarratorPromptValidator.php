@@ -55,6 +55,7 @@ final class RuntimeNarratorPromptValidator
      */
     private const array REQUIRED_PROSE_BLOCKS = [
         'INTERPRETIVE GLOSS',
+        'NO REHASHING',
     ];
 
     public function validate(string $prompt, bool $boilerEnabled): void
@@ -114,7 +115,7 @@ final class RuntimeNarratorPromptValidator
             'SECTION 12: BOILER PLAYABLE SESSION MAP',
             'BOILER MOMENT_PROGRESS CONTRACT',
             'BOILER VISIBLE_SUGGESTIONS CONTRACT',
-            'BOILER PLAYER-CRITIQUE FOOTNOTE',
+            'BOILER PLAYER-DIRECTION FOOTNOTE',
         ] as $requiredBlock) {
             if (! str_contains($prompt, $requiredBlock)) {
                 throw new RuntimeException("Boiler runtime prompt is missing {$requiredBlock}.");

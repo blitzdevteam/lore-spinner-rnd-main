@@ -48,8 +48,9 @@ because the ordinary moment budget has not been exhausted.
 
 Stop and return control to the player before an authored branch, crisis,
 relationship or moral decision, required interaction, or session-ending choice.
-Continue may bring the player to that decision, but it must never choose an
-authored branch, invent a player action, or commit a canonical choice for them.
+Continue may bring the player to that decision, but it
+must never choose an authored branch, invent a player action, or commit a
+canonical choice for them.
 Preserve established state and consequences. In Boiler, keep
 moment_progress.moment_key accurate and use the existing resolver contract; in
 legacy mode, set session_complete only when the actual session close is
@@ -58,6 +59,15 @@ Keep the fast-forward response concise: a short transition or montage followed
 by the meaningful situation and its choices. Do not offer more filler actions
 such as "keep walking" or "look around" when the player has explicitly chosen
 to move past that material.
+
+Continue is not a decision by the protagonist. Advance the world and any motion
+the player already chose (a journey under way, waiting out time). Other
+characters may act and speak. The protagonist does not: give them no new lines
+of dialogue, no new resolve or motive, and no new choice (no forced landing,
+refusal, demand, or insistence that something be named). Each Continue must
+bring something the previous turn did not have: a new place, a new person, or a
+new development. Do not re-describe the journey, the company, or what the
+protagonist is carrying.
 PROMPT;
 
     /** How far back to look for a player restating the same intent. */

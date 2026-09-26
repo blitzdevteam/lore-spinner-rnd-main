@@ -14,6 +14,16 @@ use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 
+function boilerContractProseBlocks(): string
+{
+    $validator = new ReflectionClass(RuntimeNarratorPromptValidator::class);
+
+    return implode("\n", [
+        ...$validator->getConstant('REQUIRED_AGENCY_BLOCKS'),
+        ...$validator->getConstant('REQUIRED_PROSE_BLOCKS'),
+    ]);
+}
+
 it('uses the six-state Boiler lifecycle', function () {
     expect(array_map(fn (BoilerStatus $status): string => $status->value, BoilerStatus::cases()))
         ->toBe(['pending', 'drafting', 'drafted', 'finalizing', 'finalized', 'failed']);
@@ -144,6 +154,7 @@ it('validates Boiler and legacy prompt structures with separate contracts', func
         '[WORLD_STATE_TIERED_INJECTION_POINT]',
         '[CONSEQUENCE_ECHO_INJECTION_POINT]',
         '[SESSION_CLOSE_INJECTION_POINT]',
+        boilerContractProseBlocks(),
     ]);
     $validator = new RuntimeNarratorPromptValidator();
 
@@ -156,7 +167,7 @@ it('validates Boiler and legacy prompt structures with separate contracts', func
         "ORDERED MOMENTS:\n- 1. S1_M01",
         'BOILER MOMENT_PROGRESS CONTRACT',
         'BOILER VISIBLE_SUGGESTIONS CONTRACT',
-        'BOILER PLAYER-CRITIQUE FOOTNOTE',
+        'BOILER PLAYER-DIRECTION FOOTNOTE',
     ]), true);
 
     expect(true)->toBeTrue();
@@ -172,12 +183,13 @@ it('rejects the legacy full-event section in a Boiler prompt', function () {
         '[WORLD_STATE_TIERED_INJECTION_POINT]',
         '[CONSEQUENCE_ECHO_INJECTION_POINT]',
         '[SESSION_CLOSE_INJECTION_POINT]',
+        boilerContractProseBlocks(),
         'SECTION 12: FULL CURRENT EPISODE SCRIPT',
         "ORDERED MOMENTS:\n- 1. S1_M01",
         'BOILER MOMENT_PROGRESS CONTRACT',
         'BOILER VISIBLE_SUGGESTIONS CONTRACT',
-        'BOILER PLAYER-CRITIQUE FOOTNOTE',
+        'BOILER PLAYER-DIRECTION FOOTNOTE',
     ]);
 
     (new RuntimeNarratorPromptValidator())->validate($prompt, true);
-})->throws(RuntimeException::class);
+})->throws(RuntimeException::class, 'Boiler runtime prompt rendered the legacy full-event section.');

@@ -10,6 +10,7 @@ use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Support\Facades\View;
+use Log;
 use RuntimeException;
 
 /**
@@ -55,6 +56,13 @@ final class RuntimeNarratorTemplateBuilder
     public const MAX_PROMPT_CHARS = 192_000;
 
     /**
+     * Early-warning threshold — 15k below the cap. Prompts between this value
+     * and MAX_PROMPT_CHARS get a near-cap log entry, which is the signal that a
+     * session is approaching the point where detail would start degrading.
+     */
+    public const WARN_MARGIN_CHARS = self::MAX_PROMPT_CHARS - 15_000;
+
+    /**
      * Never let same-scene filtering leave the Voice Anchor thinner than this.
      * Below four exemplars the narrator loses its range of modes, which costs
      * more voice than a colliding exemplar costs prose.
@@ -81,20 +89,138 @@ final class RuntimeNarratorTemplateBuilder
     ];
 
     /**
-     * Early-warning threshold — 15k below the cap. Prompts between this value
-     * and MAX_PROMPT_CHARS get a near-cap log entry, which is the signal that a
-     * session is approaching the point where detail would start degrading.
-     */
-    public const WARN_MARGIN_CHARS = self::MAX_PROMPT_CHARS - 15_000;
-
-    /**
      * Detail levels for the authored per-path blocks (freeform manifest and
      * consequence visibility), most to least detailed. Sessions with a large
      * authored cut shed this detail to stay under the cap.
      */
     private const AUTHORED_DETAIL_LEVELS = ['full', 'compact', 'none'];
 
-    public function __construct(private SessionEventLoader $eventLoader) {}
+    public function __construct(
+        private SessionEventLoader $eventLoader,
+        private VoiceAnchorSanitizer $voiceAnchorSanitizer = new VoiceAnchorSanitizer,
+    ) {}
+
+    /**
+     * Build the cached runtime narrator prompt for a given session adaptation.
+     *
+     * Always returns a string — adaptation is never blocked by prompt size or
+     * missing anchor fields. Issues are logged as warnings so they are visible
+     * without stopping the pipeline.
+     *
+     * Compression cascade, least to most lossy — source events are never
+     * compressed, so the only live dimensions are authored detail and voice
+     * quotes:
+     *   authored full → compact → none, then the same three with quotes dropped.
+     *
+     * If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
+     * If all passes exceed the cap the most-compressed version is returned with
+     * a warning logged. WARN_MARGIN_CHARS triggers an early near-cap warning.
+     */
+    public function build(Story $story, SessionAdaptation $session): string
+    {
+        $adaptation = $session->storyAdaptation;
+        $voiceProfile = $this->voiceAnchorSanitizer->sanitizeProfile((array) ($adaptation->voice_profile ?? []));
+
+        // Log warnings for missing V2.3 anchor fields but continue assembly.
+        $this->warnIfAnchorFieldsMissing($voiceProfile, $story, $session);
+
+        $totalSessions = $adaptation->sessionAdaptations()->count();
+        $startEventPosition = (int) ($session->entry_point_diagnosis['start_event_position'] ?? 0);
+        $sessionEvents = $this->eventLoader
+            ->forSession(
+                $story,
+                $session->session_number,
+                $startEventPosition > 0 ? $startEventPosition : null,
+            )
+            ->reject(fn ($event): bool => (bool) $event->before_entry_point)
+            ->map(fn ($event): array => [
+                'id' => (int) $event->id,
+                'chapter_id' => (int) $event->chapter_id,
+                'chapter_position' => (int) $event->chapter_position,
+                'chapter_title' => (string) $event->chapter_title,
+                'position' => (int) $event->position,
+                'story_position' => (int) $event->story_position,
+                'session_number' => (int) $event->session_number,
+                'title' => (string) $event->title,
+                'content' => (string) $event->content,
+                'objectives' => $event->objectives,
+            ])
+            ->values()
+            ->all();
+
+        $cut = null;
+        if ($adaptation->boiler_enabled) {
+            $cut = $session->playableCut()
+                ->where('status', 'finalized')
+                ->with('moments')
+                ->first();
+
+            if ($cut === null || $cut->moments->isEmpty()) {
+                throw new RuntimeException('Boiler runtime assembly requires one finalized cut with ordered moments.');
+            }
+        }
+
+        // Compression cascade — event bodies are NEVER compressed.
+        // Only voice example-quote arrays are eligible for stripping (drop_quotes).
+        // dropVoiceQuotes never touches voice_anchor / anchor_card / runtime_self_check.
+        $compressionAttempts = [
+            'full' => fn () => $sessionEvents,
+        ];
+
+        $voiceCompression = [
+            'full' => fn (array $v) => $v,
+            'drop_quotes' => fn (array $v) => $this->dropVoiceQuotes($v),
+        ];
+
+        $lastRendered = '';
+        $lastCompression = 'full+full+full';
+
+        foreach ($compressionAttempts as $sourceMode => $sourceFn) {
+            foreach ($voiceCompression as $voiceMode => $voiceFn) {
+                // Authored per-path detail degrades BEFORE voice example quotes:
+                // voice fidelity is the product, and the agency doctrine itself is
+                // hardcoded in the template — only the authored detail is at risk.
+                foreach (self::AUTHORED_DETAIL_LEVELS as $authoredDetail) {
+                    $rendered = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut, $authoredDetail);
+                    $charCount = mb_strlen($rendered);
+                    $lastRendered = $rendered;
+                    $lastCompression = "{$sourceMode}+{$voiceMode}+authored_{$authoredDetail}";
+
+                    if ($charCount <= self::MAX_PROMPT_CHARS) {
+                        if ($charCount >= self::WARN_MARGIN_CHARS) {
+                            Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
+                                'story_id' => $story->id,
+                                'session_number' => $session->session_number,
+                                'char_count' => $charCount,
+                                'cap' => self::MAX_PROMPT_CHARS,
+                                'compression' => $lastCompression,
+                                'headroom' => self::MAX_PROMPT_CHARS - $charCount,
+                            ]);
+                        }
+                        $this->warnIfPromptHasIssues($rendered, $story, $session);
+
+                        return $rendered;
+                    }
+                }
+            }
+        }
+
+        // All passes exhausted — persist most-compressed version with a warning.
+        $charCount = mb_strlen($lastRendered);
+        Log::channel('narration')->warning('runtime_narrator_assembly.over_cap', [
+            'story_id' => $story->id,
+            'session_number' => $session->session_number,
+            'char_count' => $charCount,
+            'cap' => self::MAX_PROMPT_CHARS,
+            'overage' => $charCount - self::MAX_PROMPT_CHARS,
+            'compression' => $lastCompression,
+            'action' => 'Persisting most-compressed version. Consider editorial session split.',
+        ]);
+
+        $this->warnIfPromptHasIssues($lastRendered, $story, $session);
+
+        return $lastRendered;
+    }
 
     /**
      * Soften [BRACKETED_TOKENS] in every authored value rendered into the prompt.
@@ -211,128 +337,6 @@ final class RuntimeNarratorTemplateBuilder
     }
 
     /**
-     * Build the cached runtime narrator prompt for a given session adaptation.
-     *
-     * Always returns a string — adaptation is never blocked by prompt size or
-     * missing anchor fields. Issues are logged as warnings so they are visible
-     * without stopping the pipeline.
-     *
-     * Compression cascade, least to most lossy — source events are never
-     * compressed, so the only live dimensions are authored detail and voice
-     * quotes:
-     *   authored full → compact → none, then the same three with quotes dropped.
-     *
-     * If a pass fits under MAX_PROMPT_CHARS the result is returned immediately.
-     * If all passes exceed the cap the most-compressed version is returned with
-     * a warning logged. WARN_MARGIN_CHARS triggers an early near-cap warning.
-     */
-    public function build(Story $story, SessionAdaptation $session): string
-    {
-        $adaptation   = $session->storyAdaptation;
-        $voiceProfile = (array) ($adaptation->voice_profile ?? []);
-
-        // Log warnings for missing V2.3 anchor fields but continue assembly.
-        $this->warnIfAnchorFieldsMissing($voiceProfile, $story, $session);
-
-        $totalSessions      = $adaptation->sessionAdaptations()->count();
-        $startEventPosition = (int) ($session->entry_point_diagnosis['start_event_position'] ?? 0);
-        $sessionEvents = $this->eventLoader
-            ->forSession(
-                $story,
-                $session->session_number,
-                $startEventPosition > 0 ? $startEventPosition : null,
-            )
-            ->reject(fn ($event): bool => (bool) $event->before_entry_point)
-            ->map(fn ($event): array => [
-                'id' => (int) $event->id,
-                'chapter_id' => (int) $event->chapter_id,
-                'chapter_position' => (int) $event->chapter_position,
-                'chapter_title' => (string) $event->chapter_title,
-                'position' => (int) $event->position,
-                'story_position' => (int) $event->story_position,
-                'session_number' => (int) $event->session_number,
-                'title' => (string) $event->title,
-                'content' => (string) $event->content,
-                'objectives' => $event->objectives,
-            ])
-            ->values()
-            ->all();
-
-        $cut = null;
-        if ($adaptation->boiler_enabled) {
-            $cut = $session->playableCut()
-                ->where('status', 'finalized')
-                ->with('moments')
-                ->first();
-
-            if ($cut === null || $cut->moments->isEmpty()) {
-                throw new RuntimeException('Boiler runtime assembly requires one finalized cut with ordered moments.');
-            }
-        }
-
-        // Compression cascade — event bodies are NEVER compressed.
-        // Only voice example-quote arrays are eligible for stripping (drop_quotes).
-        // dropVoiceQuotes never touches voice_anchor / anchor_card / runtime_self_check.
-        $compressionAttempts = [
-            'full' => fn () => $sessionEvents,
-        ];
-
-        $voiceCompression = [
-            'full'        => fn (array $v) => $v,
-            'drop_quotes' => fn (array $v) => $this->dropVoiceQuotes($v),
-        ];
-
-        $lastRendered    = '';
-        $lastCompression = 'full+full+full';
-
-        foreach ($compressionAttempts as $sourceMode => $sourceFn) {
-            foreach ($voiceCompression as $voiceMode => $voiceFn) {
-                // Authored per-path detail degrades BEFORE voice example quotes:
-                // voice fidelity is the product, and the agency doctrine itself is
-                // hardcoded in the template — only the authored detail is at risk.
-                foreach (self::AUTHORED_DETAIL_LEVELS as $authoredDetail) {
-                    $rendered        = $this->render($story, $session, $totalSessions, $sourceFn(), $voiceFn($voiceProfile), $cut, $authoredDetail);
-                    $charCount       = mb_strlen($rendered);
-                    $lastRendered    = $rendered;
-                    $lastCompression = "{$sourceMode}+{$voiceMode}+authored_{$authoredDetail}";
-
-                    if ($charCount <= self::MAX_PROMPT_CHARS) {
-                        if ($charCount >= self::WARN_MARGIN_CHARS) {
-                            \Log::channel('narration')->warning('runtime_narrator_assembly.near_cap', [
-                                'story_id'       => $story->id,
-                                'session_number' => $session->session_number,
-                                'char_count'     => $charCount,
-                                'cap'            => self::MAX_PROMPT_CHARS,
-                                'compression'    => $lastCompression,
-                                'headroom'       => self::MAX_PROMPT_CHARS - $charCount,
-                            ]);
-                        }
-                        $this->warnIfPromptHasIssues($rendered, $story, $session);
-
-                        return $rendered;
-                    }
-                }
-            }
-        }
-
-        // All passes exhausted — persist most-compressed version with a warning.
-        $charCount = mb_strlen($lastRendered);
-        \Log::channel('narration')->warning('runtime_narrator_assembly.over_cap', [
-            'story_id'       => $story->id,
-            'session_number' => $session->session_number,
-            'char_count'     => $charCount,
-            'cap'            => self::MAX_PROMPT_CHARS,
-            'overage'        => $charCount - self::MAX_PROMPT_CHARS,
-            'compression'    => $lastCompression,
-            'action'         => 'Persisting most-compressed version. Consider editorial session split.',
-        ]);
-
-        $this->warnIfPromptHasIssues($lastRendered, $story, $session);
-
-        return $lastRendered;
-    }
-
-    /**
      * Log a warning if the voice_profile is missing V2.3 anchor fields.
      * Assembly continues regardless — pre-V2.3 profiles still produce a prompt.
      */
@@ -351,11 +355,11 @@ final class RuntimeNarratorTemplateBuilder
         }
 
         if ($missing !== []) {
-            \Log::channel('narration')->warning('runtime_narrator_assembly.missing_v23_anchor_fields', [
-                'story_id'       => $story->id,
+            Log::channel('narration')->warning('runtime_narrator_assembly.missing_v23_anchor_fields', [
+                'story_id' => $story->id,
                 'session_number' => $session->session_number,
                 'missing_fields' => $missing,
-                'action'         => 'Assembling without V2.3 anchor fields. Re-run Voice Lock to get full D8 v2 quality.',
+                'action' => 'Assembling without V2.3 anchor fields. Re-run Voice Lock to get full D8 v2 quality.',
             ]);
         }
     }
@@ -367,18 +371,18 @@ final class RuntimeNarratorTemplateBuilder
     private function warnIfPromptHasIssues(string $rendered, Story $story, SessionAdaptation $session): void
     {
         if (preg_match('/\{\{[^}]+\}\}/', $rendered)) {
-            \Log::channel('narration')->warning('runtime_narrator_assembly.unmapped_tokens', [
-                'story_id'       => $story->id,
+            Log::channel('narration')->warning('runtime_narrator_assembly.unmapped_tokens', [
+                'story_id' => $story->id,
                 'session_number' => $session->session_number,
-                'action'         => 'Prompt contains unmapped {{…}} tokens — template slot wiring may be incomplete.',
+                'action' => 'Prompt contains unmapped {{…}} tokens — template slot wiring may be incomplete.',
             ]);
         }
 
         if (! str_contains($rendered, '[OPENING_SCENE_INJECTION_POINT]')) {
-            \Log::channel('narration')->warning('runtime_narrator_assembly.missing_injection_point', [
-                'story_id'       => $story->id,
+            Log::channel('narration')->warning('runtime_narrator_assembly.missing_injection_point', [
+                'story_id' => $story->id,
                 'session_number' => $session->session_number,
-                'action'         => 'Prompt is missing [OPENING_SCENE_INJECTION_POINT] — cold open will not inject at session start.',
+                'action' => 'Prompt is missing [OPENING_SCENE_INJECTION_POINT] — cold open will not inject at session start.',
             ]);
         }
     }
@@ -400,8 +404,8 @@ final class RuntimeNarratorTemplateBuilder
      * EXEMPLAR_FLOOR the exemplar is kept and flagged instead: a thin anchor
      * costs more voice than a colliding exemplar costs prose.
      *
-     * @param  array<string, mixed>             $voiceProfile
-     * @param  array<int, array<string, mixed>> $boilerMoments
+     * @param  array<string, mixed>  $voiceProfile
+     * @param  array<int, array<string, mixed>>  $boilerMoments
      * @return array<string, mixed>
      */
     private function withoutSameSceneExemplars(
@@ -416,7 +420,7 @@ final class RuntimeNarratorTemplateBuilder
             return $voiceProfile;
         }
 
-        $sceneTokens  = [];
+        $sceneTokens = [];
         $sceneBigrams = [];
 
         foreach ($boilerMoments as $moment) {
@@ -427,30 +431,30 @@ final class RuntimeNarratorTemplateBuilder
                 (string) ($moment['opening_image'] ?? ''),
             ]));
 
-            $sceneTokens  = array_merge($sceneTokens, $this->distinctiveTokens($sceneText));
+            $sceneTokens = array_merge($sceneTokens, $this->distinctiveTokens($sceneText));
             $sceneBigrams = array_merge($sceneBigrams, $this->distinctiveBigrams($sceneText));
         }
 
-        $sceneTokens  = array_unique($sceneTokens);
+        $sceneTokens = array_unique($sceneTokens);
         $sceneBigrams = array_unique($sceneBigrams);
 
         $collisions = [];
 
         foreach ($exemplars as $index => $exemplar) {
-            $source = trim((string) ($exemplar['source'] ?? ''));
+            $source = mb_trim((string) ($exemplar['source'] ?? ''));
 
             if ($source === '') {
                 continue;
             }
 
             $sharedBigrams = array_intersect($this->distinctiveBigrams($source), $sceneBigrams);
-            $sharedTokens  = array_intersect($this->distinctiveTokens($source), $sceneTokens);
+            $sharedTokens = array_intersect($this->distinctiveTokens($source), $sceneTokens);
 
             if (count($sharedBigrams) >= 1 || count($sharedTokens) >= 4) {
                 $collisions[$index] = [
-                    'source'         => $source,
+                    'source' => $source,
                     'shared_phrases' => array_values($sharedBigrams),
-                    'shared_words'   => array_values($sharedTokens),
+                    'shared_words' => array_values($sharedTokens),
                 ];
             }
         }
@@ -460,17 +464,17 @@ final class RuntimeNarratorTemplateBuilder
         }
 
         $survivors = count($exemplars) - count($collisions);
-        $withhold  = $survivors >= self::EXEMPLAR_FLOOR;
+        $withhold = $survivors >= self::EXEMPLAR_FLOOR;
 
-        \Log::channel('narration')->info('runtime_narrator_assembly.same_scene_exemplars', [
-            'story_id'        => $story->id,
-            'session_number'  => $session->session_number,
-            'exemplar_count'  => count($exemplars),
+        Log::channel('narration')->info('runtime_narrator_assembly.same_scene_exemplars', [
+            'story_id' => $story->id,
+            'session_number' => $session->session_number,
+            'exemplar_count' => count($exemplars),
             'collision_count' => count($collisions),
-            'collisions'      => array_values($collisions),
-            'action'          => $withhold
+            'collisions' => array_values($collisions),
+            'action' => $withhold
                 ? 'Withheld from Section 4A — the session narrates these beats.'
-                : 'Kept and flagged: withholding would leave fewer than ' . self::EXEMPLAR_FLOOR . ' exemplars.',
+                : 'Kept and flagged: withholding would leave fewer than '.self::EXEMPLAR_FLOOR.' exemplars.',
         ]);
 
         foreach (array_keys($collisions) as $index) {
@@ -497,7 +501,7 @@ final class RuntimeNarratorTemplateBuilder
     private function tokenSequence(string $text): array
     {
         $normalized = preg_replace("/['\u{2019}]s\\b/u", '', mb_strtolower($text)) ?? '';
-        $words      = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return array_values(array_map(
             fn (string $word): string => in_array($word, self::TOKEN_STOPWORDS, true) || mb_strlen($word) < 4
@@ -525,11 +529,11 @@ final class RuntimeNarratorTemplateBuilder
     private function distinctiveBigrams(string $text): array
     {
         $sequence = $this->tokenSequence($text);
-        $bigrams  = [];
+        $bigrams = [];
 
         for ($i = 0, $max = count($sequence) - 1; $i < $max; $i++) {
             if ($sequence[$i] !== '' && $sequence[$i + 1] !== '') {
-                $bigrams[] = $sequence[$i] . ' ' . $sequence[$i + 1];
+                $bigrams[] = $sequence[$i].' '.$sequence[$i + 1];
             }
         }
 
@@ -538,7 +542,7 @@ final class RuntimeNarratorTemplateBuilder
 
     /**
      * @param  array<int, array<string, mixed>>  $sessionEvents
-     * @param  array<string, mixed>              $voiceProfile
+     * @param  array<string, mixed>  $voiceProfile
      */
     private function render(
         Story $story,
@@ -548,8 +552,7 @@ final class RuntimeNarratorTemplateBuilder
         array $voiceProfile,
         ?PlayableSessionCut $cut,
         string $authoredDetail = 'full',
-    ): string
-    {
+    ): string {
         $adaptation = $session->storyAdaptation;
         $trimming = (array) ($adaptation->ip_trimming ?? []);
         $sessionMap = (array) ($adaptation->story_session_map ?? []);
@@ -559,15 +562,15 @@ final class RuntimeNarratorTemplateBuilder
         $consequenceMap = (array) ($session->choice_consequence_map ?? []);
         $chaptersCovered = (string) ($allocation['chapters_covered'] ?? '');
         $sessionSpine = [
-            'dramatic_question'  => (string) ($allocation['primary_dramatic_question'] ?? ''),
-            'emotional_promise'  => (string) (($session->entry_point_diagnosis['emotional_promise'] ?? '')),
+            'dramatic_question' => (string) ($allocation['primary_dramatic_question'] ?? ''),
+            'emotional_promise' => (string) (($session->entry_point_diagnosis['emotional_promise'] ?? '')),
             'emotional_register' => (string) ($allocation['emotional_register'] ?? ''),
-            'chapters_covered'   => $chaptersCovered,
+            'chapters_covered' => $chaptersCovered,
             // Section 10 arc-position label — identifies the session by its chapter scope.
-            'session_label'      => sprintf(
+            'session_label' => sprintf(
                 'Session %d%s',
                 $session->session_number,
-                $chaptersCovered !== '' ? ': ' . $chaptersCovered : '',
+                $chaptersCovered !== '' ? ': '.$chaptersCovered : '',
             ),
             // Section 11 SESSION DESTINATION — the narrative close hook for this session.
             'session_destination' => (string) (
@@ -575,7 +578,7 @@ final class RuntimeNarratorTemplateBuilder
                 ?? $session->session_close_design['session_end_choice']['choice_question']
                 ?? ''
             ),
-            'next_session_seed'  => (string) ($architecture['next_session_awareness']['seed_for_next_session'] ?? ''),
+            'next_session_seed' => (string) ($architecture['next_session_awareness']['seed_for_next_session'] ?? ''),
         ];
         $persistentState = $this->scopePersistentState(
             (array) ($sessionMap['persistent_state_schema'] ?? []),
@@ -824,7 +827,7 @@ final class RuntimeNarratorTemplateBuilder
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = mb_strtolower($text);
 
-        return trim((string) preg_replace('/[^a-z0-9]+/u', ' ', $text));
+        return mb_trim((string) preg_replace('/[^a-z0-9]+/u', ' ', $text));
     }
 
     /**
@@ -838,6 +841,7 @@ final class RuntimeNarratorTemplateBuilder
                 return (array) $row;
             }
         }
+
         return [];
     }
 

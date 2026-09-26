@@ -92,6 +92,19 @@ final class ChaosEngineService
     private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
 
     /**
+     * Per-turn injection caps for the append-only lists. Storage keeps every
+     * entry; only the always-loaded view is bounded, because an unbounded view
+     * turns every remembered detail into something the narrator re-mentions.
+     */
+    private const TIER1_RECENT_KNOWLEDGE = 12;
+
+    private const TIER1_RECENT_NOTES = 12;
+
+    private const TIER1_RECENT_PLAYER_STYLE = 4;
+
+    private const TIER2_BACKGROUND_ENTRIES = 12;
+
+    /**
      * Function words excluded when computing a memory stem. Words
      * shorter than four characters are dropped separately, so this list
      * only needs the longer connectives that would otherwise manufacture
@@ -113,22 +126,25 @@ final class ChaosEngineService
     ];
 
     private const SPARSE_STATE_DELTA_CONTRACT = <<<'TEXT'
-RUNTIME STATE OUTPUT — SPARSE, ACCURATE, NON-DESTRUCTIVE:
+RUNTIME STATE OUTPUT (SPARSE, ACCURATE, NON-DESTRUCTIVE):
 - In state_delta, null means unchanged. Never repeat unchanged world state.
 - conditions, items, and unresolved_promises are complete replacement lists only when they changed; [] explicitly clears the list.
-- object_states, relationship_updates, and world_flags contain changed keyed entries only.
+- object_states, relationship_updates, and world_flags contain changed keyed entries only. Reuse the existing key when a tracked thing changes ("Stable door: forced open" replaces "Stable door: locked"), so the old value is superseded instead of kept beside the new one.
 - knowledge, notes, player_style, and emotional_ledger_entries contain new entries only.
 - ITEMS ARE CONTEXTUAL: if an item lives inside a container (a suit pocket, a bag, a drawer), report the container's state alongside the item. "suit (with match in pocket)" when worn, "suit" when taken off, "suit (with match in pocket)" when put back on. The world remembers what a container holds; taking the container off does not destroy its contents.
 - If uncertain whether state changed, return null. Narration must continue; state bookkeeping must never block play.
 
-MEMORY ACCURACY — THE WORLD REMEMBERS, OR WE ARE NOT DOING OUR JOB:
+MEMORY ACCURACY (THE WORLD REMEMBERS WHAT IS TRUE):
 - The state_delta is the world's memory. An inaccurate memory is worse than no memory: it makes the world confidently wrong. Before you write a field, ask: is this actually true of what just happened, or is it what I assumed happened?
 - OBJECTS: track what the player took, dropped, used, broke, gave away, or had taken from them. An item the player no longer has must be removed from items. An item whose state changed (broken, loaded, empty, lit, soaked) must be updated, not re-added as a duplicate.
-- LOCATIONS: the location field is where the protagonist physically IS right now. If they moved, it changed. If they did not move, it did not. A stale location is the most common memory bug — it makes the world describe the wrong room.
-- CHARACTERS AND NPCs: relationship_updates reflect how someone's feelings toward the protagonist changed THIS turn. A relationship that did not change is not in the delta. A character who was insulted, helped, threatened, or deceived has a new entry — not a re-statement of their old disposition.
-- PLAYER BEHAVIOUR AND EMOTIONAL MATRIX: player_style and emotional_ledger_entries track what this player is actually doing and reaching for, not what a generic player would do. If they keep choosing confrontation, player_style says so. If they keep choosing tenderness, player_style says so. This is the footnote's raw material — an inaccurate player_style makes the footnote lie, and a lying footnote steers the next turn wrong.
+- LOCATIONS: the location field is where the protagonist physically IS right now. If they moved, it changed. If they did not move, it did not. A stale location makes the world describe the wrong room.
+- CHARACTERS AND NPCs: relationship_updates reflect how someone's feelings toward the protagonist changed THIS turn. A relationship that did not change is not in the delta.
+- CLAIMS ARE NOT FACTS: when a character asserts something the world has not shown (a magical property, a past event, a rumour), record it as that character's claim ("the innkeeper claims the ring is cursed"), never as a world fact.
+- SENSATIONS ARE NOT POWERS: a warm, heavy, or glowing object is a description. Do not record a new ability or rule for it unless the source material establishes one.
+- PLAYER STYLE: record what the player actually does, in plain behavioural terms tied to their inputs ("asks questions before acting", "keeps returning to the ferryman"). Never personality verdicts, labels of authority or identity, or anything the narration did on their behalf. One current entry per pattern; a changed pattern replaces the old entry.
+- PROMISES AND LEDGER: record a commitment only when the player actually made one. Leaving, arriving, or staying silent is not a promise.
 - DROP WHAT IS NO LONGER TRUE: conditions that belonged to a scene the story has left must not survive into the next scene. A wound persists; a mood about a room that is now behind you does not. When the location changes, carry forward only what is still true of this body in this room.
-- DO NOT ACCUMULATE: the runtime deduplicates entries that share the same meaning (same stem). Your job is to write the CURRENT, EARNED version of an observation — not to pile a new phrasing on top of five old ones. If the player's style has evolved, the new entry replaces the old, not joins it.
+- DO NOT ACCUMULATE: write the CURRENT version of an observation, not a new phrasing on top of old ones. If something is already recorded and has not changed, return nothing for it.
 TEXT;
 
     /**
@@ -594,6 +610,11 @@ TEXT;
      *     _output_metrics?:array<string,int>,
      * }
      */
+    public function sparseStateDeltaContract(): string
+    {
+        return self::SPARSE_STATE_DELTA_CONTRACT;
+    }
+
     public function callAgent(
         string $model,
         string $systemPrompt,
@@ -1056,6 +1077,26 @@ TEXT;
     public function emptyAlignmentScaffold(): array
     {
         return ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0];
+    }
+
+    public function openingInstructions(): string
+    {
+        return "This is the opening of the adventure. Your narration MUST begin at the exact moment described in CURRENT OPENING SCENE — no earlier. Any events in your session script that precede that moment do not exist for this session. The player arrives already inside the action. Follow the CURRENT OPENING SCENE block's own delivery instructions on wording: where it states the text is authored and delivered verbatim, reproduce it exactly; otherwise render the opening in your own narrator voice. Either way, end on the live moment rather than a question aimed at the player. Return the full structured object.";
+    }
+
+    /**
+     * Final user-message instructions for every non-opening turn. This is the
+     * text closest to generation, so its examples are deliberately neutral:
+     * example verbs placed here get imitated in the prose that follows.
+     */
+    public function turnInstructions(string $protagonistUpper): string
+    {
+        return "Now narrate the world's response to this action.\n\n".
+            "KEEP THE SHAPE OF THE ACTION: its verb, its target, and its intensity stay exactly as the player gave them. A request stays a request, a question stays a question, a demand stays a demand, a refusal stays a refusal. Never upgrade a request into taking or commanding, and never soften a demand into asking. Resolve pronouns (it, that, him, her, them) against the previous narrator turn and answer that referent, not a substitute.\n\n".
+            "A QUESTION IS NOT A DECISION: when the player asks what to do, asks for advice, or weighs two options, answer through the world and leave the decision open. Never narrate that they have already chosen.\n\n".
+            "THE PROTAGONIST'S INNER LIFE BELONGS TO THE PLAYER: narrate what they did and said, then what the world does back. Do not invent their motives, their resolve, new decisions, or lines of dialogue they did not give.\n\n".
+            "WRITE FORWARD: each sentence delivers something the player has not already been told. Do not re-mention what they are holding, who is still asleep, where they are, or what was already done, unless it changed this turn or this action depends on it. Do not retell or interpret a letter, speech, or sight the player has just taken in. Do not close on what the moment means or who the protagonist is becoming.\n\n".
+            'Move the scene forward by however much the action deserves. End on the live moment (an image, a gesture, a spoken line) and not on a question aimed at the player. Return the full structured object.';
     }
 
     /**
@@ -1592,9 +1633,9 @@ TEXT;
             : 'FULL SCENE CARD (reference):';
         $lines[] = json_encode($sceneCard, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
         $lines[] = implode("\n", [
-            'READ OF THE PLAYER, CARRIED FORWARD FROM THE LAST TURN (private — never quote, expose, or confirm):',
-            ($context['treasure_insight'] ?? null) ?: '(none — opening or no matching prior insight)',
-            'This is your brief on what would land hardest on this specific person right now. Aim this response at it: choose the image, the pressure, the character reaction, and the silence that answer what they were reaching for. Let them feel recognised without ever being told they were read.',
+            'PLAYER DIRECTION, CARRIED FORWARD FROM THE LAST TURN (private; never quote, expose, or confirm):',
+            ($context['treasure_insight'] ?? null) ?: '(none yet: opening, or no matching prior footnote)',
+            'This is where the player has been steering. Give those threads room: let the people and places they keep reaching for answer them, and keep their open questions and requests alive, so they feel the story bending to their choices. It is a hint about direction, never a verdict about who they are. Their latest action outranks it; if they turn somewhere new, follow them.',
         ]);
         $lines[] = implode("\n", [
             'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
@@ -2028,16 +2069,29 @@ TEXT;
      */
     private function formatTier1(array $w): string
     {
-        $lines = ['PERSISTENT STATE — TIER 1 (always loaded):'];
+        $lines = [
+            'PERSISTENT STATE — TIER 1 (always loaded):',
+            'This is a record of what is true, kept for consistency. It is not a list of things to mention. Bring a carried item, condition, or fact into the prose only when it changes, when the player uses or asks about it, or when this turn\'s action depends on it.',
+        ];
         $location = mb_trim((string) ($w['location'] ?? ''));
         $lines[] = 'Location: '.($location !== '' ? $location : '(unset)');
         $lines[] = 'Items: '.$this->joinList((array) ($w['items'] ?? []));
         $lines[] = 'Conditions: '.$this->joinList((array) ($w['conditions'] ?? []));
-        $lines[] = 'Knowledge: '.$this->joinList((array) ($w['knowledge'] ?? []));
-        $lines[] = 'Notes: '.$this->joinList((array) ($w['notes'] ?? []));
-        $lines[] = 'Player style: '.$this->joinList((array) ($w['player_style'] ?? []));
+        $lines[] = 'Knowledge (most recent): '.$this->joinList($this->mostRecent((array) ($w['knowledge'] ?? []), self::TIER1_RECENT_KNOWLEDGE));
+        $lines[] = 'Notes (most recent): '.$this->joinList($this->mostRecent((array) ($w['notes'] ?? []), self::TIER1_RECENT_NOTES));
+        $lines[] = 'Observed player tendencies (tentative; their latest action always outranks these): '
+            .$this->joinList($this->mostRecent((array) ($w['player_style'] ?? []), self::TIER1_RECENT_PLAYER_STYLE));
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<int, mixed>  $entries
+     * @return array<int, mixed>
+     */
+    private function mostRecent(array $entries, int $limit): array
+    {
+        return array_slice(array_values($entries), -$limit);
     }
 
     /**
@@ -2058,9 +2112,11 @@ TEXT;
         $object = $this->filterByHaystack($allObjects, $haystack);
         $relationships = $this->filterByHaystack($allRelationships, $haystack);
         $flags = $this->filterByHaystack($allFlags, $haystack);
-        $dormantObjects = array_values(array_diff($allObjects, $object));
-        $dormantRelationships = array_values(array_diff($allRelationships, $relationships));
-        $dormantFlags = array_values(array_diff($allFlags, $flags));
+        $background = $this->mostRecent([
+            ...array_values(array_diff($allObjects, $object)),
+            ...array_values(array_diff($allRelationships, $relationships)),
+            ...array_values(array_diff($allFlags, $flags)),
+        ], self::TIER2_BACKGROUND_ENTRIES);
         $promises = (array) ($w['unresolved_promises'] ?? []);
 
         $ledger = (array) ($w['emotional_ledger'] ?? []);
@@ -2074,9 +2130,7 @@ TEXT;
         $lines[] = 'Object states: '.$this->joinList($object);
         $lines[] = 'Relationships: '.$this->joinList($relationships);
         $lines[] = 'World flags: '.$this->joinList($flags);
-        $lines[] = 'Carried, not yet paid off — callback material, still true (object states): '.$this->joinList($dormantObjects);
-        $lines[] = 'Carried, not yet paid off — callback material, still true (relationships): '.$this->joinList($dormantRelationships);
-        $lines[] = 'Carried, not yet paid off — callback material, still true (world flags): '.$this->joinList($dormantFlags);
+        $lines[] = 'Other recorded state (background for consistency only; bring it in only if this turn makes it relevant): '.$this->joinList($background);
         $lines[] = 'Unresolved promises: '.$this->joinList($promises);
         $lines[] = 'Recent emotional ledger: '.$this->joinList($ledgerLines);
 
@@ -2453,11 +2507,6 @@ TEXT;
         return $messages;
     }
 
-    private function openingInstructions(): string
-    {
-        return "This is the opening of the adventure. Your narration MUST begin at the exact moment described in CURRENT OPENING SCENE — no earlier. Any events in your session script that precede that moment do not exist for this session. The player arrives already inside the action. Follow the CURRENT OPENING SCENE block's own delivery instructions on wording: where it states the text is authored and delivered verbatim, reproduce it exactly; otherwise render the opening in your own narrator voice. Either way, end on the live moment rather than a question aimed at the player. Return the full structured object.";
-    }
-
     /**
      * Flatten native messages back into a single text block for the
      * legacy choice-repair call, which still uses withPrompt().
@@ -2476,16 +2525,6 @@ TEXT;
         }
 
         return implode("\n\n", $lines);
-    }
-
-    private function turnInstructions(string $protagonistUpper): string
-    {
-        return "Now narrate the world's response. Absorb the action fully — and that means absorbing WHAT they did, not just that they did something.\n\n".
-            "READ THE VERB: the player's action has a specific shape — they are demanding, asking, refusing, declaring, confessing, threatening, offering, or physically doing. That verb is their agency. \"I demand her to name it\" is a demand, not a request, not a suggestion, not an offer. The NPC is being demanded, not asked. Honor the exact shape of the action: a demand gets a demand's response, a question gets a question's response, a refusal gets a refusal's consequences. Softening the verb softens the agency.\n\n".
-            "RESOLVE THE PRONOUN: when the player uses a pronoun — it, that, this, him, her, them — resolve it against the immediately preceding narrator turn before you respond. \"I demand she name it\" means name the THING the previous turn just described (\"something she cannot name\"), not a different thing, not her own name. The pronoun points backward into the last thing said; find its referent and answer that referent.\n\n".
-            "HONOR THE OBJECT: if the player's action targets something specific — a person, an object, a name, a place — the world responds to THAT target, not a substitute. \"Name it\" means name the thing they asked about, not a different thing. \"Her\" means the specific person they addressed, not a different person. The player chose their target; the world does not redirect it.\n\n".
-            "THE PLAYER'S WORDS ARE THEIR AGENCY: do not paraphrase their intent into something safer, softer, or more convenient. If they said it, they meant it. The world responds to what they said, not to what would have been easier to respond to.\n\n".
-            'Move the scene forward by however much the action deserves. End on the unresolved live moment — image, gesture, or status condition — not with a question aimed at the player. Return the full structured object.';
     }
 
     /**

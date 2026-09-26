@@ -71,7 +71,7 @@ final class ChaosNarrationSchema
                 ->array()
                 ->required()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / provocation / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
+                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / risk / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
                         'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration.'),
@@ -88,7 +88,7 @@ final class ChaosNarrationSchema
                 'impact_scope' => $schema->string()->required()->title('Impact Scope')
                     ->description('What this turn actually changed: "expressive" (tone and texture only), "local" (real but contained in this scene), "persistent" (the world, a relationship, or the protagonist\'s standing genuinely changed and must stay changed). When "persistent", the change must also appear in state_delta. Empty string outside Boiler mode.'),
                 'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
-                    ->description('REQUIRED after every player turn. One to three sentences for the NEXT narrator, naming what would land hardest on this specific player next — the feeling to aim for, the nerve worth pressing, what they are quietly hoping the world noticed. Read the player, not just the action: separate what they did from what they wanted. MUST be true to what the player actually submitted: never attribute to them a choice, restraint, or change of heart that the narration made on their behalf — if the world stopped them, say that the world stopped them and name what they were reaching for. A hunch, never a verdict; never a score, diagnosis, permanent label, or pacing command. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders — the model must produce this.'),
+                    ->description('REQUIRED after every player turn. One to three plain sentences for the NEXT narrator describing how the player is steering the story, built only from what they actually submitted: what they did or asked this turn (in their own verb), the person, place, or thread their actions keep reaching toward, and any request or question still open. Describe actions and directions, never personality, motive, or who they are becoming. On a Continue turn, say only that they chose to move on and what remains open. Never credit them with a choice the narration made for them; if the world stopped them, say so. Plain reporting, no imagery or dashes. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders; the model must produce this.'),
             ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
                 ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, route_relation="", impact_scope="", and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
 
@@ -167,7 +167,7 @@ final class ChaosNarrationSchema
                     ->required()
                     ->nullable()
                     ->title('Player Style')
-                    ->description('Only newly observed behavioural patterns from this turn. Return null when nothing new was observed. Runtime appends and deduplicates.')
+                    ->description('Only newly observed behavioural patterns from this turn, in plain terms tied to what the player actually did ("asks questions before acting"). Never personality verdicts or anything the narration did on their behalf. Return null when nothing new was observed. Runtime appends and deduplicates.')
                     ->items($schema->string()->required()),
 
                 'unresolved_promises' => $schema
