@@ -73,7 +73,7 @@ final class GameTurnRequestAssembler
 
         $systemStored = (string) ($usage->system_prompt ?? '');
         $systemWithSparseDelta = $systemStored !== ''
-            ? $systemStored."\n\n".$this->engine->sparseStateDeltaContract()
+            ? $this->engine->withSparseStateDeltaContract($systemStored)
             : '';
 
         return [
@@ -100,7 +100,7 @@ final class GameTurnRequestAssembler
             'system_prompt_with_sparse_delta_contract' => $systemWithSparseDelta,
             'notes' => [
                 'system_prompt_stored matches ProcessGameTurnAction before callAgent (includes CONTINUE / REPEATED INTENT when applicable).',
-                'sparse_state_delta_contract is appended inside callAgent only; included separately in system_prompt_with_sparse_delta_contract.',
+                'sparse_state_delta_contract is added inside callAgent only (above the live turn context when present); included in system_prompt_with_sparse_delta_contract.',
                 'history excludes the current turn player line; it lives in the final user message via llm_player_action.',
                 'playable_moment_turn_count at call is estimated from prior response rows sharing moment_key.',
                 'final-message instructions and the sparse contract come from the code deployed at export time, which may differ from the code that served the turn.',

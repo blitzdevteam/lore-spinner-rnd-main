@@ -604,7 +604,7 @@ final class RuntimeNarratorTemplateBuilder
             'protagonist' => $this->protagonistName($story, $adaptation),
 
             'spine' => $this->normalizeSpine($trimming, $story),
-            'worldRules' => (array) ($trimming['world_rules'] ?? []),
+            'worldRules' => $this->projectWorldRules((array) ($trimming['world_rules'] ?? [])),
             'storyGuard' => (array) ($sessionMap['story_guard_canon'] ?? []),
             'sceneRules' => (array) ($choiceDesign['scene_rules_layer_4'] ?? []),
             'voice' => $this->withoutSameSceneExemplars($voiceProfile, $boilerMoments, $story, $session),
@@ -640,6 +640,53 @@ final class RuntimeNarratorTemplateBuilder
         ]))->render();
 
         return html_entity_decode($rendered, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    /**
+     * Reduce each world rule's evidence citation to a chapter tag.
+     *
+     * The full citation (chapter, part, and quoted passage) stays in
+     * `ip_trimming.world_rules` for audits; at runtime it roughly doubled
+     * Section 2 without helping narration. The chapter number is kept because
+     * it tells the narrator whether a fact belongs to a part of the book the
+     * player has not reached yet.
+     *
+     * @param  array<string, mixed>  $worldRules
+     * @return array<string, mixed>
+     */
+    private function projectWorldRules(array $worldRules): array
+    {
+        foreach (['physics_technology', 'creatures_entities', 'social_systems', 'geography_locations'] as $category) {
+            if (! is_array($worldRules[$category] ?? null)) {
+                continue;
+            }
+
+            $worldRules[$category] = array_values(array_map(
+                fn (mixed $rule): array => [
+                    'rule' => (string) (is_array($rule) ? ($rule['rule'] ?? '') : $rule),
+                    'chapter' => $this->chapterTag((string) (is_array($rule) ? ($rule['evidence'] ?? '') : '')),
+                ],
+                array_filter($worldRules[$category], fn (mixed $rule): bool => is_array($rule) || is_string($rule)),
+            ));
+        }
+
+        return $worldRules;
+    }
+
+    private function chapterTag(string $evidence): string
+    {
+        if (preg_match('/\b(ch(?:apter)?|ep(?:isode)?|act|sc(?:ene)?)\.?\s*(\d+)/i', $evidence, $matches) !== 1) {
+            return '';
+        }
+
+        $unit = match (mb_strtolower(mb_substr($matches[1], 0, 2))) {
+            'ep' => 'Ep.',
+            'ac' => 'Act ',
+            'sc' => 'Sc.',
+            default => 'Ch.',
+        };
+
+        return $unit.$matches[2];
     }
 
     /**

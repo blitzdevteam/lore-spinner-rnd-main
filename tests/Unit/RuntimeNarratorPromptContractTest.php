@@ -68,7 +68,7 @@ it('defines Continue as meaningful fast-forward without granting branch authorit
     $card = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
 
     expect($action)
-        ->toContain('CONTINUE MODE — MEANINGFUL FAST-FORWARD:')
+        ->toContain('CONTINUE MODE: MEANINGFUL FAST-FORWARD.')
         ->toContain('you may set exit_condition_met=true')
         ->toContain('must never choose an authored branch')
         ->toContain('Do not hold the player in a low-agency loop')

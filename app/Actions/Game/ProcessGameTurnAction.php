@@ -33,7 +33,7 @@ final class ProcessGameTurnAction
     private const CONTINUE_MARKER = '__continue__';
 
     private const CONTINUE_MODE_INSTRUCTION = <<<'PROMPT'
-CONTINUE MODE — MEANINGFUL FAST-FORWARD:
+CONTINUE MODE: MEANINGFUL FAST-FORWARD.
 The player explicitly wants to move past low-agency material. Use the future
 session context already available to you (the beat map, source events, current
 moment context, and conversation history) to judge what is connective and what
@@ -259,7 +259,7 @@ PROMPT;
             $repeatedAttempts = $this->countRepeatedIntent($game, $playerAction);
             if ($repeatedAttempts > 0) {
                 $ordinal = $repeatedAttempts + 1;
-                $systemPrompt .= "\n\nREPEATED INTENT — MEASURED, NOT INFERRED: this is the {$ordinal}"
+                $systemPrompt .= "\n\nREPEATED INTENT (MEASURED, NOT INFERRED): this is the {$ordinal}"
                     .'th consecutive turn on which the player has asked for substantially the same thing. '
                     .'Their previous attempts did not land. Do not deflect it again with a new in-world reason: '
                     .'either let it happen now with its full consequences, or make the obstacle unmistakable in '

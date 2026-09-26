@@ -63,10 +63,16 @@ final class ChaosEngineService
     public const DEFAULT_MODEL = 'claude-haiku-4-5';
 
     /**
-     * Production /user/games narration — matches chaos-mode temperature for
-     * maximum player agency. The lab previously ran a tighter 0.4.
+     * Production /user/games narration. Sent on every turn whose model accepts
+     * sampling parameters. Haiku 4.5 does; Sonnet 5 and Opus 4.7+ do not.
      */
-    public const GAME_TEMPERATURE = 0.9;
+    public const GAME_TEMPERATURE = 0.7;
+
+    /**
+     * Heading of the end-of-prompt section that carries every per-turn block.
+     * The Anthropic cache breakpoint sits immediately before it.
+     */
+    public const LIVE_TURN_CONTEXT_MARKER = '### LIVE TURN CONTEXT';
 
     private const OPENAI_FALLBACK_MODEL = 'gpt-5.2';
 
@@ -375,15 +381,18 @@ TEXT;
             $isSessionStart,
         );
 
+        $liveBlocks = [
+            '[WORLD_STATE_TIERED_INJECTION_POINT]' => ['PERSISTENT STATE (Section 7)', $worldStateBlock],
+            '[SYMBOLIC_MEMORY_INJECTION_POINT]' => ['SYMBOLIC MEMORY (Section 8)', $symbolicBlock],
+            '[ALIGNMENT_TILT_INJECTION_POINT]' => ['ALIGNMENT TILT (Section 9)', $alignmentBlock],
+            '[CONSEQUENCE_ECHO_INJECTION_POINT]' => ['CONSEQUENCE ECHO (Section 10A)', $consequenceBlock],
+            '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => ['ACTIVE PLAYABLE MOMENT (Section 12)', $activeMomentBlock],
+            '[SESSION_CLOSE_INJECTION_POINT]' => ['AUTHORED SESSION CLOSE (Section 16)', $closeBlock],
+        ];
+
         if ($isSessionStart) {
             $prompt = strtr($prompt, [
-                '[SYMBOLIC_MEMORY_INJECTION_POINT]' => $symbolicBlock,
-                '[ALIGNMENT_TILT_INJECTION_POINT]' => $alignmentBlock,
                 '[OPENING_SCENE_INJECTION_POINT]' => $this->buildOpeningSection($sessionContext, $worldState),
-                '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
-                '[CONSEQUENCE_ECHO_INJECTION_POINT]' => $consequenceBlock,
-                '[SESSION_CLOSE_INJECTION_POINT]' => $closeBlock,
-                '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
             ]);
         } else {
             // Strip Section 13 entirely before substitution. Find the section header and the
@@ -396,21 +405,29 @@ TEXT;
 
             if ($sec13Start !== false && $injPos !== false && $injPos > $sec13Start) {
                 $prompt = mb_substr($prompt, 0, $sec13Start)
-                    .'(Continuation turn — opening already delivered. Resume from conversation history; do not re-cold-open.)'
+                    .'(Continuation turn: opening already delivered. Resume from conversation history; do not re-cold-open.)'
                     .mb_substr($prompt, $injPos + mb_strlen($injToken));
             }
-
-            $prompt = strtr($prompt, [
-                '[SYMBOLIC_MEMORY_INJECTION_POINT]' => $symbolicBlock,
-                '[ALIGNMENT_TILT_INJECTION_POINT]' => $alignmentBlock,
-                '[WORLD_STATE_TIERED_INJECTION_POINT]' => $worldStateBlock,
-                '[CONSEQUENCE_ECHO_INJECTION_POINT]' => $consequenceBlock,
-                '[SESSION_CLOSE_INJECTION_POINT]' => $closeBlock,
-                '[ACTIVE_PLAYABLE_MOMENT_INJECTION_POINT]' => $activeMomentBlock,
-            ]);
         }
 
-        return $prompt;
+        return $this->withLiveTurnContext($prompt, $liveBlocks);
+    }
+
+    /**
+     * Append the static sparse-state contract above the live section so it
+     * stays inside the cached prefix.
+     */
+    public function withSparseStateDeltaContract(string $systemPrompt): string
+    {
+        $liveOffset = mb_strpos($systemPrompt, self::LIVE_TURN_CONTEXT_MARKER);
+
+        if ($liveOffset === false) {
+            return $systemPrompt."\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
+        }
+
+        return mb_substr($systemPrompt, 0, $liveOffset)
+            .self::SPARSE_STATE_DELTA_CONTRACT."\n\n"
+            .mb_substr($systemPrompt, $liveOffset);
     }
 
     /**
@@ -627,7 +644,7 @@ TEXT;
         bool $isOpening = false,
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
-        $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
+        $systemPrompt = $this->withSparseStateDeltaContract($systemPrompt);
 
         $messages = $this->conversationHistoryToMessages(
             $conversationHistory,
@@ -742,7 +759,7 @@ TEXT;
         bool $isOpening = false,
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
-        $systemPrompt .= "\n\n".self::SPARSE_STATE_DELTA_CONTRACT;
+        $systemPrompt = $this->withSparseStateDeltaContract($systemPrompt);
 
         $messages = $this->conversationHistoryToMessages(
             $conversationHistory,
@@ -1081,7 +1098,7 @@ TEXT;
 
     public function openingInstructions(): string
     {
-        return "This is the opening of the adventure. Your narration MUST begin at the exact moment described in CURRENT OPENING SCENE — no earlier. Any events in your session script that precede that moment do not exist for this session. The player arrives already inside the action. Follow the CURRENT OPENING SCENE block's own delivery instructions on wording: where it states the text is authored and delivered verbatim, reproduce it exactly; otherwise render the opening in your own narrator voice. Either way, end on the live moment rather than a question aimed at the player. Return the full structured object.";
+        return "This is the opening of the adventure. Your narration MUST begin at the exact moment described in CURRENT OPENING SCENE, no earlier. Any events in your session script that precede that moment do not exist for this session. The player arrives already inside the action. Follow the CURRENT OPENING SCENE block's own delivery instructions on wording: where it states the text is authored and delivered verbatim, reproduce it exactly; otherwise render the opening in your own narrator voice. Either way, end on the live moment rather than a question aimed at the player. Return the full structured object.";
     }
 
     /**
@@ -1097,6 +1114,48 @@ TEXT;
             "THE PROTAGONIST'S INNER LIFE BELONGS TO THE PLAYER: narrate what they did and said, then what the world does back. Do not invent their motives, their resolve, new decisions, or lines of dialogue they did not give.\n\n".
             "WRITE FORWARD: each sentence delivers something the player has not already been told. Do not re-mention what they are holding, who is still asleep, where they are, or what was already done, unless it changed this turn or this action depends on it. Do not retell or interpret a letter, speech, or sight the player has just taken in. Do not close on what the moment means or who the protagonist is becoming.\n\n".
             'Move the scene forward by however much the action deserves. End on the live moment (an image, a gesture, a spoken line) and not on a question aimed at the player. Return the full structured object.';
+    }
+
+    /**
+     * Gather every per-turn block into one section at the end of the prompt.
+     *
+     * Each injection token becomes a fixed pointer, so everything above the
+     * live section is byte-identical from turn to turn and can sit inside the
+     * Anthropic cache breakpoint (see anthropicSystemPrompts()). The live
+     * section replaces the world-state token, which the template already
+     * places last; templates without it get the section appended.
+     *
+     * @param  array<string, array{0:string, 1:string}>  $liveBlocks
+     */
+    private function withLiveTurnContext(string $prompt, array $liveBlocks): string
+    {
+        $pointers = [];
+        $sections = [];
+
+        foreach ($liveBlocks as $token => [$label, $content]) {
+            if (! str_contains($prompt, $token)) {
+                continue;
+            }
+
+            $content = mb_trim($content);
+            $sections[] = "LIVE: {$label}\n".($content !== '' ? $content : '(none this turn)');
+
+            if ($token !== '[WORLD_STATE_TIERED_INJECTION_POINT]') {
+                $pointers[$token] = "(Live this turn: see {$label} in the live turn context at the end of this prompt.)";
+            }
+        }
+
+        $liveSection = self::LIVE_TURN_CONTEXT_MARKER." [RUNTIME: changes every turn]\n\n"
+            .'Everything below is this turn\'s live data for the sections that point here. It outranks any older description of the same thing above.'
+            ."\n\n".implode("\n\n", $sections);
+
+        $prompt = strtr($prompt, $pointers);
+
+        if (str_contains($prompt, '[WORLD_STATE_TIERED_INJECTION_POINT]')) {
+            return str_replace('[WORLD_STATE_TIERED_INJECTION_POINT]', $liveSection, $prompt);
+        }
+
+        return $prompt."\n\n".$liveSection;
     }
 
     /**
@@ -1555,10 +1614,10 @@ TEXT;
         $previousWords = (int) ($context['previous_turn_words'] ?? 0);
         if ($targetWords > 0) {
             $budgetLines = [
-                'LENGTH CONTRACT FOR THIS ROOM — THIS OVERRIDES THE GENERIC WORD-COUNT GUIDANCE ELSEWHERE IN THIS PROMPT:',
+                'LENGTH CONTRACT FOR THIS ROOM (THIS OVERRIDES THE GENERIC WORD-COUNT GUIDANCE ELSEWHERE IN THIS PROMPT):',
                 "Authored target for narration prose this turn: {$targetWords} words. Acceptable band: ".max(1, (int) round($targetWords * 0.8)).'–'.(int) round($targetWords * 1.25).' words.',
                 'This number is the author\'s compression, not a formatting preference. At this voice, length IS style: the same content at triple this count stops being their prose and becomes generic narration, however good the diction.',
-                'Answer the player completely inside this budget. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established — never by refusing them detail about what they actually did.',
+                'Answer the player completely inside this budget. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established, never by refusing them detail about what they actually did.',
             ];
 
             if ($previousWords > 0) {
@@ -1574,7 +1633,7 @@ TEXT;
         }
 
         if ($exitCondition !== '') {
-            $lines[] = 'EXIT CONDITION (semantic — outcomes, not a checklist): '.$exitCondition;
+            $lines[] = 'EXIT CONDITION (semantic: outcomes, not a checklist): '.$exitCondition;
         }
 
         $lines[] = implode("\n", array_filter([
@@ -1584,16 +1643,16 @@ TEXT;
             '- Never permitted: the canon walls below, and the walls in the Freedom Contract.',
             "Detour beats spent since the player was last on-spine: {$detourUsed}. Comfortable room to follow them further: {$detourRemaining}.",
             $detourRemaining > 0
-                ? 'You have room to follow. Let the detour matter, then let the world — not an instruction — draw the story back toward this room\'s pressure.'
+                ? 'You have room to follow. Let the detour matter, then let the world, not an instruction, draw the story back toward this room\'s pressure.'
                 : 'You have followed this thread a while. Bring the story back now through the world\'s own logic: someone acts, something arrives, a cost comes due. Honour what the player did; do not undo it, and do not narrate the redirection as a rule.',
         ]));
 
         if ($forbidden !== []) {
             $lines[] = implode("\n", [
                 'STORYGUARD BOUNDARIES FOR THIS ROOM:',
-                'Two different kinds live in this list — read each one and treat it accordingly.',
+                'Two different kinds live in this list; read each one and treat it accordingly.',
                 '- If it names a truth of the world or a character (what is real, what someone would never do, what cannot happen): that is a wall. Never cross it.',
-                '- If it names material that belongs to a LATER room (a scene, reveal, or confrontation not yet due): that is staging, not truth. You may let it be referenced, feared, foreshadowed, or attempted and fail forward — you simply may not stage it as a scene here.',
+                '- If it names material that belongs to a LATER room (a scene, reveal, or confrontation not yet due): that is staging, not truth. You may let it be referenced, feared, foreshadowed, or attempted and fail forward; you simply may not stage it as a scene here.',
                 ...array_map(static fn (string $rule): string => '- '.$rule, $forbidden),
             ]);
         }
@@ -1609,10 +1668,10 @@ TEXT;
 
         if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {
             $lines[] = implode("\n", [
-                'PACING DIRECTIVE — THE WORLD STARTS PULLING:',
+                'PACING DIRECTIVE: THE WORLD STARTS PULLING.',
                 'Answer the player fully first; this is never a reason to cut them short.',
                 'Then make standing still expensive. Time moves, someone decides something, evidence shifts or degrades, a voice or a body arrives, a window begins to close.',
-                'Make the next step the most attractive thing in the scene rather than announcing that it is time to move on. The pull belongs to the world — never phrase it as an instruction to the player.',
+                'Make the next step the most attractive thing in the scene rather than announcing that it is time to move on. The pull belongs to the world; never phrase it as an instruction to the player.',
                 'If the exit condition is now semantically satisfied, return exit_condition_met=true and use next_bridge to transition.',
                 'Do not repeat established material or hold this room without a new consequence.',
             ]);
@@ -1629,7 +1688,7 @@ TEXT;
         }
 
         $lines[] = $isSessionStart
-            ? 'FULL SCENE CARD (reference — opening_image and source_extracts withheld this turn; the authored cold open in Section 13 is the opening prose):'
+            ? 'FULL SCENE CARD (reference; opening_image and source_extracts withheld this turn; the authored cold open in Section 13 is the opening prose):'
             : 'FULL SCENE CARD (reference):';
         $lines[] = json_encode($sceneCard, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
         $lines[] = implode("\n", [
@@ -1640,7 +1699,7 @@ TEXT;
         $lines[] = implode("\n", [
             'BOUNDED NEXT-MOMENT PREVIEW (guidance only; ignore until current exit is met):',
             json_encode($context['next_moment_preview'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'null',
-            'Its pressure and canon are fixed. How it OPENS is not — let it open on the state this player has actually created: what they broke, said, learned, refused, or made someone believe.',
+            'Its pressure and canon are fixed. How it OPENS is not: let it open on the state this player has actually created: what they broke, said, learned, refused, or made someone believe.',
         ]);
 
         return implode("\n\n", $lines);
@@ -1681,7 +1740,7 @@ TEXT;
                 .' ('.($vis['how_player_sees_it'] ?? '').')';
         }
         if (! empty($path['fold_back_acknowledge'])) {
-            $lines[] = 'Fold-back — acknowledge: "'.$path['fold_back_acknowledge']
+            $lines[] = 'Fold-back, acknowledge: "'.$path['fold_back_acknowledge']
                 .'" → redirect: "'.($path['fold_back_redirect'] ?? '').'"';
         }
         if (! empty($path['hard_limits'])) {
@@ -1708,7 +1767,7 @@ TEXT;
             return '';
         }
 
-        $lines = ['AUTHORED SESSION CLOSE — deliver this, do not improvise:'];
+        $lines = ['AUTHORED SESSION CLOSE (deliver this, do not improvise):'];
 
         if (! empty($closeDesign['resolution_prose'])) {
             $lines[] = '';
@@ -1724,7 +1783,7 @@ TEXT;
         $choice = $closeDesign['session_end_choice'] ?? null;
         if ($choice !== null) {
             $lines[] = '';
-            $lines[] = 'SESSION-END CHOICE — present these three options:';
+            $lines[] = 'SESSION-END CHOICE: present these three options.';
             $lines[] = 'What it asks (design intent, never spoken to the player): '.($choice['choice_question'] ?? '');
             foreach (['option_a', 'option_b', 'option_c'] as $opt) {
                 if (! empty($choice[$opt]['text'])) {
@@ -1732,7 +1791,7 @@ TEXT;
                 }
             }
             $lines[] = '';
-            $lines[] = 'Offer these same three options as your visible_suggestions this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen — so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
+            $lines[] = 'Offer these same three options as your visible_suggestions this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen, so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
 
             if (! empty($choice['final_line'])) {
                 $lines[] = '';
@@ -1770,7 +1829,7 @@ TEXT;
 
         // Sessions 2+: prepend the continuity handoff from the previous session close.
         if ($sessionNumber > 1 && $openingHandoff !== '') {
-            $lines[] = 'SESSION HANDOFF (what the previous session left behind — context you must honour, NOT text to recite):';
+            $lines[] = 'SESSION HANDOFF (what the previous session left behind: context you must honour, NOT text to recite):';
             $lines[] = $openingHandoff;
             $lines[] = '';
             $lines[] = 'The authored cold open below still opens this session verbatim. Let the handoff inform what the player already knows and carries; never let it displace, precede, or paraphrase the authored opening prose.';
@@ -1785,7 +1844,7 @@ TEXT;
         // position and re-composes the opening from the Section 12 source text, which
         // drops the authored body drop-in and the in-prose identity reveal.
         if ($coldOpen !== '') {
-            $lines[] = 'AUTHORED COLD OPEN — DELIVER THIS TEXT VERBATIM AS YOUR OPENING PROSE:';
+            $lines[] = 'AUTHORED COLD OPEN: DELIVER THIS TEXT VERBATIM AS YOUR OPENING PROSE.';
             $lines[] = $coldOpen;
             $lines[] = '';
             $lines[] = implode("\n", [
@@ -1794,8 +1853,8 @@ TEXT;
                 '- It is already written in the author\'s voice and already carries the designed opening formulas: the player lands inside their own body in the first sentence, the protagonist\'s identity arrives in the prose at a moment of weight, it runs in second-person present tense, and it ends on the first real choice. Any rewrite breaks at least one of these.',
                 '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
                 '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
-                '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE — rhythm, diction, compression — and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
-                '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions — those carry the handoff, not a question.',
+                '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE (rhythm, diction, compression) and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
+                '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions; those carry the handoff, not a question.',
                 '- SINGLE EXCEPTION to reproducing the text word for word: if the authored cold open ends with a question aimed at the player ("How do you go down to meet her?", "What do you do?"), drop that final question and end on the image or action immediately before it. Everything else above is still reproduced exactly. Never add a closing question of your own.',
                 '- The only text you may add is what is required to satisfy this turn\'s structured output contract (choices/suggestions and progress fields).',
             ]);
@@ -1809,7 +1868,7 @@ TEXT;
         // read as licence to compress the 120-180 word authored open printed directly
         // above it. The clock governs what follows the open, never the open itself.
         $lines[] = '';
-        $lines[] = 'FIRST-3-MINUTES PROTOCOL (applies to the turns AFTER the authored cold open — never to the cold open itself, which is delivered verbatim at its authored length): once the opening has landed, keep the first few tiered responses tight — situation established in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
+        $lines[] = 'FIRST-3-MINUTES PROTOCOL (applies to the turns AFTER the authored cold open, never to the cold open itself, which is delivered verbatim at its authored length): once the opening has landed, keep the first few tiered responses tight: situation established in under 30 words, first meaningful choice or custom input opportunity within 90 seconds of play, first visible consequence within 120 seconds. After the opening sequence lands, do not re-apply this clock on later turns.';
 
         // Emotional promise — the engagement hook for this session.
         if ($emotionalPromise !== '') {
@@ -2034,7 +2093,7 @@ TEXT;
                 .'". Narrate without surfacing the alignment, but lean toward this tendency in tone.';
         }
 
-        $lines = ['STORY-NATIVE ALIGNMENT TILT: "'.$label.'" (hidden — never surface the literal label or any RPG terminology).'];
+        $lines = ['STORY-NATIVE ALIGNMENT TILT: "'.$label.'" (hidden; never surface the literal label or any RPG terminology).'];
         if ($description !== '') {
             $lines[] = 'Behavioural shape: '.$description;
         }
@@ -2070,7 +2129,7 @@ TEXT;
     private function formatTier1(array $w): string
     {
         $lines = [
-            'PERSISTENT STATE — TIER 1 (always loaded):',
+            'PERSISTENT STATE, TIER 1 (always loaded):',
             'This is a record of what is true, kept for consistency. It is not a list of things to mention. Bring a carried item, condition, or fact into the prose only when it changes, when the player uses or asks about it, or when this turn\'s action depends on it.',
         ];
         $location = mb_trim((string) ($w['location'] ?? ''));
@@ -2126,7 +2185,7 @@ TEXT;
             array_filter($recentLedger, static fn ($e) => is_array($e)),
         );
 
-        $lines = ['PERSISTENT STATE — TIER 2 (scene-connected):'];
+        $lines = ['PERSISTENT STATE, TIER 2 (scene-connected):'];
         $lines[] = 'Object states: '.$this->joinList($object);
         $lines[] = 'Relationships: '.$this->joinList($relationships);
         $lines[] = 'World flags: '.$this->joinList($flags);
@@ -2148,7 +2207,7 @@ TEXT;
             array_filter($ledger, static fn ($e) => is_array($e)),
         );
 
-        $lines = ['PERSISTENT STATE — TIER 3 (full load — an episode boundary, or the previous turn resolved a moral-weight or session-end choice):'];
+        $lines = ['PERSISTENT STATE, TIER 3 (full load: an episode boundary, or the previous turn resolved a moral-weight or session-end choice):'];
         $lines[] = 'All object states: '.$this->joinList((array) ($w['object_states'] ?? []));
         $lines[] = 'All relationships: '.$this->joinList((array) ($w['relationship_updates'] ?? []));
         $lines[] = 'All world flags: '.$this->joinList((array) ($w['world_flags'] ?? []));
@@ -2529,17 +2588,22 @@ TEXT;
 
     /**
      * Keep the prompt text and order intact while placing one explicit cache
-     * breakpoint immediately before the first per-turn runtime injection.
+     * breakpoint immediately before the first per-turn content.
      *
-     * For the Speckled Band prompt this caches about 66KB (Sections 1-7).
-     * Sections 8+ still carry fresh memory, active-moment, and world-state data.
+     * Rendered prompts gather all per-turn data into the live turn context at
+     * the end, so everything above it (all authored sections and the sparse
+     * contract) is cached. Prompts without that section fall back to splitting
+     * before Section 8, the first runtime injection in the older layout.
      *
      * @return array<int, SystemMessage>
      */
     private function anthropicSystemPrompts(string $systemPrompt): array
     {
-        $runtimeSection = '### SECTION 8:';
-        $runtimeOffset = mb_strpos($systemPrompt, $runtimeSection);
+        $runtimeOffset = mb_strpos($systemPrompt, self::LIVE_TURN_CONTEXT_MARKER);
+
+        if ($runtimeOffset === false) {
+            $runtimeOffset = mb_strpos($systemPrompt, '### SECTION 8:');
+        }
 
         if ($runtimeOffset === false || $runtimeOffset === 0) {
             return [new SystemMessage($systemPrompt)];
