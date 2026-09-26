@@ -244,6 +244,11 @@ PROMPT;
                 isSessionStart: false,
                 isClimacticPrevious: $isClimactic,
                 isClimacticThisTurn: $isClimactic,
+                playerAction: $playerAction,
+                recentNarrations: array_slice(array_column(
+                    array_filter($history, static fn (array $entry): bool => ($entry['role'] ?? '') === 'narrator'),
+                    'text',
+                ), -3),
             );
 
             if ($explicitBranch !== null) {
@@ -274,9 +279,11 @@ PROMPT;
             // Boiler scales the window with time spent in the active room, but never
             // below the legacy floor: the turn count resets when the pointer advances,
             // and a narrator that only remembers one exchange cannot honour what the
-            // player did in the room they just left.
+            // player did in the room they just left. The ceiling stops a long stay in
+            // one room from feeding the narrator its own repeated prose; older facts
+            // reach it through the persistent state instead.
             $historyWindow = $boilerActive
-                ? array_slice($history, -max(20, ($game->playable_moment_turn_count + 1) * 2))
+                ? array_slice($history, -min(28, max(20, ($game->playable_moment_turn_count + 1) * 2)))
                 : array_slice($history, -20);
 
             $usageOccurredAt = now()->toImmutable()->utc();

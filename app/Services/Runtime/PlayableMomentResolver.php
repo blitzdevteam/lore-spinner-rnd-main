@@ -22,6 +22,12 @@ final class PlayableMomentResolver
      */
     private const ENDING_BLOCK_TOLERANCE = 3;
 
+    /**
+     * Furthest the pointer may jump in one turn when the narrator reports the
+     * story has overtaken the active card.
+     */
+    private const MAX_CATCH_UP_CARDS = 3;
+
     public function __construct(private ChaosEngineService $engine) {}
 
     public function initializeForSession(Game $game, SessionAdaptation $session): void
@@ -132,9 +138,14 @@ final class PlayableMomentResolver
                 $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
                 $rawRoute = $hadProgressObject ? (string) ($progress['route_relation'] ?? '') : '';
                 $rawImpact = $hadProgressObject ? (string) ($progress['impact_scope'] ?? '') : '';
+                $catchUpCandidate = $hadProgressObject ? mb_trim((string) ($progress['caught_up_to_moment_key'] ?? '')) : '';
+                if ($catchUpCandidate === '' && is_string($rawMomentKey) && $rawMomentKey !== $currentMoment->moment_key) {
+                    $catchUpCandidate = mb_trim($rawMomentKey);
+                }
                 $progress = [
                     'moment_key' => $currentMoment->moment_key,
                     'exit_condition_met' => false,
+                    'caught_up_to_moment_key' => $catchUpCandidate,
                     'route_relation' => $rawRoute,
                     'impact_scope' => $rawImpact,
                     'moment_footnote' => $footnote,
@@ -150,8 +161,17 @@ final class PlayableMomentResolver
                 ]);
             }
 
-            $nextMoment = null;
-            if ($progress['exit_condition_met']) {
+            $nextMoment = $this->catchUpTarget(
+                $currentMoment,
+                (string) ($progress['caught_up_to_moment_key'] ?? ''),
+                $lockedGame->id,
+            );
+            $caughtUp = $nextMoment !== null;
+
+            if ($caughtUp) {
+                $progress['exit_condition_met'] = true;
+                $result['moment_progress'] = $progress;
+            } elseif ($progress['exit_condition_met']) {
                 $nextMoment = PlayableMoment::query()
                     ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
                     ->where('moment_order', $currentMoment->moment_order + 1)
@@ -174,7 +194,7 @@ final class PlayableMomentResolver
                     ($result['defining_choice_id'] ?? '') !== ''
                     && (
                         strcasecmp((string) $result['defining_choice_id'], $explicitBranch['defining_choice_id']) !== 0
-                        || strtoupper((string) ($result['defining_path_label'] ?? '')) !== $explicitBranch['defining_path_label']
+                        || mb_strtoupper((string) ($result['defining_path_label'] ?? '')) !== $explicitBranch['defining_path_label']
                     )
                 ) {
                     Log::channel('narration')->warning('boiler.explicit_branch_model_mismatch', [
@@ -316,6 +336,7 @@ final class PlayableMomentResolver
                 'exit_condition_met' => $progress['exit_condition_met'],
                 'result' => $momentResult,
                 'next_moment_key' => $nextMoment?->moment_key,
+                'caught_up' => $caughtUp,
                 'moment_footnote' => $footnote !== '' ? $footnote : null,
                 'route_relation' => $routeRelation,
                 'impact_scope' => $impactScope,
@@ -324,6 +345,56 @@ final class PlayableMomentResolver
 
             return $responsePrompt;
         });
+    }
+
+    /**
+     * Move the pointer to the card the prose has already reached.
+     *
+     * The narrator reports it when the story has overtaken the active card,
+     * which otherwise leaves the pointer several cards behind the fiction and
+     * keeps injecting a scene the player has already left. The jump is bounded
+     * and never passes over a card that carries an authored choice, so a branch
+     * can never be skipped by it.
+     */
+    private function catchUpTarget(PlayableMoment $currentMoment, string $targetKey, string $gameId): ?PlayableMoment
+    {
+        $targetKey = mb_trim($targetKey);
+        if ($targetKey === '' || $targetKey === $currentMoment->moment_key) {
+            return null;
+        }
+
+        $target = PlayableMoment::query()
+            ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
+            ->where('moment_key', $targetKey)
+            ->first();
+
+        $rejection = match (true) {
+            $target === null => 'unknown_key',
+            $target->moment_order <= $currentMoment->moment_order => 'not_later',
+            $target->moment_order - $currentMoment->moment_order > self::MAX_CATCH_UP_CARDS => 'too_far',
+            default => null,
+        };
+
+        if ($rejection === null) {
+            $skipped = PlayableMoment::query()
+                ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
+                ->where('moment_order', '>', $currentMoment->moment_order)
+                ->where('moment_order', '<', $target->moment_order)
+                ->get();
+
+            if ($skipped->contains(fn (PlayableMoment $moment): bool => (array) data_get($moment->scene_card, 'choice_ids', []) !== [])) {
+                $rejection = 'would_skip_authored_choice';
+            }
+        }
+
+        Log::channel('narration')->info($rejection === null ? 'boiler.moment_caught_up' : 'boiler.moment_catch_up_rejected', [
+            'game_id' => $gameId,
+            'from_moment_key' => $currentMoment->moment_key,
+            'target_moment_key' => $targetKey,
+            'reason' => $rejection,
+        ]);
+
+        return $rejection === null ? $target : null;
     }
 
     /**
@@ -409,7 +480,7 @@ final class PlayableMomentResolver
             }
 
             $choiceId = (string) $choice['canonical_choice_id'];
-            $pathLabel = strtoupper((string) ($choice['canonical_path_label'] ?? ''));
+            $pathLabel = mb_strtoupper((string) ($choice['canonical_path_label'] ?? ''));
 
             if (! in_array($choiceId, $allowedChoiceIds, true)) {
                 return $this->demoteMappedSuggestion(
@@ -427,7 +498,7 @@ final class PlayableMomentResolver
             $authoredChoice = $this->findAuthoredChoice($session, $choiceId);
             $labels = collect((array) ($authoredChoice['options'] ?? []))
                 ->pluck('label')
-                ->map(fn ($label): string => strtoupper((string) $label))
+                ->map(fn ($label): string => mb_strtoupper((string) $label))
                 ->all();
 
             if ($authoredChoice === null) {
@@ -507,7 +578,7 @@ final class PlayableMomentResolver
 
     private function boundedFootnote(string $footnote, string $gameId): string
     {
-        $footnote = trim($footnote);
+        $footnote = mb_trim($footnote);
         if ($footnote === '') {
             Log::channel('narration')->warning('boiler.moment_footnote_missing_on_commit', [
                 'game_id' => $gameId,

@@ -12,8 +12,8 @@ use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Models\User;
-use App\Services\Runtime\PlayableMomentResolver;
 use App\Services\ChaosEngineService;
+use App\Services\Runtime\PlayableMomentResolver;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 uses(DatabaseTransactions::class);
@@ -737,7 +737,7 @@ it('blocks session complete until an authored session-ending choice is resolved'
         ->and($completed->moment_result)->toBe('completed');
 });
 
-it('replaces near-duplicate symbolic_memory and player_style entries by stem', function () {
+it('replaces near-duplicate symbolic_memory and player_style entries', function () {
     $engine = app(ChaosEngineService::class);
 
     // Exact duplicate: stem matches, replaces with identical text — no line added.
@@ -831,4 +831,90 @@ it('soft-holds malformed progress without inventing an exit and without a second
 
     // Soft structural hold is in-process only — there is no second callAgent for Boiler repair.
     expect((new ReflectionClass($engine))->hasMethod('callAgent'))->toBeTrue();
+});
+
+it('catches the pointer up to the card the prose has already reached', function () {
+    $fixture = boilerResolverFixture();
+    $third = $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
+    ]);
+    $result = boilerResolverResult('S1_M01', true, 'They left the nursery by the window and are over the rooftops now.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M03';
+
+    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Fly out of the window.',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($third->id)
+        ->and($game->playable_moment_turn_count)->toBe(0)
+        ->and($response->moment_result)->toBe('advanced')
+        ->and((bool) $response->exit_condition_met)->toBeTrue();
+});
+
+it('never catches up past a card that carries an authored choice', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => ['moment_key' => 'S1_M02', 'choice_ids' => ['S1_C1']],
+    ]);
+    $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
+    ]);
+    $result = boilerResolverResult('S1_M01', true, 'They are already past the choice in the prose.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M03';
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Keep going.',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('treats a later card named as moment_key as a catch-up instead of holding the stale card', function () {
+    $fixture = boilerResolverFixture();
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game'],
+        $fixture['source'],
+        'Follow him out.',
+        boilerResolverResult('S1_M02', true, 'The player followed Peter out of the nursery.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('ignores a catch-up key that names an earlier or unknown card', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['game']->update(['current_playable_moment_id' => $fixture['second']->id]);
+    $result = boilerResolverResult('S1_M02', false, 'Still in the second room.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M01';
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Look around.',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
 });

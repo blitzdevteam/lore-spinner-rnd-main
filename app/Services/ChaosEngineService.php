@@ -111,7 +111,36 @@ final class ChaosEngineService
     private const TIER2_BACKGROUND_ENTRIES = 12;
 
     /**
-     * Function words excluded when computing a memory stem. Words
+     * Of the Tier 1 knowledge and notes shown each turn, how many are simply the
+     * latest. The rest of the cap goes to older entries relevant to this turn,
+     * so an early fact returns when the story reaches for it again.
+     */
+    private const TIER1_ALWAYS_RECENT = 6;
+
+    /** Ledger entries shown on a full (Tier 3) load. Storage keeps all of them. */
+    private const TIER3_LEDGER_ENTRIES = 20;
+
+    /** Share of meaningful words two memory lines must have in common to count as one fact. */
+    private const MEMORY_SAME_THRESHOLD = 0.6;
+
+    /** Player-style observations are short, so a looser overlap already means the same pattern. */
+    private const PLAYER_STYLE_SAME_THRESHOLD = 0.5;
+
+    /** Capitalised at the start of a line without naming anyone. */
+    private const MEMORY_SENTENCE_OPENERS = [
+        'the', 'she', 'her', 'hers', 'his', 'him', 'they', 'you', 'our', 'its',
+        'and', 'but', 'now', 'yet', 'not', 'has', 'had', 'was', 'are', 'can',
+        'will', 'still', 'already', 'player', 'protagonist', 'narrator',
+    ];
+
+    /** Words that cannot on their own make two narrations sound repetitive. */
+    private const PHRASING_FILLER = [
+        'said', 'says', 'asked', 'into', 'from', 'with', 'that', 'this', 'there',
+        'then', 'their', 'your', 'have', 'were', 'what', 'when', 'which',
+    ];
+
+    /**
+     * Function words excluded when comparing memory lines. Words
      * shorter than four characters are dropped separately, so this list
      * only needs the longer connectives that would otherwise manufacture
      * false stems.
@@ -151,6 +180,7 @@ MEMORY ACCURACY (THE WORLD REMEMBERS WHAT IS TRUE):
 - PROMISES AND LEDGER: record a commitment only when the player actually made one. Leaving, arriving, or staying silent is not a promise.
 - DROP WHAT IS NO LONGER TRUE: conditions that belonged to a scene the story has left must not survive into the next scene. A wound persists; a mood about a room that is now behind you does not. When the location changes, carry forward only what is still true of this body in this room.
 - DO NOT ACCUMULATE: write the CURRENT version of an observation, not a new phrasing on top of old ones. If something is already recorded and has not changed, return nothing for it.
+- SUPERSEDE WHAT CHANGED: when a recorded knowledge, note, or player-style entry stops being true, write its new version with the same names and key words as the old one ("the guard trusts the protagonist" becomes "the guard no longer trusts the protagonist"). The runtime replaces the old entry with it, so the record never holds both.
 TEXT;
 
     /**
@@ -327,9 +357,14 @@ TEXT;
      *                        it loads after a climactic turn: the narrator needs the
      *                        full registry and history to honour what carried over.
      *
+     * playerAction and recentNarrations (oldest first) steer which stored
+     * memories are shown this turn and which phrasing the narrator must not
+     * reuse. They never change what is stored.
+     *
      * @param  array<string, mixed>  $sessionContext
      * @param  array<string, mixed>  $worldState
      * @param  array{chaotic:int, lawful:int, neutral:int}  $alignmentScaffold
+     * @param  array<int, string>  $recentNarrations
      */
     public function renderSystemPrompt(
         array $sessionContext,
@@ -340,6 +375,8 @@ TEXT;
         bool $isClimacticPrevious,
         bool $isClimacticThisTurn = false,
         bool $isEpisodeTransition = false,
+        ?string $playerAction = null,
+        array $recentNarrations = [],
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
@@ -357,10 +394,25 @@ TEXT;
         // moment injection and the Boiler session map — narrowing this haystack to
         // one scene card only demoted everything the player did earlier in the
         // session to background, which is the opposite of a world that remembers.
+        $recentNarrations = array_values(array_filter(
+            array_map(static fn (mixed $text): string => mb_trim((string) $text), $recentNarrations),
+            static fn (string $text): bool => $text !== '',
+        ));
+        $lastNarration = $recentNarrations === [] ? '' : $recentNarrations[array_key_last($recentNarrations)];
+        $activeContext = (array) ($sessionContext['active_moment_context'] ?? []);
+        $focusText = implode(' ', [
+            (string) $playerAction,
+            $lastNarration,
+            (string) ($activeContext['exit_condition'] ?? ''),
+            (string) data_get($activeContext, 'moment.title', ''),
+        ]);
+
         $worldStateBlock = $this->renderTieredWorldState(
             worldState: $worldState,
             isClimactic: $isClimacticPrevious || $isEpisodeTransition,
             sessionEvents: (array) ($sessionContext['full_session_events'] ?? []),
+            focusText: $focusText,
+            lastNarration: $lastNarration,
         );
 
         // On session-start: inject the full opening block into Section 13 via its token.
@@ -410,7 +462,11 @@ TEXT;
             }
         }
 
-        return $this->withLiveTurnContext($prompt, $liveBlocks);
+        return $this->withLiveTurnContext($prompt, $liveBlocks, [
+            'RECENT PHRASING (already used in your last turns; do not reuse any of it)' => $isSessionStart
+                ? ''
+                : $this->recentPhrasingBlock($recentNarrations),
+        ]);
     }
 
     /**
@@ -938,7 +994,11 @@ TEXT;
         foreach (self::APPEND_ONLY_STATE_FIELDS as $key) {
             $value = $delta[$key] ?? null;
             $merged[$key] = is_array($value)
-                ? $this->appendUniqueStringList((array) ($previous[$key] ?? []), $value)
+                ? $this->appendUniqueStringList(
+                    (array) ($previous[$key] ?? []),
+                    $value,
+                    $key === 'player_style' ? self::PLAYER_STYLE_SAME_THRESHOLD : self::MEMORY_SAME_THRESHOLD,
+                )
                 : $this->cleanStringList($previous[$key] ?? []);
         }
 
@@ -987,32 +1047,23 @@ TEXT;
         }
 
         $lines = preg_split("/\r\n|\n|\r/", mb_trim($existing)) ?: [];
-        $updateStem = $this->memoryStem($update);
 
-        // Replace any existing line whose stem matches the new update's stem.
-        // The new line is more recent and more earned — it should replace the
-        // stale variant, not accumulate alongside it. This stops the
-        // "Emmit is the kind of man who..." cascade where the model writes
-        // five variants of the same observation and feeds them all back as
-        // authoritative guidance next turn.
-        $replaced = false;
-        foreach ($lines as $index => $line) {
-            if ($this->memoryStem((string) $line) === $updateStem) {
-                $lines[$index] = $update;
-                $replaced = true;
-            }
-        }
-
-        if ($replaced) {
-            return implode("\n", $lines);
-        }
+        // Any line that says the same thing as the update is superseded by it.
+        // The new line is more recent and more earned, so it replaces the stale
+        // variant instead of accumulating beside it. This stops the "Emmit is
+        // the kind of man who..." cascade where five phrasings of one
+        // observation are fed back as authoritative guidance next turn.
+        $lines = array_values(array_filter(
+            $lines,
+            fn (string $line): bool => mb_trim($line) !== '' && ! $this->isSameMemory($line, $update, self::MEMORY_SAME_THRESHOLD),
+        ));
 
         // Keep a rolling window of recent lines so the memory stays focused
         // on what the player is actually doing now, not what they did 20
         // turns ago.
         $recent = array_slice($lines, -8);
 
-        return implode("\n", $recent)."\n".$update;
+        return $recent === [] ? $update : implode("\n", $recent)."\n".$update;
     }
 
     /**
@@ -1125,9 +1176,13 @@ TEXT;
      * section replaces the world-state token, which the template already
      * places last; templates without it get the section appended.
      *
+     * Extra sections have no template token; each is appended only when it
+     * has content.
+     *
      * @param  array<string, array{0:string, 1:string}>  $liveBlocks
+     * @param  array<string, string>  $extraSections
      */
-    private function withLiveTurnContext(string $prompt, array $liveBlocks): string
+    private function withLiveTurnContext(string $prompt, array $liveBlocks, array $extraSections = []): string
     {
         $pointers = [];
         $sections = [];
@@ -1142,6 +1197,13 @@ TEXT;
 
             if ($token !== '[WORLD_STATE_TIERED_INJECTION_POINT]') {
                 $pointers[$token] = "(Live this turn: see {$label} in the live turn context at the end of this prompt.)";
+            }
+        }
+
+        foreach ($extraSections as $label => $content) {
+            $content = mb_trim($content);
+            if ($content !== '') {
+                $sections[] = "LIVE: {$label}\n{$content}";
             }
         }
 
@@ -1354,41 +1416,6 @@ TEXT;
         $line = preg_replace('/\s+/u', ' ', $line) ?? $line;
 
         return $line;
-    }
-
-    /**
-     * Extract the first few distinctive content words from a line so
-     * variants of the same observation can be detected and replaced
-     * instead of accumulated.
-     *
-     * "Emmit is the kind of man who opens the door"
-     * "Emmit is the kind of man who opens the door — and then reaches for..."
-     * Both reduce to the same stem: "emmit kind opens door" — the second
-     * replaces the first rather than sitting alongside it.
-     *
-     * Stopwords and words shorter than four characters are dropped so
-     * "the kind of" does not become part of the stem. The first five
-     * surviving content words are enough to identify the observation
-     * without being so narrow that a rephrasing escapes detection.
-     */
-    private function memoryStem(string $line): string
-    {
-        $normalized = preg_replace("/['\u{2019}]s\b/u", '', mb_strtolower($line)) ?? mb_strtolower($line);
-        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        $stem = [];
-        foreach ($words as $word) {
-            if (in_array($word, self::MEMORY_STEM_STOPWORDS, true) || mb_strlen($word) < 4) {
-                continue;
-            }
-
-            $stem[] = $word;
-            if (count($stem) >= 5) {
-                break;
-            }
-        }
-
-        return implode(' ', $stem);
     }
 
     /**
@@ -1615,9 +1642,9 @@ TEXT;
         if ($targetWords > 0) {
             $budgetLines = [
                 'LENGTH CONTRACT FOR THIS ROOM (THIS OVERRIDES THE GENERIC WORD-COUNT GUIDANCE ELSEWHERE IN THIS PROMPT):',
-                "Authored target for narration prose this turn: {$targetWords} words. Acceptable band: ".max(1, (int) round($targetWords * 0.8)).'–'.(int) round($targetWords * 1.25).' words.',
-                'This number is the author\'s compression, not a formatting preference. At this voice, length IS style: the same content at triple this count stops being their prose and becomes generic narration, however good the diction.',
-                'Answer the player completely inside this budget. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established, never by refusing them detail about what they actually did.',
+                "Authored density for this room: about {$targetWords} words for a typical turn, rarely above ".(int) round($targetWords * 1.25).' words.',
+                'This number is the author\'s compression, not an amount to fill. Length follows what the action produced: a small action gets fewer words, and going under is always fine. Only a turn where much genuinely happens may run toward the upper figure, and only if every sentence tells the player something new. At this voice, length IS style: the same content at triple this count stops being their prose and becomes generic narration, however good the diction.',
+                'Answer the player completely. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established, never by refusing them detail about what they actually did.',
             ];
 
             if ($previousWords > 0) {
@@ -1634,6 +1661,10 @@ TEXT;
 
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic: outcomes, not a checklist): '.$exitCondition;
+        }
+
+        if (! $isSessionStart && $targetTurns > 0 && $turnCount >= $targetTurns) {
+            $lines[] = "STORY CHECK: this card has held {$turnCount} turns against a target of {$targetTurns}. Compare it with where the prose actually is. If the story has already left this card behind, set exit_condition_met=true and report the moment it is in now as caught_up_to_moment_key (see the moment_progress contract). If the story is still here, keep playing it; this is not a reason to rush.";
         }
 
         $lines[] = implode("\n", array_filter([
@@ -1949,11 +1980,18 @@ TEXT;
             $hadProgressObject = is_array($progress);
             $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
             $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
+            $catchUpCandidate = $hadProgressObject ? mb_trim((string) ($progress['caught_up_to_moment_key'] ?? '')) : '';
+            if ($catchUpCandidate === '' && is_string($rawMomentKey) && $rawMomentKey !== $moment->moment_key) {
+                $catchUpCandidate = mb_trim($rawMomentKey);
+            }
             $result['moment_progress'] = [
                 'moment_key' => $moment->moment_key,
                 // Never trust an exit judgment that was attached to the wrong room
                 // or an incomplete object — hold the player in the active moment.
+                // A key naming a different card is kept as a catch-up candidate;
+                // the resolver accepts it only for a reachable later card.
                 'exit_condition_met' => false,
+                'caught_up_to_moment_key' => $catchUpCandidate,
                 ...$this->normalizeRouteFields(is_array($progress) ? $progress : []),
                 'moment_footnote' => $footnote,
             ];
@@ -1992,6 +2030,7 @@ TEXT;
         // them so a loose value degrades to "unknown" instead of poisoning metrics.
         $result['moment_progress'] = [
             ...$result['moment_progress'],
+            'caught_up_to_moment_key' => mb_trim((string) ($result['moment_progress']['caught_up_to_moment_key'] ?? '')),
             ...$this->normalizeRouteFields($result['moment_progress']),
         ];
         $progress = $result['moment_progress'];
@@ -2000,6 +2039,7 @@ TEXT;
         if ($isOpening) {
             $result['moment_progress']['route_relation'] = '';
             $result['moment_progress']['impact_scope'] = '';
+            $result['moment_progress']['caught_up_to_moment_key'] = '';
 
             if ($progress['exit_condition_met'] !== false || $footnote !== null) {
                 $result['moment_progress']['exit_condition_met'] = false;
@@ -2109,10 +2149,15 @@ TEXT;
      * @param  array<string, mixed>  $worldState
      * @param  array<int, array<string, mixed>>  $sessionEvents
      */
-    private function renderTieredWorldState(array $worldState, bool $isClimactic, array $sessionEvents): string
-    {
-        $tier1 = $this->formatTier1($worldState);
-        $tier2 = $this->formatTier2($worldState, $sessionEvents);
+    private function renderTieredWorldState(
+        array $worldState,
+        bool $isClimactic,
+        array $sessionEvents,
+        string $focusText = '',
+        string $lastNarration = '',
+    ): string {
+        $tier1 = $this->formatTier1($worldState, $focusText, $lastNarration);
+        $tier2 = $this->formatTier2($worldState, $sessionEvents, $focusText);
 
         if ($isClimactic) {
             $tier3 = $this->formatTier3($worldState);
@@ -2126,20 +2171,211 @@ TEXT;
     /**
      * @param  array<string, mixed>  $w
      */
-    private function formatTier1(array $w): string
+    private function formatTier1(array $w, string $focusText = '', string $lastNarration = ''): string
     {
         $lines = [
             'PERSISTENT STATE, TIER 1 (always loaded):',
             'This is a record of what is true, kept for consistency. It is not a list of things to mention. Bring a carried item, condition, or fact into the prose only when it changes, when the player uses or asks about it, or when this turn\'s action depends on it.',
         ];
+        $items = $this->cleanStringList($w['items'] ?? []);
+        $conditions = $this->cleanStringList($w['conditions'] ?? []);
+        $knowledge = $this->selectRelevantMemories($this->cleanStringList($w['knowledge'] ?? []), self::TIER1_RECENT_KNOWLEDGE, $focusText);
+        $notes = $this->selectRelevantMemories($this->cleanStringList($w['notes'] ?? []), self::TIER1_RECENT_NOTES, $focusText);
+
+        [$knowledge, $knowledgeOnPage] = $this->splitAlreadyOnPage($knowledge, $lastNarration);
+        [$notes, $notesOnPage] = $this->splitAlreadyOnPage($notes, $lastNarration);
+        [, $carriedOnPage] = $this->splitAlreadyOnPage([...$items, ...$conditions], $lastNarration);
+
         $location = mb_trim((string) ($w['location'] ?? ''));
         $lines[] = 'Location: '.($location !== '' ? $location : '(unset)');
-        $lines[] = 'Items: '.$this->joinList((array) ($w['items'] ?? []));
-        $lines[] = 'Conditions: '.$this->joinList((array) ($w['conditions'] ?? []));
-        $lines[] = 'Knowledge (most recent): '.$this->joinList($this->mostRecent((array) ($w['knowledge'] ?? []), self::TIER1_RECENT_KNOWLEDGE));
-        $lines[] = 'Notes (most recent): '.$this->joinList($this->mostRecent((array) ($w['notes'] ?? []), self::TIER1_RECENT_NOTES));
+        $lines[] = 'Items: '.$this->joinList($items);
+        $lines[] = 'Conditions: '.$this->joinList($conditions);
+        $lines[] = 'Knowledge (latest, plus older facts this turn reaches for): '.$this->joinList($knowledge);
+        $lines[] = 'Notes (latest, plus older notes this turn reaches for): '.$this->joinList($notes);
+
+        $onPage = [...$carriedOnPage, ...$knowledgeOnPage, ...$notesOnPage];
+        if ($onPage !== []) {
+            $lines[] = 'Already on the page in your last turn (the player has it; repeat none of it unless it changes this turn): '.$this->joinList($onPage);
+        }
+
         $lines[] = 'Observed player tendencies (tentative; their latest action always outranks these): '
             .$this->joinList($this->mostRecent((array) ($w['player_style'] ?? []), self::TIER1_RECENT_PLAYER_STYLE));
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Pick which stored memories to show: always the latest few, then the
+     * older entries that share the most meaningful words and names with this
+     * turn (the player's action, the last narration, the active card), then
+     * the most recent of the rest for any slots still open. Entries keep their
+     * chronological order.
+     *
+     * @param  array<int, string>  $entries
+     * @return array<int, string>
+     */
+    private function selectRelevantMemories(array $entries, int $limit, string $focusText): array
+    {
+        $entries = array_values($entries);
+        if (count($entries) <= $limit) {
+            return $entries;
+        }
+
+        $recentCount = min(self::TIER1_ALWAYS_RECENT, $limit);
+        $olderCount = count($entries) - $recentCount;
+        $focusWords = $this->memoryWords($focusText);
+        $focusNames = $this->memoryNames($focusText);
+
+        $scores = [];
+        for ($index = 0; $index < $olderCount; $index++) {
+            $score = count(array_intersect($this->memoryWords($entries[$index]), $focusWords))
+                + 2 * count(array_intersect($this->memoryNames($entries[$index]), $focusNames));
+
+            if ($score >= 2) {
+                $scores[$index] = $score;
+            }
+        }
+
+        arsort($scores);
+        $chosen = array_slice(array_keys($scores), 0, $limit - $recentCount);
+
+        for ($index = $olderCount - 1; $index >= 0 && count($chosen) < $limit - $recentCount; $index--) {
+            if (! in_array($index, $chosen, true)) {
+                $chosen[] = $index;
+            }
+        }
+        sort($chosen);
+
+        return [
+            ...array_map(static fn (int $index): string => $entries[$index], $chosen),
+            ...array_slice($entries, $olderCount),
+        ];
+    }
+
+    /**
+     * Split out entries the last narration already stated, so the narrator
+     * sees them labelled as established instead of as material to use.
+     *
+     * @param  array<int, string>  $entries
+     * @return array{0: array<int, string>, 1: array<int, string>}
+     */
+    private function splitAlreadyOnPage(array $entries, string $lastNarration): array
+    {
+        if ($lastNarration === '' || $entries === []) {
+            return [$entries, []];
+        }
+
+        $narrationWords = $this->memoryWords($lastNarration);
+        $fresh = [];
+        $onPage = [];
+
+        foreach ($entries as $entry) {
+            $words = $this->memoryWords($entry);
+            $covered = $words === [] ? 0 : count(array_intersect($words, $narrationWords)) / count($words);
+
+            if (count($words) >= 2 && $covered >= 0.75) {
+                $onPage[] = $entry;
+            } else {
+                $fresh[] = $entry;
+            }
+        }
+
+        return [$fresh, $onPage];
+    }
+
+    /**
+     * Ledger lines with near-repeats collapsed to their latest phrasing.
+     *
+     * @param  array<int, mixed>  $ledger
+     * @return array<int, string>
+     */
+    private function distinctLedgerLines(array $ledger, int $limit): array
+    {
+        $lines = array_map(
+            static fn (array $entry): string => sprintf('%s: %s', $entry['category'] ?? 'note', $entry['entry'] ?? ''),
+            array_values(array_filter($ledger, static fn ($entry): bool => is_array($entry))),
+        );
+
+        return array_slice($this->appendUniqueStringList([], $lines), -$limit);
+    }
+
+    /**
+     * Phrases and sentence openings the narrator has already leaned on in its
+     * recent turns, measured from the text rather than asked of the model.
+     *
+     * @param  array<int, string>  $recentNarrations
+     */
+    private function recentPhrasingBlock(array $recentNarrations): string
+    {
+        $recent = array_slice(array_values($recentNarrations), -3);
+        if (count($recent) < 2) {
+            return '';
+        }
+
+        $gramTurns = [];
+        $openers = [];
+        foreach ($recent as $narration) {
+            $text = mb_strtolower(strip_tags($narration));
+            $words = preg_split("/[^\p{L}\p{N}'\x{2019}]+/u", $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+            $seen = [];
+            for ($i = 0; $i + 4 <= count($words); $i++) {
+                $gram = array_slice($words, $i, 4);
+                $content = array_filter(
+                    $gram,
+                    static fn (string $word): bool => mb_strlen($word) >= 4 && ! in_array($word, self::PHRASING_FILLER, true),
+                );
+                if (count($content) >= 2) {
+                    $seen[implode(' ', $gram)] = true;
+                }
+            }
+            foreach (array_keys($seen) as $gram) {
+                $gramTurns[$gram] = ($gramTurns[$gram] ?? 0) + 1;
+            }
+
+            foreach (preg_split('/(?<=[.!?])\s+/u', mb_trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $sentence) {
+                $opening = implode(' ', array_slice(preg_split('/\s+/u', mb_trim($sentence)) ?: [], 0, 2));
+                if ($opening !== '') {
+                    $openers[$opening] = ($openers[$opening] ?? 0) + 1;
+                }
+            }
+        }
+
+        $phrases = [];
+        foreach (array_keys(array_filter($gramTurns, static fn (int $turns): bool => $turns >= 2)) as $gram) {
+            $gramWords = explode(' ', $gram);
+            $prefix = implode(' ', array_slice($gramWords, 0, 3));
+
+            foreach ($phrases as $index => $kept) {
+                if (str_ends_with($kept, $prefix)) {
+                    $phrases[$index] = $kept.' '.$gramWords[3];
+
+                    continue 2;
+                }
+
+                if (str_contains($kept, $prefix)) {
+                    continue 2;
+                }
+            }
+
+            $phrases[] = $gram;
+        }
+
+        $repeatedOpeners = array_keys(array_filter($openers, static fn (int $count): bool => $count >= 3));
+
+        $lastTurn = (string) end($recent);
+        $dashes = mb_substr_count($lastTurn, "\u{2014}") + mb_substr_count($lastTurn, ' - ');
+
+        $lines = [];
+        if ($phrases !== []) {
+            $lines[] = 'Phrases: "'.implode('" • "', array_slice($phrases, 0, 12)).'"';
+        }
+        if ($repeatedOpeners !== []) {
+            $lines[] = 'Sentence openings used three or more times: "'.implode('" • "', array_slice($repeatedOpeners, 0, 8)).'"';
+        }
+        if ($dashes > 0) {
+            $lines[] = "Your last turn used {$dashes} dash".($dashes === 1 ? '' : 'es').' as punctuation. Use none unless the Anchor Card allows them.';
+        }
 
         return implode("\n", $lines);
     }
@@ -2157,7 +2393,7 @@ TEXT;
      * @param  array<string, mixed>  $w
      * @param  array<int, array<string, mixed>>  $sessionEvents
      */
-    private function formatTier2(array $w, array $sessionEvents): string
+    private function formatTier2(array $w, array $sessionEvents, string $focusText = ''): string
     {
         $haystack = mb_strtolower(implode(' ', array_map(
             static fn ($e) => (string) ($e['title'] ?? '').' '.(string) ($e['content'] ?? ''),
@@ -2171,19 +2407,14 @@ TEXT;
         $object = $this->filterByHaystack($allObjects, $haystack);
         $relationships = $this->filterByHaystack($allRelationships, $haystack);
         $flags = $this->filterByHaystack($allFlags, $haystack);
-        $background = $this->mostRecent([
+        $background = $this->selectRelevantMemories([
             ...array_values(array_diff($allObjects, $object)),
             ...array_values(array_diff($allRelationships, $relationships)),
             ...array_values(array_diff($allFlags, $flags)),
-        ], self::TIER2_BACKGROUND_ENTRIES);
+        ], self::TIER2_BACKGROUND_ENTRIES, $focusText);
         $promises = (array) ($w['unresolved_promises'] ?? []);
 
-        $ledger = (array) ($w['emotional_ledger'] ?? []);
-        $recentLedger = array_slice($ledger, -6);
-        $ledgerLines = array_map(
-            static fn (array $entry) => sprintf('%s: %s', $entry['category'] ?? 'note', $entry['entry'] ?? ''),
-            array_filter($recentLedger, static fn ($e) => is_array($e)),
-        );
+        $ledgerLines = $this->distinctLedgerLines((array) ($w['emotional_ledger'] ?? []), 6);
 
         $lines = ['PERSISTENT STATE, TIER 2 (scene-connected):'];
         $lines[] = 'Object states: '.$this->joinList($object);
@@ -2201,17 +2432,13 @@ TEXT;
      */
     private function formatTier3(array $w): string
     {
-        $ledger = (array) ($w['emotional_ledger'] ?? []);
-        $allLedger = array_map(
-            static fn (array $entry) => sprintf('%s: %s', $entry['category'] ?? 'note', $entry['entry'] ?? ''),
-            array_filter($ledger, static fn ($e) => is_array($e)),
-        );
+        $allLedger = $this->distinctLedgerLines((array) ($w['emotional_ledger'] ?? []), self::TIER3_LEDGER_ENTRIES);
 
         $lines = ['PERSISTENT STATE, TIER 3 (full load: an episode boundary, or the previous turn resolved a moral-weight or session-end choice):'];
         $lines[] = 'All object states: '.$this->joinList((array) ($w['object_states'] ?? []));
         $lines[] = 'All relationships: '.$this->joinList((array) ($w['relationship_updates'] ?? []));
         $lines[] = 'All world flags: '.$this->joinList((array) ($w['world_flags'] ?? []));
-        $lines[] = 'Full emotional ledger: '.$this->joinList($allLedger);
+        $lines[] = 'Emotional ledger (latest '.self::TIER3_LEDGER_ENTRIES.' distinct entries): '.$this->joinList($allLedger);
 
         return implode("\n", $lines);
     }
@@ -2308,43 +2535,133 @@ TEXT;
         ));
     }
 
+    /**
+     * "The Stable Door", "stable_door", and "stable-door's" name one tracked
+     * thing, so a change to any of them supersedes the others.
+     */
     private function stateEntryKey(string $entry): string
     {
         $name = mb_trim((string) (explode(':', $entry, 2)[0] ?? $entry));
+        $key = mb_strtolower($name !== '' ? $name : $entry);
+        $key = (string) preg_replace("/['\u{2019}]s\b/u", '', $key);
+        $key = (string) preg_replace('/[\s_\-]+/u', ' ', $key);
+        $key = (string) preg_replace('/^(the|a|an) /u', '', mb_trim($key));
 
-        return mb_strtolower($name !== '' ? $name : $entry);
+        return mb_trim($key);
     }
 
     /**
+     * Append new entries, letting each supersede any older entry that says the
+     * same thing. The newer phrasing moves to the end, so the list stays in the
+     * order things were last learned and recency selection stays honest.
+     *
      * @param  array<int, mixed>  $previous
      * @param  array<int, mixed>  $delta
      * @return array<int, string>
      */
-    private function appendUniqueStringList(array $previous, array $delta): array
+    private function appendUniqueStringList(array $previous, array $delta, float $threshold = self::MEMORY_SAME_THRESHOLD): array
     {
         $entries = [];
-        $stems = [];
-        $ordered = [];
 
-        // Process previous first, then delta, so delta entries replace
-        // previous entries that share the same stem. This stops the
-        // notes/player_style fields from accumulating five phrasings of
-        // the same observation and feeding them back as instruction.
         foreach (array_merge($this->cleanStringList($previous), $this->cleanStringList($delta)) as $entry) {
-            $stem = $this->memoryStem($entry);
-
-            if (isset($stems[$stem])) {
-                // Replace the existing entry with the more recent one.
-                $entries[$stems[$stem]] = $entry;
-
-                continue;
-            }
-
-            $stems[$stem] = count($entries);
+            $entries = array_values(array_filter(
+                $entries,
+                fn (string $existing): bool => ! $this->isSameMemory($existing, $entry, $threshold),
+            ));
             $entries[] = $entry;
         }
 
-        return array_values($entries);
+        return $entries;
+    }
+
+    /**
+     * Two memory lines record the same fact when one's meaningful words are
+     * contained in the other's (an evolved phrasing of the same observation,
+     * or a later state of the same thing), or when most of their meaningful
+     * words overlap. Lines about different named people never match.
+     */
+    private function isSameMemory(string $a, string $b, float $threshold): bool
+    {
+        $wordsA = $this->memoryWords($a);
+        $wordsB = $this->memoryWords($b);
+
+        if ($wordsA === [] || $wordsB === []) {
+            return $this->normalizeMemoryLine($a) === $this->normalizeMemoryLine($b);
+        }
+
+        $namesA = $this->memoryNames($a);
+        $namesB = $this->memoryNames($b);
+        if (
+            $namesA !== [] && $namesB !== []
+            && array_diff($namesA, $namesB) !== []
+            && array_diff($namesB, $namesA) !== []
+        ) {
+            return false;
+        }
+
+        $shared = count(array_intersect($wordsA, $wordsB));
+        $smaller = min(count($wordsA), count($wordsB));
+
+        if ($smaller >= 3 && $shared === $smaller) {
+            return true;
+        }
+
+        return $shared / count(array_unique([...$wordsA, ...$wordsB])) >= $threshold;
+    }
+
+    /**
+     * Meaningful words of a memory line: lowercase, possessives and simple
+     * plurals folded, stopwords and words under four letters dropped.
+     *
+     * @return array<int, string>
+     */
+    private function memoryWords(string $text): array
+    {
+        $normalized = (string) preg_replace("/['\u{2019}]s\b/u", '', mb_strtolower($text));
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $kept = [];
+        foreach ($words as $word) {
+            if (mb_strlen($word) < 4 || in_array($word, self::MEMORY_STEM_STOPWORDS, true)) {
+                continue;
+            }
+
+            if (mb_strlen($word) > 4 && str_ends_with($word, 's') && ! str_ends_with($word, 'ss')) {
+                $word = mb_substr($word, 0, -1);
+            }
+
+            $kept[$word] = true;
+        }
+
+        return array_keys($kept);
+    }
+
+    /**
+     * Capitalised words other than common sentence openers: the people and
+     * places a memory line is about. Erring toward more names only ever keeps
+     * two lines apart, never merges them.
+     *
+     * @return array<int, string>
+     */
+    private function memoryNames(string $text): array
+    {
+        preg_match_all('/\b(\p{Lu}\p{Ll}+)\b/u', $text, $matches);
+
+        $names = [];
+        foreach ($matches[1] ?? [] as $word) {
+            $lower = mb_strtolower($word);
+            if (
+                mb_strlen($lower) < 3
+                || in_array($lower, self::MEMORY_STEM_STOPWORDS, true)
+                || in_array($lower, self::MEMORY_SENTENCE_OPENERS, true)
+            ) {
+                continue;
+            }
+
+            $names[$lower] = true;
+        }
+
+        return array_keys($names);
     }
 
     /**

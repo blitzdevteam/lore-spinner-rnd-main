@@ -83,6 +83,8 @@ final class ChaosNarrationSchema
             'moment_progress' => $schema->object([
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),
                 'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
+                'caught_up_to_moment_key' => $schema->string()->required()->title('Caught Up To Moment Key')
+                    ->description('Empty string on almost every turn. Only when the prose has already carried the story past the active card into a LATER moment listed in the ordered Boiler map: that later moment\'s key, with exit_condition_met=true. Name where the story is now, never where it is heading. Empty string outside Boiler mode.'),
                 'route_relation' => $schema->string()->required()->title('Route Relation')
                     ->description('How this turn related to the active room: "advanced" (its purpose moved materially forward), "deepened" (stayed and enriched it), "detoured" (you followed the player somewhere the card did not anticipate), "reconverged" (you carried the story back to the spine after a detour). A detour is legitimate — report it honestly rather than mislabelling it. Empty string outside Boiler mode.'),
                 'impact_scope' => $schema->string()->required()->title('Impact Scope')
@@ -90,7 +92,7 @@ final class ChaosNarrationSchema
                 'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
                     ->description('REQUIRED after every player turn. One to three plain sentences for the NEXT narrator describing how the player is steering the story, built only from what they actually submitted: what they did or asked this turn (in their own verb), the person, place, or thread their actions keep reaching toward, and any request or question still open. Describe actions and directions, never personality, motive, or who they are becoming. On a Continue turn, say only that they chose to move on and what remains open. Never credit them with a choice the narration made for them; if the world stopped them, say so. Plain reporting, no imagery or dashes. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders; the model must produce this.'),
             ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
-                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, route_relation="", impact_scope="", and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
+                ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, caught_up_to_moment_key="", route_relation="", impact_scope="", and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
 
             'session_complete' => $schema
                 ->boolean()
