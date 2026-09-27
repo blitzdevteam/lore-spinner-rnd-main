@@ -14,6 +14,15 @@ it('starts the opening narration request when the game page mounts', function ()
         ->and($page)->toContain('if (beginRequested) return;');
 });
 
+it('renders the intro skip hint in bold white', function () {
+    $component = File::get(resource_path('js/components/GameCinematicOpening.vue'));
+
+    expect($component)->toContain('class="co-skip-hint">tap to skip</p>')
+        ->and($component)->toContain('font-weight: 700;')
+        ->and($component)->toContain('color: #fff;')
+        ->and($component)->not->toContain('rgba(255, 255, 255, 0.18)');
+});
+
 it('lets a skip shorten the showcard hold', function () {
     $component = File::get(resource_path('js/components/GameCinematicOpening.vue'));
 

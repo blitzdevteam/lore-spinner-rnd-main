@@ -218,10 +218,12 @@ onUnmounted(() => {
     left: 50%;
     transform: translateX(-50%);
     font-family: 'Marcellus SC', serif;
-    font-size: 0.6rem;
-    letter-spacing: 0.24em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.85);
     z-index: 60;
     pointer-events: none;
     white-space: nowrap;
