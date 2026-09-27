@@ -3,6 +3,7 @@ import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
+import { findStoryBySlug, HOMEPAGE_NEW_STORIES } from '@/data/homepageFeaturedStories';
 import { isStoryPlayable } from '@/data/playableStorySlugs';
 import { resolveNewStoryCover } from '@/data/newStoriesCoverBySlug';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
@@ -35,16 +36,20 @@ const props = withDefaults(
 );
 
 const stories = computed<NewStoryCard[]>(() =>
-    props.stories.map((story) => ({
-        id: story.id,
-        title: story.title,
-        cover: resolveNewStoryCover(story.slug, story.cover),
-        category: story.category?.title ?? 'Story',
-        rating: story.rating?.label ?? 'Everyone',
-        playable: isStoryPlayable(story),
-        slug: story.slug,
-        teaser: story.teaser ?? '',
-    })),
+    HOMEPAGE_NEW_STORIES.map((featured, index) => {
+        const story = findStoryBySlug(props.stories, featured.slug);
+
+        return {
+            id: story?.id ?? index + 1,
+            title: featured.title,
+            cover: resolveNewStoryCover(featured.slug, story?.cover),
+            category: story?.category?.title ?? 'Story',
+            rating: story?.rating?.label ?? 'Everyone',
+            playable: story ? isStoryPlayable(story) : false,
+            slug: featured.slug,
+            teaser: story?.teaser?.trim() || featured.teaser,
+        };
+    }),
 );
 
 const sliderEl = ref<HTMLElement | null>(null);

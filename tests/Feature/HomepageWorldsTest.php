@@ -69,6 +69,46 @@ it('loads only active worlds ordered by position with published stories', functi
         );
 });
 
+it('features baker street, jane austen, and gothic horrors ahead of other worlds', function () {
+    World::factory()->create([
+        'title' => 'World of Oz',
+        'slug' => 'world-of-oz',
+        'position' => 0,
+        'is_active' => true,
+    ]);
+    World::factory()->create([
+        'title' => 'Gothic Horrors',
+        'slug' => 'gothic-horrors',
+        'position' => 9,
+        'is_active' => true,
+    ]);
+    World::factory()->create([
+        'title' => 'Jane Austen',
+        'slug' => 'jane-austen',
+        'position' => 8,
+        'is_active' => true,
+    ]);
+    World::factory()->create([
+        'title' => 'Baker Street',
+        'slug' => 'baker-street',
+        'position' => 7,
+        'is_active' => true,
+    ]);
+
+    $this->get(route('index'))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Index')
+                ->has('worlds', 3)
+                ->where('worlds.0.slug', 'baker-street')
+                ->where('worlds.1.slug', 'jane-austen')
+                ->where('worlds.2.slug', 'gothic-horrors')
+                ->where('worldsCount', 4)
+                ->etc()
+        );
+});
+
 it('shows at most three worlds on the homepage and the full count on view all', function () {
     World::factory()->count(4)->sequence(
         ['title' => 'First', 'slug' => 'first', 'position' => 1],
@@ -125,7 +165,7 @@ it('includes every published story on homepage worlds so the enter-world modal c
                 ->where('worlds.0.title', 'Jane Austen')
                 ->has('worlds.0.background')
                 ->has('worlds.0.stories', 5)
-                ->where('worlds.0.stories.0.title', 'Emma')
+                ->where('worlds.0.stories.0.title', 'Emma: Hearts Misread')
                 ->where('worlds.0.stories.4.title', 'Sense and Sensibility')
                 ->where('worlds.0.stories_count', 5)
                 ->etc()

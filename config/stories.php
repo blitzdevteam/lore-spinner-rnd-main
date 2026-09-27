@@ -54,6 +54,13 @@ return [
         'jekyll-and-hyde' => 'dr-jekyll-and-mr-hyde',
     ],
 
+    /** Homepage "Step into Worlds" when all of these worlds exist. */
+    'homepage_world_slugs' => [
+        'baker-street',
+        'jane-austen',
+        'gothic-horrors',
+    ],
+
     'launch_catalog' => [
         'worlds' => [
             ['slug' => 'world-of-oz', 'folder' => '02-world-of-oz', 'title' => 'World of Oz', 'legacy_slugs' => ['land-of-oz']],

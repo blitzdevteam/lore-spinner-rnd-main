@@ -18,6 +18,102 @@ it('renders the library as a single story grid without multiplayer tabs or rooms
         ->not->toContain('multiplayerRooms');
 });
 
+it('orders the homepage like beta and omits featured worlds', function (): void {
+    $homepage = file_get_contents(resource_path('js/pages/Index.vue'));
+    $stepIntoWorlds = file_get_contents(resource_path('js/components/StepIntoWorlds.vue'));
+
+    expect($homepage)
+        ->toContain('<StoryChangesWithYou />')
+        ->toContain('<StepIntoWorlds :worlds="worlds" />')
+        ->toContain('<XenBanner />')
+        ->toContain('<ExploreByMood :stories="visibleStories" />')
+        ->toContain('<NewStoriesBanners :stories="visibleStories" />')
+        ->toContain('<ComingSoonBanners :stories="comingSoonSectionStories" />')
+        ->not->toContain('FeaturedWorldsGames');
+
+    expect(strpos($homepage, '<StoryChangesWithYou />'))
+        ->toBeLessThan(strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'));
+    expect(strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'))
+        ->toBeLessThan(strpos($homepage, '<XenBanner />'));
+    expect(strpos($homepage, '<XenBanner />'))
+        ->toBeLessThan(strpos($homepage, '<ExploreByMood :stories="visibleStories" />'));
+    expect(strpos($homepage, '<ExploreByMood :stories="visibleStories" />'))
+        ->toBeLessThan(strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'));
+    expect(strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'))
+        ->toBeLessThan(strpos($homepage, '<ComingSoonBanners :stories="comingSoonSectionStories" />'));
+
+    expect($stepIntoWorlds)
+        ->toContain('title="Step into Worlds"')
+        ->not->toContain('title="Step into Stories"');
+});
+
+it('features the curated homepage story order', function (): void {
+    $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
+    $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
+
+    $carousel = [
+        'the-adventure-of-the-speckled-band',
+        'dracula',
+        'pride-and-prejudice',
+        'robin-hood',
+    ];
+    $newStories = [
+        'peter-pan',
+        'frankenstein',
+        'emma',
+        'the-invisible-man',
+        'the-three-musketeers',
+        'sir-gawain-and-the-green-knight',
+        'around-the-world-in-eighty-days',
+        'the-tell-tale-heart',
+    ];
+    $comingSoon = [
+        'the-marvelous-land-of-oz',
+        'sense-and-sensibility',
+        'the-masque-of-the-red-death',
+        'the-quest-of-the-holy-grail',
+        'theseus-and-the-minotaur',
+        '20000-leagues-under-the-sea',
+    ];
+
+    $previous = 0;
+
+    foreach ($carousel as $slug) {
+        $position = strpos($hero, "slug: '{$slug}'");
+        expect($position)->not->toBeFalse();
+        expect($position)->toBeGreaterThan($previous);
+        $previous = $position;
+    }
+
+    expect($hero)->not->toContain('the-wonderful-wizard-of-oz');
+
+    $previous = strpos($featured, 'HOMEPAGE_NEW_STORIES');
+    expect($previous)->not->toBeFalse();
+
+    foreach ($newStories as $slug) {
+        $position = strpos($featured, "slug: '{$slug}'", $previous);
+        expect($position)->not->toBeFalse();
+        expect($position)->toBeGreaterThan($previous);
+        $previous = $position;
+    }
+
+    $previous = strpos($featured, 'HOMEPAGE_COMING_SOON');
+    expect($previous)->not->toBeFalse();
+
+    foreach ($comingSoon as $slug) {
+        $position = strpos($featured, "slug: '{$slug}'", $previous);
+        expect($position)->not->toBeFalse();
+        expect($position)->toBeGreaterThan($previous);
+        $previous = $position;
+    }
+
+    expect(config('stories.homepage_world_slugs'))->toBe([
+        'baker-street',
+        'jane-austen',
+        'gothic-horrors',
+    ]);
+});
+
 it('uses a shared 22px font for all homepage section titles', function (): void {
     $appCss = file_get_contents(resource_path('css/app.css'));
     $sectionHeader = file_get_contents(resource_path('js/components/SectionHeader.vue'));

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import ozImage from '@/assets/carosel/Ultrawide Oz.png';
+import draculaImage from '@/assets/featured/dracula.png';
+import prideImage from '@/assets/newStories/Pride Landscape art only.png';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
 import BaseButton from '@/components/BaseButton.vue';
 import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
-import { ComingSoonStoryInterface, StoryInterface } from '@/types';
+import { StoryInterface } from '@/types';
 import { show } from '@/wayfinder/routes/stories';
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
 import type { Swiper as SwiperInstance } from 'swiper';
@@ -18,11 +19,9 @@ import 'swiper/css/pagination';
 const props = withDefaults(
     defineProps<{
         stories?: StoryInterface[];
-        comingSoonStories?: ComingSoonStoryInterface[];
     }>(),
     {
         stories: () => [],
-        comingSoonStories: () => [],
     },
 );
 
@@ -55,18 +54,37 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'the-wonderful-wizard-of-oz',
-        image: ozImage,
-        imagePosition: 'object-[58%_top] md:object-top',
-        titleLines: ['The Wonderful', 'Wizard of Oz'],
-        fallbackTitle: 'The Wonderful Wizard of Oz',
-        teaserLines: [
-            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble,',
-            'and every step down the Yellow Brick Road changes who you are becoming.',
-        ],
+        slug: 'dracula',
+        image: draculaImage,
+        imagePosition: 'object-center',
+        titleLines: null,
+        fallbackTitle: 'Dracula',
+        teaserLines: null,
+        fallbackTeaser: 'Victorian England meets the undead — letters, crypts, and the first taste of immortal hunger.',
+        fallbackAuthor: 'Bram Stoker',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'pride-and-prejudice',
+        image: prideImage,
+        imagePosition: 'object-center',
+        titleLines: ['Pride &', 'Prejudice'],
+        fallbackTitle: 'Pride & Prejudice',
+        teaserLines: null,
         fallbackTeaser:
-            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
-        fallbackAuthor: 'L. Frank Baum',
+            'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
+        fallbackAuthor: 'Jane Austen',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'robin-hood',
+        image: '',
+        imagePosition: 'object-center',
+        titleLines: null,
+        fallbackTitle: 'Robin Hood',
+        teaserLines: null,
+        fallbackTeaser: 'Take from the rich. Give to the poor. Outlaw justice in the greenwood.',
+        fallbackAuthor: '',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
 ];
@@ -139,30 +157,7 @@ const featuredSlides = computed((): ResolvedHeroSlide[] =>
     }),
 );
 
-const comingSoonSlides = computed((): ResolvedHeroSlide[] =>
-    props.comingSoonStories
-        .filter((story) => story.cover.trim() !== '')
-        .map((story) => {
-            const title = story.title.trim();
-            const teaser = story.teaser?.trim() || 'A new world is taking shape behind the curtain.';
-
-            return {
-                slug: story.slug ?? `coming-soon-${story.id}`,
-                image: story.cover,
-                imagePosition: story.image_position?.trim() || 'object-center',
-                titleLines: resolveTitleLines(title),
-                title,
-                teaserLines: resolveTeaserLines(teaser),
-                teaser,
-                author: story.author,
-                seriesLabel: story.series_label ?? '',
-                storyUrl: story.slug ? show(story.slug).url : '#',
-                comingSoon: true,
-            };
-        }),
-);
-
-const slides = computed((): ResolvedHeroSlide[] => [...featuredSlides.value, ...comingSoonSlides.value]);
+const slides = computed((): ResolvedHeroSlide[] => featuredSlides.value);
 
 const activeSlide = computed(() => slides.value[activeIndex.value] ?? slides.value[0]);
 
@@ -202,7 +197,14 @@ function goNext() {
                 >
                     <SwiperSlide v-for="slide in slides" :key="slide.slug" class="hero-slide">
                         <div class="hero-slide-media">
-                            <img :src="slide.image" alt="" class="hero-slide-image h-full w-full object-cover" :class="slide.imagePosition" />
+                            <img
+                                v-if="slide.image"
+                                :src="slide.image"
+                                alt=""
+                                class="hero-slide-image h-full w-full object-cover"
+                                :class="slide.imagePosition"
+                            />
+                            <div v-else class="hero-slide-fallback" aria-hidden="true" />
                             <div class="hero-slide-gradient" aria-hidden="true" />
                         </div>
                     </SwiperSlide>
@@ -299,6 +301,14 @@ function goNext() {
     display: grid;
     grid-template-columns: 1fr;
     background: #000;
+}
+
+.hero-slide-fallback {
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(circle at 72% 42%, rgba(92, 104, 72, 0.45), transparent 46%),
+        linear-gradient(180deg, #1c1e16 0%, #050605 100%);
 }
 
 .hero-carousel {

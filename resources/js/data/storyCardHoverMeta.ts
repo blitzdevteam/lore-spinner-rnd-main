@@ -2,6 +2,14 @@
  * Canonical 3-word descriptors for story cards (home carousels, mood picks, explore panel).
  */
 export const STORY_DESCRIPTOR_THEMES_BY_SLUG: Record<string, [string, string, string]> = {
+    'peter-pan': ['Wonder', 'Loyalty', 'Choice'],
+    'the-invisible-man': ['Science', 'Terror', 'Isolation'],
+    'the-three-musketeers': ['Loyalty', 'Honor', 'Intrigue'],
+    'robin-hood': ['Justice', 'Outlaw', 'Courage'],
+    'sir-gawain-and-the-green-knight': ['Honor', 'Oath', 'Courage'],
+    'around-the-world-in-eighty-days': ['Adventure', 'Wager', 'Wonder'],
+    'sense-and-sensibility': ['Love', 'Duty', 'Family'],
+    'the-quest-of-the-holy-grail': ['Faith', 'Quest', 'Honor'],
     'the-wonderful-wizard-of-oz': ['Wonder', 'Courage', 'Home'],
     'the-adventure-of-the-speckled-band': ['Mystery', 'Danger', 'Truth'],
     'the-adventure-of-the-blue-carbuncle': ['Deduction', 'Theft', 'London'],

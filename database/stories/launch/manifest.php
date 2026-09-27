@@ -54,7 +54,7 @@ return [
             'tagline' => 'Wonder, revolt, and the road that remakes you.',
             'description' => 'Leave Kansas behind. Witches, scarecrows, and impossible companions wait past the storm.',
             'tags' => ['Wonder', 'Courage', 'Friendship'],
-            'position' => 1,
+            'position' => 4,
         ],
         [
             'slug' => 'baker-street',
@@ -63,7 +63,7 @@ return [
             'tagline' => 'Deduce, accuse, and stay three moves ahead.',
             'description' => 'Fog, hansom cabs, and cases that only Holmes can crack — if you choose the right thread to pull.',
             'tags' => ['Mystery', 'Deduction', 'Fog'],
-            'position' => 2,
+            'position' => 1,
         ],
         [
             'slug' => 'jane-austen',
@@ -73,7 +73,7 @@ return [
             'tagline' => 'Find love without losing yourself.',
             'description' => 'Reputation, wit, and the dangerous possibility of being understood.',
             'tags' => ['Romance', 'Wit', 'Society'],
-            'position' => 3,
+            'position' => 2,
         ],
         [
             'slug' => 'gothic-horrors',
@@ -83,7 +83,7 @@ return [
             'tagline' => 'Guilt, hunger, and the other self.',
             'description' => 'Victorian dread — vampires, laboratories, sealed rooms, and the heartbeat you cannot silence.',
             'tags' => ['Gothic', 'Horror', 'Victorian'],
-            'position' => 4,
+            'position' => 3,
         ],
         [
             'slug' => 'high-adventure',

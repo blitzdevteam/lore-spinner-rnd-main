@@ -2,13 +2,13 @@
 import ComingSoonBanners from '@/components/ComingSoonBanners.vue';
 import ContinueStories from '@/components/ContinueStories.vue';
 import ExploreByMood from '@/components/ExploreByMood.vue';
-import FeaturedWorldsGames from '@/components/FeaturedWorldsGames.vue';
 import FrequentlyAskedQuestion from '@/components/FrequentlyAskedQuestion.vue';
 import HeroBanner from '@/components/HeroBanner.vue';
 import NewStoriesBanners from '@/components/NewStoriesBanners.vue';
 import StepIntoWorlds from '@/components/StepIntoWorlds.vue';
 import StoryChangesWithYou from '@/components/StoryChangesWithYou.vue';
 import XenBanner from '@/components/XenBanner.vue';
+import { resolveHomepageComingSoon } from '@/data/homepageFeaturedStories';
 import { filterVisibleLibraryStories } from '@/data/hiddenLibraryStorySlugs';
 import HomeLayout from '@/layouts/HomeLayout.vue';
 import { ComingSoonStoryInterface, GameInterface, StoryInterface, WorldInterface } from '@/types';
@@ -34,16 +34,15 @@ const props = withDefaults(
 );
 
 const visibleStories = computed(() => filterVisibleLibraryStories(props.stories));
-const newestStories = computed(() => visibleStories.value.slice(0, 12));
-const heroComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'hero'));
-const featuredWorldComingSoonStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'featured-worlds'));
-const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((story) => story.section === 'coming-soon'));
+const comingSoonSectionStories = computed(() =>
+    resolveHomepageComingSoon(props.comingSoonStories.filter((story) => story.section === 'coming-soon')),
+);
 </script>
 
 <template>
     <HomeLayout>
         <!-- Hero -->
-        <HeroBanner :stories="visibleStories" :coming-soon-stories="heroComingSoonStories" />
+        <HeroBanner :stories="visibleStories" />
 
         <!-- Story Changes With You -->
         <StoryChangesWithYou />
@@ -51,20 +50,17 @@ const comingSoonSectionStories = computed(() => props.comingSoonStories.filter((
         <!-- Continue Stories -->
         <ContinueStories v-if="lastGame" :game="lastGame" />
 
-        <!-- Step into Stories -->
+        <!-- Step into Worlds -->
         <StepIntoWorlds :worlds="worlds" />
-
-        <!-- New Stories -->
-        <NewStoriesBanners :stories="newestStories" />
-
-        <!-- Featured Worlds -->
-        <FeaturedWorldsGames :coming-soon-stories="featuredWorldComingSoonStories" />
 
         <!-- Xen Banner -->
         <XenBanner />
 
         <!-- Explore by Mood -->
         <ExploreByMood :stories="visibleStories" />
+
+        <!-- New Stories -->
+        <NewStoriesBanners :stories="visibleStories" />
 
         <ComingSoonBanners :stories="comingSoonSectionStories" />
 

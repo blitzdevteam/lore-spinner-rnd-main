@@ -91,23 +91,43 @@ final class IndexController extends Controller
                 ->orderBy('id')
                 ->get()
                 ->toResourceCollection(),
-            'worlds' => fn () => World::query()
-                ->active()
-                ->with([
-                    'media',
-                    'stories' => fn ($query) => $query
-                        ->published()
-                        ->with(['media', 'category:id,title', 'adaptation:id,story_id,adaptation_status'])
-                        ->orderByPivot('position'),
-                ])
-                ->withCount([
-                    'stories' => fn ($query) => $query->published(),
-                ])
-                ->orderBy('position')
-                ->orderBy('id')
-                ->limit(3)
-                ->get()
-                ->toResourceCollection(),
+            'worlds' => function () {
+                $featuredSlugs = array_values(config('stories.homepage_world_slugs', []));
+
+                $base = fn () => World::query()
+                    ->active()
+                    ->with([
+                        'media',
+                        'stories' => fn ($query) => $query
+                            ->published()
+                            ->with(['media', 'category:id,title', 'adaptation:id,story_id,adaptation_status'])
+                            ->orderByPivot('position'),
+                    ])
+                    ->withCount([
+                        'stories' => fn ($query) => $query->published(),
+                    ]);
+
+                $featured = $base()
+                    ->whereIn('slug', $featuredSlugs)
+                    ->get()
+                    ->sortBy(function (World $world) use ($featuredSlugs): int {
+                        $index = array_search($world->slug, $featuredSlugs, true);
+
+                        return $index === false ? PHP_INT_MAX : $index;
+                    })
+                    ->values();
+
+                if ($featuredSlugs !== [] && $featured->count() === count($featuredSlugs)) {
+                    return $featured->take(3)->toResourceCollection();
+                }
+
+                return $base()
+                    ->orderBy('position')
+                    ->orderBy('id')
+                    ->limit(3)
+                    ->get()
+                    ->toResourceCollection();
+            },
             'worldsCount' => fn () => World::query()->active()->count(),
         ];
     }
