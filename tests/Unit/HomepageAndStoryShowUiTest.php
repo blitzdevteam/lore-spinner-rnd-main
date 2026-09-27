@@ -51,6 +51,14 @@ it('features the curated homepage story order', function (): void {
     $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
     $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
+    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Copy of Sherlock Ultrawide hero banner.png'");
+
+    $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
+
+    expect($continue)
+        ->toContain("import speckledBandContinueCover from '@/assets/5_3SpeckledBandLandscapeTitleCard.png'")
+        ->toContain("s.slug === 'the-adventure-of-the-speckled-band'");
+
     $carousel = [
         'the-adventure-of-the-speckled-band',
         'dracula',

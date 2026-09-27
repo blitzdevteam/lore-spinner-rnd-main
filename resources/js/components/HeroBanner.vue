@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import draculaImage from '@/assets/featured/dracula.png';
 import prideImage from '@/assets/newStories/Pride Landscape art only.png';
-import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
+import sherlockImage from '@/assets/carosel/Copy of Sherlock Ultrawide hero banner.png';
 import BaseButton from '@/components/BaseButton.vue';
 import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
 import { StoryInterface } from '@/types';
