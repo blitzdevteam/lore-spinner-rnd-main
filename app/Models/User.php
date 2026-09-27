@@ -110,6 +110,8 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         'credentials_set_at' => 'datetime',
     ];
 
+    public const UNLIMITED_DURATION_MONTHS = 0;
+
     /**
      * @return array<int, string>
      */
@@ -121,7 +123,33 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
             3 => '3 months',
             6 => '6 months',
             12 => '12 months',
+            self::UNLIMITED_DURATION_MONTHS => 'Unlimited',
         ];
+    }
+
+    public static function normalizeDurationMonths(int $months): int
+    {
+        if ($months === self::UNLIMITED_DURATION_MONTHS) {
+            return self::UNLIMITED_DURATION_MONTHS;
+        }
+
+        return max(1, $months);
+    }
+
+    public static function accessExpiresAt(int $months, Carbon $grantedAt): ?Carbon
+    {
+        $months = self::normalizeDurationMonths($months);
+
+        if ($months === self::UNLIMITED_DURATION_MONTHS) {
+            return null;
+        }
+
+        return $grantedAt->copy()->addMonthsNoOverflow($months);
+    }
+
+    public function hasUnlimitedAccessDuration(): bool
+    {
+        return (int) $this->duration_months === self::UNLIMITED_DURATION_MONTHS;
     }
 
     /**
@@ -225,8 +253,12 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
 
     public function magicLoginUrl(): ?string
     {
-        if (! $this->hasActiveAccess() || $this->expires_at === null) {
+        if (! $this->hasActiveAccess()) {
             return null;
+        }
+
+        if ($this->expires_at === null) {
+            return URL::signedRoute('investor.access', ['user' => $this]);
         }
 
         return URL::temporarySignedRoute(

@@ -30,13 +30,13 @@ final readonly class UpdateInvestorAccessAction
         $this->assertInvestor($user);
 
         $grantedAt = now();
-        $durationMonths = max(1, $user->duration_months);
+        $durationMonths = User::normalizeDurationMonths((int) $user->duration_months);
 
         $user->update([
             'access_enabled' => true,
             'access_blocked_at' => null,
             'access_granted_at' => $grantedAt,
-            'expires_at' => $grantedAt->copy()->addMonthsNoOverflow($durationMonths),
+            'expires_at' => User::accessExpiresAt($durationMonths, $grantedAt),
         ]);
 
         $this->syncInvestorPlanAccess->grant($user->refresh());

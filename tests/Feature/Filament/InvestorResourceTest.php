@@ -109,6 +109,56 @@ it('registers an investor from the users form with a plan, expiry, and magic log
         ->and($summary['is_complimentary'])->toBeFalse();
 });
 
+it('registers an investor with unlimited access that does not expire', function (): void {
+    $manager = Manager::factory()->create();
+    $plan = SubscriptionPlan::factory()->create([
+        'name' => 'Adventurer Pass',
+        'action_limit' => 120,
+        'voice_minutes_limit' => 40,
+    ]);
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'type' => UserType::Investor,
+            'first_name' => 'Grace',
+            'last_name' => 'Hopper',
+            'subscription_plan_id' => $plan->id,
+            'duration_months' => User::UNLIMITED_DURATION_MONTHS,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors()
+        ->assertNotified();
+
+    $user = User::query()
+        ->where('first_name', 'Grace')
+        ->where('last_name', 'Hopper')
+        ->first();
+
+    expect($user)->not->toBeNull()
+        ->and($user?->duration_months)->toBe(User::UNLIMITED_DURATION_MONTHS)
+        ->and($user?->expires_at)->toBeNull()
+        ->and($user?->hasActiveInvestorAccess())->toBeTrue()
+        ->and($user?->isExpired())->toBeFalse()
+        ->and($user?->magicLoginUrl())->not->toBeNull();
+
+    $this->get($user?->magicLoginUrl())->assertSuccessful();
+
+    $subscription = $user?->subscriptions()->where('type', UserType::Investor->value)->first();
+    $summary = $user === null ? null : app(SubscriptionEntitlementService::class)->summary($user);
+
+    expect($subscription?->ends_at)->toBeNull()
+        ->and($subscription?->valid())->toBeTrue()
+        ->and($summary['plan']['name'])->toBe('Adventurer Pass')
+        ->and($summary['actions']['limit'])->toBe(120);
+
+    $this->artisan('investors:expire-access')->assertSuccessful();
+
+    expect($user?->fresh()?->access_enabled)->toBeTrue()
+        ->and($user?->fresh()?->hasActiveInvestorAccess())->toBeTrue();
+});
+
 it('lets a manager assign a different plan and duration from the edit page', function (): void {
     $manager = Manager::factory()->create();
     $investor = User::factory()->investor()->create(['duration_months' => 1]);

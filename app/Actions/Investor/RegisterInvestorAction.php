@@ -34,7 +34,7 @@ final readonly class RegisterInvestorAction
             ]);
         }
 
-        $durationMonths = max(1, (int) $data['duration_months']);
+        $durationMonths = User::normalizeDurationMonths((int) $data['duration_months']);
 
         return DB::transaction(function () use ($data, $plan, $durationMonths): User {
             $grantedAt = now();
@@ -51,7 +51,7 @@ final readonly class RegisterInvestorAction
                 'access_enabled' => true,
                 'notes' => $data['notes'] ?? null,
                 'access_granted_at' => $grantedAt,
-                'expires_at' => $grantedAt->copy()->addMonthsNoOverflow($durationMonths),
+                'expires_at' => User::accessExpiresAt($durationMonths, $grantedAt),
                 'credentials_set_at' => null,
             ]);
 

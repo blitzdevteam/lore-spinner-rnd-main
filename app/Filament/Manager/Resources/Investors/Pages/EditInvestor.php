@@ -75,7 +75,7 @@ final class EditInvestor extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         $investor = $record instanceof User ? $record : $this->getInvestor();
-        $durationMonths = max(1, (int) $data['duration_months']);
+        $durationMonths = User::normalizeDurationMonths((int) $data['duration_months']);
         $planId = (int) $data['subscription_plan_id'];
         $planChanged = (int) $investor->subscription_plan_id !== $planId;
         $durationChanged = (int) $investor->duration_months !== $durationMonths;
@@ -90,7 +90,7 @@ final class EditInvestor extends EditRecord
 
         if ($investor->access_enabled && $durationChanged) {
             $grantedAt = $investor->access_granted_at ?? now();
-            $payload['expires_at'] = $grantedAt->copy()->addMonthsNoOverflow($durationMonths);
+            $payload['expires_at'] = User::accessExpiresAt($durationMonths, $grantedAt);
         }
 
         $investor->update($payload);

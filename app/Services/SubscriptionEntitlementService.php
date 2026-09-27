@@ -15,6 +15,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionUsageEvent;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -672,7 +673,10 @@ final class SubscriptionEntitlementService
             ->with('plan')
             ->where('subscription_id', $subscription->id)
             ->where('period_start', '<=', $at)
-            ->where('period_end', '>', $at)
+            ->where(function (Builder $query) use ($at): void {
+                $query->whereNull('period_end')
+                    ->orWhere('period_end', '>', $at);
+            })
             ->orderByDesc('period_start')
             ->first();
     }

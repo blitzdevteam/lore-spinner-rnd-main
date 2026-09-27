@@ -28,7 +28,9 @@ final readonly class SyncInvestorPlanAccessAction
             throw new RuntimeException('An investor must have a subscription plan before access can be granted.');
         }
 
-        $expiresAt = $user->expires_at ?? now()->addMonthsNoOverflow(max(1, $user->duration_months));
+        $expiresAt = $user->hasUnlimitedAccessDuration()
+            ? null
+            : ($user->expires_at ?? User::accessExpiresAt((int) $user->duration_months, now()));
         $startsAt = $user->access_granted_at ?? now();
 
         $subscription = $this->investorSubscription($user) ?? $user->subscriptions()->create([
@@ -77,7 +79,7 @@ final readonly class SyncInvestorPlanAccessAction
         int $userId,
         SubscriptionPlan $plan,
         DateTimeInterface $startsAt,
-        DateTimeInterface $expiresAt,
+        ?DateTimeInterface $expiresAt,
     ): void {
         $entitlement = SubscriptionEntitlement::query()
             ->where('subscription_id', $subscription->id)

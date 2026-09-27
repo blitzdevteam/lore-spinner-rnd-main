@@ -88,7 +88,7 @@ final class EditUser extends EditRecord
             return parent::handleRecordUpdate($record, $data);
         }
 
-        $durationMonths = max(1, (int) $data['duration_months']);
+        $durationMonths = User::normalizeDurationMonths((int) $data['duration_months']);
         $planId = (int) $data['subscription_plan_id'];
         $planChanged = (int) $record->subscription_plan_id !== $planId;
         $durationChanged = (int) $record->duration_months !== $durationMonths;
@@ -103,7 +103,7 @@ final class EditUser extends EditRecord
 
         if ($record->access_enabled && $durationChanged) {
             $grantedAt = $record->access_granted_at ?? now();
-            $payload['expires_at'] = $grantedAt->copy()->addMonthsNoOverflow($durationMonths);
+            $payload['expires_at'] = User::accessExpiresAt($durationMonths, $grantedAt);
         }
 
         $record->update($payload);

@@ -75,7 +75,7 @@ final class InvestorMagicLoginController extends Controller
     private function welcomePayload(User $user): array
     {
         $user->loadMissing('plan');
-        $months = max(1, (int) $user->duration_months);
+        $months = User::normalizeDurationMonths((int) $user->duration_months);
 
         return [
             'plan_name' => $user->plan?->name ?? 'Your plan',

@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 final class InvestorForm
@@ -45,7 +46,10 @@ final class InvestorForm
                             ->options(User::durationOptions())
                             ->required()
                             ->default(1)
-                            ->helperText('The test account is blocked when this window ends.'),
+                            ->live()
+                            ->helperText(fn (Get $get): string => (int) $get('duration_months') === User::UNLIMITED_DURATION_MONTHS
+                                ? 'Access does not expire.'
+                                : 'The test account is blocked when this window ends.'),
                         TextInput::make('email')
                             ->label('Email address')
                             ->disabled()
