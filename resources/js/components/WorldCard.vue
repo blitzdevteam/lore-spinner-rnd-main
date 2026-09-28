@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WorldStoriesModal from '@/components/WorldStoriesModal.vue';
+import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { StoryInterface, WorldInterface } from '@/types';
 import { show as storyShow } from '@/wayfinder/routes/stories';
 import { Link } from '@inertiajs/vue3';
@@ -38,8 +39,12 @@ function markCoverBroken(storyId: number): void {
     brokenCovers.value = new Set(brokenCovers.value).add(storyId);
 }
 
-function hasCover(story: { id: number; cover?: string | null }): boolean {
-    return Boolean(story.cover) && !brokenCovers.value.has(story.id);
+function storyCover(story: StoryInterface): string {
+    if (brokenCovers.value.has(story.id)) {
+        return '';
+    }
+
+    return resolveStoryCover(story.slug, story.cover);
 }
 
 function storyHref(story: StoryInterface): string {
@@ -115,8 +120,8 @@ function storyHref(story: StoryInterface): string {
                                     @click.stop
                                 >
                                     <img
-                                        v-if="hasCover(story)"
-                                        :src="story.cover"
+                                        v-if="storyCover(story)"
+                                        :src="storyCover(story)"
                                         :alt="story.title"
                                         class="h-[7.3125rem] w-[4.875rem] rounded-[2.5px] object-cover"
                                         @error="markCoverBroken(story.id)"
@@ -147,8 +152,8 @@ function storyHref(story: StoryInterface): string {
                                 @click.stop
                             >
                                 <img
-                                    v-if="hasCover(story)"
-                                    :src="story.cover"
+                                    v-if="storyCover(story)"
+                                    :src="storyCover(story)"
                                     :alt="story.title"
                                     class="size-full object-cover opacity-85"
                                     @error="markCoverBroken(story.id)"

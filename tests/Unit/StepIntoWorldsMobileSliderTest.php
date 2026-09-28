@@ -23,3 +23,12 @@ it('implements the mobile worlds section as a horizontal snap slider', function 
         ->toContain('@media (min-width: 1024px) and (hover: hover)')
         ->toContain('transform: translateY(-6px) scale(1.02)');
 });
+
+it('uses bundled story posters for world card thumbnails', function (): void {
+    $worldCard = file_get_contents(resource_path('js/components/WorldCard.vue'));
+
+    expect($worldCard)
+        ->toContain("import { resolveStoryCover } from '@/data/storyCoverBySlug'")
+        ->toContain('resolveStoryCover(story.slug, story.cover)')
+        ->not->toContain(':src="story.cover"');
+});
