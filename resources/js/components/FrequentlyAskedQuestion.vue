@@ -108,13 +108,6 @@ function toggleItem(index: number) {
                         :expanded="openItemIndex === index"
                         @toggle="toggleItem(index)"
                     />
-
-                    <button
-                        type="button"
-                        class="w-full pt-1 text-center text-[0.875rem] leading-[2.0625rem] font-normal text-primary hover:underline"
-                    >
-                        View More
-                    </button>
                 </div>
             </div>
         </div>

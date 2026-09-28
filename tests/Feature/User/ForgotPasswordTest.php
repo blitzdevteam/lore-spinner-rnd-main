@@ -11,6 +11,21 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
 
+it('brands the reset email as lorespinner', function () {
+    config()->set('app.name', 'lore-spinner-rnd');
+
+    $user = User::factory()->make([
+        'email' => 'player@example.com',
+    ]);
+
+    $html = (new ResetPassword('token'))->toMail($user)->render()->toHtml();
+
+    expect($html)
+        ->toContain('lorespinner')
+        ->not->toContain('lore-spinner-rnd')
+        ->and(config('mail.from.name'))->toBe('lorespinner');
+});
+
 it('renders the forgot password page', function () {
     $this->get(route('user.authentication.forgot-password.create'))
         ->assertOk()

@@ -112,7 +112,24 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'Example'),
+        'name' => 'lorespinner',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Published markdown components live here so notification mail can use the
+    | public brand instead of the internal application name.
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'default',
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
     ],
 
 ];
