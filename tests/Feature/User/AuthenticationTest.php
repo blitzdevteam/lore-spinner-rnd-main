@@ -67,10 +67,12 @@ describe('registration', function () {
             ->assertRedirectBack();
     });
 
-    test('user can do register action and must redirect to email verification route', function () {
+    test('user can register and is sent to complete their profile', function () {
         startUserRegistration(getRegistrationPayload())
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('user.authentication.verify.index'));
+            ->assertRedirect(route('user.authentication.complete-profile.edit'))
+            ->assertSessionHas('success', 'Your account has been created')
+            ->assertSessionMissing('account_credentials');
 
         $this->assertDatabaseHas('users', [
             'email' => TEST_EMAIL,
