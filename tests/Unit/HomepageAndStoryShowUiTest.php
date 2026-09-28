@@ -174,7 +174,7 @@ it('uses a blurred story cover as the mobile-only background', function (): void
         ->toContain('coverImageUrl')
         ->toContain('w-screen -translate-x-1/2 overflow-hidden')
         ->toContain('blur-[40px]')
-        ->toContain('md:top-[-2.5rem] lg:hidden')
+        ->toContain('-top-20 bottom-0 z-0 lg:hidden')
         ->not->toContain('absolute inset-0 z-0 overflow-hidden lg:hidden');
 });
 

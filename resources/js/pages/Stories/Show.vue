@@ -276,7 +276,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
             <div class="relative mx-auto w-full max-w-[20.875rem] shrink-0 pb-8 lg:mx-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:max-w-none lg:shrink-0 lg:pb-0 xl:mr-2">
                 <div
                     v-if="coverImageUrl"
-                    class="pointer-events-none absolute inset-x-0 top-[-2rem] bottom-0 z-0 md:top-[-2.5rem] lg:hidden"
+                    class="pointer-events-none absolute inset-x-0 -top-20 bottom-0 z-0 lg:hidden"
                     aria-hidden="true"
                 >
                     <div class="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden">
