@@ -1,123 +1,94 @@
 <script setup lang="ts">
-import BaseButton from '@/components/BaseButton.vue';
-import BaseInputFormat from '@/components/BaseInputFormat.vue';
-import AuthenticationLayout from '@/layouts/AuthenticationLayout.vue';
+import epicStoriesImage from '@/assets/auth/epic-stories.png';
+import AuthField from '@/components/auth/AuthField.vue';
+import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
+import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/RegisterController';
-import { Form } from '@inertiajs/vue3';
+import login from '@/wayfinder/routes/user/authentication/login';
+import { Form, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+const password = ref('');
+
+const fieldClass =
+    "h-14 w-full rounded-[10px] border-0 bg-[#191919] px-4 font-inter text-base text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50";
 </script>
 
 <template>
     <Form :action="store()" #default="{ errors, processing }">
-        <AuthenticationLayout>
-            <template #body>
-                <div class="flex w-full flex-col gap-4">
-                    <BaseInputFormat label="Email" :error="errors.email">
-                        <PrimeInputText name="email" placeholder="Enter your email address" />
-                    </BaseInputFormat>
-                    <BaseInputFormat label="Password" :error="errors.password">
-                        <PrimePassword name="password" placeholder="Enter your password" :feedback="false" toggle-mask />
-                    </BaseInputFormat>
-                    <BaseInputFormat label="Confirm Password" :error="errors.password_confirmation">
-                        <PrimePassword name="password_confirmation" placeholder="Confirm your password" :feedback="false" toggle-mask />
-                    </BaseInputFormat>
+        <AuthSplitLayout
+            :image-src="epicStoriesImage"
+            panel-title="Epic stories"
+            panel-subtitle="Legends. Conflict. Destiny."
+        >
+            <div class="flex w-full flex-col items-center gap-7">
+                <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Sign Up</h1>
+                <div class="flex w-full flex-col gap-2.5 text-center">
+                    <p class="font-inter text-[1.125rem] text-[#ffbe58]">Step Into The Story</p>
+                    <p class="font-inter text-base text-[#83b1ce]">
+                        Every story changes because of your imagination and choices.
+                    </p>
                 </div>
-            </template>
-            <template #footer>
-                <div class="flex w-full flex-col gap-5 sm:gap-8">
-                    <BaseButton :processing severity="primary" class="auth-submit-btn !w-full">Register</BaseButton>
-                    <div class="auth-social-grid w-full">
-                        <button type="button" class="auth-social-btn">
-                            <img src="@/assets/brands/google.svg" class="auth-social-btn__icon brightness-0 invert" alt="" />
-                            <span class="auth-social-btn__label">Google</span>
-                        </button>
-                        <button type="button" class="auth-social-btn">
-                            <img src="@/assets/brands/facebook.svg" class="auth-social-btn__icon" alt="" />
-                            <span class="auth-social-btn__label">Facebook</span>
-                        </button>
-                        <button type="button" class="auth-social-btn">
-                            <img src="@/assets/brands/apple.svg" class="auth-social-btn__icon brightness-0 invert" alt="" />
-                            <span class="auth-social-btn__label">Apple</span>
-                        </button>
+
+                <AuthProviderButtons />
+
+                <div class="flex w-full flex-col gap-5">
+                    <div class="grid w-full grid-cols-2 gap-[1.125rem]">
+                        <AuthField label="First Name" :error="errors.first_name">
+                            <input name="first_name" type="text" autocomplete="given-name" :class="fieldClass" />
+                        </AuthField>
+                        <AuthField label="Last Name" :error="errors.last_name">
+                            <input name="last_name" type="text" autocomplete="family-name" :class="fieldClass" />
+                        </AuthField>
+                    </div>
+                    <AuthField label="Email Address" :error="errors.email">
+                        <input name="email" type="email" autocomplete="email" :class="fieldClass" />
+                    </AuthField>
+                    <div class="flex w-full flex-col gap-1.5">
+                        <AuthField label="Password" :error="errors.password">
+                            <input
+                                v-model="password"
+                                name="password"
+                                type="password"
+                                autocomplete="new-password"
+                                :class="fieldClass"
+                            />
+                        </AuthField>
+                        <input type="hidden" name="password_confirmation" :value="password" />
+                        <p v-if="!errors.password" class="font-inter text-sm text-[#585858]">Must be at least 8 characters</p>
                     </div>
                 </div>
-            </template>
-        </AuthenticationLayout>
+
+                <div class="flex w-full flex-col items-center gap-5">
+                    <button type="submit" class="auth-submit" :disabled="processing">Sign Up</button>
+                    <p class="text-center font-inter text-[15px] text-[#585858]">
+                        Already have an account?
+                        <Link :href="login.create.url()" class="font-semibold text-white underline">Sign in</Link>
+                    </p>
+                </div>
+            </div>
+        </AuthSplitLayout>
     </Form>
 </template>
 
 <style scoped>
-.auth-submit-btn {
-    box-sizing: border-box;
+.auth-submit {
     display: flex;
+    height: 3.125rem;
     width: 100%;
-    max-width: 100%;
-    height: 3rem;
-    border-radius: 0.75rem;
-    font-size: 1.0625rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 0.5px solid #59c1ca;
+    background: #59c1ca;
+    color: #000;
+    font-family: Inter, sans-serif;
+    font-size: 1rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    box-shadow: 0 4px 24px rgba(8, 206, 230, 0.2);
 }
 
-@media (min-width: 640px) {
-    .auth-submit-btn {
-        height: 3.25rem;
-        font-size: 1.125rem;
-    }
-}
-
-.auth-social-grid {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.625rem;
-}
-
-@media (min-width: 640px) {
-    .auth-social-grid {
-        gap: 1rem;
-    }
-}
-
-.auth-social-btn {
-    display: grid;
-    min-height: 4.5rem;
-    cursor: pointer;
-    place-items: center;
-    gap: 0.375rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 0.75rem 0.5rem;
-    transition:
-        border-color 150ms ease,
-        background-color 150ms ease,
-        transform 150ms ease;
-}
-
-@media (min-width: 640px) {
-    .auth-social-btn {
-        min-height: 5.5rem;
-    }
-}
-
-.auth-social-btn:hover {
-    border-color: rgba(8, 206, 230, 0.35);
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.auth-social-btn:active {
-    transform: scale(0.98);
-}
-
-.auth-social-btn__icon {
-    width: 1.5rem;
-    height: 1.5rem;
-}
-
-.auth-social-btn__label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: rgb(229, 231, 235);
+.auth-submit:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 </style>

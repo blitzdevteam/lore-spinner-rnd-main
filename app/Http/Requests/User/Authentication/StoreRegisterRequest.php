@@ -26,6 +26,8 @@ final class StoreRegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'first_name' => ['required', 'string', 'max:64'],
+            'last_name' => ['required', 'string', 'max:64'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];

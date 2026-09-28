@@ -25,7 +25,7 @@ function isActive(id: Panel): boolean {
 
 <template>
     <div
-        class="story-play-tablist flex gap-2.5"
+        class="story-play-tablist inline-flex items-center rounded-full border border-solid border-[#3a3a3a] p-1"
         role="tablist"
         aria-label="Story sections"
     >
@@ -35,52 +35,30 @@ function isActive(id: Panel): boolean {
             type="button"
             role="tab"
             :aria-selected="isActive(tab.id)"
-            class="story-play-tab relative box-border flex h-[2.8125rem] w-[7.8125rem] shrink-0 items-center justify-center overflow-hidden rounded-[1.6875rem] border border-solid outline-none transition-[border-color,color,background-color] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            class="story-play-tab relative box-border flex h-11 shrink-0 items-center justify-center rounded-full border border-solid px-7 font-['Inter',sans-serif] text-base font-medium outline-none transition-[color,background-color,border-color] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:px-8"
             :class="isActive(tab.id) ? 'story-play-tab--active' : 'story-play-tab--inactive'"
             @click="select(tab.id)"
         >
-            <span
-                aria-hidden="true"
-                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]"
-            />
-            <span
-                aria-hidden="true"
-                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] mix-blend-plus-lighter"
-                :class="isActive(tab.id) ? '' : 'backdrop-blur-[3px]'"
-            />
-            <span
-                class="relative z-[1] font-['Inter',sans-serif] text-base font-medium not-italic leading-[1.1859rem]"
-            >
-                {{ tab.label }}
-            </span>
-            <span
-                v-if="!isActive(tab.id)"
-                aria-hidden="true"
-                class="pointer-events-none absolute inset-0 rounded-[inherit]"
-                style="
-                    box-shadow:
-                        inset 0.25px 0.5px 0.5px 0.25px rgba(255, 255, 255, 0.22),
-                        inset -0.2px -0.5px 0.15px 0.5px rgba(255, 255, 255, 0.05);
-                "
-            />
+            {{ tab.label }}
         </button>
     </div>
 </template>
 
 <style scoped>
-.story-play-tablist {
-    overflow: visible;
-}
-
 .story-play-tab--inactive {
     border-color: transparent;
-    color: #fff;
-    box-shadow: 0 4px 80px rgba(0, 0, 0, 0.2);
+    background: transparent;
+    color: #8d8d8d;
+}
+
+.story-play-tab--inactive:hover {
+    color: #c8c8c8;
 }
 
 .story-play-tab--active {
-    border-color: #59c1ca;
-    color: #59c1ca;
-    box-shadow: none;
+    border-color: #5c5c5c;
+    background: #1a1a1a;
+    color: #fff;
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
 }
 </style>

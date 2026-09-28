@@ -7,12 +7,14 @@ export interface HomepageFeaturedStory {
     teaser: string;
 }
 
-/** Homepage hero, in carousel order. Ultrawide art exists for Speckled Band only. */
+/** Homepage hero, in carousel order. */
 export const HOMEPAGE_CAROUSEL_SLUGS = [
     'the-adventure-of-the-speckled-band',
-    'dracula',
-    'pride-and-prejudice',
-    'robin-hood',
+    'the-wonderful-wizard-of-oz',
+    'the-tell-tale-heart',
+    'the-masque-of-the-red-death',
+    'nocturne',
+    'jane-eyre',
 ] as const;
 
 /** Homepage New Stories row, in display order. */

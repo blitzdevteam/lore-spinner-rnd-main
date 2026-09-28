@@ -15,7 +15,10 @@ final class ForgotPasswordController extends Controller
 {
     public function create(): Response
     {
-        return inertia('User/Authentication/ForgotPassword');
+        return inertia('User/Authentication/ForgotPassword', [
+            'resetLinkSent' => session()->has('success'),
+            'email' => (string) old('email', ''),
+        ]);
     }
 
     public function store(SendPasswordResetLinkRequest $request): RedirectResponse
@@ -36,6 +39,8 @@ final class ForgotPasswordController extends Controller
                 ->withErrors(['email' => __($status)]);
         }
 
-        return back()->with('success', __($status));
+        return back()
+            ->withInput($request->only('email'))
+            ->with('success', __($status));
     }
 }

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import draculaImage from '@/assets/featured/dracula.png';
-import prideImage from '@/assets/newStories/Pride Landscape art only.png';
-import sherlockImage from '@/assets/carosel/Copy of Sherlock Ultrawide hero banner.png';
+import janeEyreImage from '@/assets/carosel/Ultrawide jane eyre.png';
+import masqueImage from '@/assets/carosel/Ultrawide 21_9 The Masque of the Red Death.png';
+import nocturneImage from '@/assets/carosel/Ultrawide nocturne.png';
+import ozImage from '@/assets/carosel/Ultrawide Oz.png';
+import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
+import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
 import BaseButton from '@/components/BaseButton.vue';
-import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
+import { LORE_SPINNER_CLASSIC, LORE_SPINNER_ORIGINAL } from '@/data/loreSpinnerSeriesLabels';
 import { StoryInterface } from '@/types';
 import { show } from '@/wayfinder/routes/stories';
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
@@ -35,6 +38,7 @@ interface FeaturedHeroSlideConfig {
     fallbackTeaser: string;
     fallbackAuthor: string;
     seriesLabel: string;
+    comingSoon?: boolean;
 }
 
 const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
@@ -54,38 +58,78 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'dracula',
-        image: draculaImage,
-        imagePosition: 'object-center',
-        titleLines: null,
-        fallbackTitle: 'Dracula',
-        teaserLines: null,
-        fallbackTeaser: 'Victorian England meets the undead — letters, crypts, and the first taste of immortal hunger.',
-        fallbackAuthor: 'Bram Stoker',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-    },
-    {
-        slug: 'pride-and-prejudice',
-        image: prideImage,
-        imagePosition: 'object-center',
-        titleLines: ['Pride &', 'Prejudice'],
-        fallbackTitle: 'Pride & Prejudice',
-        teaserLines: null,
+        slug: 'the-wonderful-wizard-of-oz',
+        image: ozImage,
+        imagePosition: 'object-[58%_top] md:object-top',
+        titleLines: ['The Wonderful', 'Wizard of Oz'],
+        fallbackTitle: 'The Wonderful Wizard of Oz',
+        teaserLines: [
+            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble,',
+            'and every step down the Yellow Brick Road changes who you are becoming.',
+        ],
         fallbackTeaser:
-            'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
-        fallbackAuthor: 'Jane Austen',
+            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
+        fallbackAuthor: 'L. Frank Baum',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'robin-hood',
-        image: '',
-        imagePosition: 'object-center',
-        titleLines: null,
-        fallbackTitle: 'Robin Hood',
-        teaserLines: null,
-        fallbackTeaser: 'Take from the rich. Give to the poor. Outlaw justice in the greenwood.',
-        fallbackAuthor: '',
+        slug: 'the-tell-tale-heart',
+        image: tellTaleImage,
+        imagePosition: 'object-[62%_top] md:object-top',
+        titleLines: ['The Tell-Tale', 'Heart'],
+        fallbackTitle: 'The Tell-Tale Heart',
+        teaserLines: [
+            'As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape:',
+            "the beating of a dead man's heart.",
+        ],
+        fallbackTeaser:
+            "As guilt begins to twist reality around him, a man struggles to silence the terrifying sound he cannot escape: the beating of a dead man's heart.",
+        fallbackAuthor: 'Edgar Allan Poe',
         seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'the-masque-of-the-red-death',
+        image: masqueImage,
+        imagePosition: 'object-[68%_top] md:object-top',
+        titleLines: ['The Masque of', 'the Red Death'],
+        fallbackTitle: 'The Masque of the Red Death',
+        teaserLines: ['Behind locked gates and glittering masks, a night of celebration slowly transforms into', 'a nightmare no one can escape.'],
+        fallbackTeaser: 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
+        fallbackAuthor: 'Edgar Allan Poe',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+        comingSoon: true,
+    },
+    {
+        slug: 'nocturne',
+        image: nocturneImage,
+        imagePosition: 'object-[70%_top] md:object-top',
+        titleLines: null,
+        fallbackTitle: 'Nocturne',
+        teaserLines: [
+            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten',
+            'and nothing is quite as voluntary as it seems.',
+        ],
+        fallbackTeaser:
+            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
+        fallbackAuthor: 'Thomas Wittmer',
+        seriesLabel: LORE_SPINNER_ORIGINAL,
+        comingSoon: true,
+    },
+    {
+        slug: 'jane-eyre',
+        image: janeEyreImage,
+        imagePosition: 'object-[72%_top] md:object-top',
+        titleLines: null,
+        fallbackTitle: 'Jane Eyre',
+        teaserLines: [
+            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love,',
+            'and the search for belonging may change the course of her life forever.',
+        ],
+        fallbackTeaser:
+            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love, and the search for belonging may change the course of her life forever.',
+        fallbackAuthor: 'Charlotte Brontë',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+        comingSoon: true,
     },
 ];
 
@@ -152,7 +196,7 @@ const featuredSlides = computed((): ResolvedHeroSlide[] =>
             author: config.fallbackAuthor,
             seriesLabel: config.seriesLabel,
             storyUrl: show(config.slug).url,
-            comingSoon: false,
+            comingSoon: config.comingSoon ?? false,
         };
     }),
 );

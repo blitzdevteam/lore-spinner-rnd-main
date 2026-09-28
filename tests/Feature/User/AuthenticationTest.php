@@ -35,6 +35,8 @@ function startUserRegistration(array $payload = []): TestResponse
 function getRegistrationPayload(array $overrides = []): array
 {
     return array_merge([
+        'first_name' => 'John',
+        'last_name' => 'Doe',
         'email' => TEST_EMAIL,
         'password' => TEST_PASSWORD,
         'password_confirmation' => TEST_PASSWORD,
@@ -72,6 +74,8 @@ describe('registration', function () {
 
         $this->assertDatabaseHas('users', [
             'email' => TEST_EMAIL,
+            'first_name' => 'John',
+            'last_name' => 'Doe',
             'email_verified_at' => null,
         ]);
     });

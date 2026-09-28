@@ -51,7 +51,7 @@ it('features the curated homepage story order', function (): void {
     $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
     $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
-    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Copy of Sherlock Ultrawide hero banner.png'");
+    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png'");
 
     $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 
@@ -61,9 +61,11 @@ it('features the curated homepage story order', function (): void {
 
     $carousel = [
         'the-adventure-of-the-speckled-band',
-        'dracula',
-        'pride-and-prejudice',
-        'robin-hood',
+        'the-wonderful-wizard-of-oz',
+        'the-tell-tale-heart',
+        'the-masque-of-the-red-death',
+        'nocturne',
+        'jane-eyre',
     ];
     $newStories = [
         'peter-pan',
@@ -93,7 +95,9 @@ it('features the curated homepage story order', function (): void {
         $previous = $position;
     }
 
-    expect($hero)->not->toContain('the-wonderful-wizard-of-oz');
+    expect($hero)
+        ->not->toContain("slug: 'dracula'")
+        ->not->toContain("slug: 'robin-hood'");
 
     $previous = strpos($featured, 'HOMEPAGE_NEW_STORIES');
     expect($previous)->not->toBeFalse();
@@ -122,16 +126,18 @@ it('features the curated homepage story order', function (): void {
     ]);
 });
 
-it('uses a shared 22px font for all homepage section titles', function (): void {
+it('uses a shared 20px font for section titles on every page', function (): void {
     $appCss = file_get_contents(resource_path('css/app.css'));
     $sectionHeader = file_get_contents(resource_path('js/components/SectionHeader.vue'));
 
     expect($appCss)
-        ->toContain("font-['Source_Sans_3',Inter,sans-serif] text-[22px]")
+        ->toContain("font-['Source_Sans_3',Inter,sans-serif] text-[20px]")
+        ->not->toContain('text-[22px]')
         ->not->toContain('md:text-[1.625rem]');
 
     expect($sectionHeader)
-        ->toContain('--section-header-title-size: 22px')
+        ->toContain('--section-header-title-size: 20px')
+        ->not->toContain('--section-header-title-size: 22px')
         ->not->toContain('--section-header-title-size: 1.175rem');
 });
 
@@ -149,6 +155,42 @@ it('keeps hero carousel arrows vertically centered when the layout viewport narr
     expect($heroBanner)
         ->toContain('max-width: 74.9375rem) and (hover: none)')
         ->toContain('bottom: 3.75rem');
+});
+
+it('renders the split sign in, sign up, and password screens', function (): void {
+    $login = file_get_contents(resource_path('js/pages/User/Authentication/Login.vue'));
+    $register = file_get_contents(resource_path('js/pages/User/Authentication/Register.vue'));
+    $forgot = file_get_contents(resource_path('js/pages/User/Authentication/ForgotPassword.vue'));
+
+    expect($login)
+        ->toContain('Continue Your Story')
+        ->toContain('AuthSplitLayout')
+        ->toContain('Forgot password?')
+        ->not->toContain('AuthenticationLayout');
+
+    expect($register)
+        ->toContain('Step Into The Story')
+        ->toContain('First Name')
+        ->toContain('Last Name')
+        ->toContain('name="password_confirmation"');
+
+    expect($forgot)
+        ->toContain('Forgot Password?')
+        ->toContain('Check Your Email')
+        ->toContain('Send Reset Link')
+        ->toContain('Resend Link');
+});
+
+it('renders story detail tabs as one pill track without a rating tab', function (): void {
+    $tabs = file_get_contents(resource_path('js/components/story-play/StoryPlayTabPair.vue'));
+
+    expect($tabs)
+        ->toContain("label: 'Details'")
+        ->toContain("label: 'Episodes'")
+        ->toContain('rounded-full border border-solid border-[#3a3a3a]')
+        ->toContain('story-play-tab--active')
+        ->not->toContain('Rating & Reviews')
+        ->not->toContain('w-[7.8125rem]');
 });
 
 it('labels the story details primary cta as solo spin', function (): void {

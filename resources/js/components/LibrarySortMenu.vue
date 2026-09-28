@@ -115,7 +115,7 @@ function optionClass(mode: LibrarySortMode): string {
 
 @media (min-width: 768px) {
     .library-sort-btn {
-        height: calc(22px * 1.1);
+        height: calc(20px * 1.1);
     }
 }
 

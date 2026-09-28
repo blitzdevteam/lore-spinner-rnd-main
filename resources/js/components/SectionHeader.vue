@@ -47,7 +47,7 @@ const actionLabel = computed(() => {
 
 <style scoped>
 .section-header {
-    --section-header-title-size: 22px;
+    --section-header-title-size: 20px;
     --section-header-title-leading: 1.1;
     --section-header-action-size: 0.875rem;
 
