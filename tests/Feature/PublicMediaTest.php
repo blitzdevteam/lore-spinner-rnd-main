@@ -21,7 +21,7 @@ beforeEach(function (): void {
 
 it('lets guests stream uploaded story covers from the app origin', function (): void {
     $story = Story::factory()->create([
-        'title' => 'Emma: Hearts Misread',
+        'title' => 'Emma',
         'slug' => 'emma',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
@@ -72,7 +72,7 @@ it('hides private story scripts from the public media route', function (): void 
 
 it('sends same-origin cover urls on the library page', function (): void {
     $story = Story::factory()->create([
-        'title' => 'Emma: Hearts Misread',
+        'title' => 'Emma',
         'slug' => 'emma',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
@@ -97,7 +97,7 @@ it('sends same-origin cover urls on the library page', function (): void {
 
 it('does not crash pages when uploaded media has a null uuid', function (): void {
     $story = Story::factory()->create([
-        'title' => 'Emma: Hearts Misread',
+        'title' => 'Emma',
         'slug' => 'emma',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),

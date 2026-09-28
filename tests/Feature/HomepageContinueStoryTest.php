@@ -32,7 +32,7 @@ it('sends the authenticated user latest game with episode details for continue s
         'is_active' => true,
     ]);
     $story = Story::factory()->create([
-        'title' => 'Sherlock Holmes in The Speckled Band',
+        'title' => 'Sherlock Holmes: The Speckled Band',
         'slug' => 'the-adventure-of-the-speckled-band',
         'status' => StoryStatusEnum::PUBLISHED,
         'published_at' => now(),
@@ -85,7 +85,7 @@ it('sends the authenticated user latest game with episode details for continue s
                 ->where('lastGame.id', $game->id)
                 ->where('lastGame.current_session_number', 1)
                 ->where('lastGame.prompts_count', 2)
-                ->where('lastGame.story.title', 'Sherlock Holmes in The Speckled Band')
+                ->where('lastGame.story.title', 'Sherlock Holmes: The Speckled Band')
                 ->where('lastGame.story.slug', 'the-adventure-of-the-speckled-band')
                 ->where('lastGame.story.chapters.0.position', 1)
                 ->where('lastGame.story.chapters.0.title', 'The strange note')

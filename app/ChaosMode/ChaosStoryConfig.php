@@ -63,13 +63,13 @@ final class ChaosStoryConfig
             ],
             [
                 'slug' => 'the-tell-tale-heart',
-                'title' => 'The Tell-Tale Heart: Beneath the Floor',
+                'title' => 'The Tell-Tale Heart',
                 'protagonist' => 'The Narrator',
                 'tagline' => 'Poe — descend into the cracked mind.',
             ],
             [
                 'slug' => 'dr-jekyll-and-mr-hyde',
-                'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
+                'title' => 'Strange Case of Dr. Jekyll and Mr. Hyde',
                 'protagonist' => 'Dr. Henry Jekyll',
                 'tagline' => 'Stevenson — hold the line between self and shadow.',
             ],
@@ -113,7 +113,7 @@ final class ChaosStoryConfig
             ],
             [
                 'slug' => 'the-wonderful-wizard-of-oz',
-                'title' => 'The Wonderful Wizard of Oz: The Road Home',
+                'title' => 'The Wonderful Wizard of Oz',
                 'protagonist' => 'Dorothy Gale',
                 'tagline' => 'Baum — follow the yellow brick road to the Emerald City.',
             ],

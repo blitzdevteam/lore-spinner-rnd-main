@@ -730,7 +730,7 @@ final class AddSingleStorySeeder extends Seeder
     private function configTreasureIsland(): array
     {
         return [
-            'title' => 'Treasure Island: The Map and the Mutiny',
+            'title' => 'Treasure Island',
             'slug' => 'treasure-island',
             'category' => 'Adventure',
             'script' => 'Treasure_Island_script.txt',

@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * `launch_playable_slugs` gates reviewer playability (with published + boiler-complete).
  * `boiled_playable_slugs` keeps already-boiled RnD titles playable alongside the launch roster.
- * `launch_catalog` is the canonical world, marketing title, and playable protagonist roster.
+ * `launch_catalog` is the canonical world, published title, and playable protagonist roster.
  */
 return [
     'launch_playable_slugs' => [
@@ -94,13 +94,13 @@ return [
 
         'titles' => [
             'the-wonderful-wizard-of-oz' => [
-                'title' => 'The Wonderful Wizard of Oz: The Road Home',
+                'title' => 'The Wonderful Wizard of Oz',
                 'protagonist' => 'Dorothy Gale',
                 'world_slug' => 'world-of-oz',
                 'world' => 'World of Oz',
             ],
             'peter-pan' => [
-                'title' => "Peter Pan: Wendy's Neverland",
+                'title' => 'Peter Pan',
                 'protagonist' => 'Wendy Darling',
             ],
             'the-adventure-of-the-speckled-band' => [
@@ -122,77 +122,77 @@ return [
                 'world' => 'Baker Street',
             ],
             'dracula' => [
-                'title' => 'Dracula: The First Invitation',
+                'title' => 'Dracula',
                 'protagonist' => 'Mina Murray',
                 'world_slug' => 'gothic-horrors',
                 'world' => 'Gothic Horrors',
             ],
             'frankenstein' => [
-                'title' => 'Frankenstein: The Creature Awakens',
+                'title' => 'Frankenstein',
                 'protagonist' => 'The Creature',
                 'world_slug' => 'gothic-horrors',
                 'world' => 'Gothic Horrors',
             ],
             'dr-jekyll-and-mr-hyde' => [
-                'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
+                'title' => 'Strange Case of Dr. Jekyll and Mr. Hyde',
                 'protagonist' => 'Dr. Henry Jekyll',
                 'world_slug' => 'gothic-horrors',
                 'world' => 'Gothic Horrors',
             ],
             'the-tell-tale-heart' => [
-                'title' => 'The Tell-Tale Heart: Beneath the Floor',
+                'title' => 'The Tell-Tale Heart',
                 'protagonist' => 'The Narrator',
                 'world_slug' => 'gothic-horrors',
                 'world' => 'Gothic Horrors',
             ],
             'pride-and-prejudice' => [
-                'title' => 'Pride and Prejudice: First Impressions',
+                'title' => 'Pride and Prejudice',
                 'protagonist' => 'Elizabeth Bennet',
                 'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'emma' => [
-                'title' => 'Emma: Hearts Misread',
+                'title' => 'Emma',
                 'protagonist' => 'Emma Woodhouse',
                 'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],
             'treasure-island' => [
-                'title' => 'Treasure Island: The Map and the Mutiny',
+                'title' => 'Treasure Island',
                 'protagonist' => 'Jim Hawkins',
                 'world_slug' => 'high-adventure',
                 'world' => 'High Adventure',
             ],
             'around-the-world-in-eighty-days' => [
-                'title' => 'Around the World in Eighty Days: Race the Clock',
+                'title' => 'Around the World in Eighty Days',
                 'protagonist' => 'Jean Passepartout',
                 'world_slug' => 'extraordinary-voyages',
                 'world' => 'Extraordinary Voyages',
             ],
             'journey-to-the-center-of-the-earth' => [
-                'title' => 'Journey to the Center of the Earth: Descent',
+                'title' => 'Journey to the Center of the Earth',
                 'protagonist' => 'Axel',
                 'world_slug' => 'extraordinary-voyages',
                 'world' => 'Extraordinary Voyages',
             ],
             'the-three-musketeers' => [
-                'title' => 'The Three Musketeers: One for All',
+                'title' => 'The Three Musketeers',
                 'protagonist' => "D'Artagnan",
                 'world_slug' => 'high-adventure',
                 'world' => 'High Adventure',
             ],
             'robin-hood' => [
-                'title' => 'Robin Hood: Outlaw of Sherwood',
+                'title' => 'Robin Hood',
                 'protagonist' => 'Robin Hood',
                 'world_slug' => 'high-adventure',
                 'world' => 'High Adventure',
             ],
             'the-invisible-man' => [
-                'title' => 'The Invisible Man: Unseen',
+                'title' => 'The Invisible Man',
                 'protagonist' => 'Griffin',
             ],
             'sir-gawain-and-the-green-knight' => [
-                'title' => 'Sir Gawain and the Green Knight: The Year of Honor',
+                'title' => 'Sir Gawain and the Green Knight',
                 'protagonist' => 'Sir Gawain',
                 'world_slug' => 'camelot',
                 'world' => 'Camelot',

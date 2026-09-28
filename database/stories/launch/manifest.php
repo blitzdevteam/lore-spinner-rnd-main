@@ -173,7 +173,7 @@ return [
         // ── 02 The World of Oz ────────────────────────────────────────────
         [
             'seed_keys' => ['wizard-of-oz', 'oz', 'the-wonderful-wizard-of-oz'],
-            'title' => 'The Wonderful Wizard of Oz: The Road Home',
+            'title' => 'The Wonderful Wizard of Oz',
             'slug' => 'the-wonderful-wizard-of-oz',
             'world' => 'World of Oz',
             'world_slug' => '02-world-of-oz',
@@ -279,7 +279,7 @@ return [
         // ── 05 Jane Austen ────────────────────────────────────────────────
         [
             'seed_keys' => ['pride-and-prejudice', 'pride-prejudice'],
-            'title' => 'Pride and Prejudice: First Impressions',
+            'title' => 'Pride and Prejudice',
             'slug' => 'pride-and-prejudice',
             'world' => 'Jane Austen',
             'world_slug' => '05-jane-austen',
@@ -296,7 +296,7 @@ return [
         ],
         [
             'seed_keys' => ['emma'],
-            'title' => 'Emma: Hearts Misread',
+            'title' => 'Emma',
             'slug' => 'emma',
             'world' => 'Jane Austen',
             'world_slug' => '05-jane-austen',
@@ -401,7 +401,7 @@ return [
         // ── Hyde's London ─────────────────────────────────────────────────
         [
             'seed_keys' => ['jekyll', 'hyde', 'dr-jekyll-and-mr-hyde', 'jekyll-and-hyde', 'the-strange-case-of-dr-jekyll-and-mr-hyde'],
-            'title' => 'Dr. Jekyll and Mr. Hyde: The Other Self',
+            'title' => 'Strange Case of Dr. Jekyll and Mr. Hyde',
             'slug' => 'dr-jekyll-and-mr-hyde',
             'world' => 'Gothic Horrors',
             'world_slug' => 'standalone',
@@ -421,7 +421,7 @@ return [
         // ── Gothic Horrors (launch) ───────────────────────────────────────
         [
             'seed_keys' => ['dracula'],
-            'title' => 'Dracula: The First Invitation',
+            'title' => 'Dracula',
             'slug' => 'dracula',
             'world' => 'Gothic Horrors',
             'world_slug' => 'gothic-horrors',
@@ -438,7 +438,7 @@ return [
         ],
         [
             'seed_keys' => ['frankenstein'],
-            'title' => 'Frankenstein: The Creature Awakens',
+            'title' => 'Frankenstein',
             'slug' => 'frankenstein',
             'world' => 'Gothic Horrors',
             'world_slug' => 'gothic-horrors',
@@ -457,7 +457,7 @@ return [
         // ── High Adventure (launch) ───────────────────────────────────────
         [
             'seed_keys' => ['the-three-musketeers', 'three-musketeers', 'musketeers'],
-            'title' => 'The Three Musketeers: One for All',
+            'title' => 'The Three Musketeers',
             'slug' => 'the-three-musketeers',
             'world' => 'High Adventure',
             'world_slug' => 'high-adventure',
@@ -474,7 +474,7 @@ return [
         ],
         [
             'seed_keys' => ['robin-hood', 'robin'],
-            'title' => 'Robin Hood: Outlaw of Sherwood',
+            'title' => 'Robin Hood',
             'slug' => 'robin-hood',
             'world' => 'High Adventure',
             'world_slug' => 'high-adventure',
@@ -493,7 +493,7 @@ return [
         // ── Extraordinary Voyages (launch) ────────────────────────────────
         [
             'seed_keys' => ['around-the-world-in-eighty-days', 'around-the-world', 'eighty-days'],
-            'title' => 'Around the World in Eighty Days: Race the Clock',
+            'title' => 'Around the World in Eighty Days',
             'slug' => 'around-the-world-in-eighty-days',
             'world' => 'Extraordinary Voyages',
             'world_slug' => 'extraordinary-voyages',
@@ -510,7 +510,7 @@ return [
         ],
         [
             'seed_keys' => ['journey-to-the-center-of-the-earth', 'journey-centre-earth', 'journey-center-earth'],
-            'title' => 'Journey to the Center of the Earth: Descent',
+            'title' => 'Journey to the Center of the Earth',
             'slug' => 'journey-to-the-center-of-the-earth',
             'world' => 'Extraordinary Voyages',
             'world_slug' => 'extraordinary-voyages',
@@ -529,7 +529,7 @@ return [
         // ── Camelot (launch) ────────────────────────────────────────────
         [
             'seed_keys' => ['sir-gawain-and-the-green-knight', 'gawain', 'green-knight'],
-            'title' => 'Sir Gawain and the Green Knight: The Year of Honor',
+            'title' => 'Sir Gawain and the Green Knight',
             'slug' => 'sir-gawain-and-the-green-knight',
             'world' => 'Camelot',
             'world_slug' => 'camelot',
@@ -548,7 +548,7 @@ return [
         // ── Treasure Island ───────────────────────────────────────────────
         [
             'seed_keys' => ['treasure-island', 'treasure'],
-            'title' => 'Treasure Island: The Map and the Mutiny',
+            'title' => 'Treasure Island',
             'slug' => 'treasure-island',
             'world' => 'High Adventure',
             'world_slug' => 'treasure-island',
@@ -567,7 +567,7 @@ return [
         // ── Standalone (launch) ─────────────────────────────────────────────
         [
             'seed_keys' => ['peter-pan', 'peter-and-wendy', 'wendy'],
-            'title' => "Peter Pan: Wendy's Neverland",
+            'title' => 'Peter Pan',
             'slug' => 'peter-pan',
             'world' => 'Standalone',
             'world_slug' => 'standalone',
@@ -583,7 +583,7 @@ return [
         ],
         [
             'seed_keys' => ['the-invisible-man', 'invisible-man', 'griffin'],
-            'title' => 'The Invisible Man: Unseen',
+            'title' => 'The Invisible Man',
             'slug' => 'the-invisible-man',
             'world' => 'Standalone',
             'world_slug' => 'standalone',
@@ -619,7 +619,7 @@ return [
         ],
         [
             'seed_keys' => ['tell-tale-heart', 'the-tell-tale-heart'],
-            'title' => 'The Tell-Tale Heart: Beneath the Floor',
+            'title' => 'The Tell-Tale Heart',
             'slug' => 'the-tell-tale-heart',
             'world' => 'Gothic Horrors',
             'world_slug' => 'standalone',

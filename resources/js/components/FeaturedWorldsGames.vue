@@ -32,7 +32,7 @@ const props = withDefaults(
 const playableGames: FeaturedGame[] = [
     {
         id: 'the-adventure-of-the-speckled-band',
-        title: 'The Adventure of the Speckled Band',
+        title: 'Sherlock Holmes: The Speckled Band',
         cover: sherlockCover,
         playable: true,
         slug: 'the-adventure-of-the-speckled-band',
