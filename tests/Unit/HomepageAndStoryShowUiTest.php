@@ -31,16 +31,16 @@ it('orders the homepage like beta and omits featured worlds', function (): void 
         ->toContain('<ComingSoonBanners :stories="comingSoonSectionStories" />')
         ->not->toContain('FeaturedWorldsGames');
 
-    expect(strpos($homepage, '<StoryChangesWithYou />'))
-        ->toBeLessThan(strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'));
-    expect(strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'))
-        ->toBeLessThan(strpos($homepage, '<XenBanner />'));
-    expect(strpos($homepage, '<XenBanner />'))
-        ->toBeLessThan(strpos($homepage, '<ExploreByMood :stories="visibleStories" />'));
-    expect(strpos($homepage, '<ExploreByMood :stories="visibleStories" />'))
-        ->toBeLessThan(strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'));
-    expect(strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'))
-        ->toBeLessThan(strpos($homepage, '<ComingSoonBanners :stories="comingSoonSectionStories" />'));
+    expect(mb_strpos($homepage, '<StoryChangesWithYou />'))
+        ->toBeLessThan(mb_strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'));
+    expect(mb_strpos($homepage, '<StepIntoWorlds :worlds="worlds" />'))
+        ->toBeLessThan(mb_strpos($homepage, '<XenBanner />'));
+    expect(mb_strpos($homepage, '<XenBanner />'))
+        ->toBeLessThan(mb_strpos($homepage, '<ExploreByMood :stories="visibleStories" />'));
+    expect(mb_strpos($homepage, '<ExploreByMood :stories="visibleStories" />'))
+        ->toBeLessThan(mb_strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'));
+    expect(mb_strpos($homepage, '<NewStoriesBanners :stories="visibleStories" />'))
+        ->toBeLessThan(mb_strpos($homepage, '<ComingSoonBanners :stories="comingSoonSectionStories" />'));
 
     expect($stepIntoWorlds)
         ->toContain('title="Step into Worlds"')
@@ -51,7 +51,7 @@ it('features the curated homepage story order', function (): void {
     $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
     $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
-    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png'");
+    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/New speckled band poster.JPG'");
 
     $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 
@@ -87,7 +87,7 @@ it('features the curated homepage story order', function (): void {
     $previous = 0;
 
     foreach ($carousel as $slug) {
-        $position = strpos($hero, "slug: '{$slug}'");
+        $position = mb_strpos($hero, "slug: '{$slug}'");
         expect($position)->not->toBeFalse();
         expect($position)->toBeGreaterThan($previous);
         $previous = $position;
@@ -100,21 +100,21 @@ it('features the curated homepage story order', function (): void {
         ->not->toContain("slug: 'nocturne'")
         ->not->toContain("slug: 'jane-eyre'");
 
-    $previous = strpos($featured, 'HOMEPAGE_NEW_STORIES');
+    $previous = mb_strpos($featured, 'HOMEPAGE_NEW_STORIES');
     expect($previous)->not->toBeFalse();
 
     foreach ($newStories as $slug) {
-        $position = strpos($featured, "slug: '{$slug}'", $previous);
+        $position = mb_strpos($featured, "slug: '{$slug}'", $previous);
         expect($position)->not->toBeFalse();
         expect($position)->toBeGreaterThan($previous);
         $previous = $position;
     }
 
-    $previous = strpos($featured, 'HOMEPAGE_COMING_SOON');
+    $previous = mb_strpos($featured, 'HOMEPAGE_COMING_SOON');
     expect($previous)->not->toBeFalse();
 
     foreach ($comingSoon as $slug) {
-        $position = strpos($featured, "slug: '{$slug}'", $previous);
+        $position = mb_strpos($featured, "slug: '{$slug}'", $previous);
         expect($position)->not->toBeFalse();
         expect($position)->toBeGreaterThan($previous);
         $previous = $position;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
 import ozImage from '@/assets/carosel/Ultrawide Oz.png';
-import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
+import sherlockImage from '@/assets/carosel/New speckled band poster.JPG';
 import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
 import BaseButton from '@/components/BaseButton.vue';
 import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
