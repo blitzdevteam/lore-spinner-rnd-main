@@ -4,6 +4,7 @@ import AuthField from '@/components/auth/AuthField.vue';
 import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/LoginController';
+import { index } from '@/wayfinder/routes';
 import forgotPassword from '@/wayfinder/routes/user/authentication/forgot-password';
 import register from '@/wayfinder/routes/user/authentication/register';
 import { Form, Link, usePage } from '@inertiajs/vue3';
@@ -23,6 +24,7 @@ const fieldClass =
             :image-src="adventurousStoriesImage"
             panel-title="Adventurous stories"
             panel-subtitle="Discovery. Danger. Wonder."
+            :back-href="index().url"
         >
             <div class="flex w-full flex-col items-center gap-7">
                 <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Sign In</h1>

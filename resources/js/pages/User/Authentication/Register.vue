@@ -4,6 +4,7 @@ import AuthField from '@/components/auth/AuthField.vue';
 import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/RegisterController';
+import { index } from '@/wayfinder/routes';
 import login from '@/wayfinder/routes/user/authentication/login';
 import { Form, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -20,6 +21,7 @@ const fieldClass =
             :image-src="epicStoriesImage"
             panel-title="Epic stories"
             panel-subtitle="Legends. Conflict. Destiny."
+            :back-href="index().url"
         >
             <div class="flex w-full flex-col items-center gap-7">
                 <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Sign Up</h1>

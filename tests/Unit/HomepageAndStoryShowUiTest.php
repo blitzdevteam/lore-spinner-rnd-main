@@ -63,9 +63,7 @@ it('features the curated homepage story order', function (): void {
         'the-adventure-of-the-speckled-band',
         'the-wonderful-wizard-of-oz',
         'the-tell-tale-heart',
-        'the-masque-of-the-red-death',
-        'nocturne',
-        'jane-eyre',
+        'pride-and-prejudice',
     ];
     $newStories = [
         'peter-pan',
@@ -97,7 +95,10 @@ it('features the curated homepage story order', function (): void {
 
     expect($hero)
         ->not->toContain("slug: 'dracula'")
-        ->not->toContain("slug: 'robin-hood'");
+        ->not->toContain("slug: 'robin-hood'")
+        ->not->toContain("slug: 'the-masque-of-the-red-death'")
+        ->not->toContain("slug: 'nocturne'")
+        ->not->toContain("slug: 'jane-eyre'");
 
     $previous = strpos($featured, 'HOMEPAGE_NEW_STORIES');
     expect($previous)->not->toBeFalse();
@@ -166,13 +167,15 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->toContain('Continue Your Story')
         ->toContain('AuthSplitLayout')
         ->toContain('Forgot password?')
+        ->toContain(':back-href="index().url"')
         ->not->toContain('AuthenticationLayout');
 
     expect($register)
         ->toContain('Step Into The Story')
         ->toContain('First Name')
         ->toContain('Last Name')
-        ->toContain('name="password_confirmation"');
+        ->toContain('name="password_confirmation"')
+        ->toContain(':back-href="index().url"');
 
     expect($forgot)
         ->toContain('Forgot Password?')

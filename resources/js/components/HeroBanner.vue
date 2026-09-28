@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import janeEyreImage from '@/assets/carosel/Ultrawide jane eyre.png';
-import masqueImage from '@/assets/carosel/Ultrawide 21_9 The Masque of the Red Death.png';
-import nocturneImage from '@/assets/carosel/Ultrawide nocturne.png';
+import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
 import ozImage from '@/assets/carosel/Ultrawide Oz.png';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.png';
 import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
 import BaseButton from '@/components/BaseButton.vue';
-import { LORE_SPINNER_CLASSIC, LORE_SPINNER_ORIGINAL } from '@/data/loreSpinnerSeriesLabels';
+import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
 import { StoryInterface } from '@/types';
 import { show } from '@/wayfinder/routes/stories';
 import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
@@ -88,48 +86,19 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'the-masque-of-the-red-death',
-        image: masqueImage,
-        imagePosition: 'object-[68%_top] md:object-top',
-        titleLines: ['The Masque of', 'the Red Death'],
-        fallbackTitle: 'The Masque of the Red Death',
-        teaserLines: ['Behind locked gates and glittering masks, a night of celebration slowly transforms into', 'a nightmare no one can escape.'],
-        fallbackTeaser: 'Behind locked gates and glittering masks, a night of celebration slowly transforms into a nightmare no one can escape.',
-        fallbackAuthor: 'Edgar Allan Poe',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-        comingSoon: true,
-    },
-    {
-        slug: 'nocturne',
-        image: nocturneImage,
-        imagePosition: 'object-[70%_top] md:object-top',
-        titleLines: null,
-        fallbackTitle: 'Nocturne',
+        slug: 'pride-and-prejudice',
+        image: prideImage,
+        imagePosition: 'object-[62%_center] md:object-center',
+        titleLines: ['Pride and', 'Prejudice'],
+        fallbackTitle: 'Pride and Prejudice',
         teaserLines: [
-            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten',
-            'and nothing is quite as voluntary as it seems.',
+            'In a world ruled by reputation, romance, and social expectation,',
+            'Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
         ],
         fallbackTeaser:
-            'Beyond the rain-soaked glass walls of Nocturne, Akira finds herself trapped inside a system where identities are rewritten and nothing is quite as voluntary as it seems.',
-        fallbackAuthor: 'Thomas Wittmer',
-        seriesLabel: LORE_SPINNER_ORIGINAL,
-        comingSoon: true,
-    },
-    {
-        slug: 'jane-eyre',
-        image: janeEyreImage,
-        imagePosition: 'object-[72%_top] md:object-top',
-        titleLines: null,
-        fallbackTitle: 'Jane Eyre',
-        teaserLines: [
-            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love,',
-            'and the search for belonging may change the course of her life forever.',
-        ],
-        fallbackTeaser:
-            'A young orphan enters a dark and mysterious estate where buried secrets, dangerous love, and the search for belonging may change the course of her life forever.',
-        fallbackAuthor: 'Charlotte Brontë',
+            'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
+        fallbackAuthor: 'Jane Austen',
         seriesLabel: LORE_SPINNER_CLASSIC,
-        comingSoon: true,
     },
 ];
 
