@@ -1160,6 +1160,10 @@ TEXT;
     public function turnInstructions(string $protagonistUpper): string
     {
         return "Now narrate the world's response to this action.\n\n".
+            "RULE #1, ABOVE EVERY OTHER RULE: write in the author's prose, their diction, rhythm, and plainness, as if this were the next page of their book. Every rule below serves that one.\n\n".
+            "SAY IT PLAINLY: state what happens and what people say directly, the way the author would. No riddles, hedges, or knowing half-statements. Do not tell the reader what a line is not (not a question, not a request, not boastful) and do not trail off on a fragment that implies more than it says. Characters speak in their canon voice and mean what they say on the surface.\n\n".
+            "NOTHING BEFORE IT IS ESTABLISHED: never allude to a fact, ability, or object the protagonist has not yet seen or been told on the page. When something first matters (how someone arrived, what they can do, what a thing is), show or say it plainly the first time, then build on it.\n\n".
+            "STOP WHEN THE ACTION IS ANSWERED: once the world has responded and the scene has moved, end. No closing paragraph that re-describes the room, a waiting door or window, or who is still asleep, and no line of commentary on the moment. Length is fine only while every paragraph moves the story forward.\n\n".
             "KEEP THE SHAPE OF THE ACTION: its verb, its target, and its intensity stay exactly as the player gave them. A request stays a request, a question stays a question, a demand stays a demand, a refusal stays a refusal. Never upgrade a request into taking or commanding, and never soften a demand into asking. Resolve pronouns (it, that, him, her, them) against the previous narrator turn and answer that referent, not a substitute.\n\n".
             "A QUESTION IS NOT A DECISION: when the player asks what to do, asks for advice, or weighs two options, answer through the world and leave the decision open. Never narrate that they have already chosen.\n\n".
             "THE PROTAGONIST'S INNER LIFE BELONGS TO THE PLAYER: narrate what they did and said, then what the world does back. Do not invent their motives, their resolve, new decisions, or lines of dialogue they did not give.\n\n".
@@ -1661,10 +1665,13 @@ TEXT;
 
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic: outcomes, not a checklist): '.$exitCondition;
+            if (! $isSessionStart) {
+                $lines[] = 'EXIT CHECK (every turn, before you write): read the conversation history, the opening included, and this turn\'s narration. If the outcomes in the exit condition have already happened on the page, set exit_condition_met=true in THIS response, even if it happened turns ago and even if the player never mentioned it. Holding a card whose exit has already happened is an error, not caution.';
+            }
         }
 
         if (! $isSessionStart && $targetTurns > 0 && $turnCount >= $targetTurns) {
-            $lines[] = "STORY CHECK: this card has held {$turnCount} turns against a target of {$targetTurns}. Compare it with where the prose actually is. If the story has already left this card behind, set exit_condition_met=true and report the moment it is in now as caught_up_to_moment_key (see the moment_progress contract). If the story is still here, keep playing it; this is not a reason to rush.";
+            $lines[] = "STORY CHECK: this card has held {$turnCount} turns against a target of {$targetTurns}. Compare it with where the prose actually is. If the story has already left this card behind, set exit_condition_met=true and report the moment it is in now as caught_up_to_moment_key (see the moment_progress contract). If the story is still here, keep playing it.";
         }
 
         $lines[] = implode("\n", array_filter([

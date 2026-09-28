@@ -176,6 +176,22 @@ final class PlayableMomentResolver
                     ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
                     ->where('moment_order', $currentMoment->moment_order + 1)
                     ->first();
+            } elseif ($this->heldPastGravity($currentMoment, (int) $lockedGame->playable_moment_turn_count)) {
+                $nextMoment = PlayableMoment::query()
+                    ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
+                    ->where('moment_order', $currentMoment->moment_order + 1)
+                    ->first();
+
+                if ($nextMoment !== null) {
+                    $progress['exit_condition_met'] = true;
+                    $result['moment_progress'] = $progress;
+                    Log::channel('narration')->warning('boiler.moment_advanced_past_gravity', [
+                        'game_id' => $lockedGame->id,
+                        'from_moment_key' => $currentMoment->moment_key,
+                        'to_moment_key' => $nextMoment->moment_key,
+                        'turn_count' => $lockedGame->playable_moment_turn_count + 1,
+                    ]);
+                }
             }
             $resultingMoment = $nextMoment ?? $currentMoment;
 
@@ -345,6 +361,23 @@ final class PlayableMomentResolver
 
             return $responsePrompt;
         });
+    }
+
+    /**
+     * A card with no authored choice that has outrun its gravity budget is
+     * advanced even when the narrator keeps holding it; the prose has almost
+     * always moved on by then. Cards carrying an authored choice are never
+     * forced, so a branch always lands through play.
+     */
+    private function heldPastGravity(PlayableMoment $currentMoment, int $completedTurns): bool
+    {
+        $gravityAfter = (int) data_get($currentMoment->scene_card, 'turn_budget.gravity_after', 0);
+
+        if ($gravityAfter <= 0 || (array) data_get($currentMoment->scene_card, 'choice_ids', []) !== []) {
+            return false;
+        }
+
+        return $completedTurns + 1 > $gravityAfter;
     }
 
     /**

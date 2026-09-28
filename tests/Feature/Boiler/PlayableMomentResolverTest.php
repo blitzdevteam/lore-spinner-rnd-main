@@ -333,6 +333,7 @@ it('repairs missing or stale moment_progress onto the active moment', function (
     expect($missing['moment_progress'])->toBe([
         'moment_key' => 'S1_M01',
         'exit_condition_met' => false,
+        'caught_up_to_moment_key' => '',
         'route_relation' => '',
         'impact_scope' => '',
         'moment_footnote' => null,
@@ -917,4 +918,46 @@ it('ignores a catch-up key that names an earlier or unknown card', function () {
     );
 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('advances a choice-free card the narrator keeps holding past gravity', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => [], 'turn_budget' => ['target_turns' => 4, 'gravity_after' => 5]],
+    ]);
+    $fixture['game']->update(['playable_moment_turn_count' => 5]);
+
+    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Wake John.',
+        boilerResolverResult('S1_M01', false, 'The player woke John.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($fixture['second']->id)
+        ->and($game->playable_moment_turn_count)->toBe(0)
+        ->and($response->moment_result)->toBe('advanced')
+        ->and((bool) $response->exit_condition_met)->toBeTrue();
+});
+
+it('never forces a card that carries an authored choice past gravity', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => ['S1_C1'], 'turn_budget' => ['target_turns' => 4, 'gravity_after' => 5]],
+    ]);
+    $fixture['game']->update(['playable_moment_turn_count' => 7]);
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Look around.',
+        boilerResolverResult('S1_M01', false, 'The player looked around.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id);
 });
