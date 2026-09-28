@@ -22,6 +22,10 @@ Route::prefix('user')->name('user.')->group(function (): void {
                 Route::post('/', 'store')->name('store');
             });
         });
+        Route::prefix('reset-password')->name('reset-password.')->controller(User\Authentication\ResetPasswordController::class)->group(function () {
+            Route::get('{token}', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+        });
         Route::middleware('auth:user')->group(function () {
             Route::get('account-created', [User\Authentication\RegisterController::class, 'accountCreated'])
                 ->name('account-created');

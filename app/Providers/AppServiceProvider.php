@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Ai\AnthropicThinkingPolicy;
 use App\Filament\Support\EnsureLocalLivewireUploads;
 use App\Services\SubscriptionEntitlementService;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Artisan;
@@ -34,6 +36,13 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        ResetPassword::createUrlUsing(function (CanResetPassword $notifiable, string $token): string {
+            return route('user.authentication.reset-password.create', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
+        });
 
         Http::globalRequestMiddleware(AnthropicThinkingPolicy::disableOpusThinking(...));
 

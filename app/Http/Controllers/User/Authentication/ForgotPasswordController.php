@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User\Authentication;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Requests\User\Authentication\SendPasswordResetLinkRequest;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Password;
 use Inertia\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 final class ForgotPasswordController extends Controller
 {
@@ -19,22 +18,24 @@ final class ForgotPasswordController extends Controller
         return inertia('User/Authentication/ForgotPassword');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(SendPasswordResetLinkRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => ['required', 'email', Rule::exists('users', 'email')],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ], [
-            'email.exists' => 'We could not find an account with that email.',
-        ]);
+        try {
+            $status = Password::sendResetLink($request->only('email'));
+        } catch (TransportExceptionInterface $exception) {
+            report($exception);
 
-        $user = User::where('email', $request->string('email')->toString())->first();
+            return back()
+                ->withInput($request->only('email'))
+                ->with('error', 'We could not send the reset email. Please try again in a moment.');
+        }
 
-        $user->forceFill([
-            'password' => Hash::make($request->string('password')->toString()),
-        ])->save();
+        if ($status !== Password::RESET_LINK_SENT) {
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => __($status)]);
+        }
 
-        return to_route('user.authentication.login.create')
-            ->with('success', 'Your password has been reset. You can now log in.');
+        return back()->with('success', __($status));
     }
 }

@@ -4,7 +4,12 @@ import BaseInputFormat from '@/components/BaseInputFormat.vue';
 import AuthenticationLayout from '@/layouts/AuthenticationLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/LoginController';
 import forgotPassword from '@/wayfinder/routes/user/authentication/forgot-password';
-import { Form, Link } from '@inertiajs/vue3';
+import { Form, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const page = usePage();
+const successMessages = computed(() => page.props.flash?.success ?? []);
+const errorMessages = computed(() => page.props.flash?.error ?? []);
 </script>
 
 <template>
@@ -12,6 +17,12 @@ import { Form, Link } from '@inertiajs/vue3';
         <AuthenticationLayout>
             <template #body>
                 <div class="flex w-full flex-col gap-4">
+                    <p v-for="message in successMessages" :key="message" class="text-center text-sm text-primary-300">
+                        {{ message }}
+                    </p>
+                    <p v-for="message in errorMessages" :key="`error-${message}`" class="text-center text-sm text-red-400">
+                        {{ message }}
+                    </p>
                     <BaseInputFormat label="Email" :error="errors.email">
                         <PrimeInputText name="email" placeholder="Enter your email address" />
                     </BaseInputFormat>
