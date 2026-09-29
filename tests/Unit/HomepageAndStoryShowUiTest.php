@@ -254,16 +254,23 @@ it('places the story details back button in the page left corner instead of on t
         ->not->toContain('pointer-events-auto absolute top-4 left-4');
 });
 
-it('exposes restart story on the story details page when a game already exists', function (): void {
+it('puts restart and archive in the story actions menu after a game has started', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
+    $topBar = file_get_contents(resource_path('js/components/story-play/StoryPlayTopBar.vue'));
 
     expect($storyShow)
-        ->toContain('Restart Story')
+        ->toContain(':show-game-menu="hasExistingGame"')
+        ->toContain('@restart="handleRestartStory"')
         ->toContain('handleRestartStory')
         ->toContain('reset as resetGame')
-        ->toContain('v-if="isPlayable"')
-        ->toContain('!hasExistingGame || isRestarting')
-        ->toContain('resetGame.url(props.existingGameId)');
+        ->toContain('resetGame.url(props.existingGameId)')
+        ->not->toContain('Restart Story');
+
+    expect($topBar)
+        ->toContain('Story actions')
+        ->toContain('Restart')
+        ->toContain('Archive')
+        ->toContain('v-if="showGameMenu"');
 });
 
 it('shows the fixed episode duration and builds the episode list from sessions', function (): void {

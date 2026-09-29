@@ -286,8 +286,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
         </div>
 
         <div
-            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 md:px-[3.25rem] md:pt-20 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
-            :class="isPlayable ? 'pb-40' : 'pb-28'"
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 pb-28 md:px-[3.25rem] md:pt-20 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
         >
             <!-- Left: Poster column -->
             <div class="relative mx-auto w-full max-w-[20.875rem] shrink-0 pb-8 lg:mx-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:max-w-none lg:shrink-0 lg:pb-0 xl:mr-2">
@@ -326,9 +325,11 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                         <StoryPlayTopBar
                             :tab="panel"
                             :bookmark-filled="isBookmarked"
+                            :show-game-menu="hasExistingGame"
                             @update:tab="panel = $event"
                             @bookmark="toggleBookmark"
                             @share="handleShare"
+                            @restart="handleRestartStory"
                         />
                     </div>
 
@@ -396,21 +397,10 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                     <div
                         class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
                     >
-                        <div class="flex flex-col gap-6">
-                            <div class="flex justify-end">
-                                <div class="w-full max-w-[321px]">
-                                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
-                                </div>
+                        <div class="flex justify-end">
+                            <div class="w-full max-w-[321px]">
+                                <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
                             </div>
-                            <button
-                                v-if="isPlayable"
-                                type="button"
-                                class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
-                                :disabled="!hasExistingGame || isRestarting"
-                                @click="handleRestartStory"
-                            >
-                                Restart Story
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -420,22 +410,10 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
         <!-- Mobile CTA strip -->
         <div class="fixed inset-x-0 bottom-0 z-30 lg:hidden">
             <div
-                class="pointer-events-none absolute inset-x-0 h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent"
-                :class="isPlayable ? 'bottom-[7.5rem]' : 'bottom-[4.5rem]'"
+                class="pointer-events-none absolute inset-x-0 bottom-[4.5rem] h-[6rem] bg-linear-to-t from-black via-black/88 to-transparent"
             />
             <div class="relative bg-black/90 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] backdrop-blur-md">
-                <div class="flex flex-col gap-6">
-                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
-                    <button
-                        v-if="isPlayable"
-                        type="button"
-                        class="font-['Inter',sans-serif] text-center text-[16px] font-semibold text-[#8f8f8f] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#8f8f8f]"
-                        :disabled="!hasExistingGame || isRestarting"
-                        @click="handleRestartStory"
-                    >
-                        Restart Story
-                    </button>
-                </div>
+                <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
             </div>
         </div>
 
