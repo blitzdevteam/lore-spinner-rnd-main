@@ -9,6 +9,7 @@ import StoryPlayCoverColumn from '@/components/story-play/StoryPlayCoverColumn.v
 import StoryPlayGlassRoundButton from '@/components/story-play/StoryPlayGlassRoundButton.vue';
 import StoryPlayMetaRow from '@/components/story-play/StoryPlayMetaRow.vue';
 import StoryPlayModeModal from '@/components/story-play/StoryPlayModeModal.vue';
+import StoryPlayRestartModal from '@/components/story-play/StoryPlayRestartModal.vue';
 import StoryPlayStartCta from '@/components/story-play/StoryPlayStartCta.vue';
 import StoryPlayStatStrip from '@/components/story-play/StoryPlayStatStrip.vue';
 import StoryPlayTitleProgress from '@/components/story-play/StoryPlayTitleProgress.vue';
@@ -39,6 +40,7 @@ type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
 const isRestarting = ref(false);
+const isRestartConfirmOpen = ref(false);
 const isPlayModeOpen = ref(false);
 const isTutorialOpen = ref(false);
 const hasDismissedTutorial = ref(false);
@@ -140,10 +142,19 @@ const handleRestartStory = (): void => {
         return;
     }
 
-    const confirmed = window.confirm(
-        'Start a fresh story? This will erase all your current progress, including every prompt and choice you have made.',
-    );
-    if (!confirmed) {
+    isRestartConfirmOpen.value = true;
+};
+
+const closeRestartConfirm = (): void => {
+    if (isRestarting.value) {
+        return;
+    }
+
+    isRestartConfirmOpen.value = false;
+};
+
+const confirmRestartStory = (): void => {
+    if (!props.isPlayable || !props.existingGameId || isRestarting.value) {
         return;
     }
 
@@ -156,6 +167,7 @@ const handleRestartStory = (): void => {
             preserveState: false,
             onFinish: () => {
                 isRestarting.value = false;
+                isRestartConfirmOpen.value = false;
             },
         },
     );
@@ -418,6 +430,12 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
         </div>
 
         <StoryPlayModeModal :open="isPlayModeOpen" @close="closePlayMode" @solo="handleStartStory" @group="handleMultiplayer" />
+        <StoryPlayRestartModal
+            :open="isRestartConfirmOpen"
+            :confirming="isRestarting"
+            @close="closeRestartConfirm"
+            @confirm="confirmRestartStory"
+        />
         <FirstStoryTutorialModal
             :open="isTutorialOpen"
             video-src="/videos/lorespinner-website-guide.mp4"

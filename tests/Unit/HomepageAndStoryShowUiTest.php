@@ -258,13 +258,23 @@ it('puts restart and archive in the story actions menu after a game has started'
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
     $topBar = file_get_contents(resource_path('js/components/story-play/StoryPlayTopBar.vue'));
 
+    $restartModal = file_get_contents(resource_path('js/components/story-play/StoryPlayRestartModal.vue'));
+
     expect($storyShow)
         ->toContain(':show-game-menu="hasExistingGame"')
         ->toContain('@restart="handleRestartStory"')
         ->toContain('handleRestartStory')
+        ->toContain('StoryPlayRestartModal')
+        ->toContain('@confirm="confirmRestartStory"')
         ->toContain('reset as resetGame')
         ->toContain('resetGame.url(props.existingGameId)')
-        ->not->toContain('Restart Story');
+        ->not->toContain('Restart Story')
+        ->not->toContain('window.confirm');
+
+    expect($restartModal)
+        ->toContain('Are you sure you want to restart this story?')
+        ->toContain('Yes')
+        ->toContain('No');
 
     expect($topBar)
         ->toContain('Story actions')
