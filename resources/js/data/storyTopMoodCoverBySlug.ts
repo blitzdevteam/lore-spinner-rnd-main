@@ -10,7 +10,9 @@ import nocturneTopMood from '@/assets/top-moods/Nocturne 16_9 untitled.png';
 import lucyHomeLandscape from '@/assets/newStories/lucy-landscape-banner.jpeg';
 import ozHomeLandscape from '@/assets/newStories/Oz landscape titled.png';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
-import sherlockHomeLandscape from '@/assets/newStories/sherlock-new.png';
+import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.jpg';
+import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg';
+import speckledBandCover from '@/assets/newStories/speckled-band-landscape.jpg';
 import tellTaleHomeLandscape from '@/assets/newStories/Tell Tale 5_3 landscape.png';
 import pjsTopMood from '@/assets/top-moods/PJS 16_9 untitled.JPG';
 import prideTopMood from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
@@ -37,9 +39,9 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     pjs: pjsTopMood,
     'pride-and-prejudice': prideTopMood,
     'romeo-and-juliet': romeoTopMood,
-    'the-adventure-of-the-speckled-band': sherlockHomeLandscape,
-    'the-adventure-of-the-blue-carbuncle': sherlockHomeLandscape,
-    'a-scandal-in-bohemia': sherlockHomeLandscape,
+    'the-adventure-of-the-speckled-band': speckledBandCover,
+    'the-adventure-of-the-blue-carbuncle': blueCarbuncleCover,
+    'a-scandal-in-bohemia': scandalBohemiaCover,
     'the-marvelous-land-of-oz': marvelousOzCover,
     emma: prideTopMood,
     'momotaro-the-peach-boy': momotaroFeatured,
