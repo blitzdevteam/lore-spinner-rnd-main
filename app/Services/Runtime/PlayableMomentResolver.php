@@ -402,16 +402,16 @@ final class PlayableMomentResolver
     }
 
     /**
-     * A card with no authored choice that has outrun its gravity budget is
-     * advanced even when the narrator keeps holding it; the prose has almost
-     * always moved on by then. Cards carrying an authored choice are never
-     * forced, so a branch always lands through play.
+     * A card that has outrun its gravity budget is advanced even when the
+     * narrator keeps holding it; the prose has almost always moved on by then.
+     * An untaken authored branching choice still holds the card through the
+     * decision-point gate, so the branch gets its turns before any release.
      */
     private function heldPastGravity(PlayableMoment $currentMoment, int $completedTurns): bool
     {
         $gravityAfter = (int) data_get($currentMoment->scene_card, 'turn_budget.gravity_after', 0);
 
-        if ($gravityAfter <= 0 || (array) data_get($currentMoment->scene_card, 'choice_ids', []) !== []) {
+        if ($gravityAfter <= 0) {
             return false;
         }
 

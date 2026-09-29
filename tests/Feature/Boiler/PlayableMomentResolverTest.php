@@ -948,8 +948,8 @@ it('advances a choice-free card the narrator keeps holding past gravity', functi
         ->and((bool) $response->exit_condition_met)->toBeTrue();
 });
 
-it('never forces a card that carries an authored choice past gravity', function () {
-    $fixture = boilerResolverFixture();
+it('holds a card with an untaken branching choice even past gravity', function () {
+    $fixture = boilerDecisionCardFixture();
     $fixture['first']->update([
         'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => ['S1_C1'], 'turn_budget' => ['target_turns' => 4, 'gravity_after' => 5]],
     ]);
@@ -965,6 +965,25 @@ it('never forces a card that carries an authored choice past gravity', function 
     );
 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id);
+});
+
+it('releases an emotional-choice card the narrator keeps holding past gravity', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => ['S1_E2'], 'turn_budget' => ['target_turns' => 4, 'gravity_after' => 5]],
+    ]);
+    $fixture['game']->update(['playable_moment_turn_count' => 5]);
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Look around.',
+        boilerResolverResult('S1_M01', false, 'The player looked around.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
 });
 
 function boilerDecisionCardFixture(): array
