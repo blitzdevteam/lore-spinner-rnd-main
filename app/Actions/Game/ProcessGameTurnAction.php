@@ -60,11 +60,11 @@ by the meaningful situation and its choices. Do not offer more filler actions
 such as "keep walking" or "look around" when the player has explicitly chosen
 to move past that material.
 
-Continue is not a decision by the protagonist. Advance the world and any motion
-the player already chose (a journey under way, waiting out time). Other
-characters may act and speak. The protagonist does not: give them no new lines
-of dialogue, no new resolve or motive, and no new choice (no forced landing,
-refusal, demand, or insistence that something be named). Each Continue must
+Continue is a request to read ahead, not a decision by the protagonist. Play
+the author's pages for this scene forward at a quicker pace. The protagonist may
+do and say what the source has them do along the way, but never make a choice
+the source leaves open and never take an authored decision for the player; stop
+when the story reaches it. Each Continue must
 bring something the previous turn did not have: a new place, a new person, or a
 new development. Do not re-describe the journey, the company, or what the
 protagonist is carrying.

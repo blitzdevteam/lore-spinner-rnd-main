@@ -1160,7 +1160,7 @@ TEXT;
     public function turnInstructions(string $protagonistUpper, bool $isContinue = false): string
     {
         $continueLine = $isContinue
-            ? "THIS IS A CONTINUE: {$protagonistUpper} takes no new action and speaks no new line this turn. Do not put words in {$protagonistUpper}'s mouth, and do not have {$protagonistUpper} ask, insist, decide, or refuse anything. Other characters act and speak; the world moves on to something new.\n\n"
+            ? "THIS IS A CONTINUE: the player has no particular action and wants the story to move faster. Read ahead through the author's pages for this scene and play them at a quicker pace, compressing what connects, until the story arrives naturally at the next point where {$protagonistUpper} must decide something. Along the way {$protagonistUpper} may do and say what the author's pages have them do. Do not invent a decision the pages leave open, and stop at the decision point so the player makes it.\n\n"
             : '';
 
         return "Now narrate the world's response to this action.\n\n".
@@ -1515,6 +1515,18 @@ TEXT;
         }
 
         $authoredOptions = $this->authoredOptionsForMoment($session, (array) data_get($card, 'choice_ids', []));
+        $branchingIds = collect((array) data_get($session->session_choice_design, 'branching_choices', []))
+            ->map(static fn ($choice): string => mb_strtolower((string) data_get($choice, 'choice_id', '')))
+            ->filter()
+            ->all();
+        $cardBranchingIds = array_values(array_filter(
+            array_map(static fn ($id): string => (string) $id, (array) data_get($card, 'choice_ids', [])),
+            static fn (string $id): bool => $id !== '' && in_array(mb_strtolower($id), $branchingIds, true),
+        ));
+        $committedChoiceId = mb_strtolower(mb_trim((string) $game->defining_choice_id));
+        $pendingBranchingIds = in_array($committedChoiceId, array_map('mb_strtolower', $cardBranchingIds), true)
+            ? []
+            : $cardBranchingIds;
 
         // Detour accounting rides along in the per-moment footnote blob, so it
         // resets naturally whenever the pointer moves to a new room. Detour
@@ -1535,6 +1547,7 @@ TEXT;
             'forbidden_expansions' => (array) ($card['forbidden_expansions'] ?? []),
             'next_bridge' => (string) data_get($card, 'next_bridge', ''),
             'authored_options' => $authoredOptions,
+            'pending_branching_choice_ids' => $pendingBranchingIds,
             'treasure_insight' => $footnote['text'] ?? null,
             'next_moment_preview' => $preview,
             'detour_beats_used' => $detourBeatsUsed,
@@ -1710,6 +1723,19 @@ TEXT;
         if ($authoredOptions !== []) {
             $lines[] = 'AUTHORED OPTIONS BOUND TO THIS MOMENT (map visible_suggestions identities only to these when you map):';
             $lines[] = json_encode($authoredOptions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
+        }
+
+        $pendingChoiceIds = array_values(array_filter(array_map(
+            static fn ($id): string => (string) $id,
+            (array) ($context['pending_branching_choice_ids'] ?? []),
+        )));
+        if (! $isSessionStart && $pendingChoiceIds !== []) {
+            $lines[] = implode("\n", [
+                'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
+                '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
+                '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
+            ]);
         }
 
         if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {

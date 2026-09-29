@@ -88,12 +88,12 @@ it('replaces the callback-material dump with a capped background line in tier tw
         ->not->toContain('Relic 8: intact');
 });
 
-it('keeps Continue from inventing protagonist decisions or rehashing', function (): void {
+it('keeps Continue a read-ahead that stops before open decisions and does not rehash', function (): void {
     $action = (string) file_get_contents(app_path('Actions/Game/ProcessGameTurnAction.php'));
 
     expect($action)
-        ->toContain('Continue is not a decision by the protagonist.')
-        ->toContain('give them no new lines')
+        ->toContain('Continue is a request to read ahead, not a decision by the protagonist.')
+        ->toContain('never make a choice')
         ->toContain('Do not re-describe the journey');
 });
 
@@ -115,11 +115,13 @@ it('replaces the critique footnote and repetition primes in the narrator templat
         ->not->toContain('PROVOCATION');
 });
 
-it('forbids protagonist lines only on continue turns', function (): void {
+it('makes continue turns read ahead to the next decision point', function (): void {
     $engine = styleContractEngine();
 
     expect($engine->turnInstructions('WENDY', true))
-        ->toContain('THIS IS A CONTINUE: WENDY takes no new action and speaks no new line')
+        ->toContain('Read ahead through the author\'s pages')
+        ->toContain('the next point where WENDY must decide something')
+        ->toContain('stop at the decision point so the player makes it')
         ->and($engine->turnInstructions('WENDY'))
         ->not->toContain('THIS IS A CONTINUE');
 });
@@ -143,4 +145,21 @@ it('only accepts an exit once every outcome is on the page', function (): void {
         ->toContain('If EVERY outcome in the exit condition has already happened on the page')
         ->toContain('a character who must appear has not appeared')
         ->toContain('so is leaving one with its scene unplayed');
+});
+
+it('marks a card with an untaken branching choice as a decision point', function (): void {
+    $block = callEnginePrivate('buildActiveMomentBlock', [[
+        'moment_key' => 'S1_M02',
+        'turn_count' => 1,
+        'target_turns' => 5,
+        'pending_branching_choice_ids' => ['S1_C1'],
+    ]]);
+
+    expect($block)
+        ->toContain('DECISION POINT: this card carries the authored choice S1_C1')
+        ->toContain('the three visible_suggestions ARE its A, B, and C options')
+        ->toContain('The runtime holds this card until it is.');
+
+    expect(callEnginePrivate('buildActiveMomentBlock', [['moment_key' => 'S1_M02']]))
+        ->not->toContain('DECISION POINT');
 });

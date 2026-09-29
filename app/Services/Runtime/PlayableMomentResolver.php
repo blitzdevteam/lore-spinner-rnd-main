@@ -28,6 +28,12 @@ final class PlayableMomentResolver
      */
     private const MAX_CATCH_UP_CARDS = 3;
 
+    /**
+     * Exit attempts on a decision card held back before the pointer is released
+     * anyway, so a narrator that never offers the choice cannot trap the player.
+     */
+    private const CHOICE_BLOCK_TOLERANCE = 3;
+
     public function __construct(private ChaosEngineService $engine) {}
 
     public function initializeForSession(Game $game, SessionAdaptation $session): void
@@ -193,7 +199,6 @@ final class PlayableMomentResolver
                     ]);
                 }
             }
-            $resultingMoment = $nextMoment ?? $currentMoment;
 
             // Sanitize mapped suggestions against the pre-exit (current) moment so
             // authored choice maps for the room being resolved are not demoted when
@@ -228,6 +233,43 @@ final class PlayableMomentResolver
                 $result['defining_choice_line'] = $explicitBranch['defining_choice_line'] ?? '';
             }
 
+            $branchCommit = $this->engine->resolveBranchCommit($result, $lockedGame, $sessionAdaptations);
+            $committedChoiceId = $explicitBranch['defining_choice_id']
+                ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
+            $carried = $this->carriedMomentState($lockedGame, $currentMoment);
+            $choiceBlockedTurns = $carried['choice_blocked_turns'];
+
+            if ($nextMoment !== null) {
+                $pendingChoiceIds = $this->unresolvedBranchingChoiceIds(
+                    $currentMoment,
+                    $sessionAdaptations,
+                    (int) $lockedGame->current_session_number,
+                    $committedChoiceId,
+                );
+
+                if ($pendingChoiceIds !== []) {
+                    $choiceBlockedTurns++;
+                    $logContext = [
+                        'game_id' => $lockedGame->id,
+                        'moment_key' => $currentMoment->moment_key,
+                        'pending_choice_ids' => $pendingChoiceIds,
+                        'committed_choice_id' => $committedChoiceId,
+                        'blocked_turns' => $choiceBlockedTurns,
+                    ];
+
+                    if ($choiceBlockedTurns >= self::CHOICE_BLOCK_TOLERANCE) {
+                        Log::channel('narration')->warning('boiler.moment_exit_released_without_choice', $logContext);
+                    } else {
+                        Log::channel('narration')->info('boiler.moment_exit_blocked_awaiting_choice', $logContext);
+                        $nextMoment = null;
+                        $caughtUp = false;
+                        $progress['exit_condition_met'] = false;
+                        $result['moment_progress'] = $progress;
+                    }
+                }
+            }
+            $resultingMoment = $nextMoment ?? $currentMoment;
+
             $worldState = $this->engine->mergeStateDelta(
                 $lockedGame->world_state ?? $this->engine->emptyWorldState(),
                 (array) $result['state_delta'],
@@ -252,8 +294,6 @@ final class PlayableMomentResolver
                 $lockedGame->symbolic_memory,
                 (string) $result['symbolic_memory_update'],
             );
-            $branchCommit = $this->engine->resolveBranchCommit($result, $lockedGame, $sessionAdaptations);
-
             $footnote = $this->boundedFootnote(
                 (string) ($progress['moment_footnote'] ?? ''),
                 $lockedGame->id,
@@ -262,15 +302,12 @@ final class PlayableMomentResolver
             $routeRelation = mb_strtolower(mb_trim((string) ($progress['route_relation'] ?? '')));
             $impactScope = mb_strtolower(mb_trim((string) ($progress['impact_scope'] ?? '')));
 
-            $carried = $this->carriedMomentState($lockedGame, $currentMoment);
             $detourBeatsUsed = $this->nextDetourBeats(
                 $carried['detour_beats_used'],
                 $routeRelation,
                 $nextMoment !== null,
             );
 
-            $committedChoiceId = $explicitBranch['defining_choice_id']
-                ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
             $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
             $endingBlockedTurns = $carried['ending_blocked_turns'];
 
@@ -326,6 +363,7 @@ final class PlayableMomentResolver
                     'source_prompt_id' => $lockedSource->id,
                     'detour_beats_used' => $detourBeatsUsed,
                     'ending_blocked_turns' => $nextMoment !== null ? 0 : $endingBlockedTurns,
+                    'choice_blocked_turns' => $nextMoment !== null ? 0 : $choiceBlockedTurns,
                 ],
                 'current_session_complete' => $isFinalExit,
             ]);
@@ -443,13 +481,49 @@ final class PlayableMomentResolver
         $carried = (array) ($game->moment_footnote ?? []);
 
         if (($carried['moment_key'] ?? null) !== $currentMoment->moment_key) {
-            return ['detour_beats_used' => 0, 'ending_blocked_turns' => 0];
+            return ['detour_beats_used' => 0, 'ending_blocked_turns' => 0, 'choice_blocked_turns' => 0];
         }
 
         return [
             'detour_beats_used' => max(0, (int) ($carried['detour_beats_used'] ?? 0)),
             'ending_blocked_turns' => max(0, (int) ($carried['ending_blocked_turns'] ?? 0)),
+            'choice_blocked_turns' => max(0, (int) ($carried['choice_blocked_turns'] ?? 0)),
         ];
+    }
+
+    /**
+     * Authored branching choices bound to this card that the player has not yet
+     * taken. A card carrying one is a decision point: leaving it without the
+     * choice skips the branch the story was built around.
+     *
+     * @param  Collection<int, SessionAdaptation>  $sessionAdaptations
+     * @return array<int, string>
+     */
+    private function unresolvedBranchingChoiceIds(
+        PlayableMoment $moment,
+        Collection $sessionAdaptations,
+        int $sessionNumber,
+        ?string $committedChoiceId,
+    ): array {
+        $session = $sessionAdaptations->firstWhere('session_number', $sessionNumber);
+        $branchingIds = collect((array) data_get($session?->session_choice_design, 'branching_choices', []))
+            ->map(static fn ($choice): string => mb_strtolower((string) data_get($choice, 'choice_id', '')))
+            ->filter()
+            ->all();
+
+        $pending = array_values(array_filter(
+            array_map(static fn ($id): string => (string) $id, (array) data_get($moment->scene_card, 'choice_ids', [])),
+            static fn (string $id): bool => $id !== '' && in_array(mb_strtolower($id), $branchingIds, true),
+        ));
+
+        $committed = mb_strtolower(mb_trim((string) $committedChoiceId));
+        foreach ($pending as $id) {
+            if ($committed !== '' && mb_strtolower($id) === $committed) {
+                return [];
+            }
+        }
+
+        return $pending;
     }
 
     /**

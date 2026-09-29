@@ -643,6 +643,11 @@ it('keeps authored mappings on exit turns by sanitizing against the pre-exit mom
             ],
         ],
         $fixture['adaptation']->sessionAdaptations()->get(),
+        [
+            'defining_choice_id' => 'S1_C1',
+            'defining_path_label' => 'A',
+            'defining_choice_line' => 'Path A is taken.',
+        ],
     );
 
     expect($response->choices)->toBe([
@@ -960,4 +965,126 @@ it('never forces a card that carries an authored choice past gravity', function 
     );
 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id);
+});
+
+function boilerDecisionCardFixture(): array
+{
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => ['S1_C1'], 'next_moment_key' => 'S1_M02'],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [[
+                'choice_id' => 'S1_C1',
+                'options' => [
+                    ['label' => 'A', 'text' => 'Go'],
+                    ['label' => 'B', 'text' => 'Stay'],
+                    ['label' => 'C', 'text' => 'Bargain'],
+                ],
+            ]],
+            'emotional_choices' => [],
+        ],
+    ]);
+
+    return $fixture;
+}
+
+it('holds a decision card until its authored branching choice is taken', function () {
+    $fixture = boilerDecisionCardFixture();
+
+    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Talk with him.',
+        boilerResolverResult('S1_M01', true, 'The player kept talking with him.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($fixture['first']->id)
+        ->and($response->moment_result)->toBe('retained')
+        ->and((bool) $response->exit_condition_met)->toBeFalse()
+        ->and($game->moment_footnote['choice_blocked_turns'])->toBe(1);
+});
+
+it('does not let a catch-up jump past an untaken choice on the current card', function () {
+    $fixture = boilerDecisionCardFixture();
+    $result = boilerResolverResult('S1_M01', true, 'The prose ran ahead.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M02';
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Keep going.',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id);
+});
+
+it('advances a decision card once a typed action resolves the choice', function () {
+    $fixture = boilerDecisionCardFixture();
+    $result = array_merge(
+        boilerResolverResult('S1_M01', true, 'The player chose to go.'),
+        ['defining_choice_id' => 'S1_C1', 'defining_path_label' => 'A', 'defining_choice_line' => 'She goes.'],
+    );
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'I go with him.',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($fixture['second']->id)
+        ->and($game->defining_choice_id)->toBe('S1_C1');
+});
+
+it('releases a decision card after repeated blocked exits so the player is never trapped', function () {
+    $fixture = boilerDecisionCardFixture();
+    $fixture['game']->update([
+        'moment_footnote' => ['moment_key' => 'S1_M01', 'text' => null, 'choice_blocked_turns' => 2],
+    ]);
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Keep talking.',
+        boilerResolverResult('S1_M01', true, 'The player kept talking.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('does not gate a card that only carries an emotional choice', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update([
+        'scene_card' => ['moment_key' => 'S1_M01', 'choice_ids' => ['S1_E1'], 'next_moment_key' => 'S1_M02'],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [],
+            'emotional_choices' => [['choice_id' => 'S1_E1', 'options' => [['label' => 'A', 'text' => 'Soft']]]],
+        ],
+    ]);
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        'Move on.',
+        boilerResolverResult('S1_M01', true, 'The player moved on.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+    );
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
 });
