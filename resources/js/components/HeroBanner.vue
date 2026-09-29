@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
 import ozImage from '@/assets/carosel/Ultrawide Oz.png';
-import sherlockImage from '@/assets/carosel/New speckled band poster.JPG';
+import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.jpg';
 import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
 import BaseButton from '@/components/BaseButton.vue';
 import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
@@ -43,7 +43,7 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
     {
         slug: 'the-adventure-of-the-speckled-band',
         image: sherlockImage,
-        imagePosition: 'object-[60%_top] md:object-top',
+        imagePosition: 'object-center',
         titleLines: ['Sherlock Holmes', 'In The Speckled Band'],
         fallbackTitle: 'Sherlock Holmes in The Speckled Band',
         teaserLines: [

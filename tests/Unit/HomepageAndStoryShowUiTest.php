@@ -51,7 +51,11 @@ it('features the curated homepage story order', function (): void {
     $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
     $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
-    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/New speckled band poster.JPG'");
+    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.jpg'");
+
+    $covers = file_get_contents(resource_path('js/data/storyCoverBySlug.ts'));
+
+    expect($covers)->toContain("import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg'");
 
     $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 

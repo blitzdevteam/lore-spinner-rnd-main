@@ -14,7 +14,7 @@ import nocturneCover from '@/assets/featured/nocturne.png';
 import pridePrejudiceCover from '@/assets/featured/Pride-prejudice.png';
 import redDeathCover from '@/assets/featured/redDeath.png';
 import treasureCover from '@/assets/featured/treasure.png';
-import sherlockCover from '@/assets/featured/sherlock.png';
+import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg';
 import tellTaleCover from '@/assets/featured/Tell Tale portrait titled.png';
 import wizardOzCover from '@/assets/featured/wizardoz.jpg';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import sherlockCover from '@/assets/featured/sherlock.png';
+import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg';
 import wizardozCover from '@/assets/featured/wizardoz.png';
 import mainLogo from '@/assets/logo/main-logo.png';
 import SectionHeader from '@/components/SectionHeader.vue';
