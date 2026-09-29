@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FeedbackWidget from '@/components/FeedbackWidget.vue';
 import InvestorWelcomeModal from '@/components/InvestorWelcomeModal.vue';
+import PlayerWelcomeModal from '@/components/PlayerWelcomeModal.vue';
 import { usePage } from '@inertiajs/vue3';
 import { Check, CircleAlert, X } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -12,11 +13,21 @@ const page = usePage();
 const flash = computed(() => page.props.flash);
 const investorWelcome = computed(() => flash.value.investor_welcome ?? null);
 const investorWelcomeOpen = ref(false);
+const playerWelcome = computed(() => flash.value.player_welcome ?? null);
+const playerWelcomeOpen = ref(false);
 
 watch(
     investorWelcome,
     (welcome) => {
         investorWelcomeOpen.value = welcome !== null;
+    },
+    { immediate: true },
+);
+
+watch(
+    playerWelcome,
+    (welcome) => {
+        playerWelcomeOpen.value = welcome !== null;
     },
     { immediate: true },
 );
@@ -63,6 +74,11 @@ onMounted(() => {
         :duration="investorWelcome?.duration ?? ''"
         :expires-on="investorWelcome?.expires_on ?? ''"
         @close="investorWelcomeOpen = false"
+    />
+    <PlayerWelcomeModal
+        :open="playerWelcomeOpen"
+        :first-name="playerWelcome?.first_name ?? ''"
+        @close="playerWelcomeOpen = false"
     />
     <FeedbackWidget />
 </template>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\User\Authentication;
 
 use App\Actions\Authentication\LoginAuthenticatableGuardAction;
+use App\Actions\User\MarkPlayerWelcomeAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Authentication\StoreLoginRequest;
 use App\Models\User;
@@ -20,7 +21,8 @@ final class LoginController extends Controller
 
     public function store(
         StoreLoginRequest $request,
-        LoginAuthenticatableGuardAction $loginAuthenticatableGuard
+        LoginAuthenticatableGuardAction $loginAuthenticatableGuard,
+        MarkPlayerWelcomeAction $markPlayerWelcome,
     ): RedirectResponse {
         /** @var User|false $user */
         $user = $loginAuthenticatableGuard->handle(
@@ -35,7 +37,13 @@ final class LoginController extends Controller
                 ->onlyInput('email');
         }
 
-        return redirect()->intended(route('user.dashboard.index'))
-            ->with('success', 'You have been logged in successfully');
+        $welcome = $markPlayerWelcome->handle($user);
+        $redirect = redirect()->intended(route('user.dashboard.index'));
+
+        if ($welcome !== null) {
+            return $redirect->with('player_welcome', $welcome);
+        }
+
+        return $redirect->with('success', 'You have been logged in successfully');
     }
 }

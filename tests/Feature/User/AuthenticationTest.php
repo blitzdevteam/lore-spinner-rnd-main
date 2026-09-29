@@ -75,7 +75,7 @@ describe('registration', function () {
         startUserRegistration(getRegistrationPayload())
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('user.dashboard.index'))
-            ->assertSessionHas('success', 'Your account has been created')
+            ->assertSessionHas('player_welcome', ['first_name' => 'John'])
             ->assertSessionMissing('account_credentials');
 
         $user = User::query()->where('email', TEST_EMAIL)->first();
@@ -86,7 +86,20 @@ describe('registration', function () {
             ->and($user->gender)->toBe(GenderEnum::MALE->value)
             ->and($user->username)->toBe('johndoe')
             ->and($user->is_profile_completed)->toBeTrue()
-            ->and($user->email_verified_at)->toBeNull();
+            ->and($user->email_verified_at)->toBeNull()
+            ->and($user->welcomed_at)->not->toBeNull();
+    });
+
+    test('the welcome modal is still waiting on the homepage after signup', function () {
+        startUserRegistration(getRegistrationPayload());
+
+        $this->get(route('user.dashboard.index'))
+            ->assertRedirect(route('index'));
+
+        $this->get(route('index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('flash.player_welcome.first_name', 'John'));
     });
 
     test('user can not register without a valid gender', function () {
@@ -154,7 +167,33 @@ describe('login', function () {
         $this
             ->post(route('user.authentication.login.store'), getLoginPayload())
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('user.dashboard.index'));
+            ->assertRedirect(route('user.dashboard.index'))
+            ->assertSessionMissing('player_welcome');
+    });
+
+    test('a player is welcomed on the first login and not again after that', function () {
+        createUser([
+            'email' => TEST_EMAIL,
+            'password' => bcrypt(TEST_PASSWORD),
+            'first_name' => 'John',
+            'welcomed_at' => null,
+        ]);
+
+        $this
+            ->post(route('user.authentication.login.store'), getLoginPayload())
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('user.dashboard.index'))
+            ->assertSessionHas('player_welcome', ['first_name' => 'John']);
+
+        expect(User::query()->where('email', TEST_EMAIL)->first()?->welcomed_at)->not->toBeNull();
+
+        $this->delete(route('user.authentication.logout'));
+
+        $this
+            ->post(route('user.authentication.login.store'), getLoginPayload())
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('user.dashboard.index'))
+            ->assertSessionMissing('player_welcome');
     });
 });
 

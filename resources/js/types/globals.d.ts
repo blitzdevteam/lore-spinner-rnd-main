@@ -30,6 +30,9 @@ declare module '@inertiajs/core' {
                 duration: string;
                 expires_on: string;
             } | null;
+            player_welcome?: {
+                first_name: string;
+            } | null;
         };
         auth: null | UserInterface;
     }

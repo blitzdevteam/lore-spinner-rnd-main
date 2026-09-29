@@ -45,6 +45,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon|null $expires_at
  * @property Carbon|null $access_blocked_at
  * @property Carbon|null $credentials_set_at
+ * @property Carbon|null $welcomed_at
  * @property string|null $stripe_id
  * @property string|null $pm_type
  * @property string|null $pm_last_four
@@ -91,7 +92,7 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         'password', 'remember_token', 'email_verified_at', 'is_active', 'created_at', 'updated_at',
         'stripe_id', 'pm_type', 'pm_last_four', 'trial_ends_at',
         'type', 'subscription_plan_id', 'duration_months', 'access_enabled', 'notes',
-        'access_granted_at', 'expires_at', 'access_blocked_at', 'credentials_set_at',
+        'access_granted_at', 'expires_at', 'access_blocked_at', 'credentials_set_at', 'welcomed_at',
     ];
 
     protected $appends = [
@@ -110,6 +111,7 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         'expires_at' => 'datetime',
         'access_blocked_at' => 'datetime',
         'credentials_set_at' => 'datetime',
+        'welcomed_at' => 'datetime',
     ];
 
     /**

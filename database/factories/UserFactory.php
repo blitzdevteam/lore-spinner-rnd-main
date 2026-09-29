@@ -33,6 +33,7 @@ final class UserFactory extends Factory
             'gender' => fake()->randomElement(GenderEnum::values()),
             'bio' => fake()->paragraph(),
             'is_active' => fake()->boolean(),
+            'welcomed_at' => now(),
         ];
     }
 
