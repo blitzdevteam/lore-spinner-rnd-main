@@ -892,6 +892,58 @@ it('never catches up past a card that carries an authored choice', function () {
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
 });
 
+it('takes a far catch-up once the narrator reports the same card on consecutive turns', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => ['moment_key' => 'S1_M02', 'choice_ids' => ['S1_C1']],
+    ]);
+    $third = $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
+    ]);
+    $sessions = $fixture['adaptation']->sessionAdaptations()->get();
+    $resolver = app(PlayableMomentResolver::class);
+
+    $first = boilerResolverResult('S1_M01', false, 'They are already out of the window.');
+    $first['moment_progress']['caught_up_to_moment_key'] = 'S1_M03';
+    $resolver->applyPlayerTurn($fixture['game']->fresh(), $fixture['source'], 'Keep going.', $first, [], $sessions);
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id)
+        ->and($fixture['game']->fresh()->moment_footnote['catch_up_candidate'])->toBe('S1_M03');
+
+    $secondSource = $fixture['game']->prompts()->create([
+        'session_number' => 1,
+        'response' => '<p>Still behind.</p>',
+        'choices' => [],
+    ]);
+    $second = boilerResolverResult('S1_M01', false, 'Over the rooftops now.');
+    $second['moment_progress']['caught_up_to_moment_key'] = 'S1_M03';
+    $resolver->applyPlayerTurn($fixture['game']->fresh(), $secondSource, 'Keep going.', $second, [], $sessions);
+
+    expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($third->id);
+});
+
+it('bounds a Continue at the next card that carries an authored decision', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => ['moment_key' => 'S1_M02', 'title' => 'The Window', 'choice_ids' => ['S1_C1']],
+    ]);
+    $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => ['S1_C2']],
+    ]);
+
+    $bound = app(ChaosEngineService::class)->continueBoundInstruction($fixture['game']->fresh());
+
+    expect($bound)->toContain('S1_M02 "The Window"')
+        ->and($bound)->toContain('caught_up_to_moment_key=S1_M02')
+        ->and($bound)->not->toContain('S1_M03');
+});
+
 it('treats a later card named as moment_key as a catch-up instead of holding the stale card', function () {
     $fixture = boilerResolverFixture();
 

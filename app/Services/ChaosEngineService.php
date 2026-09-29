@@ -1180,6 +1180,61 @@ TEXT;
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    /**
+     * How far a Continue may read ahead, taken from the card map.
+     *
+     * Continue fast-forwards to the next authored decision, not to the end of
+     * the session: without a named stopping card the narrator reads the whole
+     * beat map in one or two turns and leaves the pointer far behind the prose.
+     */
+    public function continueBoundInstruction(Game $game): string
+    {
+        $current = $game->current_playable_moment_id === null
+            ? null
+            : PlayableMoment::query()->find($game->current_playable_moment_id);
+
+        if ($current === null) {
+            return '';
+        }
+
+        $committedChoiceId = mb_strtolower(mb_trim((string) $game->defining_choice_id));
+        $currentChoiceIds = array_values(array_filter(
+            array_map(static fn ($id): string => (string) $id, (array) data_get($current->scene_card, 'choice_ids', [])),
+            static fn (string $id): bool => $id !== '' && mb_strtolower($id) !== $committedChoiceId,
+        ));
+        $currentTitle = (string) data_get($current->scene_card, 'title', '');
+
+        if ($currentChoiceIds !== []) {
+            return 'CONTINUE LIMIT (from the card map): the next authored decision is on the active card, '
+                .$current->moment_key." \"{$currentTitle}\" (".implode(', ', $currentChoiceIds).'). '
+                .'Play the rest of this card quickly and stop at that decision. Do not narrate anything from a later card this turn.';
+        }
+
+        $later = PlayableMoment::query()
+            ->where('playable_session_cut_id', $current->playable_session_cut_id)
+            ->where('moment_order', '>', $current->moment_order)
+            ->orderBy('moment_order')
+            ->get();
+
+        $stop = $later->first(fn (PlayableMoment $moment): bool => (array) data_get($moment->scene_card, 'choice_ids', []) !== [])
+            ?? $later->last();
+
+        if ($stop === null) {
+            return 'CONTINUE LIMIT (from the card map): this is the session\'s final card. '
+                .'Bring the story to its exit and stop; nothing beyond it belongs to this session.';
+        }
+
+        $stopTitle = (string) data_get($stop->scene_card, 'title', '');
+
+        return 'CONTINUE LIMIT (from the card map): the next authored decision is on '
+            .$stop->moment_key." \"{$stopTitle}\". Fast-forward from ".$current->moment_key
+            .' through the cards between, and stop when the story arrives in that card\'s situation. '
+            .'Do not narrate anything past it this turn. If you reach it, report caught_up_to_moment_key='.$stop->moment_key.'.';
+    }
+
+    /**
      * Gather every per-turn block into one section at the end of the prompt.
      *
      * Each injection token becomes a fixed pointer, so everything above the
@@ -1430,9 +1485,6 @@ TEXT;
         return $line;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
     private function resolveActiveMomentContext(?Game $game, SessionAdaptation $session): ?array
     {
         if ($game === null || $game->current_playable_moment_id === null) {
@@ -1527,6 +1579,10 @@ TEXT;
         $pendingBranchingIds = in_array($committedChoiceId, array_map('mb_strtolower', $cardBranchingIds), true)
             ? []
             : $cardBranchingIds;
+        $authoredOptions = array_values(array_filter(
+            $authoredOptions,
+            static fn (array $choice): bool => mb_strtolower($choice['choice_id']) !== $committedChoiceId,
+        ));
 
         // Detour accounting rides along in the per-moment footnote blob, so it
         // resets naturally whenever the pointer moves to a new room. Detour

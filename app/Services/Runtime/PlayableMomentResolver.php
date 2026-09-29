@@ -167,11 +167,16 @@ final class PlayableMomentResolver
                 ]);
             }
 
-            $nextMoment = $this->catchUpTarget(
+            $carried = $this->carriedMomentState($lockedGame, $currentMoment);
+            $catchUp = $this->catchUpTarget(
                 $currentMoment,
                 (string) ($progress['caught_up_to_moment_key'] ?? ''),
                 $lockedGame->id,
+                $carried['catch_up_candidate'],
             );
+            $nextMoment = $catchUp['target'];
+            $catchUpCandidate = $catchUp['candidate'];
+            $confirmedCatchUp = $catchUp['confirmed'];
             $caughtUp = $nextMoment !== null;
 
             if ($caughtUp) {
@@ -236,10 +241,9 @@ final class PlayableMomentResolver
             $branchCommit = $this->engine->resolveBranchCommit($result, $lockedGame, $sessionAdaptations);
             $committedChoiceId = $explicitBranch['defining_choice_id']
                 ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
-            $carried = $this->carriedMomentState($lockedGame, $currentMoment);
             $choiceBlockedTurns = $carried['choice_blocked_turns'];
 
-            if ($nextMoment !== null) {
+            if ($nextMoment !== null && ! $confirmedCatchUp) {
                 $pendingChoiceIds = $this->unresolvedBranchingChoiceIds(
                     $currentMoment,
                     $sessionAdaptations,
@@ -364,6 +368,7 @@ final class PlayableMomentResolver
                     'detour_beats_used' => $detourBeatsUsed,
                     'ending_blocked_turns' => $nextMoment !== null ? 0 : $endingBlockedTurns,
                     'choice_blocked_turns' => $nextMoment !== null ? 0 : $choiceBlockedTurns,
+                    'catch_up_candidate' => $nextMoment !== null ? null : $catchUpCandidate,
                 ],
                 'current_session_complete' => $isFinalExit,
             ]);
@@ -423,15 +428,19 @@ final class PlayableMomentResolver
      *
      * The narrator reports it when the story has overtaken the active card,
      * which otherwise leaves the pointer several cards behind the fiction and
-     * keeps injecting a scene the player has already left. The jump is bounded
-     * and never passes over a card that carries an authored choice, so a branch
-     * can never be skipped by it.
+     * keeps injecting a scene the player has already left. A jump further than
+     * the bound, or over a card carrying an authored choice, is only taken when
+     * the narrator reports the same card on two consecutive turns: by then the
+     * prose has left those cards behind and holding the pointer only desyncs it.
+     *
+     * @return array{target:?PlayableMoment, candidate:?string, confirmed:bool}
      */
-    private function catchUpTarget(PlayableMoment $currentMoment, string $targetKey, string $gameId): ?PlayableMoment
+    private function catchUpTarget(PlayableMoment $currentMoment, string $targetKey, string $gameId, ?string $previousCandidate): array
     {
+        $none = ['target' => null, 'candidate' => null, 'confirmed' => false];
         $targetKey = mb_trim($targetKey);
         if ($targetKey === '' || $targetKey === $currentMoment->moment_key) {
-            return null;
+            return $none;
         }
 
         $target = PlayableMoment::query()
@@ -458,6 +467,19 @@ final class PlayableMomentResolver
             }
         }
 
+        $confirmable = in_array($rejection, ['too_far', 'would_skip_authored_choice'], true);
+
+        if ($confirmable && $previousCandidate === $targetKey) {
+            Log::channel('narration')->info('boiler.moment_caught_up_confirmed', [
+                'game_id' => $gameId,
+                'from_moment_key' => $currentMoment->moment_key,
+                'target_moment_key' => $targetKey,
+                'overridden_reason' => $rejection,
+            ]);
+
+            return ['target' => $target, 'candidate' => null, 'confirmed' => true];
+        }
+
         Log::channel('narration')->info($rejection === null ? 'boiler.moment_caught_up' : 'boiler.moment_catch_up_rejected', [
             'game_id' => $gameId,
             'from_moment_key' => $currentMoment->moment_key,
@@ -465,7 +487,11 @@ final class PlayableMomentResolver
             'reason' => $rejection,
         ]);
 
-        return $rejection === null ? $target : null;
+        if ($rejection === null) {
+            return ['target' => $target, 'candidate' => null, 'confirmed' => false];
+        }
+
+        return ['target' => null, 'candidate' => $confirmable ? $targetKey : null, 'confirmed' => false];
     }
 
     /**
@@ -481,13 +507,16 @@ final class PlayableMomentResolver
         $carried = (array) ($game->moment_footnote ?? []);
 
         if (($carried['moment_key'] ?? null) !== $currentMoment->moment_key) {
-            return ['detour_beats_used' => 0, 'ending_blocked_turns' => 0, 'choice_blocked_turns' => 0];
+            return ['detour_beats_used' => 0, 'ending_blocked_turns' => 0, 'choice_blocked_turns' => 0, 'catch_up_candidate' => null];
         }
+
+        $candidate = $carried['catch_up_candidate'] ?? null;
 
         return [
             'detour_beats_used' => max(0, (int) ($carried['detour_beats_used'] ?? 0)),
             'ending_blocked_turns' => max(0, (int) ($carried['ending_blocked_turns'] ?? 0)),
             'choice_blocked_turns' => max(0, (int) ($carried['choice_blocked_turns'] ?? 0)),
+            'catch_up_candidate' => is_string($candidate) && $candidate !== '' ? $candidate : null,
         ];
     }
 

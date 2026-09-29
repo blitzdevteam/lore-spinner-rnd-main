@@ -259,6 +259,10 @@ PROMPT;
 
             if ($storedPromptValue === self::CONTINUE_MARKER) {
                 $systemPrompt .= "\n\n".self::CONTINUE_MODE_INSTRUCTION;
+                $continueBound = $this->engine->continueBoundInstruction($game);
+                if ($continueBound !== '') {
+                    $systemPrompt .= "\n\n".$continueBound;
+                }
             }
 
             $repeatedAttempts = $this->countRepeatedIntent($game, $playerAction);
