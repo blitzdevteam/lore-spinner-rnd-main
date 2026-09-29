@@ -209,10 +209,17 @@ const submit = async () => {
                         {{ submitError }}
                     </p>
 
-                    <div class="mt-5 grid grid-cols-2 gap-3">
-                        <BaseButton severity="muted" @click="close">Cancel</BaseButton>
-                        <BaseButton severity="primary-muted-outline" :processing="isBusy" @click="submit">
-                            <Send :size="16" class="mr-2" />
+                    <div class="mt-5 flex flex-wrap items-center gap-3">
+                        <BaseButton severity="muted" class="min-w-[5.5rem] flex-[1_1_auto] whitespace-nowrap" @click="close">
+                            Cancel
+                        </BaseButton>
+                        <BaseButton
+                            severity="primary-muted-outline"
+                            class="min-w-max flex-[1_1_auto] gap-2 whitespace-nowrap"
+                            :processing="isBusy"
+                            @click="submit"
+                        >
+                            <Send :size="16" class="shrink-0" />
                             Send Feedback
                         </BaseButton>
                     </div>
