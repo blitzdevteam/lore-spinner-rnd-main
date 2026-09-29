@@ -163,3 +163,15 @@ it('marks a card with an untaken branching choice as a decision point', function
     expect(callEnginePrivate('buildActiveMomentBlock', [['moment_key' => 'S1_M02']]))
         ->not->toContain('DECISION POINT');
 });
+
+it('ends every turn instruction with the hard self-check, adding the Continue stop only on Continue', function () {
+    $engine = app(ChaosEngineService::class);
+    $normal = $engine->turnInstructions('WENDY');
+    $continue = $engine->turnInstructions('WENDY', true);
+
+    expect($normal)->toContain('HARD CHECK BEFORE YOU RETURN')
+        ->and($normal)->toContain('DO NOT INVENT CANON')
+        ->and($normal)->not->toContain('STOP AT THE CARD NAMED IN THE CONTINUE LIMIT')
+        ->and($continue)->toContain('STOP AT THE CARD NAMED IN THE CONTINUE LIMIT')
+        ->and($normal)->toEndWith('Return the full structured object.');
+});

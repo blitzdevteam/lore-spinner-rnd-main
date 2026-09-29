@@ -1176,12 +1176,16 @@ TEXT;
             "A QUESTION IS NOT A DECISION: when the player asks what to do, asks for advice, or weighs two options, answer through the world and leave the decision open. Never narrate that they have already chosen.\n\n".
             "THE PROTAGONIST'S INNER LIFE BELONGS TO THE PLAYER: narrate what they did and said, then what the world does back. Do not invent their motives, their resolve, new decisions, or lines of dialogue they did not give.\n\n".
             "WRITE FORWARD: each sentence delivers something the player has not already been told. Do not re-mention what they are holding, who is still asleep, where they are, or what was already done, unless it changed this turn or this action depends on it. Do not retell or interpret a letter, speech, or sight the player has just taken in. Do not close on what the moment means or who the protagonist is becoming.\n\n".
-            'Move the scene forward by however much the action deserves. End on the live moment (an image, a gesture, a spoken line) and not on a question aimed at the player. Return the full structured object.';
+            "Move the scene forward by however much the action deserves. End on the live moment (an image, a gesture, a spoken line) and not on a question aimed at the player.\n\n".
+            "HARD CHECK BEFORE YOU RETURN. THESE WERE BROKEN IN RECENT TURNS AND ARE NOT OPTIONAL. Reread your narration and fix every hit:\n".
+            "1. ANY \"[noun] of a [person] who...\" OR \"like someone who...\" GLOSS on a look, smile, voice, or tone: DELETE IT. Keep the action or the line alone.\n".
+            "2. ANY SENTENCE, IMAGE, OR SAYING YOU ALREADY WROTE IN AN EARLIER TURN: CUT IT OR SAY SOMETHING NEW.\n".
+            "3. ANY RULE, LAW, OR FACT ABOUT THE WORLD THAT IS NOT IN THE SOURCE OR ALREADY ON THE PAGE: REMOVE IT. DO NOT INVENT CANON.\n".
+            "4. ANY CLOSING LINE ABOUT WHAT THE MOMENT MEANS OR WHO SOMEONE IS BECOMING: DELETE IT.\n".
+            ($isContinue ? "5. CONTINUE: STOP AT THE CARD NAMED IN THE CONTINUE LIMIT. NOTHING PAST IT.\n" : '').
+            "\nReturn the full structured object.";
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
     /**
      * How far a Continue may read ahead, taken from the card map.
      *
@@ -1485,6 +1489,9 @@ TEXT;
         return $line;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     private function resolveActiveMomentContext(?Game $game, SessionAdaptation $session): ?array
     {
         if ($game === null || $game->current_playable_moment_id === null) {
