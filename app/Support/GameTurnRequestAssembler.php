@@ -272,7 +272,7 @@ final class GameTurnRequestAssembler
 
         $instructions = $isOpening
             ? $this->engine->openingInstructions()
-            : $this->engine->turnInstructions($protagonistUpper);
+            : $this->engine->turnInstructions($protagonistUpper, mb_trim((string) $llmPlayerAction) === 'Continue the story forward.');
 
         $actionBlock = $llmPlayerAction !== null && mb_trim($llmPlayerAction) !== ''
             ? "{$protagonistUpper}'S ACTION: ".mb_trim($llmPlayerAction)."\n\n"

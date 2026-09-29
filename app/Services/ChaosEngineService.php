@@ -1157,15 +1157,21 @@ TEXT;
      * text closest to generation, so its examples are deliberately neutral:
      * example verbs placed here get imitated in the prose that follows.
      */
-    public function turnInstructions(string $protagonistUpper): string
+    public function turnInstructions(string $protagonistUpper, bool $isContinue = false): string
     {
+        $continueLine = $isContinue
+            ? "THIS IS A CONTINUE: {$protagonistUpper} takes no new action and speaks no new line this turn. Do not put words in {$protagonistUpper}'s mouth, and do not have {$protagonistUpper} ask, insist, decide, or refuse anything. Other characters act and speak; the world moves on to something new.\n\n"
+            : '';
+
         return "Now narrate the world's response to this action.\n\n".
+            $continueLine.
             "RULE #1, ABOVE EVERY OTHER RULE: write in the author's prose, their diction, rhythm, and plainness, as if this were the next page of their book. Every rule below serves that one.\n\n".
             "SAY IT PLAINLY: state what happens and what people say directly, the way the author would. No riddles, hedges, or knowing half-statements. Do not tell the reader what a line is not (not a question, not a request, not boastful) and do not trail off on a fragment that implies more than it says. Characters speak in their canon voice and mean what they say on the surface.\n\n".
-            "SHAPE THE AUTHOR'S TEXT, DO NOT DECORATE IT: the author already wrote what happens in this scene. Your job is to fit it to what the player just did, in the author's own plain sentences. Do not add description, atmosphere, or commentary the author would not have written.\n\n".
-            "NO DESCRIBING BY COMPARISON: never characterise a person, gesture, or feeling with \"the smile of a boy who…\", \"with the determination of someone who…\", \"as if…\", \"as though…\", \"the way one…\", or \"like a…\". Never state what a character is or is not feeling (\"no mockery in it, only puzzlement\"). Give the action or the spoken line and stop. At most one \"as if\" in the whole turn, and none is better.\n\n".
+            "SHAPE THE AUTHOR'S TEXT, DO NOT DECORATE IT: the author already wrote what happens in this scene (the source extracts and the Voice Anchor show how). Your job is to fit that to what the player just did, in the author's own sentences. Any description, aside, or commentary must be the kind the author writes, at the rate the author writes it; nothing the author would not have written.\n\n".
+            "SHOW, THEN STOP: after an action, a gesture, or a spoken line, do not explain it by comparing the character to an imagined person (\"the smile of a boy who has been waiting…\", \"with the determination of a boy who believes…\") or by saying what the moment is or is not (\"no mockery in it, only puzzlement\"). The action or line already said it. The author's own figures of speech are voice and stay, at the author's rate; a comparison that only re-explains what was just shown is not.\n\n".
+            "DASHES FOLLOW THE ANCHOR CARD: where it allows dashes, use them only in the construction it names (for an interruption, a speaker breaking off mid-line). A dash in narration that restates or delays (\"something else, then a dash, then something that...\") is the connector it forbids; use a full stop or a comma.\n\n".
             "NOTHING BEFORE IT IS ESTABLISHED: never allude to a fact, ability, or object the protagonist has not yet seen or been told on the page. When something first matters (how someone arrived, what they can do, what a thing is), show or say it plainly the first time, then build on it.\n\n".
-            "STOP WHEN THE ACTION IS ANSWERED: once the world has responded and the scene has moved, end. No closing paragraph that re-describes the room, a waiting door or window, or who is still asleep, and no line of commentary on the moment. Length is fine only while every paragraph moves the story forward.\n\n".
+            "STOP WHEN THE ACTION IS ANSWERED: once the world has responded and the scene has moved, end. No closing paragraph that re-describes the room, a waiting door or window, or who is still asleep, and no closing summary of what the moment means. Length is fine only while every paragraph moves the story forward.\n\n".
             "KEEP THE SHAPE OF THE ACTION: its verb, its target, and its intensity stay exactly as the player gave them. A request stays a request, a question stays a question, a demand stays a demand, a refusal stays a refusal. Never upgrade a request into taking or commanding, and never soften a demand into asking. Resolve pronouns (it, that, him, her, them) against the previous narrator turn and answer that referent, not a substitute.\n\n".
             "A QUESTION IS NOT A DECISION: when the player asks what to do, asks for advice, or weighs two options, answer through the world and leave the decision open. Never narrate that they have already chosen.\n\n".
             "THE PROTAGONIST'S INNER LIFE BELONGS TO THE PLAYER: narrate what they did and said, then what the world does back. Do not invent their motives, their resolve, new decisions, or lines of dialogue they did not give.\n\n".
@@ -1648,7 +1654,7 @@ TEXT;
         if ($targetWords > 0) {
             $budgetLines = [
                 'LENGTH CONTRACT FOR THIS ROOM (THIS OVERRIDES THE GENERIC WORD-COUNT GUIDANCE ELSEWHERE IN THIS PROMPT):',
-                "Authored density for this room: about {$targetWords} words for a typical turn. HARD CEILING: ".(int) round($targetWords * 1.25).' words. Stop before it; going over is an error, not richness.',
+                "Authored density for this room: about {$targetWords} words for a typical turn, rarely above ".(int) round($targetWords * 1.25).' words.',
                 'This number is the author\'s compression, not an amount to fill. Length follows what the action produced: a small action gets fewer words, and going under is always fine. Only a turn where much genuinely happens may run toward the upper figure, and only if every sentence tells the player something new. At this voice, length IS style: the same content at triple this count stops being their prose and becomes generic narration, however good the diction.',
                 'Answer the player completely. Compression is achieved by cutting restatement, scene-setting the player already has, and re-description of things already established, never by refusing them detail about what they actually did.',
             ];
@@ -1668,7 +1674,7 @@ TEXT;
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic: outcomes, not a checklist): '.$exitCondition;
             if (! $isSessionStart) {
-                $lines[] = 'EXIT CHECK (every turn, before you write): read the conversation history, the opening included, and this turn\'s narration. If the outcomes in the exit condition have already happened on the page, set exit_condition_met=true in THIS response, even if it happened turns ago and even if the player never mentioned it. Holding a card whose exit has already happened is an error, not caution.';
+                $lines[] = 'EXIT CHECK (every turn, before you write): read the conversation history, the opening included, and this turn\'s narration. If EVERY outcome in the exit condition has already happened on the page, set exit_condition_met=true in THIS response, even if it happened turns ago and even if the player never mentioned it. If any part has not happened on the page (a character who must appear has not appeared, a thing that must be seen has not been seen), it is not met: keep playing the card and let that part happen. Holding a finished card is an error, and so is leaving one with its scene unplayed.';
             }
         }
 
@@ -2880,7 +2886,7 @@ TEXT;
 
         $instructions = $isOpening
             ? $this->openingInstructions()
-            : $this->turnInstructions($protagonistUpper);
+            : $this->turnInstructions($protagonistUpper, mb_trim((string) $playerAction) === 'Continue the story forward.');
 
         $actionBlock = $playerAction !== null && mb_trim($playerAction) !== ''
             ? "{$protagonistUpper}'S ACTION: ".mb_trim($playerAction)."\n\n"

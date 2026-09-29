@@ -114,3 +114,33 @@ it('replaces the critique footnote and repetition primes in the narrator templat
         ->not->toContain('PREFER MEMORY TO INVENTION')
         ->not->toContain('PROVOCATION');
 });
+
+it('forbids protagonist lines only on continue turns', function (): void {
+    $engine = styleContractEngine();
+
+    expect($engine->turnInstructions('WENDY', true))
+        ->toContain('THIS IS A CONTINUE: WENDY takes no new action and speaks no new line')
+        ->and($engine->turnInstructions('WENDY'))
+        ->not->toContain('THIS IS A CONTINUE');
+});
+
+it('lets dashes follow the anchor card instead of banning them outright', function (): void {
+    expect(styleContractEngine()->turnInstructions('WENDY'))
+        ->toContain('DASHES FOLLOW THE ANCHOR CARD')
+        ->toContain('a speaker breaking off mid-line')
+        ->not->toContain('—');
+});
+
+it('only accepts an exit once every outcome is on the page', function (): void {
+    $block = callEnginePrivate('buildActiveMomentBlock', [[
+        'moment_key' => 'S1_M03',
+        'turn_count' => 1,
+        'target_turns' => 4,
+        'exit_condition' => 'Tink is loose and Wendy has seen a real fairy.',
+    ]]);
+
+    expect($block)
+        ->toContain('If EVERY outcome in the exit condition has already happened on the page')
+        ->toContain('a character who must appear has not appeared')
+        ->toContain('so is leaving one with its scene unplayed');
+});

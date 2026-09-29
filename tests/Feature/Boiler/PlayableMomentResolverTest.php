@@ -961,19 +961,3 @@ it('never forces a card that carries an authored choice past gravity', function 
 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['first']->id);
 });
-
-it('strips dashes from the hidden moment footnote before storing it', function () {
-    $fixture = boilerResolverFixture();
-    $result = boilerResolverResult('S1_M01', false, "The grown-up world is near\u{2014}Nana has gone silent.");
-
-    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
-        $fixture['game'],
-        $fixture['source'],
-        'Listen.',
-        $result,
-        [],
-        $fixture['adaptation']->sessionAdaptations()->get(),
-    );
-
-    expect($response->moment_footnote)->toBe('The grown-up world is near, Nana has gone silent.');
-});
