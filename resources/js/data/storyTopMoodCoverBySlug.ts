@@ -11,6 +11,7 @@ import lucyHomeLandscape from '@/assets/newStories/lucy-landscape-banner.jpeg';
 import ozHomeLandscape from '@/assets/newStories/Oz landscape titled.png';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
 import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.jpg';
+import emmaCover from '@/assets/newStories/emma-wide.jpg';
 import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg';
 import speckledBandCover from '@/assets/newStories/speckled-band-landscape.jpg';
 import tellTaleHomeLandscape from '@/assets/newStories/Tell Tale 5_3 landscape.png';
@@ -43,7 +44,7 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'the-adventure-of-the-blue-carbuncle': blueCarbuncleCover,
     'a-scandal-in-bohemia': scandalBohemiaCover,
     'the-marvelous-land-of-oz': marvelousOzCover,
-    emma: prideTopMood,
+    emma: emmaCover,
     'momotaro-the-peach-boy': momotaroFeatured,
     'the-unwritten-ones': tellTaleHomeLandscape,
     'the-masque-of-the-red-death': redDeathTopMood,

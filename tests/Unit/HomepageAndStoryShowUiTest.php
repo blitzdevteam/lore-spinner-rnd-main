@@ -63,9 +63,11 @@ it('features the curated homepage story order', function (): void {
         ->toContain("import speckledBandCover from '@/assets/newStories/speckled-band-landscape.jpg'")
         ->toContain("import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.jpg'")
         ->toContain("import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg'")
+        ->toContain("import emmaCover from '@/assets/newStories/emma-wide.jpg'")
         ->toContain("'the-adventure-of-the-speckled-band': speckledBandCover")
         ->toContain("'the-adventure-of-the-blue-carbuncle': blueCarbuncleCover")
-        ->toContain("'a-scandal-in-bohemia': scandalBohemiaCover");
+        ->toContain("'a-scandal-in-bohemia': scandalBohemiaCover")
+        ->toContain('emma: emmaCover');
 
     $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 
