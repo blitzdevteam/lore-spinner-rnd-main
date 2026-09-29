@@ -58,12 +58,7 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->redirectUsersTo(function (Request $request): string {
             if ($request->user('user')) {
-                /** @var App\Models\User $user */
-                $user = $request->user('user');
-
-                return $user->is_profile_completed
-                    ? route('user.dashboard.index')
-                    : route('user.authentication.complete-profile.edit');
+                return route('user.dashboard.index');
             }
 
             if ($request->user('creator')) {

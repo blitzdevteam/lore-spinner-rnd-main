@@ -27,10 +27,6 @@ Route::prefix('user')->name('user.')->group(function (): void {
             Route::post('/', 'store')->name('store');
         });
         Route::middleware('auth:user')->group(function () {
-            Route::prefix('complete-profile')
-                ->middleware(['guard.profile-is-incompleted'])
-                ->singleton('complete-profile', User\Authentication\CompleteProfileController::class)
-                ->except('show');
             Route::delete('logout', [User\Authentication\LogoutController::class, 'destroy'])->name('logout');
         });
     });

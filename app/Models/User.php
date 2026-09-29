@@ -81,6 +81,8 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
 
     public const string PENDING_EMAIL_DOMAIN = 'pending.invalid';
 
+    public const UNLIMITED_DURATION_MONTHS = 0;
+
     protected $guarded = [
         'id', 'created_at', 'updated_at',
     ];
@@ -109,8 +111,6 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
         'access_blocked_at' => 'datetime',
         'credentials_set_at' => 'datetime',
     ];
-
-    public const UNLIMITED_DURATION_MONTHS = 0;
 
     /**
      * @return array<int, string>
@@ -351,12 +351,12 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     }
 
     /**
-     * @return Attribute<string, never>
+     * @return Attribute<?string, never>
      */
     protected function username(): Attribute
     {
         return Attribute::make(
-            set: fn (string $value): ?string => blank($value) ? null : mb_strtolower($value)
+            set: fn (?string $value): ?string => blank($value) ? null : mb_strtolower($value)
         );
     }
 

@@ -35,10 +35,6 @@ final class LoginController extends Controller
                 ->onlyInput('email');
         }
 
-        if (! $user->is_profile_completed) {
-            return to_route('user.authentication.complete-profile.edit');
-        }
-
         return redirect()->intended(route('user.dashboard.index'))
             ->with('success', 'You have been logged in successfully');
     }

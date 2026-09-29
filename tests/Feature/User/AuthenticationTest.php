@@ -5,9 +5,12 @@ declare(strict_types=1);
 use App\Enums\GenderEnum;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
+
+uses(RefreshDatabase::class);
 
 const TEST_EMAIL = 'john@example.com';
 const TEST_PASSWORD = 'password';
@@ -37,6 +40,7 @@ function getRegistrationPayload(array $overrides = []): array
     return array_merge([
         'first_name' => 'John',
         'last_name' => 'Doe',
+        'gender' => GenderEnum::MALE->value,
         'email' => TEST_EMAIL,
         'password' => TEST_PASSWORD,
         'password_confirmation' => TEST_PASSWORD,
@@ -67,19 +71,37 @@ describe('registration', function () {
             ->assertRedirectBack();
     });
 
-    test('user can register and is sent to complete their profile', function () {
+    test('user can register with a gender and is sent to the dashboard', function () {
         startUserRegistration(getRegistrationPayload())
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('user.authentication.complete-profile.edit'))
+            ->assertRedirect(route('user.dashboard.index'))
             ->assertSessionHas('success', 'Your account has been created')
             ->assertSessionMissing('account_credentials');
 
-        $this->assertDatabaseHas('users', [
-            'email' => TEST_EMAIL,
-            'first_name' => 'John',
-            'last_name' => 'Doe',
-            'email_verified_at' => null,
-        ]);
+        $user = User::query()->where('email', TEST_EMAIL)->first();
+
+        expect($user)->not->toBeNull()
+            ->and($user->first_name)->toBe('John')
+            ->and($user->last_name)->toBe('Doe')
+            ->and($user->gender)->toBe(GenderEnum::MALE->value)
+            ->and($user->username)->toBe('johndoe')
+            ->and($user->is_profile_completed)->toBeTrue()
+            ->and($user->email_verified_at)->toBeNull();
+    });
+
+    test('user can not register without a valid gender', function () {
+        startUserRegistration(getRegistrationPayload(['gender' => 'unknown']))
+            ->assertSessionHasErrors('gender')
+            ->assertRedirectBack();
+    });
+
+    test('registration assigns the next available username when the name is taken', function () {
+        User::factory()->create(['username' => 'johndoe']);
+
+        startUserRegistration(getRegistrationPayload(['email' => 'jane@example.com']))
+            ->assertSessionHasNoErrors();
+
+        expect(User::query()->where('email', 'jane@example.com')->first()?->username)->toBe('johndoe1');
     });
 });
 
@@ -113,13 +135,17 @@ describe('login', function () {
             ->assertRedirect(route('user.authentication.verify.index'));
     });
 
-    test('user can do login action and must redirect to complete profile page when email is verified and profile is incomplete', function () {
-        createUser(['email' => TEST_EMAIL, 'password' => bcrypt(TEST_PASSWORD)], false);
+    test('user can do login action and must redirect to dashboard when profile has no username', function () {
+        createUser([
+            'email' => TEST_EMAIL,
+            'password' => bcrypt(TEST_PASSWORD),
+            'username' => null,
+        ]);
 
         $this
             ->post(route('user.authentication.login.store'), getLoginPayload())
             ->assertSessionHasNoErrors()
-            ->assertRedirect(route('user.authentication.complete-profile.edit'));
+            ->assertRedirect(route('user.dashboard.index'));
     });
 
     test('user can do login action and must redirect to dashboard when email and profile are completed and verified', function () {
@@ -156,42 +182,26 @@ describe('verification', function () {
         });
 
         $this->get($verifyUrl)
-            ->assertRedirect(route('user.authentication.complete-profile.edit'));
+            ->assertRedirect(route('user.dashboard.index'));
 
         expect($user->fresh()->email_verified_at)->not()->toBeNull();
     });
 });
 
 describe('profile completion', function () {
-    it('complete profile page can render', function () {
-        $user = createUser([], false);
+    test('a signed-in user without a username receives one when entering the app', function () {
+        $user = createUser([
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'username' => null,
+        ]);
 
         $this
             ->actingAs($user)
-            ->get(route('user.authentication.complete-profile.edit'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('User/Authentication/CompleteProfile'));
-    });
+            ->get(route('user.dashboard.index'))
+            ->assertRedirect(route('index'));
 
-    test('user can complete profile and is redirected to dashboard', function () {
-        $user = createUser(['email' => TEST_EMAIL, 'password' => bcrypt(TEST_PASSWORD)], false);
-
-        $payload = [
-            'first_name' => 'John',
-            'last_name' => 'Doe',
-            'username' => 'johndoe',
-            'gender' => GenderEnum::MALE->value,
-        ];
-
-        $this
-            ->actingAs($user)
-            ->patch(route('user.authentication.complete-profile.update'), $payload)
-            ->assertSessionHasNoErrors()
-            ->assertRedirect(route('user.dashboard.index'));
-
-        $user->refresh();
-
-        expect($user->only(['first_name', 'last_name', 'username', 'gender']))
-            ->toMatchArray($payload);
+        expect($user->fresh()->username)->toBe('adalovelace')
+            ->and($user->fresh()->is_profile_completed)->toBeTrue();
     });
 });
