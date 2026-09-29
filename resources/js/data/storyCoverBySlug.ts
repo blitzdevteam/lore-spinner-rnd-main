@@ -18,6 +18,7 @@ import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg';
 import tellTaleCover from '@/assets/featured/Tell Tale portrait titled.png';
 import wizardOzCover from '@/assets/featured/wizardoz.jpg';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
+import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.webp';
 import momotaroCover from '@/assets/featured/momotaro.png';
 import { canonicalMoodStorySlug } from '@/data/moodStories';
 
@@ -52,6 +53,7 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     'dr-jekyll-and-mr-hyde': jekyllCover,
     leagues: underseaComingCover,
     'romeo-and-juliet': romeoComingCover,
+    'the-quest-of-the-holy-grail': holyGrailCover,
 };
 
 export function resolveStoryCover(slug: string, cover?: string | null): string {
