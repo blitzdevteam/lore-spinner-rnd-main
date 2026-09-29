@@ -90,3 +90,11 @@ With Sail: `vendor/bin/sail artisan test --compact tests/Feature/Boiler/Playable
 4. **Deploy `game:export-turn-request`** if not already on Cloud — needed for assembled request dumps on failing turns.
 5. **F5 / length** — if word counts stay high without padding, tune LENGTH CONTRACT feedback using `previous_turn_words` ratio (already in active moment block) or lower temperature further on Boiler only (currently 0.7).
 6. **Continuity QA** — spot-check knowledge injection vs conversation history so the model does not assert facts the player never heard (knowledge list is small now; keep watching).
+
+## 29 Sep retest (game `01m2k8g2akry3dkcepwpk0m3ta`) and follow-up fixes
+
+Only turns 10 and 11 are valid post-fix samples. Turns 1 to 9 have no `moment_key`, no footnote, and no narration log lines (`game.turn` and `boiler.moment_turn_committed` both count 2), so they ran with no Boiler pointer set. The pointer sat on `S1_M05` from turn 10; the resolver cannot jump M01 to M05, so it was set outside normal play.
+
+Turn 10 (a Continue) was 116 words, no invented protagonist lines, no "as if". Turn 11 was 275 words against a 145 target, with four "as if", "the determination of a boy who believes…", "no mockery in it, only genuine puzzlement", a suggestion using "demand", and em dashes in both footnotes.
+
+Fixes: COMPARISON DESCRIPTION ban and SHAPE THE AUTHOR'S TEXT rule (turn instructions and template), room word limit reworded as a HARD CEILING, suggestions must name only established things and avoid demand/insist/command, and dashes are stripped from the hidden footnote in `PlayableMomentResolver::boundedFootnote()`. Echoing the player's action back in narration is intended and unchanged.

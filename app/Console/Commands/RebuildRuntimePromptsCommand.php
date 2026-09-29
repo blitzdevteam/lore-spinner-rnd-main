@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Jobs\Adaptation\AdaptationStatusReconciliationJob;
 use App\Jobs\Adaptation\RuntimeNarratorAssemblyJob;
 use App\Models\Story;
 use Illuminate\Console\Command;
@@ -26,7 +27,8 @@ final class RebuildRuntimePromptsCommand extends Command
     protected $signature = 'stories:rebuild-runtime-prompts
                             {story?* : Story IDs or slugs. Omit to rebuild every Boiler story}
                             {--session= : Limit to one session number}
-                            {--dry-run : List what would be rebuilt without touching anything}';
+                            {--dry-run : List what would be rebuilt without touching anything}
+                            {--no-reconcile : Skip adaptation status reconciliation after a successful rebuild}';
 
     protected $description = 'Rebuild cached runtime narrator prompts after a prompt template change';
 
@@ -42,8 +44,10 @@ final class RebuildRuntimePromptsCommand extends Command
 
         $rows = [];
         $failures = 0;
+        $reconciledStories = [];
 
         foreach ($stories as $story) {
+            $storyFailuresBefore = $failures;
             $sessions = $story->adaptation->sessionAdaptations()
                 ->when(
                     $this->option('session') !== null,
@@ -87,6 +91,16 @@ final class RebuildRuntimePromptsCommand extends Command
                     ];
                 }
             }
+
+            if (
+                ! $this->option('dry-run')
+                && ! $this->option('no-reconcile')
+                && $failures === $storyFailuresBefore
+                && $sessions->isNotEmpty()
+            ) {
+                AdaptationStatusReconciliationJob::dispatchSync($story);
+                $reconciledStories[] = $story->slug.' → '.$story->adaptation?->fresh()->adaptation_status->value;
+            }
         }
 
         $this->table(['Story', 'Session', 'Prompt chars', 'Result'], $rows);
@@ -98,6 +112,13 @@ final class RebuildRuntimePromptsCommand extends Command
         }
 
         $this->info('All runtime prompts rebuilt.');
+
+        if ($reconciledStories !== []) {
+            $this->info('Adaptation status reconciled:');
+            foreach ($reconciledStories as $line) {
+                $this->line('  '.$line);
+            }
+        }
 
         return self::SUCCESS;
     }

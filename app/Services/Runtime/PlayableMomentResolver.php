@@ -611,7 +611,7 @@ final class PlayableMomentResolver
 
     private function boundedFootnote(string $footnote, string $gameId): string
     {
-        $footnote = mb_trim($footnote);
+        $footnote = mb_trim(preg_replace('/\s*[—–]\s*/u', ', ', $footnote) ?? $footnote);
         if ($footnote === '') {
             Log::channel('narration')->warning('boiler.moment_footnote_missing_on_commit', [
                 'game_id' => $gameId,
