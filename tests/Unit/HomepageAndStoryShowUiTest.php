@@ -198,20 +198,31 @@ it('renders story detail tabs as one pill track without a rating tab', function 
         ->not->toContain('w-[7.8125rem]');
 });
 
-it('labels the story details primary cta as solo spin', function (): void {
+it('opens a play mode modal from a single start story button', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
     $startCta = file_get_contents(resource_path('js/components/story-play/StoryPlayStartCta.vue'));
+    $playMode = file_get_contents(resource_path('js/components/story-play/StoryPlayModeModal.vue'));
 
     expect($storyShow)
-        ->toContain("'Solo Spin'")
-        ->toContain('label="Group Spin"')
+        ->toContain("'Start Story'")
+        ->toContain('StoryPlayModeModal')
+        ->toContain('@solo="handleStartStory"')
+        ->toContain('@group="handleMultiplayer"')
+        ->not->toContain('label="Group Spin"')
         ->not->toContain('Enter The Story')
         ->not->toContain("'Single Player'")
         ->not->toContain('label="Multiplayer"');
 
     expect($startCta)
-        ->toContain("label: 'Solo Spin'")
+        ->toContain("label: 'Start Story'")
         ->not->toContain('Enter The Story');
+
+    expect($playMode)
+        ->toContain('How would you like to play?')
+        ->toContain('Solo Spin')
+        ->toContain('Play on your own')
+        ->toContain('Group Spin')
+        ->toContain('Play with friends');
 });
 
 it('uses a blurred story cover as the mobile-only background', function (): void {

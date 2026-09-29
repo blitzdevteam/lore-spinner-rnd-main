@@ -8,6 +8,7 @@ import StoryPlayAuthorDescription from '@/components/story-play/StoryPlayAuthorD
 import StoryPlayCoverColumn from '@/components/story-play/StoryPlayCoverColumn.vue';
 import StoryPlayGlassRoundButton from '@/components/story-play/StoryPlayGlassRoundButton.vue';
 import StoryPlayMetaRow from '@/components/story-play/StoryPlayMetaRow.vue';
+import StoryPlayModeModal from '@/components/story-play/StoryPlayModeModal.vue';
 import StoryPlayStartCta from '@/components/story-play/StoryPlayStartCta.vue';
 import StoryPlayStatStrip from '@/components/story-play/StoryPlayStatStrip.vue';
 import StoryPlayTitleProgress from '@/components/story-play/StoryPlayTitleProgress.vue';
@@ -38,6 +39,7 @@ type Panel = 'details' | 'chapters';
 
 const panel = ref<Panel>('details');
 const isRestarting = ref(false);
+const isPlayModeOpen = ref(false);
 const isTutorialOpen = ref(false);
 const hasDismissedTutorial = ref(false);
 const isStartingStory = ref(false);
@@ -99,8 +101,22 @@ const startStory = (): void => {
     );
 };
 
+const openPlayMode = (): void => {
+    if (!props.isPlayable || isStartingStory.value) {
+        return;
+    }
+
+    isPlayModeOpen.value = true;
+};
+
+const closePlayMode = (): void => {
+    isPlayModeOpen.value = false;
+};
+
 const handleStartStory = (): void => {
     if (!props.isPlayable || isStartingStory.value) return;
+
+    closePlayMode();
 
     if (props.showFirstStoryTutorial && !props.existingGameId && !hasDismissedTutorial.value) {
         isTutorialOpen.value = true;
@@ -148,6 +164,7 @@ const handleRestartStory = (): void => {
 const handleMultiplayer = (): void => {
     if (!props.isPlayable) return;
 
+    closePlayMode();
     router.visit(multiplayerStoryRoute.url(props.story.slug));
 };
 
@@ -247,7 +264,7 @@ const statItems = computed(() => [
     },
 ]);
 
-const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Solo Spin'));
+const primaryCtaLabel = computed(() => (hasExistingGame.value ? 'Continue Story' : 'Start Story'));
 
 const creatorAvatar = computed(() => resolveClassicsCreatorAvatar(props.story.creator, props.story.creator?.avatar));
 
@@ -380,9 +397,10 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                         class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
                     >
                         <div class="flex flex-col gap-6">
-                            <div class="flex gap-2.5">
-                                <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                                <StoryPlayStartCta label="Group Spin" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
+                            <div class="flex justify-end">
+                                <div class="w-full max-w-[321px]">
+                                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
+                                </div>
                             </div>
                             <button
                                 v-if="isPlayable"
@@ -407,10 +425,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
             />
             <div class="relative bg-black/90 px-4 pt-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] backdrop-blur-md">
                 <div class="flex flex-col gap-6">
-                    <div class="flex gap-2.5">
-                        <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="handleStartStory" />
-                        <StoryPlayStartCta label="Group Spin" variant="secondary" :coming-soon="!isPlayable" @click="handleMultiplayer" />
-                    </div>
+                    <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
                     <button
                         v-if="isPlayable"
                         type="button"
@@ -424,6 +439,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
             </div>
         </div>
 
+        <StoryPlayModeModal :open="isPlayModeOpen" @close="closePlayMode" @solo="handleStartStory" @group="handleMultiplayer" />
         <FirstStoryTutorialModal
             :open="isTutorialOpen"
             video-src="/videos/lorespinner-website-guide.mp4"

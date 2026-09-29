@@ -7,7 +7,7 @@ withDefaults(
         comingSoon?: boolean;
     }>(),
     {
-        label: 'Solo Spin',
+        label: 'Start Story',
         variant: 'primary',
         comingSoon: false,
     },
