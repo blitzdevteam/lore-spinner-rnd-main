@@ -204,6 +204,17 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->toContain('Resend Link');
 });
 
+it('places the auth back button on the left side of the image', function (): void {
+    $layout = file_get_contents(resource_path('js/components/auth/AuthSplitLayout.vue'));
+    $backButtonOffset = strpos($layout, 'auth-back-btn absolute top-4 left-4');
+    $formOffset = strpos($layout, 'max-w-[28.8125rem]');
+
+    expect($backButtonOffset)->toBeInt()
+        ->and($formOffset)->toBeInt()
+        ->and($backButtonOffset)->toBeLessThan($formOffset)
+        ->and($layout)->not->toContain('lg:left-[calc(50%+5.375rem)]');
+});
+
 it('renders story detail tabs as one pill track without a rating tab', function (): void {
     $tabs = file_get_contents(resource_path('js/components/story-play/StoryPlayTabPair.vue'));
 

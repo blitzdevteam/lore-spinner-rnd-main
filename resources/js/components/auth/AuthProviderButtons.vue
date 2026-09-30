@@ -2,10 +2,12 @@
 import appleIcon from '@/assets/auth/apple.svg';
 import dividerIcon from '@/assets/auth/divider.svg';
 import googleIcon from '@/assets/auth/google.svg';
+
+const socialSignInEnabled = false;
 </script>
 
 <template>
-    <div class="flex w-full flex-col gap-7">
+    <div v-if="socialSignInEnabled" class="flex w-full flex-col gap-7">
         <div class="grid w-full grid-cols-2 gap-[1.125rem]">
             <button type="button" class="auth-provider-btn">
                 <img :src="googleIcon" alt="" />
