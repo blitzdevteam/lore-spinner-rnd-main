@@ -60,9 +60,11 @@ const renewalLabel = computed(() => {
 
     const date = new Date(periodEndsAt);
 
+    const prefix = subscriptionUsage.value?.renews === false ? 'Ends' : 'Renews';
+
     return Number.isNaN(date.getTime())
-        ? 'Renews at the end of your billing period'
-        : `Renews ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+        ? `${prefix} at the end of your billing period`
+        : `${prefix} ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 });
 
 const profileWrap = ref<HTMLElement | null>(null);

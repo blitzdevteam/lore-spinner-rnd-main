@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\SubscriptionEntitlement;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Cashier\Subscription;
@@ -232,10 +234,76 @@ it('shares the free plan allowance after signup so pricing can show usage', func
             ->where('auth.subscription_usage.can_manage_billing', false));
 });
 
-it('sends a player without a stripe customer away from the billing portal', function () {
+it('does not error when canceling without a subscription', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user, 'user')
-        ->get(route('user.billing-portal'))
-        ->assertRedirect(route('pricing'));
+        ->post(route('user.subscription.cancel'))
+        ->assertRedirect(route('pricing'))
+        ->assertSessionHas('error', 'There is no active subscription to cancel.');
+});
+
+it('cancels a renewing subscription without calling stripe', function () {
+    config(['cashier.secret' => null]);
+
+    $user = User::factory()->create([
+        'stripe_id' => 'cus_test',
+        'is_active' => true,
+    ]);
+    $plan = SubscriptionPlan::factory()->create([
+        'name' => 'Hero Pass',
+        'action_limit' => 450,
+        'voice_minutes_limit' => 270,
+    ]);
+    $periodEnd = now()->addDays(15);
+
+    $subscription = $user->subscriptions()->create([
+        'type' => 'default',
+        'stripe_id' => 'sub_test',
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_test',
+        'quantity' => 1,
+        'trial_ends_at' => null,
+        'ends_at' => null,
+    ]);
+
+    SubscriptionEntitlement::query()->create([
+        'user_id' => $user->id,
+        'subscription_id' => $subscription->id,
+        'subscription_plan_id' => $plan->id,
+        'period_start' => now()->subDay(),
+        'period_end' => $periodEnd,
+        'action_limit' => 450,
+        'voice_milliseconds_limit' => 270 * 60_000,
+    ]);
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billingPortalUrl', route('user.subscription.cancel'))
+            ->where('auth.subscription_usage.plan.name', 'Hero Pass')
+            ->where('auth.subscription_usage.renews', true)
+            ->where('auth.subscription_usage.can_manage_billing', true));
+
+    $this->actingAs($user, 'user')
+        ->post(route('user.subscription.cancel'))
+        ->assertRedirect(route('pricing'))
+        ->assertSessionHas('success');
+
+    $subscription->refresh();
+
+    expect($subscription->ends_at)->not->toBeNull()
+        ->and($subscription->ends_at?->toDateString())->toBe($periodEnd->toDateString())
+        ->and(app(SubscriptionEntitlementService::class)->hasPlayAccess($user->fresh()))->toBeTrue();
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billingPortalUrl', null)
+            ->where('auth.subscription_usage.renews', false)
+            ->where('auth.subscription_usage.can_manage_billing', false));
 });

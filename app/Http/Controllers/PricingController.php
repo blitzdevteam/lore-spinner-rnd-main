@@ -39,7 +39,7 @@ final class PricingController extends Controller
             'checkoutStatus' => in_array($status, ['success', 'cancel'], true) ? $status : null,
             'returnTo' => $returnTo,
             'billingPortalUrl' => is_array($usage) && ($usage['can_manage_billing'] ?? false) === true
-                ? route('user.billing-portal')
+                ? route('user.subscription.cancel')
                 : null,
             'plans' => SubscriptionPlan::query()
                 ->availableForCheckout()

@@ -366,6 +366,7 @@ export interface SubscriptionUsageSummary {
     is_complimentary?: boolean;
     is_one_time?: boolean;
     can_manage_billing?: boolean;
+    renews?: boolean;
 }
 
 export interface CompletionIdentity {

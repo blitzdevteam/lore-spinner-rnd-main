@@ -63,7 +63,8 @@ final class SubscriptionEntitlementService
      *     period_ends_at:?string,
      *     is_complimentary:bool,
      *     is_one_time:bool,
-     *     can_manage_billing:bool
+     *     can_manage_billing:bool,
+     *     renews:bool
      * }|null
      */
     public function summary(User $user): ?array
@@ -73,7 +74,7 @@ final class SubscriptionEntitlementService
             return null;
         }
 
-        $entitlement->loadMissing('plan');
+        $entitlement->loadMissing(['plan', 'subscription']);
 
         return [
             'plan' => [
@@ -93,7 +94,8 @@ final class SubscriptionEntitlementService
             'period_ends_at' => $entitlement->period_end?->toIso8601String(),
             'is_complimentary' => false,
             'is_one_time' => (bool) $entitlement->is_one_time,
-            'can_manage_billing' => $entitlement->subscription_id !== null,
+            'can_manage_billing' => $entitlement->subscription_id !== null && $entitlement->subscription?->ends_at === null,
+            'renews' => $entitlement->subscription?->ends_at === null && ! $entitlement->is_one_time,
         ];
     }
 

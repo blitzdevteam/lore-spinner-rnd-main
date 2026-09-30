@@ -31,9 +31,15 @@ const renewalLabel = computed(() => {
 
     const date = new Date(periodEndsAt);
 
-    return Number.isNaN(date.getTime())
-        ? 'Renews at period end'
-        : `Renews ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    const formatted = Number.isNaN(date.getTime())
+        ? null
+        : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    if (formatted === null) {
+        return props.usage.renews === false ? 'Ends at period end' : 'Renews at period end';
+    }
+
+    return props.usage.renews === false ? `Ends ${formatted}` : `Renews ${formatted}`;
 });
 
 function allowancePercent(remaining: number, limit: number): number {
@@ -132,6 +138,9 @@ function formatNumber(value: number): string {
                     <Link
                         v-if="billingPortalUrl"
                         :href="billingPortalUrl"
+                        method="post"
+                        as="button"
+                        type="button"
                         class="inline-flex h-[33px] items-center justify-center rounded-[21px] border-[0.5px] border-[#8f8f8f] px-2 text-[13px] text-[#8f8f8f]"
                     >
                         Cancel subscription

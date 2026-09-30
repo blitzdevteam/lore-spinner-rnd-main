@@ -37,8 +37,8 @@ Route::prefix('user')->name('user.')->group(function (): void {
     Route::middleware('auth:user')->post('free-trial', User\ClaimFreeTrialController::class)
         ->name('free-trial.store');
 
-    Route::middleware('auth:user')->get('billing-portal', User\BillingPortalController::class)
-        ->name('billing-portal');
+    Route::middleware('auth:user')->post('subscription/cancel', User\CancelSubscriptionController::class)
+        ->name('subscription.cancel');
 
     Route::middleware('auth:user')
         ->get('games/{game}/tts/{prompt}', User\Game\TextToSpeechController::class)
