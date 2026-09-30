@@ -16,7 +16,7 @@ import type { SubscriptionUsageSummary } from '@/types';
 import register from '@/wayfinder/routes/user/authentication/register';
 import { store as claimFreeTrial } from '@/wayfinder/routes/user/free-trial';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 type Plan = {
     name: string;
@@ -63,6 +63,94 @@ const planIcons: Record<string, string> = {
 };
 
 const iconFor = (iconKey: string) => planIcons[iconKey] ?? iconBook;
+
+const plansTrack = ref<HTMLElement | null>(null);
+const activePlanIndex = ref(0);
+let plansLayoutMedia: MediaQueryList | null = null;
+
+const initialPlanSlide = computed(() => {
+    const index = props.plans.findIndex((plan) => plan.current);
+
+    return index >= 0 ? index : 0;
+});
+
+const prefersReducedMotion = (): boolean =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const showPlan = (index: number): void => {
+    const track = plansTrack.value;
+
+    if (!track) {
+        return;
+    }
+
+    const slide = track.querySelectorAll<HTMLElement>('.pricing-plans-slide')[index];
+
+    if (!slide) {
+        return;
+    }
+
+    track.scrollTo({
+        left: slide.offsetLeft,
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
+};
+
+const onPlansScroll = (): void => {
+    const track = plansTrack.value;
+
+    if (!track) {
+        return;
+    }
+
+    const slides = [...track.querySelectorAll<HTMLElement>('.pricing-plans-slide')];
+    let closest = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    slides.forEach((slide, index) => {
+        const distance = Math.abs(slide.offsetLeft - track.scrollLeft);
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closest = index;
+        }
+    });
+
+    activePlanIndex.value = closest;
+};
+
+const onPlansLayoutChange = (): void => {
+    const track = plansTrack.value;
+
+    if (!track || plansLayoutMedia?.matches !== false) {
+        return;
+    }
+
+    track.scrollLeft = 0;
+};
+
+onMounted(() => {
+    plansLayoutMedia = window.matchMedia('(max-width: 1279px)');
+    plansLayoutMedia.addEventListener('change', onPlansLayoutChange);
+
+    if (!plansLayoutMedia.matches || initialPlanSlide.value === 0) {
+        return;
+    }
+
+    const track = plansTrack.value;
+    const slide = track?.querySelectorAll<HTMLElement>('.pricing-plans-slide')[initialPlanSlide.value];
+
+    if (!track || !slide) {
+        return;
+    }
+
+    track.scrollTo({ left: slide.offsetLeft, behavior: 'auto' });
+    activePlanIndex.value = initialPlanSlide.value;
+});
+
+onUnmounted(() => {
+    plansLayoutMedia?.removeEventListener('change', onPlansLayoutChange);
+});
 
 const page = usePage();
 const isAuthenticated = computed(() => page.props.auth !== null);
@@ -144,28 +232,68 @@ const registerHref = computed(() => {
 
             <section id="pricing-plans" class="container pt-10 pb-12 md:pb-16">
 
-                <div
-                    v-if="props.plans.length"
-                    class="mt-2 grid w-full grid-cols-1 items-stretch gap-2.5 overflow-visible pt-12 md:grid-cols-2 xl:grid-cols-4"
-                >
-                    <PricingPlanCard
-                        v-for="plan in props.plans"
-                        :key="plan.checkoutUrl"
-                        :name="plan.name"
-                        :tagline="plan.tagline"
-                        :price="plan.price"
-                        :bonus="plan.bonus"
-                        :description="plan.description"
-                        :action-allowance="plan.actionAllowance"
-                        :voice-allowance="plan.voiceAllowance"
-                        :features="plan.features"
-                        :cta="plan.cta"
-                        :href="plan.checkoutUrl"
-                        :icon="iconFor(plan.iconKey)"
-                        :featured="plan.featured"
-                        :badge="plan.badge"
-                        :current="plan.current"
-                    />
+                <div v-if="props.plans.length" class="pricing-plans mt-2">
+                    <div
+                        ref="plansTrack"
+                        class="pricing-plans-track relative flex w-full items-stretch gap-0 overflow-x-auto pt-12 xl:grid xl:min-w-0 xl:grid-cols-4 xl:gap-2.5 xl:overflow-visible"
+                        role="region"
+                        aria-roledescription="carousel"
+                        aria-label="Subscription plans"
+                        @scroll.passive="onPlansScroll"
+                    >
+                        <div v-for="plan in props.plans" :key="plan.checkoutUrl" class="pricing-plans-slide xl:min-w-0">
+                            <PricingPlanCard
+                                :name="plan.name"
+                                :tagline="plan.tagline"
+                                :price="plan.price"
+                                :bonus="plan.bonus"
+                                :description="plan.description"
+                                :action-allowance="plan.actionAllowance"
+                                :voice-allowance="plan.voiceAllowance"
+                                :features="plan.features"
+                                :cta="plan.cta"
+                                :href="plan.checkoutUrl"
+                                :icon="iconFor(plan.iconKey)"
+                                :featured="plan.featured"
+                                :badge="plan.badge"
+                                :current="plan.current"
+                            />
+                        </div>
+                    </div>
+
+                    <div v-if="props.plans.length > 1" class="pricing-plans-controls xl:hidden">
+                        <button
+                            type="button"
+                            class="pricing-plans-arrow"
+                            aria-label="Previous plan"
+                            :disabled="activePlanIndex === 0"
+                            @click="showPlan(activePlanIndex - 1)"
+                        >
+                            <img :src="arrowRight" alt="" class="rotate-180" width="16" height="16" />
+                        </button>
+                        <div class="flex items-center gap-1.5" role="group" aria-label="Choose a plan">
+                            <button
+                                v-for="(plan, index) in props.plans"
+                                :key="`${plan.name}-${index}`"
+                                type="button"
+                                class="pricing-plans-dot"
+                                :class="{ 'pricing-plans-dot--active': index === activePlanIndex }"
+                                :aria-label="`Show ${plan.name}`"
+                                :aria-current="index === activePlanIndex ? 'true' : undefined"
+                                @click="showPlan(index)"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            class="pricing-plans-arrow"
+                            aria-label="Next plan"
+                            :disabled="activePlanIndex >= props.plans.length - 1"
+                            @click="showPlan(activePlanIndex + 1)"
+                        >
+                            <img :src="arrowRight" alt="" width="16" height="16" />
+                        </button>
+                    </div>
+                    <p class="sr-only xl:hidden" aria-live="polite">{{ props.plans[activePlanIndex]?.name }}</p>
                 </div>
                 <div
                     v-if="props.plans.length"
@@ -210,5 +338,112 @@ const registerHref = computed(() => {
 
 .pricing-trial__cta:hover {
     background: #163f46;
+}
+
+.pricing-plans-track {
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+}
+
+.pricing-plans-track::-webkit-scrollbar {
+    display: none;
+}
+
+.pricing-plans-slide {
+    display: flex;
+    width: 100%;
+    flex: 0 0 100%;
+    justify-content: center;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+.pricing-plans-slide :deep(.pricing-card) {
+    width: min(40rem, 100%);
+}
+
+.pricing-plans-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.pricing-plans-arrow {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 0.5px solid #59c1ca;
+    border-radius: 999px;
+    background: #0e1f22;
+    cursor: pointer;
+}
+
+.pricing-plans-arrow:disabled {
+    cursor: default;
+    opacity: 0.35;
+}
+
+.pricing-plans-arrow:not(:disabled):hover {
+    background: #163f46;
+}
+
+.pricing-plans-dot {
+    width: 1.75rem;
+    height: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.pricing-plans-dot::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.35);
+}
+
+.pricing-plans-dot--active {
+    width: 2.5rem;
+}
+
+.pricing-plans-dot--active::before {
+    background: #59c1ca;
+}
+
+@media (min-width: 80rem) {
+    .pricing-plans-controls {
+        display: none;
+    }
+
+    .pricing-plans-track {
+        scroll-snap-type: none;
+    }
+
+    .pricing-plans-slide {
+        width: auto;
+        flex: unset;
+        scroll-snap-align: none;
+        scroll-snap-stop: normal;
+    }
+
+    .pricing-plans-slide :deep(.pricing-card) {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pricing-plans-track {
+        scroll-behavior: auto;
+    }
 }
 </style>

@@ -361,10 +361,21 @@ defineProps<{
     cursor: default;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1279px) {
     .pricing-card:hover,
     .pricing-card:focus-within {
-        transform: translateY(-6px) scale(1.015);
+        transform: none;
+    }
+
+    .pricing-card:hover .pricing-card__body,
+    .pricing-card:focus-within .pricing-card__body {
+        box-shadow: none;
+    }
+
+    .pricing-card:hover .pricing-card__body::before,
+    .pricing-card:focus-within .pricing-card__body::before {
+        opacity: 0;
+        animation-play-state: paused;
     }
 }
 
