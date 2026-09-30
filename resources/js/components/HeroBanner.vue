@@ -463,19 +463,15 @@ function goNext() {
 }
 
 /*
- * Full-bleed control rail — arrows pin to hero edges (not a grid column seam).
- * Mobile: rail matches media height only. Desktop: spans hero, sits above copy z-index.
+ * Full-bleed control rail. Stretch to the carousel box.
+ * A separate 16:9 + max-height box shrinks on iPad and pulls the next arrow inward.
  */
 .hero-nav {
     position: absolute;
     z-index: 25;
-    top: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
+    width: 100%;
     pointer-events: none;
-    aspect-ratio: 16 / 9;
-    min-height: 12.5rem;
-    max-height: min(48vh, 20.5rem);
 }
 
 .hero-arrow {
@@ -529,10 +525,6 @@ function goNext() {
 
 @media (min-width: 40rem) {
     .hero-media {
-        max-height: min(44vh, 23rem);
-    }
-
-    .hero-nav {
         max-height: min(44vh, 23rem);
     }
 
@@ -689,9 +681,6 @@ function goNext() {
 
     .hero-nav {
         inset: 0;
-        aspect-ratio: unset;
-        min-height: unset;
-        max-height: none;
         height: 100%;
     }
 

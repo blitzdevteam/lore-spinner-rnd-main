@@ -176,6 +176,15 @@ it('keeps hero carousel arrows vertically centered when the layout viewport narr
         ->toContain('bottom: 3.75rem');
 });
 
+it('stretches hero carousel arrows over the rendered image on tablet widths', function (): void {
+    $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
+    $navRule = strstr($heroBanner, '.hero-nav {');
+
+    expect($navRule)->toBeString()
+        ->and($navRule)->toContain('inset: 0;')
+        ->and($navRule)->not->toContain('aspect-ratio: 16 / 9;');
+});
+
 it('renders the split sign in, sign up, and password screens', function (): void {
     $login = file_get_contents(resource_path('js/pages/User/Authentication/Login.vue'));
     $register = file_get_contents(resource_path('js/pages/User/Authentication/Register.vue'));
