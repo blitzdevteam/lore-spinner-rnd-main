@@ -19,14 +19,19 @@ const FADE_DURATION_MS = 1500;
 // Module-level singletons: one audio instance for the whole opening flow,
 // shared across the cinematic and the loading/narration phases of the page.
 let sharedAudio: HTMLAudioElement | null = null;
-let fadeRafId: number | null = null;
+let fadeIntervalId: ReturnType<typeof setInterval> | null = null;
+let fadeStopTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let gestureListenerInstalled = false;
 let removeGestureListener: (() => void) | null = null;
 
 function clearFade(): void {
-    if (fadeRafId !== null) {
-        cancelAnimationFrame(fadeRafId);
-        fadeRafId = null;
+    if (fadeIntervalId !== null) {
+        clearInterval(fadeIntervalId);
+        fadeIntervalId = null;
+    }
+    if (fadeStopTimeoutId !== null) {
+        clearTimeout(fadeStopTimeoutId);
+        fadeStopTimeoutId = null;
     }
 }
 
@@ -127,9 +132,7 @@ export function useOpeningMusic() {
      */
     function fadeOut(durationMs: number = FADE_DURATION_MS): void {
         const audio = sharedAudio;
-        if (!audio) return;
-
-        clearFade();
+        if (!audio || fadeIntervalId !== null) return;
 
         const startVolume = Number.isFinite(audio.volume) ? audio.volume : 1;
         if (startVolume <= 0) {
@@ -138,28 +141,30 @@ export function useOpeningMusic() {
             return;
         }
 
-        const startTime = performance.now();
+        const startTime = Date.now();
 
-        const tick = (now: number): void => {
-            const elapsed = now - startTime;
-            const progress = Math.min(1, elapsed / durationMs);
-            const next = startVolume * (1 - progress);
+        const finish = (): void => {
+            if (audio === sharedAudio) {
+                teardownAudio();
+            }
+            isPlaying.value = false;
+        };
+
+        // Timers rather than requestAnimationFrame: rAF is suspended in background
+        // tabs, which left the loop playing while the player waited elsewhere.
+        // iOS also ignores element volume, so the hard stop must not depend on it.
+        fadeIntervalId = setInterval(() => {
+            const progress = Math.min(1, (Date.now() - startTime) / durationMs);
 
             if (audio === sharedAudio) {
-                audio.volume = Math.max(0, next);
+                audio.volume = Math.max(0, startVolume * (1 - progress));
             }
 
             if (progress >= 1) {
-                fadeRafId = null;
-                teardownAudio();
-                isPlaying.value = false;
-                return;
+                finish();
             }
-
-            fadeRafId = requestAnimationFrame(tick);
-        };
-
-        fadeRafId = requestAnimationFrame(tick);
+        }, 50);
+        fadeStopTimeoutId = setTimeout(finish, durationMs + 100);
     }
 
     /**

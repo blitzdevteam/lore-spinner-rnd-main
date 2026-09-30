@@ -312,6 +312,15 @@ watch(
     },
 );
 
+watch(
+    () => tts.isPlaying.value || tts.isLoading.value,
+    (narrating) => {
+        if (narrating) {
+            openingMusic.fadeOut();
+        }
+    },
+);
+
 // Auto-play the first narration while the showcard is still visible (or when begin finishes).
 watch(
     [() => prompts.value[0]?.response, shouldAnimate],

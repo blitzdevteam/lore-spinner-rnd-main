@@ -90,6 +90,14 @@ final class NarrationAudioService
     }
 
     /**
+     * Flag a render of the game's recommended narrator voice as queued.
+     */
+    public function markPendingRecommended(Game $game, Prompt $prompt): void
+    {
+        $this->markPending($prompt);
+    }
+
+    /**
      * Atomically reserve a browser-triggered render. Only the request that
      * creates the pending marker may schedule a post-response generation.
      */
