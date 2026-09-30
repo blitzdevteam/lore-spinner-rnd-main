@@ -32,6 +32,9 @@ declare module '@inertiajs/core' {
             } | null;
             player_welcome?: {
                 first_name: string;
+                plan_name?: string;
+                actions_limit?: number;
+                voice_minutes?: number;
             } | null;
         };
         auth: null | UserInterface;

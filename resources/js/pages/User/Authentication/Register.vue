@@ -10,6 +10,10 @@ import login from '@/wayfinder/routes/user/authentication/login';
 import { Form, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
+const props = defineProps<{
+    returnTo?: string | null;
+}>();
+
 const password = ref('');
 
 const genderOptions = [
@@ -32,6 +36,7 @@ const fieldClass =
             :back-href="index().url"
         >
             <div class="flex w-full flex-col items-center gap-7">
+                <input v-if="props.returnTo" type="hidden" name="return_to" :value="props.returnTo" />
                 <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Sign Up</h1>
                 <div class="flex w-full flex-col gap-2.5 text-center">
                     <p class="font-inter text-[1.125rem] text-[#ffbe58]">Step Into The Story</p>

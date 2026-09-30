@@ -350,6 +350,7 @@ export interface GameplayUsageSummary {
 export interface SubscriptionUsageSummary {
     plan: {
         name: string;
+        icon_key?: string;
     };
     actions: {
         limit: number;
@@ -364,6 +365,7 @@ export interface SubscriptionUsageSummary {
     period_ends_at: string | null;
     is_complimentary?: boolean;
     is_one_time?: boolean;
+    can_manage_billing?: boolean;
 }
 
 export interface CompletionIdentity {

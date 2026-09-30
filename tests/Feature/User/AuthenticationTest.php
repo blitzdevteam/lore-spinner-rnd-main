@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\GenderEnum;
+use App\Models\SubscriptionEntitlement;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -75,12 +76,18 @@ describe('registration', function () {
         startUserRegistration(getRegistrationPayload())
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('user.dashboard.index'))
-            ->assertSessionHas('player_welcome', ['first_name' => 'John'])
+            ->assertSessionHas('player_welcome', [
+                'first_name' => 'John',
+                'plan_name' => 'Free Pass',
+                'actions_limit' => 20,
+                'voice_minutes' => 10,
+            ])
             ->assertSessionMissing('account_credentials');
 
         $user = User::query()->where('email', TEST_EMAIL)->first();
 
         expect($user)->not->toBeNull()
+            ->and(SubscriptionEntitlement::query()->where('user_id', $user->id)->where('is_one_time', true)->exists())->toBeTrue()
             ->and($user->first_name)->toBe('John')
             ->and($user->last_name)->toBe('Doe')
             ->and($user->gender)->toBe(GenderEnum::MALE->value)
@@ -88,6 +95,15 @@ describe('registration', function () {
             ->and($user->is_profile_completed)->toBeTrue()
             ->and($user->email_verified_at)->toBeNull()
             ->and($user->welcomed_at)->not->toBeNull();
+    });
+
+    test('signing up from the free trial returns to the story that was started', function () {
+        startUserRegistration(getRegistrationPayload([
+            'return_to' => '/stories/example',
+        ]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/stories/example')
+            ->assertSessionHas('player_welcome.plan_name', 'Free Pass');
     });
 
     test('the welcome modal is still waiting on the homepage after signup', function () {

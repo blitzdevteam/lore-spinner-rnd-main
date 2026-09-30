@@ -9,14 +9,19 @@ use App\Actions\User\AssignUniqueUsernameAction;
 use App\Actions\User\MarkPlayerWelcomeAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Authentication\StoreRegisterRequest;
+use App\Services\SubscriptionEntitlementService;
+use App\Support\ReturnToUrl;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Response;
 
 final class RegisterController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return inertia('User/Authentication/Register');
+        return inertia('User/Authentication/Register', [
+            'returnTo' => ReturnToUrl::fromRequest($request),
+        ]);
     }
 
     public function store(
@@ -24,6 +29,7 @@ final class RegisterController extends Controller
         CreateAuthenticatableGuardAction $createAuthenticatableGuard,
         AssignUniqueUsernameAction $assignUniqueUsername,
         MarkPlayerWelcomeAction $markPlayerWelcome,
+        SubscriptionEntitlementService $entitlements,
     ): RedirectResponse {
         $email = $request->string('email')->toString();
         $password = $request->string('password')->toString();
@@ -39,10 +45,26 @@ final class RegisterController extends Controller
         auth('user')->login($user, remember: true);
         $user->refresh();
 
-        $welcome = $markPlayerWelcome->handle($user);
+        $claim = $entitlements->claimFreeTrial($user);
+        $welcome = $markPlayerWelcome->handle($user) ?? [
+            'first_name' => mb_trim((string) $user->first_name),
+        ];
 
-        return redirect()
-            ->intended(route('user.dashboard.index'))
-            ->with('player_welcome', $welcome);
+        if ($claim->granted) {
+            $summary = $entitlements->summary($user);
+
+            if ($summary !== null) {
+                $welcome['plan_name'] = $summary['plan']['name'];
+                $welcome['actions_limit'] = $summary['actions']['limit'];
+                $welcome['voice_minutes'] = $summary['voice']['limit_minutes'];
+            }
+        }
+
+        $returnTo = ReturnToUrl::fromRequest($request);
+        $redirect = $returnTo !== null
+            ? redirect()->to($returnTo)
+            : redirect()->intended(route('user.dashboard.index'));
+
+        return $redirect->with('player_welcome', $welcome);
     }
 }

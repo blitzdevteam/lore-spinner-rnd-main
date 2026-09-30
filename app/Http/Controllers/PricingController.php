@@ -33,9 +33,14 @@ final class PricingController extends Controller
         $currentPlanId = $user instanceof User
             ? $entitlements->activePlan($user)?->id
             : null;
+        $usage = $user instanceof User ? $entitlements->summary($user) : null;
 
         return inertia('Pricing', [
             'checkoutStatus' => in_array($status, ['success', 'cancel'], true) ? $status : null,
+            'returnTo' => $returnTo,
+            'billingPortalUrl' => is_array($usage) && ($usage['can_manage_billing'] ?? false) === true
+                ? route('user.billing-portal')
+                : null,
             'plans' => SubscriptionPlan::query()
                 ->availableForCheckout()
                 ->orderBy('sort_order')

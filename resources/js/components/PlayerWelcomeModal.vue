@@ -5,6 +5,9 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 const props = defineProps<{
     open: boolean;
     firstName?: string;
+    planName?: string;
+    actionsLimit?: number;
+    voiceMinutes?: number;
 }>();
 
 const emit = defineEmits<{
@@ -96,6 +99,24 @@ onUnmounted(() => {
                             Welcome to LoreSpinner. You're not just listening to a story. You're inside one.
                         </p>
                     </div>
+
+                    <dl
+                        v-if="planName"
+                        class="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-left"
+                    >
+                        <div class="flex items-baseline justify-between gap-4">
+                            <dt class="text-xs tracking-[0.04em] text-white/50 uppercase">Plan</dt>
+                            <dd class="text-right text-sm font-medium text-[#ffbe58]">{{ planName }}</dd>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-4">
+                            <dt class="text-xs tracking-[0.04em] text-white/50 uppercase">Actions</dt>
+                            <dd class="text-right text-sm font-medium text-[#59c1ca]">{{ actionsLimit ?? 0 }}</dd>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-4">
+                            <dt class="text-xs tracking-[0.04em] text-white/50 uppercase">Voice</dt>
+                            <dd class="text-right text-sm font-medium text-white">{{ voiceMinutes ?? 0 }} minutes</dd>
+                        </div>
+                    </dl>
 
                     <BaseButton ref="continueButton" type="button" severity="primary" class="w-full" @click="close">Continue</BaseButton>
                 </section>

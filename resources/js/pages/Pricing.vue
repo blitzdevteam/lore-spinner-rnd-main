@@ -10,7 +10,9 @@ import iconStar from '@/assets/pricing/icon-star.png';
 import mountains from '@/assets/pricing/mountains.svg';
 import trialHero from '@/assets/pricing/trial-hero.jpg';
 import PricingPlanCard from '@/components/PricingPlanCard.vue';
+import PricingUsageCard from '@/components/PricingUsageCard.vue';
 import HomeLayout from '@/layouts/HomeLayout.vue';
+import type { SubscriptionUsageSummary } from '@/types';
 import register from '@/wayfinder/routes/user/authentication/register';
 import { store as claimFreeTrial } from '@/wayfinder/routes/user/free-trial';
 import { Head, Link, usePage } from '@inertiajs/vue3';
@@ -37,10 +39,14 @@ type Plan = {
 const props = withDefaults(
     defineProps<{
         checkoutStatus?: 'success' | 'cancel' | null;
+        returnTo?: string | null;
+        billingPortalUrl?: string | null;
         plans?: Plan[];
     }>(),
     {
         checkoutStatus: null,
+        returnTo: null,
+        billingPortalUrl: null,
         plans: () => [],
     },
 );
@@ -60,6 +66,18 @@ const iconFor = (iconKey: string) => planIcons[iconKey] ?? iconBook;
 
 const page = usePage();
 const isAuthenticated = computed(() => page.props.auth !== null);
+const subscriptionUsage = computed<SubscriptionUsageSummary | null>(() => page.props.auth?.subscription_usage ?? null);
+const registerHref = computed(() => {
+    const url = register.create().url;
+
+    if (!props.returnTo) {
+        return url;
+    }
+
+    const joiner = url.includes('?') ? '&' : '?';
+
+    return `${url}${joiner}return_to=${encodeURIComponent(props.returnTo)}`;
+});
 </script>
 
 <template>
@@ -73,31 +91,40 @@ const isAuthenticated = computed(() => page.props.auth !== null);
 
                 <div class="relative z-10 container flex min-h-[22.5rem] items-center py-8">
                     <div class="flex w-full max-w-[25.5rem] flex-col gap-6">
-                        <div class="flex flex-col gap-1">
-                            <h1
-                                class="font-marcellus-sc text-[2.5rem] leading-[3.75rem] text-white uppercase text-shadow-[0px_0px_21.2px_black]"
-                            >
-                                choose your path
-                            </h1>
-                            <p class="text-xl leading-[26px] text-[#ffbe58]">Try 20 actions and 10 minutes of voice free</p>
-                            <p class="max-w-[22rem] text-base leading-[26px] text-[#8f8f8f]">One-time allowance for new accounts.</p>
-                        </div>
+                        <PricingUsageCard
+                            v-if="subscriptionUsage"
+                            :usage="subscriptionUsage"
+                            :icon="iconFor(subscriptionUsage.plan.icon_key ?? 'footprints')"
+                            :billing-portal-url="props.billingPortalUrl"
+                        />
+                        <template v-else>
+                            <div class="flex flex-col gap-1">
+                                <h1
+                                    class="font-marcellus-sc text-[2.5rem] leading-[3.75rem] text-white uppercase text-shadow-[0px_0px_21.2px_black]"
+                                >
+                                    choose your path
+                                </h1>
+                                <p class="text-xl leading-[26px] text-[#ffbe58]">Try 20 actions and 10 minutes of voice free</p>
+                                <p class="max-w-[22rem] text-base leading-[26px] text-[#8f8f8f]">One-time allowance for new accounts.</p>
+                            </div>
 
-                        <Link
-                            v-if="isAuthenticated"
-                            :href="claimFreeTrial.url()"
-                            method="post"
-                            as="button"
-                            type="button"
-                            class="pricing-trial__cta"
-                        >
-                            <span>Try Free</span>
-                            <img :src="arrowRight" alt="" width="18" height="18" />
-                        </Link>
-                        <Link v-else :href="register.create().url" class="pricing-trial__cta">
-                            <span>Try Free</span>
-                            <img :src="arrowRight" alt="" width="18" height="18" />
-                        </Link>
+                            <Link
+                                v-if="isAuthenticated"
+                                :href="claimFreeTrial.url()"
+                                method="post"
+                                as="button"
+                                type="button"
+                                :data="props.returnTo ? { return_to: props.returnTo } : {}"
+                                class="pricing-trial__cta"
+                            >
+                                <span>Try Free</span>
+                                <img :src="arrowRight" alt="" width="18" height="18" />
+                            </Link>
+                            <Link v-else :href="registerHref" class="pricing-trial__cta">
+                                <span>Try Free</span>
+                                <img :src="arrowRight" alt="" width="18" height="18" />
+                            </Link>
+                        </template>
 
                         <p v-for="message in page.props.flash?.success ?? []" :key="message" class="text-base text-primary">
                             {{ message }}
@@ -115,7 +142,7 @@ const isAuthenticated = computed(() => page.props.auth !== null);
                 </div>
             </section>
 
-            <section class="container pt-10 pb-12 md:pb-16">
+            <section id="pricing-plans" class="container pt-10 pb-12 md:pb-16">
 
                 <div
                     v-if="props.plans.length"

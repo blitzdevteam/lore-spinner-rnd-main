@@ -89,6 +89,17 @@ it('sends guests to log in before they can claim the free trial', function (): v
         ->assertRedirect(route('user.authentication.login.create'));
 });
 
+it('returns to the story after a free trial claimed from that story', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user, 'user')
+        ->post(route('user.free-trial.store'), [
+            'return_to' => '/stories/example',
+        ])
+        ->assertRedirect('/stories/example')
+        ->assertSessionHas('success');
+});
+
 it('reports that the free trial is unavailable when the plan is inactive', function (): void {
     SubscriptionPlan::query()->where('slug', 'free')->update(['is_active' => false]);
 

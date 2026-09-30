@@ -57,12 +57,13 @@ final class SubscriptionEntitlementService
 
     /**
      * @return array{
-     *     plan:array{name:string},
+     *     plan:array{name:string, icon_key:string},
      *     actions:array{limit:int,used:int,remaining:int},
      *     voice:array{limit_minutes:int,used_milliseconds:int,remaining_milliseconds:int},
      *     period_ends_at:?string,
      *     is_complimentary:bool,
-     *     is_one_time:bool
+     *     is_one_time:bool,
+     *     can_manage_billing:bool
      * }|null
      */
     public function summary(User $user): ?array
@@ -77,6 +78,7 @@ final class SubscriptionEntitlementService
         return [
             'plan' => [
                 'name' => $entitlement->plan->name,
+                'icon_key' => $entitlement->plan->icon_key,
             ],
             'actions' => [
                 'limit' => $entitlement->action_limit,
@@ -91,6 +93,7 @@ final class SubscriptionEntitlementService
             'period_ends_at' => $entitlement->period_end?->toIso8601String(),
             'is_complimentary' => false,
             'is_one_time' => (bool) $entitlement->is_one_time,
+            'can_manage_billing' => $entitlement->subscription_id !== null,
         ];
     }
 

@@ -9,7 +9,7 @@ use App\Models\User;
 final readonly class MarkPlayerWelcomeAction
 {
     /**
-     * @return array{first_name: string}|null
+     * @return array{first_name: string, plan_name?: string, actions_limit?: int, voice_minutes?: int}|null
      */
     public function handle(User $user): ?array
     {

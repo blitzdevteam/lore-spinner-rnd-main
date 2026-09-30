@@ -161,6 +161,7 @@ it('falls back to the recommended badge when a featured plan has no label', func
 
 it('renders allowance lines and a four-column pricing card row', function () {
     $card = file_get_contents(resource_path('js/components/PricingPlanCard.vue'));
+    $usage = file_get_contents(resource_path('js/components/PricingUsageCard.vue'));
     $pricing = file_get_contents(resource_path('js/pages/Pricing.vue'));
 
     expect($card)
@@ -184,9 +185,57 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('One-time allowance for new accounts.')
         ->toContain(':current="plan.current"')
         ->toContain('Try Free')
+        ->toContain('PricingUsageCard')
         ->toContain('* Percentages are not exact.')
         ->toContain('Prices are subject to change at any time.')
         ->toContain('Plans are subject to change at any time.')
         ->not->toContain('View FAQs')
         ->not->toContain('pricing-faq');
+
+    expect($usage)
+        ->toContain('Your Usage')
+        ->toContain('Change Plan')
+        ->toContain('Cancel subscription')
+        ->toContain('remaining');
+});
+
+it('keeps the free trial offer for a player without a plan', function () {
+    $user = User::factory()->create(['is_active' => true]);
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billingPortalUrl', null)
+            ->where('auth.subscription_usage', null));
+});
+
+it('shares the free plan allowance after signup so pricing can show usage', function () {
+    $user = User::factory()->create(['is_active' => true]);
+
+    $this->actingAs($user, 'user')
+        ->post(route('user.free-trial.store'))
+        ->assertRedirect(route('pricing'));
+
+    $this->actingAs($user, 'user')
+        ->withoutMiddleware(App\Http\Middleware\RecordPageView::class)
+        ->get(route('pricing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billingPortalUrl', null)
+            ->where('auth.subscription_usage.plan.name', 'Free Pass')
+            ->where('auth.subscription_usage.plan.icon_key', 'footprints')
+            ->where('auth.subscription_usage.actions.remaining', 20)
+            ->where('auth.subscription_usage.voice.limit_minutes', 10)
+            ->where('auth.subscription_usage.is_one_time', true)
+            ->where('auth.subscription_usage.can_manage_billing', false));
+});
+
+it('sends a player without a stripe customer away from the billing portal', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user, 'user')
+        ->get(route('user.billing-portal'))
+        ->assertRedirect(route('pricing'));
 });

@@ -78,6 +78,9 @@ onMounted(() => {
     <PlayerWelcomeModal
         :open="playerWelcomeOpen"
         :first-name="playerWelcome?.first_name ?? ''"
+        :plan-name="playerWelcome?.plan_name"
+        :actions-limit="playerWelcome?.actions_limit"
+        :voice-minutes="playerWelcome?.voice_minutes"
         @close="playerWelcomeOpen = false"
     />
     <FeedbackWidget />
