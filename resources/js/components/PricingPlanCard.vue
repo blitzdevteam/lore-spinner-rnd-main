@@ -49,8 +49,7 @@ defineProps<{
                                 >
                                     {{ name }}
                                 </h2>
-                                <p v-if="current" class="text-sm leading-normal font-medium text-primary">Current plan</p>
-                                <p v-else-if="tagline" class="text-sm leading-normal text-[#8f8f8f]">{{ tagline }}</p>
+                                <p v-if="tagline" class="text-sm leading-normal text-[#8f8f8f]">{{ tagline }}</p>
                             </div>
                         </div>
 
@@ -229,7 +228,20 @@ defineProps<{
 }
 
 .pricing-card--current .pricing-card__body {
-    border-color: #59c1ca;
+    border-color: #ffbe58;
+}
+
+.pricing-card--current:hover .pricing-card__body,
+.pricing-card--current:focus-within .pricing-card__body {
+    box-shadow:
+        0 22px 40px rgb(0 0 0 / 0.45),
+        0 0 32px rgb(255 190 88 / 0.28);
+}
+
+.pricing-card--current:hover .pricing-card__body::before,
+.pricing-card--current:focus-within .pricing-card__body::before {
+    opacity: 0;
+    animation-play-state: paused;
 }
 
 .pricing-card__badge {
@@ -342,10 +354,10 @@ defineProps<{
 
 .pricing-card__cta--current {
     border-width: 0.5px;
-    border-color: #59c1ca;
-    background: #163f46;
-    color: #59c1ca;
-    font-weight: 600;
+    border-color: #ffbe58;
+    background: rgb(255 190 88 / 0.2);
+    color: #fff;
+    font-weight: 400;
     cursor: default;
 }
 

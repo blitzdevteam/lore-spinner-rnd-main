@@ -115,7 +115,7 @@ it('marks the purchased subscription as the current plan', function () {
                 return is_array($owned)
                     && is_array($other)
                     && $owned['current'] === true
-                    && $owned['cta'] === 'Current plan'
+                    && $owned['cta'] === 'Active Plan'
                     && $other['current'] === false
                     && $other['cta'] === 'Choose Plan';
             }));
@@ -174,7 +174,8 @@ it('renders allowance lines and a four-column pricing card row', function () {
         ->toContain('>/month<')
         ->toContain('pricing-border-flow')
         ->toContain('scale(1.035)')
-        ->toContain('Current plan')
+        ->toContain('border-color: #ffbe58')
+        ->toContain('rgb(255 190 88 / 0.2)')
         ->toContain('pricing-card--current')
         ->not->toContain('/monthly')
         ->not->toContain('what you will get')
