@@ -2,7 +2,6 @@
 import bookOpenIcon from '@/assets/continue-story/book-open.svg';
 import chevronIcon from '@/assets/continue-story/chevron.svg';
 import clockIcon from '@/assets/continue-story/clock.svg';
-import speckledBandContinueCover from '@/assets/5_3SpeckledBandLandscapeTitleCard.png';
 import SectionHeader from '@/components/SectionHeader.vue';
 import { formatCreatorDisplayName } from '@/data/loreSpinnerSeriesLabels';
 import { resolveStoryDisplayTitle } from '@/data/storyDisplayTitleBySlug';
@@ -22,10 +21,6 @@ const posterUrl = computed(() => {
     const s = story.value;
     if (!s?.slug) {
         return '';
-    }
-
-    if (s.slug === 'the-adventure-of-the-speckled-band') {
-        return speckledBandContinueCover;
     }
 
     return resolveStoryTopMoodCover(s.slug, s.cover);

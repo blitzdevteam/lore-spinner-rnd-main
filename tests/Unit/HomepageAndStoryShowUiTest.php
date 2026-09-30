@@ -74,8 +74,8 @@ it('features the curated homepage story order', function (): void {
     $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 
     expect($continue)
-        ->toContain("import speckledBandContinueCover from '@/assets/5_3SpeckledBandLandscapeTitleCard.png'")
-        ->toContain("s.slug === 'the-adventure-of-the-speckled-band'");
+        ->toContain('resolveStoryTopMoodCover(s.slug, s.cover)')
+        ->not->toContain('5_3SpeckledBandLandscapeTitleCard.png');
 
     $carousel = [
         'the-adventure-of-the-speckled-band',
