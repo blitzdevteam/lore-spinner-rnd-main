@@ -19,6 +19,7 @@ import tellTaleCover from '@/assets/featured/Tell Tale portrait titled.png';
 import wizardOzCover from '@/assets/featured/wizardoz.jpg';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
 import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.webp';
+import senseAndSensibilityCover from '@/assets/featured/sense-and-sensibility.webp';
 import momotaroCover from '@/assets/featured/momotaro.png';
 import { canonicalMoodStorySlug } from '@/data/moodStories';
 
@@ -54,6 +55,7 @@ export const STORY_COVER_BY_SLUG: Record<string, string> = {
     leagues: underseaComingCover,
     'romeo-and-juliet': romeoComingCover,
     'the-quest-of-the-holy-grail': holyGrailCover,
+    'sense-and-sensibility': senseAndSensibilityCover,
 };
 
 export function resolveStoryCover(slug: string, cover?: string | null): string {

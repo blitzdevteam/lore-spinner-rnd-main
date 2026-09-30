@@ -11,6 +11,7 @@ import lucyHomeLandscape from '@/assets/newStories/lucy-landscape-banner.jpeg';
 import ozHomeLandscape from '@/assets/newStories/Oz landscape titled.png';
 import marvelousOzCover from '@/assets/featured/the-marvelous-land-of-oz.png';
 import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.webp';
+import senseAndSensibilityCover from '@/assets/featured/sense-and-sensibility.webp';
 import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.jpg';
 import emmaCover from '@/assets/newStories/emma-wide.jpg';
 import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg';
@@ -46,6 +47,7 @@ export const STORY_TOP_MOOD_COVER_BY_SLUG: Record<string, string> = {
     'a-scandal-in-bohemia': scandalBohemiaCover,
     'the-marvelous-land-of-oz': marvelousOzCover,
     'the-quest-of-the-holy-grail': holyGrailCover,
+    'sense-and-sensibility': senseAndSensibilityCover,
     emma: emmaCover,
     'momotaro-the-peach-boy': momotaroFeatured,
     'the-unwritten-ones': tellTaleHomeLandscape,

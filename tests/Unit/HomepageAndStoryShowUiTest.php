@@ -57,7 +57,9 @@ it('features the curated homepage story order', function (): void {
 
     expect($covers)->toContain("import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg'")
         ->toContain("import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.webp'")
-        ->toContain("'the-quest-of-the-holy-grail': holyGrailCover");
+        ->toContain("'the-quest-of-the-holy-grail': holyGrailCover")
+        ->toContain("import senseAndSensibilityCover from '@/assets/featured/sense-and-sensibility.webp'")
+        ->toContain("'sense-and-sensibility': senseAndSensibilityCover");
 
     $worldStoryCovers = file_get_contents(resource_path('js/data/storyTopMoodCoverBySlug.ts'));
 
@@ -178,7 +180,7 @@ it('keeps hero carousel arrows vertically centered when the layout viewport narr
 
 it('stretches hero carousel arrows over the rendered image on tablet widths', function (): void {
     $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
-    $navRule = strstr($heroBanner, '.hero-nav {');
+    $navRule = mb_strstr($heroBanner, '.hero-nav {');
 
     expect($navRule)->toBeString()
         ->and($navRule)->toContain('inset: 0;')
@@ -215,8 +217,8 @@ it('renders the split sign in, sign up, and password screens', function (): void
 
 it('places the auth back button on the left side of the image', function (): void {
     $layout = file_get_contents(resource_path('js/components/auth/AuthSplitLayout.vue'));
-    $backButtonOffset = strpos($layout, 'auth-back-btn absolute top-4 left-4');
-    $formOffset = strpos($layout, 'max-w-[28.8125rem]');
+    $backButtonOffset = mb_strpos($layout, 'auth-back-btn absolute top-4 left-4');
+    $formOffset = mb_strpos($layout, 'max-w-[28.8125rem]');
 
     expect($backButtonOffset)->toBeInt()
         ->and($formOffset)->toBeInt()
