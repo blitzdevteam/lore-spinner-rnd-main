@@ -4,8 +4,7 @@ import cardDivider from '@/assets/pricing/card-divider.svg';
 import checkTeal from '@/assets/pricing/check-teal.svg';
 
 const actionInfoTitle = 'What is an Action?';
-const actionInfoBody =
-    'Actions are credits you use to advance your story and access features such as choice reshuffles, time extensions, and recap. Voice narration uses a separate allowance.';
+const actionInfoBody = 'Every choice you make or instruction you give the story counts as one Action.';
 
 defineProps<{
     name: string;
