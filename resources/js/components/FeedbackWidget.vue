@@ -4,6 +4,7 @@ import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
 import { router } from '@inertiajs/vue3';
 import { send } from '@visual-tracer/core';
+import html2canvas from 'html2canvas-pro';
 import { LucideMessageSquare, Send, X } from 'lucide-vue-next';
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 
@@ -92,6 +93,50 @@ const captureWithVisualTracer = async (feedbackContent: string): Promise<void> =
     }
 };
 
+const SCREENSHOT_MAX_BYTES = 3_500_000;
+
+const canvasToJpeg = (canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> =>
+    new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+    });
+
+/**
+ * Capture the visible page, excluding this widget, and return a JPEG the
+ * feedback endpoint can store for the manager panel.
+ */
+const capturePageScreenshot = async (): Promise<File | null> => {
+    try {
+        const canvas = await html2canvas(document.body, {
+            logging: false,
+            scale: 1,
+            useCORS: true,
+            x: window.scrollX,
+            y: window.scrollY,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            ignoreElements: (element) => element.closest('.feedback-widget-root') !== null,
+        });
+
+        let quality = 0.82;
+        let blob = await canvasToJpeg(canvas, quality);
+
+        while (blob && blob.size > SCREENSHOT_MAX_BYTES && quality > 0.4) {
+            quality = Math.round((quality - 0.15) * 100) / 100;
+            blob = await canvasToJpeg(canvas, quality);
+        }
+
+        if (!blob || blob.size === 0 || blob.size > SCREENSHOT_MAX_BYTES) {
+            return null;
+        }
+
+        return new File([blob], 'feedback-screenshot.jpg', { type: 'image/jpeg' });
+    } catch (error) {
+        console.error('[FeedbackWidget] Screenshot capture failed:', error);
+
+        return null;
+    }
+};
+
 const open = () => {
     if (isBusy.value) {
         return;
@@ -129,36 +174,42 @@ const submit = async () => {
     // Small delay to let the browser repaint without the modal and backdrop
     await new Promise<void>((resolve) => setTimeout(resolve, 200));
 
+    const screenshot = await capturePageScreenshot();
+
     await captureWithVisualTracer(feedbackContent);
 
     // Step 2: submit to the server
     phase.value = 'sending';
 
-    const formData = new FormData();
-    formData.append('content', feedbackContent);
-
-    router.post('/feedback', formData, {
-        preserveScroll: true,
-        forceFormData: true,
-        onSuccess: () => {
-            content.value = '';
-            phase.value = 'idle';
-            // isOpen remains false — widget collapses on success
+    router.post(
+        '/feedback',
+        {
+            content: feedbackContent,
+            ...(screenshot ? { screenshot } : {}),
         },
-        onError: (errors) => {
-            const firstMessage = Object.values(errors).flat()[0];
-            submitError.value = firstMessage ?? 'Something went wrong. Please try again.';
-            phase.value = 'idle';
-            isOpen.value = true;
-        },
-        onFinish: () => {
-            // Guard: onFinish runs after onSuccess/onError.
-            // If phase is still 'sending' here it means neither callback ran — reset safely.
-            if (phase.value === 'sending') {
+        {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                content.value = '';
                 phase.value = 'idle';
-            }
+                // isOpen remains false — widget collapses on success
+            },
+            onError: (errors) => {
+                const firstMessage = Object.values(errors).flat()[0];
+                submitError.value = firstMessage ?? 'Something went wrong. Please try again.';
+                phase.value = 'idle';
+                isOpen.value = true;
+            },
+            onFinish: () => {
+                // Guard: onFinish runs after onSuccess/onError.
+                // If phase is still 'sending' here it means neither callback ran — reset safely.
+                if (phase.value === 'sending') {
+                    phase.value = 'idle';
+                }
+            },
         },
-    });
+    );
 };
 </script>
 

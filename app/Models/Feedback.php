@@ -36,6 +36,15 @@ final class Feedback extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function screenshotUrl(): ?string
+    {
+        if (blank($this->screenshot_path)) {
+            return null;
+        }
+
+        return route('feedback.screenshot', ['path' => $this->screenshot_path]);
+    }
+
     protected static function booted(): void
     {
         self::deleting(function (Feedback $feedback): void {

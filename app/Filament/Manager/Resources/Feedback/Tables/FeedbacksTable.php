@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Feedback\Tables;
 
+use App\Models\Feedback;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -30,9 +31,14 @@ final class FeedbacksTable
                     ->limit(80)
                     ->wrap()
                     ->searchable(),
-                IconColumn::make('screenshot_path')
-                    ->label('Shot')
-                    ->boolean(),
+                ImageColumn::make('screenshot_path')
+                    ->label('Screenshot')
+                    ->getStateUsing(fn (Feedback $record): ?string => $record->screenshotUrl())
+                    ->checkFileExistence(false)
+                    ->imageHeight(72)
+                    ->extraImgAttributes([
+                        'class' => 'rounded-md object-cover object-top',
+                    ]),
                 TextColumn::make('page_url')
                     ->label('Page')
                     ->limit(40)

@@ -7,8 +7,9 @@ namespace App\Http\Controllers;
 use App\Models\Feedback;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class FeedbackController extends Controller
 {
@@ -37,24 +38,24 @@ final class FeedbackController extends Controller
         ]);
     }
 
-    public function screenshot(string $path): Response
+    public function screenshot(string $path): StreamedResponse
     {
         abort_unless(
-            auth('manager')->check() || auth()->check(),
+            Auth::guard('manager')->check() || Auth::check(),
             403,
         );
 
-        abort_if(
-            str_contains($path, '..'),
+        abort_unless(
+            str_starts_with($path, 'feedback-screenshots/') && ! str_contains($path, '..'),
             404,
         );
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk('public');
 
         abort_unless($disk->exists($path), 404);
 
-        return response($disk->get($path), 200, [
-            'Content-Type' => $disk->mimeType($path),
+        return $disk->response($path, headers: [
             'Cache-Control' => 'private, max-age=3600',
         ]);
     }
