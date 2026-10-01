@@ -285,6 +285,17 @@ it('renders story stats as separate boxes on mobile', function (): void {
         ->toContain('hidden w-full overflow-hidden rounded-xl bg-white/[0.04] lg:block');
 });
 
+it('aligns the desktop continue button with the bottom of the story poster', function (): void {
+    $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
+
+    expect($storyShow)
+        ->toContain('lg:h-auto')
+        ->toContain('lg:items-stretch')
+        ->toContain('lg:absolute lg:inset-0')
+        ->not->toContain('lg:h-svh lg:max-h-svh')
+        ->not->toContain('sticky bottom-0');
+});
+
 it('places the story details back button in the page left corner instead of on the poster', function (): void {
     $storyShow = file_get_contents(resource_path('js/pages/Stories/Show.vue'));
 

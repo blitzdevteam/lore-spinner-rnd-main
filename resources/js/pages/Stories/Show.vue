@@ -287,7 +287,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
 
 <template>
     <div
-        class="relative min-h-svh overflow-x-hidden bg-black text-white selection:bg-primary-500/30 lg:h-svh lg:overflow-hidden lg:selection:bg-primary-500/35"
+        class="relative min-h-svh overflow-x-hidden bg-black text-white selection:bg-primary-500/30 lg:h-svh lg:overflow-x-hidden lg:overflow-y-auto lg:selection:bg-primary-500/35"
     >
         <StoryPlayAmbientGlows class="hidden lg:block" />
 
@@ -298,7 +298,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
         </div>
 
         <div
-            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 pb-28 md:px-[3.25rem] md:pt-20 lg:h-svh lg:max-h-svh lg:flex-row lg:items-start lg:gap-6 lg:overflow-hidden lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
+            class="relative z-[1] mx-auto flex h-full max-w-[72rem] flex-col px-5 pt-20 pb-28 md:px-[3.25rem] md:pt-20 lg:h-auto lg:max-h-none lg:flex-row lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-[3.25rem] lg:pt-[100px] lg:pb-0 xl:max-w-[75rem] xl:gap-10"
         >
             <!-- Left: Poster column -->
             <div class="relative mx-auto w-full max-w-[20.875rem] shrink-0 pb-8 lg:mx-0 lg:mb-0 lg:flex lg:w-[20.875rem] lg:max-w-none lg:shrink-0 lg:pb-0 xl:mr-2">
@@ -329,9 +329,9 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                 </StoryPlayCoverColumn>
             </div>
 
-            <!-- Right: Content column — full height, scrollable -->
-            <div class="story-show-panel relative min-w-0 flex-1 lg:min-h-0 lg:self-stretch lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
-                <div class="flex flex-col lg:min-h-full">
+            <!-- Right: matches the poster height; details scroll inside it -->
+            <div class="relative min-w-0 flex-1 lg:min-h-0">
+                <div class="flex flex-col lg:absolute lg:inset-0 lg:min-h-0">
                     <!-- Top bar: tabs + action buttons -->
                     <div class="relative z-[1] shrink-0 overflow-visible bg-black pt-0 lg:bg-transparent lg:pt-0">
                         <StoryPlayTopBar
@@ -346,7 +346,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                     </div>
 
                     <!-- Panel content -->
-                    <div class="flex-1">
+                    <div class="story-show-panel lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
                         <!-- Details panel -->
                         <div v-if="panel === 'details'" class="flex flex-col gap-[33px] pt-[41px] pb-4">
                             <div class="flex flex-col gap-[21px]">
@@ -405,10 +405,8 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                         </div>
                     </div>
 
-                    <!-- Desktop CTA — sticky at bottom of scrollable right column -->
-                    <div
-                        class="sticky bottom-0 z-10 mt-auto hidden shrink-0 bg-linear-to-t from-black via-black/95 to-transparent pt-8 pb-6 lg:block"
-                    >
+                    <!-- Desktop CTA — bottom edge lines up with the poster -->
+                    <div class="z-10 hidden shrink-0 pt-6 lg:block">
                         <div class="flex justify-end">
                             <div class="w-full max-w-[321px]">
                                 <StoryPlayStartCta :label="primaryCtaLabel" :coming-soon="!isPlayable" @click="openPlayMode" />
