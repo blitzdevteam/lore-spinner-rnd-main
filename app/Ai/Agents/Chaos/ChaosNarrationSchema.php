@@ -232,7 +232,7 @@ final class ChaosNarrationSchema
                 ->string()
                 ->required()
                 ->title('Symbolic Memory Update')
-                ->description('A single short natural-language paragraph (1-3 sentences) only when the protagonist\'s interior weather shifted notably this turn. Runtime appends it to symbolic memory. Empty string otherwise.'),
+                ->description('One plain sentence recording what the protagonist did, chose, gave, or promised this turn that later turns must honor. Facts only: no imagery, no meaning, no "has learned that" or "is becoming". Never restate a fact already in memory. Runtime appends it to symbolic memory. Empty string when nothing new was committed.'),
 
             'session_memory_update' => $schema
                 ->string()

@@ -381,8 +381,9 @@ TEXT;
         $prompt = $sessionContext['runtime_prompt'];
 
         $symbolicBlock = mb_trim((string) $symbolicMemory) !== ''
-            ? mb_trim((string) $symbolicMemory)
-            : '(No symbolic memory yet. The protagonist is still becoming.)';
+            ? "(A RECORD OF WHAT THE PROTAGONIST HAS DONE AND PROMISED. Honor it. NEVER reuse its wording or images in the narration.)\n"
+                .mb_trim((string) $symbolicMemory)
+            : '(Nothing recorded yet.)';
 
         $alignmentBlock = $this->renderAlignmentTilt(
             (array) ($sessionContext['alignment_labels'] ?? []),

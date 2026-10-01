@@ -175,3 +175,13 @@ it('ends every turn instruction with the hard self-check, adding the Continue st
         ->and($continue)->toContain('STOP AT THE CARD NAMED IN THE CONTINUE LIMIT')
         ->and($normal)->toEndWith('Return the full structured object.');
 });
+
+it('keeps symbolic memory a factual record the narration must not echo', function () {
+    $template = file_get_contents(resource_path('views/ai/agents/chaos/runtime-narrator-template.blade.php'));
+    $schema = file_get_contents(app_path('Ai/Agents/Chaos/ChaosNarrationSchema.php'));
+
+    expect($template)->toContain('It is a record, not prose')
+        ->and($template)->not->toContain('interior weather')
+        ->and($template)->not->toContain('what sort of self')
+        ->and($schema)->toContain('Facts only: no imagery, no meaning');
+});
