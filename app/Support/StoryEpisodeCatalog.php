@@ -10,6 +10,7 @@ use App\Models\Chapter;
 use App\Models\Event;
 use App\Models\Game;
 use App\Models\GameSessionCompletion;
+use App\Models\PlayableMoment;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
@@ -33,6 +34,8 @@ final class StoryEpisodeCatalog
      *     cover: string,
      *     is_playable: bool,
      *     is_completed: bool,
+     *     events_played: int,
+     *     events_total: int,
      * }>
      */
     public static function for(Story $story, ?Game $game = null): array
@@ -54,19 +57,24 @@ final class StoryEpisodeCatalog
         $fallbackTeasers = self::teasersBySession($adaptation);
         $covers = self::coversBySession($story);
         $completed = self::completedSessionNumbers($game);
+        $eventProgress = self::eventProgress($story, $game);
 
         $episodes = [];
 
         foreach ($sessions as $session) {
             $number = (int) $session->session_number;
             $teaser = self::coldOpenHook($session) ?: ($fallbackTeasers[$number] ?? '');
+            $isCompleted = in_array($number, $completed, true);
+            $isCurrent = $game instanceof Game && (int) $game->current_session_number === $number;
 
             $episodes[] = [
                 'number' => $number,
                 'teaser' => $teaser === '' ? null : $teaser,
                 'cover' => $covers[$number] ?? '',
                 'is_playable' => self::isSessionPlayable($session, $adaptation),
-                'is_completed' => in_array($number, $completed, true),
+                'is_completed' => $isCompleted,
+                'events_played' => (! $isCompleted && $isCurrent) ? ($eventProgress['played'][$number] ?? 0) : 0,
+                'events_total' => $eventProgress['totals'][$number] ?? 0,
             ];
         }
 
@@ -160,6 +168,85 @@ final class StoryEpisodeCatalog
         }
 
         return mb_rtrim($truncated, ' ,;:-').'…';
+    }
+
+    /**
+     * Event totals are the events assigned to each session. The played count is
+     * the 1-based place of the event the current moment is on, and only for the
+     * live session.
+     *
+     * @return array{totals: array<int, int>, played: array<int, int>}
+     */
+    private static function eventProgress(Story $story, ?Game $game): array
+    {
+        $rows = Event::query()
+            ->join('chapters', 'chapters.id', '=', 'events.chapter_id')
+            ->where('chapters.story_id', $story->id)
+            ->whereNotNull('events.session_number')
+            ->orderBy('chapters.position')
+            ->orderBy('events.position')
+            ->get(['events.id', 'events.session_number']);
+
+        /** @var array<int, list<int>> $idsBySession */
+        $idsBySession = [];
+
+        foreach ($rows as $row) {
+            $idsBySession[(int) $row->session_number][] = (int) $row->id;
+        }
+
+        $totals = [];
+
+        foreach ($idsBySession as $number => $ids) {
+            $totals[$number] = count($ids);
+        }
+
+        return [
+            'totals' => $totals,
+            'played' => self::playedEventOrdinal($game, $idsBySession),
+        ];
+    }
+
+    /**
+     * @param  array<int, list<int>>  $idsBySession
+     * @return array<int, int>
+     */
+    private static function playedEventOrdinal(?Game $game, array $idsBySession): array
+    {
+        if (! $game instanceof Game || $game->current_playable_moment_id === null) {
+            return [];
+        }
+
+        $moment = PlayableMoment::query()
+            ->with('cut:id,session_number')
+            ->find($game->current_playable_moment_id);
+
+        $sessionNumber = (int) ($moment?->cut?->session_number ?? 0);
+        $orderedIds = $idsBySession[$sessionNumber] ?? [];
+
+        if ($moment === null || $sessionNumber <= 0 || $orderedIds === []) {
+            return [];
+        }
+
+        $targetId = $moment->anchor_event_id;
+
+        if ($targetId === null) {
+            $sourceIds = array_map(intval(...), (array) $moment->source_event_ids);
+            $targetId = null;
+
+            foreach ($orderedIds as $eventId) {
+                if (in_array($eventId, $sourceIds, true)) {
+                    $targetId = $eventId;
+                }
+            }
+        }
+
+        $index = $targetId === null ? false : array_search((int) $targetId, $orderedIds, true);
+
+        if ($index === false) {
+            return [];
+        }
+
+        return [$sessionNumber => $index + 1];
     }
 
     /**

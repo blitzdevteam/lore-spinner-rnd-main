@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import checkRingIcon from '@/assets/story-play/check-ring.svg';
+import lockIcon from '@/assets/story-play/episode-lock.svg';
+import progressIcon from '@/assets/story-play/episode-progress.svg';
 import chapterPlaceholder from '@/assets/temp/chapter.png';
 import { StoryEpisodeInterface } from '@/types';
-import { LucideLock } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -11,91 +12,130 @@ const props = defineProps<{
 
 const coverImage = computed(() => props.episode.cover || chapterPlaceholder);
 
-const isLocked = computed(() => !props.episode.is_playable);
+type EpisodeStatus = 'completed' | 'in_progress' | 'not_started';
+
+const status = computed<EpisodeStatus>(() => {
+    if (props.episode.is_completed) {
+        return 'completed';
+    }
+
+    if (props.episode.events_played > 0) {
+        return 'in_progress';
+    }
+
+    return 'not_started';
+});
 
 const episodeLabel = computed(() => `Episode ${props.episode.number}`);
 
-const progressLabel = computed(() => (props.episode.is_completed ? 'Completed' : null));
-
-/** Locked episodes show a padlock, completed ones a check; unplayed episodes stay unmarked. */
-const statusIcon = computed<'locked' | 'completed' | null>(() => {
-    if (isLocked.value) {
-        return 'locked';
+const titleClass = computed(() => {
+    if (status.value === 'completed') {
+        return 'text-white';
     }
 
-    return props.episode.is_completed ? 'completed' : null;
+    if (status.value === 'in_progress') {
+        return 'text-[#ffbe58]';
+    }
+
+    return 'text-[rgba(255,190,88,0.2)]';
+});
+
+const statusLabel = computed(() => {
+    if (status.value === 'completed') {
+        return 'Events completed';
+    }
+
+    return null;
 });
 </script>
 
 <template>
-    <article
-        class="group rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-1.5 transition-[border-color,background-color,transform,box-shadow] duration-200 ease-out hover:-translate-y-px hover:border-[#59c1ca]/40 hover:bg-[#141414] hover:shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
-    >
-        <div class="flex items-stretch gap-2">
-            <!-- Thumbnail + episode number -->
+    <article class="rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-1.5">
+        <div class="flex items-center gap-2">
             <div class="relative h-[116px] w-[79px] shrink-0 overflow-hidden rounded-md bg-gray-800">
-                <img :src="coverImage" alt="" class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
-                <div aria-hidden="true" class="pointer-events-none absolute inset-0 rounded-md bg-black/60" />
+                <img :src="coverImage" alt="" class="size-full object-cover" />
+                <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-black/60" />
+                <img
+                    :src="coverImage"
+                    alt=""
+                    class="pointer-events-none absolute top-[18px] left-[5px] h-[37px] w-[69px] rounded-md object-cover"
+                />
                 <span
-                    class="pointer-events-none absolute inset-x-0 bottom-[1.7rem] z-[1] text-center font-['Times_New_Roman',Times,serif] text-[50px] leading-5 font-bold text-white/80"
+                    class="pointer-events-none absolute inset-x-0 top-[69px] z-[1] text-center font-['Times_New_Roman',Times,serif] text-[50px] leading-5 font-bold text-white/80"
                     aria-hidden="true"
                 >
                     {{ episode.number }}
                 </span>
             </div>
 
-            <!-- Content -->
-            <div class="flex min-h-[116px] min-w-0 flex-1 flex-col gap-1">
-                <div class="flex w-full items-start justify-between gap-2">
-                    <div class="min-w-0">
-                        <h3
-                            class="truncate font-['Inter',sans-serif] text-[0.9375rem] leading-normal font-semibold"
-                            :class="isLocked ? 'text-white/25' : 'text-white'"
-                        >
+            <div class="flex h-[111px] min-w-0 flex-1 flex-col items-end">
+                <div class="flex h-[87px] w-full flex-col gap-1.5">
+                    <div class="w-full">
+                        <h3 class="font-['Inter',sans-serif] text-[15px] leading-normal font-semibold" :class="titleClass">
                             {{ episodeLabel }}
                         </h3>
 
-                        <p v-if="progressLabel" class="w-full font-['Inter',sans-serif] text-[0.8125rem] leading-normal font-normal text-[#59c1ca]">
-                            {{ progressLabel }}
+                        <p
+                            v-if="status === 'completed'"
+                            class="font-['Inter',sans-serif] text-[13px] leading-normal font-normal text-[#59c1ca]"
+                        >
+                            {{ statusLabel }}
+                        </p>
+                        <p v-else class="font-['Inter',sans-serif] text-[13px] leading-normal font-normal text-[#3f3f3f]">
+                            <template v-if="status === 'in_progress'">
+                                <span class="text-[#59c1ca]">Events {{ episode.events_played }}/</span>{{ episode.events_total }}
+                            </template>
+                            <template v-else>Events 0/{{ episode.events_total }}</template>
                         </p>
                     </div>
 
-                    <!-- Status icon -->
-                    <div
-                        v-if="statusIcon"
-                        class="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[27px] bg-white/[0.04]"
-                        style="box-shadow: 0px 4px 80px rgba(0, 0, 0, 0.2)"
-                        :title="statusIcon === 'completed' ? 'Episode completed' : 'Episode locked'"
+                    <p
+                        v-if="episode.teaser"
+                        class="line-clamp-2 font-['Inter',sans-serif] text-[14px] leading-[1.198] font-light tracking-[-0.42px] text-[#d8d8d8]"
                     >
-                        <span
-                            aria-hidden="true"
-                            class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] mix-blend-plus-lighter backdrop-blur-[3px]"
-                        />
-                        <LucideLock
-                            v-if="statusIcon === 'locked'"
-                            class="relative z-[1] size-3.5 text-white/70"
-                            :stroke-width="1.75"
-                            aria-hidden="true"
-                        />
-                        <img v-else :src="checkRingIcon" alt="" class="relative z-[1] size-[18px]" width="18" height="18" aria-hidden="true" />
-                        <span
-                            aria-hidden="true"
-                            class="pointer-events-none absolute inset-0 rounded-[inherit]"
-                            style="
-                                box-shadow:
-                                    inset 0.25px 0.5px 0.5px 0.25px rgba(255, 255, 255, 0.22),
-                                    inset -0.2px -0.5px 0.15px 0.5px rgba(255, 255, 255, 0.05);
-                            "
-                        />
-                    </div>
+                        {{ episode.teaser }}
+                    </p>
                 </div>
 
-                <p
-                    v-if="episode.teaser"
-                    class="line-clamp-4 font-['Inter',sans-serif] text-sm leading-[1.35] font-light tracking-[-0.0125rem] text-[#d8d8d8]"
+                <div
+                    v-if="status === 'in_progress'"
+                    class="relative size-6 shrink-0"
+                    title="Episode in progress"
                 >
-                    {{ episode.teaser }}
-                </p>
+                    <div class="absolute inset-[-316.67%_-333.33%_-350%_-333.33%]">
+                        <img :src="progressIcon" alt="" width="184" height="184" class="block size-full max-w-none" />
+                    </div>
+                </div>
+                <div
+                    v-else
+                    class="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[27px] bg-white/[0.04] shadow-[0_4px_80px_rgba(0,0,0,0.2)]"
+                    :title="status === 'completed' ? 'Episode completed' : 'Episode not started'"
+                >
+                    <span
+                        aria-hidden="true"
+                        class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] mix-blend-plus-lighter backdrop-blur-[3px]"
+                    />
+                    <img
+                        v-if="status === 'completed'"
+                        :src="checkRingIcon"
+                        alt=""
+                        width="18"
+                        height="18"
+                        class="relative z-[1] max-w-none"
+                    />
+                    <img
+                        v-else
+                        :src="lockIcon"
+                        alt=""
+                        width="10.1818"
+                        height="12.7273"
+                        class="relative z-[1] max-w-none"
+                    />
+                    <span
+                        aria-hidden="true"
+                        class="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0.25px_0.5px_0.5px_0.25px_rgba(255,255,255,0.22),inset_-0.2px_-0.5px_0.15px_0.5px_rgba(255,255,255,0.05)]"
+                    />
+                </div>
             </div>
         </div>
     </article>

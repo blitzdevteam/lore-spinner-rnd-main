@@ -9,6 +9,8 @@ use App\Enums\Chapter\ChapterStatusEnum;
 use App\Enums\Story\StoryStatusEnum;
 use App\Models\Game;
 use App\Models\GameSessionCompletion;
+use App\Models\PlayableMoment;
+use App\Models\PlayableSessionCut;
 use App\Models\Story;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -120,6 +122,7 @@ it('marks an episode completed only when its session is finished for the current
         'story_id' => $story->id,
         'user_id' => $user->id,
         'current_session_number' => 2,
+        'current_story_cycle_number' => 1,
         'current_session_complete' => false,
         'model' => 'claude-sonnet-4-6',
     ]);
@@ -150,6 +153,80 @@ it('marks an episode completed only when its session is finished for the current
                 ->where('episodes.0.is_completed', true)
                 ->where('episodes.1.is_completed', false)
                 ->where('episodes.2.is_completed', false)
+                ->etc()
+        );
+});
+
+it('shows the event being played on the in-progress episode and locks the rest', function (): void {
+    $story = storyWithSessions();
+    $user = User::factory()->create(['is_active' => true]);
+    $chapter = $story->chapters()->firstOrFail();
+
+    $second = $chapter->events()->create([
+        'position' => 4,
+        'title' => 'Event 2b',
+        'content' => 'The hall has another door.',
+        'session_number' => 2,
+    ]);
+
+    $chapter->events()->create([
+        'position' => 5,
+        'title' => 'Event 2c',
+        'content' => 'A key turns in the lock.',
+        'session_number' => 2,
+    ]);
+
+    $session = $story->adaptation->sessionAdaptations()->where('session_number', 2)->firstOrFail();
+
+    $cut = PlayableSessionCut::query()->create([
+        'story_id' => $story->id,
+        'session_adaptation_id' => $session->id,
+        'session_number' => 2,
+        'cut_key' => 'standard',
+        'status' => 'finalized',
+    ]);
+
+    $moment = PlayableMoment::query()->create([
+        'playable_session_cut_id' => $cut->id,
+        'moment_key' => 'S2_M02',
+        'moment_order' => 2,
+        'anchor_event_id' => $second->id,
+        'source_event_ids' => [$second->id],
+        'scene_card' => [],
+    ]);
+
+    $game = Game::query()->create([
+        'story_id' => $story->id,
+        'user_id' => $user->id,
+        'current_session_number' => 2,
+        'current_story_cycle_number' => 1,
+        'current_playable_moment_id' => $moment->id,
+        'current_session_complete' => false,
+        'model' => 'claude-sonnet-4-6',
+    ]);
+
+    GameSessionCompletion::query()->create([
+        'game_id' => $game->id,
+        'story_id' => $story->id,
+        'user_id' => $user->id,
+        'story_cycle_number' => $game->current_story_cycle_number,
+        'session_number' => 1,
+        'completed_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('stories.show', $story))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('episodes.0.is_completed', true)
+                ->where('episodes.0.events_played', 0)
+                ->where('episodes.0.events_total', 1)
+                ->where('episodes.1.is_completed', false)
+                ->where('episodes.1.events_played', 2)
+                ->where('episodes.1.events_total', 3)
+                ->where('episodes.2.events_played', 0)
+                ->where('episodes.2.events_total', 1)
                 ->etc()
         );
 });

@@ -238,6 +238,9 @@ export interface StoryEpisodeInterface {
     cover: string;
     is_playable: boolean;
     is_completed: boolean;
+    /** 1-based event the player is on in this episode. 0 when it has not started. */
+    events_played: number;
+    events_total: number;
 }
 
 export interface CommentInterface {

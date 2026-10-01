@@ -74,6 +74,7 @@ final class StoryController extends Controller
                     'current_session_number',
                     'current_session_complete',
                     'current_story_cycle_number',
+                    'current_playable_moment_id',
                 ]);
 
             $showFirstStoryTutorial = ! $user->games()->where('is_preview', false)->exists();

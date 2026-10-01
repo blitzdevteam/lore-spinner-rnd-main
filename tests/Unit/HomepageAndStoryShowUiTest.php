@@ -346,8 +346,10 @@ it('shows the fixed episode duration and builds the episode list from sessions',
         ->not->toContain('leftColumnChapters');
 
     expect($episodeCard)
-        ->not->toContain('Spins Earned')
-        ->not->toContain('Events');
+        ->toContain('Events completed')
+        ->toContain('Events {{ episode.events_played }}/')
+        ->toContain('episode-lock.svg')
+        ->not->toContain('Spins Earned');
 
     expect($storyController)
         ->toContain('StoryEpisodeCatalog::for($story, $existingGame)')
@@ -363,9 +365,9 @@ it('marks only completed episodes and derives the story progress percentage', fu
     $titleProgress = file_get_contents(resource_path('js/components/story-play/StoryPlayTitleProgress.vue'));
 
     expect($episodeCard)
-        ->toContain("statusIcon = computed<'locked' | 'completed' | null>")
-        ->toContain("return props.episode.is_completed ? 'completed' : null")
-        ->toContain('line-clamp-4')
+        ->toContain("type EpisodeStatus = 'completed' | 'in_progress' | 'not_started'")
+        ->toContain("if (props.episode.events_played > 0)")
+        ->toContain('line-clamp-2')
         ->not->toContain('text-justify');
 
     expect($storyShow)
