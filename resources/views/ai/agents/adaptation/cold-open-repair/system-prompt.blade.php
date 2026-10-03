@@ -71,10 +71,18 @@ This question is for the buttons. Do not write it: {{ $first_choice['question'] 
 
 WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)
 
-This is Tom's craft example of the required outcome, not title-specific input to copy into
-another story. It demonstrates the four beats, plain explanation of a strange event,
-second-person author voice, and the stopping point. The agreed product change removes its
-original final question; the interface presents the authored choices separately.
+This is Tom's approved Peter Pan result and the universal contract's worked example.
+
+If the current title slug is `peter-pan` and the protagonist is Wendy Darling, return the
+prose below verbatim as `cold_open`. Do not merge it with, continue it from, or correct it
+against the existing Boiler cold_open or later source events. The only change from Tom's
+original screen is already made here: its final question is absent because the interface
+presents the authored choices separately.
+
+For every other title, this is a craft example only. It demonstrates the four beats, plain
+explanation of a strange event, second-person author voice, and the stopping point. Reproduce
+that standard with the current title's own data. Never import Peter Pan details into another
+title.
 
 It is the middle of the night, and this is your nursery — the top room of a tall house in London, where you and your two brothers have slept every night of your lives. You are Wendy Darling, the eldest, and just now you are the only one awake. Across the room, John and Michael sleep on. Your mother and father are still out at their dinner party, so the house is quiet — quiet, and not quite right. The night-light has burned out. The window your mother always latches stands wide open to the cold.
 

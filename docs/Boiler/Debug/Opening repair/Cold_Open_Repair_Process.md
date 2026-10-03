@@ -31,11 +31,11 @@ The system prompt is Tom's Cold Open Contract (the text in `LoreSpinner_Cold_Ope
 The contract's rules are his: Rule 0 (second person, present tense, as the named protagonist), the four beats (where, who, what is happening, the decision), the clarity test, and the voice-anchor rule.
 
 Tom's worked Peter Pan screen is included in the system prompt as a labeled craft
-example. It demonstrates the desired output, not runtime facts for every title. For
-another title, the prompt explicitly requires that title's own protagonist, voice,
-choice, facts, and setting. The example's last line, a question to the player, is the
-one agreed removal. The prose ends on the action of the choice, while the interface
-shows the title's authored choices.
+example and as the approved Peter Pan candidate. When the command repairs `peter-pan`,
+the agent returns that prose verbatim, with the agreed final-question removal already
+made. This prevents the older Boiler `cold_open` and later source events from being
+merged back into Tom's approved result. For every other title it is only a craft example:
+the prompt requires that title's own protagonist, voice, choice, facts, and setting.
 
 The user message contains the title's actual Boiler material:
 

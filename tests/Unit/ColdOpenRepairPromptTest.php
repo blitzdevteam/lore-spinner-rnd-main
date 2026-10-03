@@ -109,6 +109,7 @@ it('pulls Peter Pan facts into the repair prompt and forbids a closing question'
         ->toContain('This question is for the buttons. Do not write it: What do you do?')
         ->toContain('You go with Peter at once.')
         ->toContain('WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)')
+        ->toContain('prose below verbatim as `cold_open`')
         ->toContain('Then he holds out his hand, bare and certain')
         ->toContain('COMPLETE CURRENT BOILER ENTRY-POINT DIAGNOSIS')
         ->not->toContain("this very night.\n\nDo you take his hand?");

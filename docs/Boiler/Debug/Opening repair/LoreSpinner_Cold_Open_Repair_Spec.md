@@ -12,7 +12,7 @@ Decisions that override this specification for the review repair:
 |---|---|
 | Scope | Rewrite `cold_open` only, from the stored diagnosis, voice anchor, and source window. Cards, initial state, and the pipeline agent stay as they are until a candidate is greenlit. |
 | Closing question | The prose does not end on a question. The choice buttons carry the decision. |
-| Worked example | Appendix A's Peter Pan screen is included as Tom's labeled quality example. It is not source truth for another title and its final question is removed. |
+| Worked example | Appendix A's Peter Pan screen is the approved Peter Pan candidate and a labeled quality example for every other title. Peter Pan returns it verbatim; another title uses only its own Boiler facts. The final question is removed. |
 | Model | `claude-sonnet-4-6` at temperature 0.6. |
 | Command | `php artisan stories:repair-cold-open {slug}` in the Laravel Cloud command box. The box runs bash, so the `php artisan` prefix is required. `--dry-run` prints the pull. No flag generates and does not save. `--apply` stores a candidate that passes the checks. |
 
