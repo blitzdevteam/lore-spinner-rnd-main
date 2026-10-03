@@ -104,6 +104,22 @@ it('prints the pulled Peter Pan facts without calling the model', function (): v
         ->toBe('A boy is crying on the floor. What do you do?');
 });
 
+it('prints the approved Peter Pan reference without calling the model', function (): void {
+    ColdOpenRepairAgent::fake()->preventStrayPrompts();
+
+    $story = coldOpenRepairStory();
+    $story->update(['slug' => 'peter-pan']);
+
+    $this->artisan('stories:repair-cold-open', [
+        'story' => 'peter-pan',
+    ])
+        ->expectsOutputToContain('Using the approved title reference. The model was not called.')
+        ->expectsOutputToContain('Then he holds out his hand, bare and certain')
+        ->assertSuccessful();
+
+    ColdOpenRepairAgent::assertNeverPrompted();
+});
+
 it('stores only a valid cold open and leaves the rest of the diagnosis', function (): void {
     $prose = validRepairedOpening();
 

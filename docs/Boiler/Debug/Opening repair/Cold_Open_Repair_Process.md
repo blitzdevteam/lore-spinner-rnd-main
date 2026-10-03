@@ -32,10 +32,11 @@ The contract's rules are his: Rule 0 (second person, present tense, as the named
 
 Tom's worked Peter Pan screen is included in the system prompt as a labeled craft
 example and as the approved Peter Pan candidate. When the command repairs `peter-pan`,
-the agent returns that prose verbatim, with the agreed final-question removal already
-made. This prevents the older Boiler `cold_open` and later source events from being
-merged back into Tom's approved result. For every other title it is only a craft example:
-the prompt requires that title's own protagonist, voice, choice, facts, and setting.
+the command reads that approved reference directly and does not call the model. The
+agreed final-question removal is already made. This guarantees that the older Boiler
+`cold_open` and later source events cannot be merged back into Tom's approved result.
+For every other title it is only a craft example: the prompt requires that title's own
+protagonist, voice, choice, facts, and setting, and Sonnet 4.6 generates the candidate.
 
 The user message contains the title's actual Boiler material:
 
@@ -57,7 +58,7 @@ diagnosis was flattened into a few hand-written instructions.
 3. Load the voice profile and the source events for that session.
 4. Stop if the protagonist name, the voice anchor, or the situation is missing. Nothing is invented to fill a gap.
 5. `--dry-run` prints the protagonist, the cold-open facts, and the question being kept off the prose. It does not call the model and does not write. `--show-prompt` on a dry run prints Tom's filled system prompt and the user message.
-6. Without `--dry-run`, `ColdOpenRepairAgent` calls `claude-sonnet-4-6` at temperature 0.6. The system prompt is Tom's universal contract plus his labeled Peter Pan craft example. The user message is the complete title-specific Boiler diagnosis and source context. The model returns one field: `cold_open`.
+6. Without `--dry-run`, the command first checks for an approved title reference. Peter Pan session 1 has one and is returned exactly without a model call. If a title has no approved reference, `ColdOpenRepairAgent` calls `claude-sonnet-4-6` at temperature 0.6. Its system prompt is Tom's universal contract plus his labeled Peter Pan craft example. The user message is the complete title-specific Boiler diagnosis and source context. The model returns one field: `cold_open`.
 7. The candidate is rejected if it is empty, contains an editorial `===` marker, runs past 350 words, does not address the player as "you" at the start, does not name the protagonist within the first 80 words, or ends on a question. A rejected candidate is printed and not saved.
 8. A candidate that passes is printed and still not saved, unless you also passed `--apply`.
 9. `--apply` writes the new prose onto `entry_point_diagnosis.cold_open` only. The rest of the diagnosis (the entry point, the first-choice spec, the emotional promise, the start event) stays as it was.
@@ -70,6 +71,7 @@ Existing games are not reset. The next new start of that story reads the stored 
 |---|---|
 | `app/Console/Commands/RepairColdOpenCommand.php` | `stories:repair-cold-open`. Loads one story, prints, and optionally stores. |
 | `app/Ai/Adaptation/ColdOpenRepairContext.php` | Pulls the protagonist, voice, complete Boiler diagnosis, first choice, and the source window. |
+| `app/Ai/Adaptation/ApprovedColdOpenReference.php` | Returns an approved title/session opening exactly. Peter Pan session 1 is the first registered reference. |
 | `app/Ai/Agents/Adaptation/ColdOpenRepairAgent.php` | Sends Tom's contract as the system prompt, with that story's slots filled. Model: `claude-sonnet-4-6` at 0.6. |
 | `resources/views/ai/agents/adaptation/cold-open-repair/system-prompt.blade.php` | Tom's universal contract, including his labeled Peter Pan craft example with the final question removed. |
 | `resources/views/ai/agents/adaptation/cold-open-repair/prompt.blade.php` | That title's complete `entry_point_diagnosis` plus the source events around the entry. |

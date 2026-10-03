@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Ai\Adaptation\ApprovedColdOpenReference;
 use App\Ai\Adaptation\ColdOpenRepairContext;
 use App\Ai\Adaptation\ColdOpenRepairValidator;
 use App\Ai\Agents\Adaptation\ColdOpenRepairAgent;
@@ -219,4 +220,13 @@ it('accepts the approved Peter Pan opening and rejects the closing question', fu
         ->and($validator->wordCount($approved))->toBeLessThanOrEqual(350)
         ->and($validator->failures($approved."\n\nDo you take his hand?", 'Wendy Darling'))
         ->toContain('The cold open ends on a question to the player. End on the action of the choice instead.');
+});
+
+it('returns the approved Peter Pan prose exactly and leaves other titles to the model', function (): void {
+    $references = new ApprovedColdOpenReference;
+
+    expect($references->for('peter-pan', 1))
+        ->toBe(approvedPeterPanOpening())
+        ->and($references->for('peter-pan', 2))->toBeNull()
+        ->and($references->for('anima-machina', 1))->toBeNull();
 });

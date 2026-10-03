@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Ai\Adaptation\ApprovedColdOpenReference;
 use App\Ai\Adaptation\ColdOpenRepairContext;
 use App\Ai\Adaptation\ColdOpenRepairValidator;
 use App\Ai\Agents\Adaptation\ColdOpenRepairAgent;
@@ -31,6 +32,7 @@ final class RepairColdOpenCommand extends Command
     protected $description = 'Repair one story cold open from its diagnosis, voice, and source';
 
     public function handle(
+        ApprovedColdOpenReference $approvedReferences,
         ColdOpenRepairContext $contextBuilder,
         ColdOpenRepairValidator $validator,
         SessionEventLoader $eventLoader,
@@ -106,18 +108,25 @@ final class RepairColdOpenCommand extends Command
             return self::SUCCESS;
         }
 
-        try {
-            $response = (new ColdOpenRepairAgent($context))->prompt(
-                view('ai.agents.adaptation.cold-open-repair.prompt', $context)->render(),
-                timeout: 180,
-            );
-        } catch (Throwable $throwable) {
-            $this->error($throwable->getMessage());
+        $prose = $approvedReferences->for($story->slug, $sessionNumber);
 
-            return self::FAILURE;
+        if ($prose !== null) {
+            $this->info('Using the approved title reference. The model was not called.');
+        } else {
+            try {
+                $response = (new ColdOpenRepairAgent($context))->prompt(
+                    view('ai.agents.adaptation.cold-open-repair.prompt', $context)->render(),
+                    timeout: 180,
+                );
+            } catch (Throwable $throwable) {
+                $this->error($throwable->getMessage());
+
+                return self::FAILURE;
+            }
+
+            $prose = mb_trim((string) ($response['cold_open'] ?? ''));
         }
 
-        $prose = mb_trim((string) ($response['cold_open'] ?? ''));
         $failures = $validator->failures($prose, $context['protagonist']);
 
         $this->newLine();
