@@ -1,0 +1,196 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Ai\Adaptation;
+
+use App\ChaosMode\ChaosStoryConfig;
+use App\Models\Story;
+
+/**
+ * Hydrates the cold-open repair prompt from a story's stored diagnosis,
+ * voice anchor, and the source events around the chosen entry.
+ *
+ * This is the review path. It does not change the entry-point pipeline agent.
+ */
+final class ColdOpenRepairContext
+{
+    public const string CONTRACT_VERSION = '2026-10-03';
+
+    /**
+     * @param  array<string, mixed>  $diagnosis
+     * @param  array<string, mixed>  $voiceProfile
+     * @param  list<array{position: int, title: string, content: string}>  $sourceEvents
+     * @return array{
+     *     story_title: string,
+     *     story_slug: string,
+     *     session_number: int,
+     *     protagonist: string,
+     *     voice_anchor: mixed,
+     *     anchor_card: mixed,
+     *     established: string,
+     *     deferred: string,
+     *     cold_open_facts: list<string>,
+     *     first_choice: array{setup_prose: string, threshold_stake: string, question: string, options: list<string>},
+     *     current_cold_open: string,
+     *     source_events: list<array{position: int, title: string, content: string}>
+     * }
+     */
+    public function build(
+        string $title,
+        string $slug,
+        int $sessionNumber,
+        string $protagonist,
+        array $voiceProfile,
+        array $diagnosis,
+        array $sourceEvents,
+    ): array {
+        $firstChoice = (array) ($diagnosis['first_choice_spec'] ?? []);
+
+        return [
+            'story_title' => $title,
+            'story_slug' => $slug,
+            'session_number' => $sessionNumber,
+            'protagonist' => $protagonist,
+            'voice_anchor' => $voiceProfile['voice_anchor'] ?? [],
+            'anchor_card' => $voiceProfile['anchor_card'] ?? [],
+            'established' => (string) data_get($diagnosis, 'situation_stakes_world.established', ''),
+            'deferred' => (string) data_get($diagnosis, 'situation_stakes_world.deferred', ''),
+            'cold_open_facts' => $this->coldOpenFacts($diagnosis['format_specific_cut']['must_reintroduce'] ?? null),
+            'first_choice' => [
+                'setup_prose' => (string) ($firstChoice['setup_prose'] ?? ''),
+                'threshold_stake' => (string) ($firstChoice['threshold_stake'] ?? ''),
+                'question' => (string) ($firstChoice['question'] ?? ''),
+                'options' => array_values(array_filter([
+                    (string) ($firstChoice['option_1'] ?? ''),
+                    (string) ($firstChoice['option_2'] ?? ''),
+                    (string) ($firstChoice['option_3_unexpected'] ?? ''),
+                ], fn (string $option): bool => $option !== '')),
+            ],
+            'current_cold_open' => (string) ($diagnosis['cold_open'] ?? ''),
+            'source_events' => $sourceEvents,
+        ];
+    }
+
+    public function protagonistFor(Story $story): string
+    {
+        $map = (array) ($story->adaptation->story_session_map ?? []);
+        $audit = (array) ($story->adaptation->ip_audit ?? []);
+        $fallback = mb_trim((string) ($map['protagonist'] ?? $audit['protagonist'] ?? ''));
+
+        return ChaosStoryConfig::protagonistFor($story->slug, $fallback !== '' ? $fallback : null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function missingContext(array $context): ?string
+    {
+        if (mb_trim((string) $context['protagonist']) === '' || $context['protagonist'] === 'the protagonist') {
+            return 'Protagonist name is missing, so the repair has nothing to address the player as.';
+        }
+
+        if ($context['voice_anchor'] === [] && $context['anchor_card'] === []) {
+            return 'Voice anchor is missing. Re-run Voice Lock before repairing this cold open.';
+        }
+
+        $hasSituation = $context['established'] !== ''
+            || $context['current_cold_open'] !== ''
+            || $context['cold_open_facts'] !== []
+            || $context['first_choice']['setup_prose'] !== '';
+
+        if (! $hasSituation) {
+            return 'Entry-point diagnosis has no situation, cold open, or first choice to repair from.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Events from the diagnosed start through the next few beats.
+     * Positions are the story-global ordinals, not chapter-local ones.
+     *
+     * @param  list<array{position: int, title: string, content: string}>  $events
+     * @return list<array{position: int, title: string, content: string}>
+     */
+    public function sourceWindow(array $events, int $startPosition): array
+    {
+        $window = [];
+        $characters = 0;
+
+        foreach ($events as $event) {
+            $position = (int) $event['position'];
+
+            if ($startPosition > 0 && ($position < $startPosition || $position > $startPosition + 11)) {
+                continue;
+            }
+
+            if ($startPosition < 1 && count($window) >= 8) {
+                break;
+            }
+
+            $content = mb_substr(mb_trim($event['content']), 0, 1500);
+            $characters += mb_strlen($content);
+
+            if ($window !== [] && $characters > 8000) {
+                break;
+            }
+
+            $window[] = [
+                'position' => $position,
+                'title' => $event['title'],
+                'content' => $content,
+            ];
+        }
+
+        return $window;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function coldOpenFacts(mixed $mustReintroduce): array
+    {
+        if (is_string($mustReintroduce)) {
+            $fact = mb_trim($mustReintroduce);
+
+            return $fact === '' ? [] : [$fact];
+        }
+
+        if (! is_array($mustReintroduce)) {
+            return [];
+        }
+
+        $facts = [];
+
+        foreach ($mustReintroduce as $item) {
+            if (is_string($item)) {
+                $fact = mb_trim($item);
+
+                if ($fact !== '') {
+                    $facts[] = $fact;
+                }
+
+                continue;
+            }
+
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $marker = (string) ($item['marker'] ?? '');
+
+            if ($marker !== '' && $marker !== 'COLD_OPEN') {
+                continue;
+            }
+
+            $fact = mb_trim((string) ($item['fact'] ?? ''));
+
+            if ($fact !== '') {
+                $facts[] = $fact;
+            }
+        }
+
+        return $facts;
+    }
+}
