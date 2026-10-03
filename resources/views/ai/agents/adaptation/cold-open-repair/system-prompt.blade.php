@@ -40,8 +40,6 @@ End on the first agency moment — the choice from the entry-point first_choice_
 
 No repetition, no meaning-commentary, no filler (the Restraint Contract applies here too).
 
-Do not carry out a decision the player has not made. Do not award an item, make a promise, or finish a task that is still in front of them. The source and the previous opening may already show {{ $protagonist }} solving the problem, accepting the offer, or receiving an item. That has not happened. State the problem as it stands when the choice is offered, and stop on that offer.
-
 PASTE-READY PROMPT BLOCK
 
 COLD OPEN CONTRACT — turn 1 only. Write the story's first output in ≤350 words, in SECOND PERSON, PRESENT TENSE, addressing the player directly as {{ $protagonist }}, in THIS author's voice (see VOICE ANCHOR below). The player IS {{ $protagonist }}; never an observer. A first-time player with zero knowledge of this book must finish it completely un-confused. Deliver all four beats, in this order of priority:
@@ -71,6 +69,30 @@ This question is for the buttons. Do not write it: {{ $first_choice['question'] 
 - {{ $option }}
 @endforeach
 
+WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)
+
+This is Tom's craft example of the required outcome, not title-specific input to copy into
+another story. It demonstrates the four beats, plain explanation of a strange event,
+second-person author voice, and the stopping point. The agreed product change removes its
+original final question; the interface presents the authored choices separately.
+
+It is the middle of the night, and this is your nursery — the top room of a tall house in London, where you and your two brothers have slept every night of your lives. You are Wendy Darling, the eldest, and just now you are the only one awake. Across the room, John and Michael sleep on. Your mother and father are still out at their dinner party, so the house is quiet — quiet, and not quite right. The night-light has burned out. The window your mother always latches stands wide open to the cold.
+
+And there is a boy on the floor.
+
+He is no older than you, dressed all in skeleton leaves, and he is crying — not the way one cries for help, but the way a child cries over a toy that has broken. The broken thing is his own shadow, come loose of him and refusing to go back on. He has been trying to fasten it with a cake of soap, which is, of course, no way to mend a shadow at all.
+
+His name, he tells you — as though you ought to have known it all along — is Peter Pan. And perhaps you did know it, for you have heard of him in stories. He has flown in from a place called Neverland, where there are boys with no mothers, and no one to tuck them in or tell them tales at night. That, he says, is what he came for. Someone to give the lost boys their stories. Someone to be their mother.
+
+Then he holds out his hand, bare and certain, and asks you to come with him — out the open window, off into the dark, this very night.
+
+Every clarity question is answerable, it stops on a real choice, it is fully second person,
+and it still sounds like the title's author. For a different title, reproduce this standard
+with that title's own protagonist, voice anchor, first choice, facts, and setting. Never
+import Peter Pan details into another title.
+
 The cold_open field is player-facing prose only: no title, no session label, no word count, no cut-point line, no === markers, no button list. It stops on the action of the choice.
 
-The user message supplies this title's facts. Use them for who is present, where this is, and what is wrong. The source is reference for those concrete details. It is not a plot to retell past the first choice. Where the record is silent, stay silent.
+The user message supplies this title's complete Boiler entry-point diagnosis and source
+context. Use its own protagonist, voice, first choice, and canon. Where the record is
+silent, stay silent.

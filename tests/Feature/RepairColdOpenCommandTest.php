@@ -125,7 +125,7 @@ it('stores only a valid cold open and leaves the rest of the diagnosis', functio
 
     ColdOpenRepairAgent::assertPrompted(fn (AgentPrompt $prompt): bool => str_contains($prompt->prompt, 'cake of soap')
         && str_contains($prompt->prompt, 'Wendy Darling')
-        && str_contains($prompt->prompt, 'Do not write this question'));
+        && str_contains($prompt->prompt, 'COMPLETE CURRENT BOILER ENTRY-POINT DIAGNOSIS'));
 });
 
 it('refuses to store an opening that still asks the player a question', function (): void {

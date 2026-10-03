@@ -106,12 +106,12 @@ it('pulls Peter Pan facts into the repair prompt and forbids a closing question'
         ->toContain('THE FOUR REQUIRED BEATS')
         ->toContain('CLARITY TEST')
         ->toContain('Do not write a closing question.')
-        ->toContain('Do not write this question or any other question to the player: What do you do?')
+        ->toContain('This question is for the buttons. Do not write it: What do you do?')
         ->toContain('You go with Peter at once.')
-        ->toContain('That has not happened.')
-        ->toContain('Not a plot to retell.')
-        ->not->toContain('Tinker Bell is present')
-        ->not->toContain('this matters because');
+        ->toContain('WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)')
+        ->toContain('Then he holds out his hand, bare and certain')
+        ->toContain('COMPLETE CURRENT BOILER ENTRY-POINT DIAGNOSIS')
+        ->not->toContain("this very night.\n\nDo you take his hand?");
 });
 
 it('drops the editorial reason from a cold-open fact', function (): void {
@@ -138,7 +138,7 @@ it('drops the editorial reason from a cold-open fact', function (): void {
     ]);
 });
 
-it('keeps the system prompt free of any one title', function (): void {
+it('keeps Peter Pan as a labeled craft example while filling another title from Boiler', function (): void {
     $context = (new ColdOpenRepairContext)->build(
         'Anima Machina',
         'anima-machina',
@@ -160,11 +160,9 @@ it('keeps the system prompt free of any one title', function (): void {
 
     expect($system)
         ->toContain('Nora')
-        ->not->toContain('Peter Pan')
-        ->not->toContain('Wendy')
-        ->not->toContain('Neverland')
-        ->not->toContain('nursery')
-        ->not->toContain('Darling');
+        ->toContain('WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)')
+        ->toContain('import Peter Pan details into another title.')
+        ->toContain('A shard is set down between you.');
 });
 
 it('runs the repair on Sonnet 4.6', function (): void {

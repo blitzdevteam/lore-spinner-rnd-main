@@ -8,10 +8,10 @@ This repair runs on any story, one title at a time. The same contract is used fo
 
 Yes. Tom's contract is the **first output a new player reads**: session 1, turn 1.
 
-The command defaults to session 1:
+The command defaults to session 1. On Laravel Cloud the box runs bash, so prefix Artisan:
 
 ```
-stories:repair-cold-open peter-pan
+php artisan stories:repair-cold-open peter-pan
 ```
 
 That session's stored `entry_point_diagnosis.cold_open` is the prose the game delivers word for word when a new game starts. The repair rewrites that field. It does not rewrite later turns, and it does not rebuild the cached runtime narrator prompt. Live delivery already injects `cold_open` from the diagnosis on the session-start turn.
@@ -30,16 +30,25 @@ The system prompt is Tom's Cold Open Contract (the text in `LoreSpinner_Cold_Ope
 
 The contract's rules are his: Rule 0 (second person, present tense, as the named protagonist), the four beats (where, who, what is happening, the decision), the clarity test, and the voice-anchor rule.
 
-Tom's worked Peter Pan screen is an example of the desired outcome, kept in the spec. It is not pasted into the system prompt. A prompt that runs on every title does not name that story, its characters, or its scene. Those details arrive only when that story's own record is loaded into the slots. The example's last line, a question to the player, is not part of the desired outcome. The prose ends on the action of the choice. The story's own question is passed in so the model knows the decision, and it is marked as text that must not be written.
+Tom's worked Peter Pan screen is included in the system prompt as a labeled craft
+example. It demonstrates the desired output, not runtime facts for every title. For
+another title, the prompt explicitly requires that title's own protagonist, voice,
+choice, facts, and setting. The example's last line, a question to the player, is the
+one agreed removal. The prose ends on the action of the choice, while the interface
+shows the title's authored choices.
 
-The user message is the rest of the record, so the model is not guessing:
+The user message contains the title's actual Boiler material:
 
-- What the diagnosis says is already true (`situation_stakes_world.established`)
-- What must stay out (`deferred`)
-- Facts marked `COLD_OPEN` in `format_specific_cut.must_reintroduce`. Facts marked `LATER` are left out. A title that stores `must_reintroduce` as one string (Anima) keeps that string.
-- The previous `cold_open`, labeled as the opening being replaced. If it already shows the protagonist solving the problem, that action is still ahead of the player.
-- Source events from `start_event_position` through the next 11 events, as reference for names and concrete details. They are not a plot to retell. A later passage that shows the problem already solved is left undone, so the opening can stop where the first choice is offered.
-- Editorial tails on cold-open facts (`this matters because...`) are removed before the model sees them. The plain fact stays.
+- The complete current `entry_point_diagnosis`, including its entry-point reasoning,
+  established/deferred facts, full `first_choice_spec`, reintroductions, current
+  `cold_open`, emotional promise, and event positions.
+- The actual source events around the diagnosed entry and handoff.
+- The title's real Voice Anchor, Anchor Card, protagonist, and first-choice slots in
+  the system prompt.
+
+This is intentionally Boiler-based. Tom's contract was designed to repair that output.
+The earlier test diverged because the worked example was removed and the complete
+diagnosis was flattened into a few hand-written instructions.
 
 ## How a run works
 
@@ -48,7 +57,7 @@ The user message is the rest of the record, so the model is not guessing:
 3. Load the voice profile and the source events for that session.
 4. Stop if the protagonist name, the voice anchor, or the situation is missing. Nothing is invented to fill a gap.
 5. `--dry-run` prints the protagonist, the cold-open facts, and the question being kept off the prose. It does not call the model and does not write. `--show-prompt` on a dry run prints Tom's filled system prompt and the user message.
-6. Without `--dry-run`, `ColdOpenRepairAgent` calls `claude-sonnet-4-6` at temperature 0.6. The system prompt is Tom's contract, with no title baked in. The user message is the pulled record. The model returns one field: `cold_open`.
+6. Without `--dry-run`, `ColdOpenRepairAgent` calls `claude-sonnet-4-6` at temperature 0.6. The system prompt is Tom's universal contract plus his labeled Peter Pan craft example. The user message is the complete title-specific Boiler diagnosis and source context. The model returns one field: `cold_open`.
 7. The candidate is rejected if it is empty, contains an editorial `===` marker, runs past 350 words, does not address the player as "you" at the start, does not name the protagonist within the first 80 words, or ends on a question. A rejected candidate is printed and not saved.
 8. A candidate that passes is printed and still not saved, unless you also passed `--apply`.
 9. `--apply` writes the new prose onto `entry_point_diagnosis.cold_open` only. The rest of the diagnosis (the entry point, the first-choice spec, the emotional promise, the start event) stays as it was.
@@ -60,12 +69,12 @@ Existing games are not reset. The next new start of that story reads the stored 
 | Piece | Role |
 |---|---|
 | `app/Console/Commands/RepairColdOpenCommand.php` | `stories:repair-cold-open`. Loads one story, prints, and optionally stores. |
-| `app/Ai/Adaptation/ColdOpenRepairContext.php` | Pulls protagonist, voice, diagnosis facts, first choice, and the source window. |
-| `app/Ai/Agents/Adaptation/ColdOpenRepairAgent.php` | Sends Tom's contract as the system prompt, with that story's slots filled. |
-| `resources/views/ai/agents/adaptation/cold-open-repair/system-prompt.blade.php` | Tom's contract. |
-| `resources/views/ai/agents/adaptation/cold-open-repair/prompt.blade.php` | The pulled record (facts, source, previous opening). |
+| `app/Ai/Adaptation/ColdOpenRepairContext.php` | Pulls the protagonist, voice, complete Boiler diagnosis, first choice, and the source window. |
+| `app/Ai/Agents/Adaptation/ColdOpenRepairAgent.php` | Sends Tom's contract as the system prompt, with that story's slots filled. Model: `claude-sonnet-4-6` at 0.6. |
+| `resources/views/ai/agents/adaptation/cold-open-repair/system-prompt.blade.php` | Tom's universal contract, including his labeled Peter Pan craft example with the final question removed. |
+| `resources/views/ai/agents/adaptation/cold-open-repair/prompt.blade.php` | That title's complete `entry_point_diagnosis` plus the source events around the entry. |
 | `app/Ai/Adaptation/ColdOpenRepairValidator.php` | Rejects an empty opening, a marker, a missing name, a third-person start, an over-long opening, or a closing question. |
-| `tests/Unit/ColdOpenRepairPromptTest.php` | A title's facts land in its own prompt, the system prompt names no story, the approved Peter Pan outcome still passes the checks, and a closing question fails. |
+| `tests/Unit/ColdOpenRepairPromptTest.php` | The complete Boiler diagnosis is sent, the Peter Pan screen stays a labeled example, and a closing question fails. |
 | `tests/Feature/RepairColdOpenCommandTest.php` | Dry run does not write. `--apply` stores only `cold_open`. A question is not stored. |
 
 `EntryPointDiagnosisAgent` and `resources/views/ai/agents/adaptation/entry-point-diagnosis/system-prompt.blade.php` are untouched. New boils still use the old opening instructions until this repair is greenlit and that agent is switched on purpose.
