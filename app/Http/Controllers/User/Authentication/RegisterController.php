@@ -35,11 +35,16 @@ final class RegisterController extends Controller
         $password = $request->string('password')->toString();
 
         $user = $createAuthenticatableGuard->handle('user', $email, $password);
-        $user->update([
+        $attributes = [
             'first_name' => $request->string('first_name')->toString(),
             'last_name' => $request->string('last_name')->toString(),
-            'gender' => $request->string('gender')->toString(),
-        ]);
+        ];
+
+        if ($request->filled('gender')) {
+            $attributes['gender'] = $request->string('gender')->toString();
+        }
+
+        $user->update($attributes);
         $assignUniqueUsername->handle($user);
 
         auth('user')->login($user, remember: true);

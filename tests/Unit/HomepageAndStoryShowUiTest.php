@@ -203,8 +203,8 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->toContain('Step Into The Story')
         ->toContain('First Name')
         ->toContain('Last Name')
-        ->toContain('Gender')
-        ->toContain('Select your gender')
+        ->not->toContain('Gender')
+        ->not->toContain('Select your gender')
         ->toContain('name="password_confirmation"')
         ->toContain(':back-href="index().url"');
 

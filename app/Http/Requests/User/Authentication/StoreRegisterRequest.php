@@ -29,7 +29,7 @@ final class StoreRegisterRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:64'],
             'last_name' => ['required', 'string', 'max:64'],
-            'gender' => ['required', 'string', Rule::in(GenderEnum::values())],
+            'gender' => ['nullable', 'string', Rule::in(GenderEnum::values())],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];

@@ -41,7 +41,6 @@ function getRegistrationPayload(array $overrides = []): array
     return array_merge([
         'first_name' => 'John',
         'last_name' => 'Doe',
-        'gender' => GenderEnum::MALE->value,
         'email' => TEST_EMAIL,
         'password' => TEST_PASSWORD,
         'password_confirmation' => TEST_PASSWORD,
@@ -72,7 +71,7 @@ describe('registration', function () {
             ->assertRedirectBack();
     });
 
-    test('user can register with a gender and is sent to the dashboard', function () {
+    test('user can register without a gender and is sent to the dashboard', function () {
         startUserRegistration(getRegistrationPayload())
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('user.dashboard.index'))
@@ -90,7 +89,7 @@ describe('registration', function () {
             ->and(SubscriptionEntitlement::query()->where('user_id', $user->id)->where('is_one_time', true)->exists())->toBeTrue()
             ->and($user->first_name)->toBe('John')
             ->and($user->last_name)->toBe('Doe')
-            ->and($user->gender)->toBe(GenderEnum::MALE->value)
+            ->and($user->gender)->toBeNull()
             ->and($user->username)->toBe('johndoe')
             ->and($user->is_profile_completed)->toBeTrue()
             ->and($user->email_verified_at)->toBeNull()
@@ -118,7 +117,15 @@ describe('registration', function () {
                 ->where('flash.player_welcome.first_name', 'John'));
     });
 
-    test('user can not register without a valid gender', function () {
+    test('user can register with an optional gender', function () {
+        startUserRegistration(getRegistrationPayload(['gender' => GenderEnum::MALE->value]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('user.dashboard.index'));
+
+        expect(User::query()->where('email', TEST_EMAIL)->first()?->gender)->toBe(GenderEnum::MALE->value);
+    });
+
+    test('user can not register with an invalid gender', function () {
         startUserRegistration(getRegistrationPayload(['gender' => 'unknown']))
             ->assertSessionHasErrors('gender')
             ->assertRedirectBack();

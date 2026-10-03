@@ -3,7 +3,6 @@ import epicStoriesImage from '@/assets/auth/epic-stories.png';
 import AuthField from '@/components/auth/AuthField.vue';
 import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
-import { GenderEnum } from '@/types/enum';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/RegisterController';
 import { index } from '@/wayfinder/routes';
 import login from '@/wayfinder/routes/user/authentication/login';
@@ -15,13 +14,6 @@ const props = defineProps<{
 }>();
 
 const password = ref('');
-
-const genderOptions = [
-    { label: 'Male', value: GenderEnum.MALE },
-    { label: 'Female', value: GenderEnum.FEMALE },
-    { label: 'Non-binary', value: GenderEnum.NON_BINARY },
-    { label: 'Prefer not to say', value: GenderEnum.PREFER_NOT_TO_SAY },
-];
 
 const fieldClass =
     'h-14 w-full rounded-[10px] border-0 bg-[#191919] px-4 font-inter text-base text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50';
@@ -56,21 +48,6 @@ const fieldClass =
                             <input name="last_name" type="text" autocomplete="family-name" :class="fieldClass" />
                         </AuthField>
                     </div>
-                    <AuthField label="Gender" :error="errors.gender">
-                        <div class="relative">
-                            <select name="gender" autocomplete="sex" required :class="[fieldClass, 'auth-gender appearance-none pr-10']">
-                                <option value="" disabled selected>Select your gender</option>
-                                <option v-for="option in genderOptions" :key="option.value" :value="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                            <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[#585858]" aria-hidden="true">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                        </div>
-                    </AuthField>
                     <AuthField label="Email Address" :error="errors.email">
                         <input name="email" type="email" autocomplete="email" :class="fieldClass" />
                     </AuthField>
@@ -120,14 +97,5 @@ const fieldClass =
 .auth-submit:disabled {
     cursor: not-allowed;
     opacity: 0.6;
-}
-
-.auth-gender:invalid {
-    color: #585858;
-}
-
-.auth-gender option {
-    color: #fff;
-    background: #191919;
 }
 </style>
