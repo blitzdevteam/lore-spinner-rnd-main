@@ -40,7 +40,7 @@ End on the first agency moment — the choice from the entry-point first_choice_
 
 No repetition, no meaning-commentary, no filler (the Restraint Contract applies here too).
 
-Do not carry out a decision the player has not made. Do not award an item, make a promise, or finish a task that is still in front of them.
+Do not carry out a decision the player has not made. Do not award an item, make a promise, or finish a task that is still in front of them. The source and the previous opening may already show {{ $protagonist }} solving the problem, accepting the offer, or receiving an item. That has not happened. State the problem as it stands when the choice is offered, and stop on that offer.
 
 PASTE-READY PROMPT BLOCK
 
@@ -73,4 +73,4 @@ This question is for the buttons. Do not write it: {{ $first_choice['question'] 
 
 The cold_open field is player-facing prose only: no title, no session label, no word count, no cut-point line, no === markers, no button list. It stops on the action of the choice.
 
-The user message supplies this title's established facts, withheld facts, source excerpt, and the previous opening. Use those. Where they are silent, stay silent.
+The user message supplies this title's facts. Use them for who is present, where this is, and what is wrong. The source is reference for those concrete details. It is not a plot to retell past the first choice. Where the record is silent, stay silent.

@@ -108,7 +108,34 @@ it('pulls Peter Pan facts into the repair prompt and forbids a closing question'
         ->toContain('Do not write a closing question.')
         ->toContain('Do not write this question or any other question to the player: What do you do?')
         ->toContain('You go with Peter at once.')
-        ->not->toContain('Tinker Bell is present');
+        ->toContain('That has not happened.')
+        ->toContain('Not a plot to retell.')
+        ->not->toContain('Tinker Bell is present')
+        ->not->toContain('this matters because');
+});
+
+it('drops the editorial reason from a cold-open fact', function (): void {
+    $context = (new ColdOpenRepairContext)->build(
+        'Peter Pan: Wendy\'s Neverland',
+        'peter-pan',
+        1,
+        'Wendy Darling',
+        ['anchor_card' => ['Keep the aside.']],
+        [
+            'situation_stakes_world' => ['established' => 'Night in the nursery.'],
+            'format_specific_cut' => [
+                'must_reintroduce' => [[
+                    'fact' => 'Peter’s shadow is a detachable, physical thing, and the immediate problem is that he cannot make it stick; this matters because Wendy’s first bond with him is practical caretaking, not abstract fascination.',
+                    'marker' => 'COLD_OPEN',
+                ]],
+            ],
+        ],
+        [],
+    );
+
+    expect($context['cold_open_facts'])->toBe([
+        'Peter’s shadow is a detachable, physical thing, and the immediate problem is that he cannot make it stick',
+    ]);
 });
 
 it('keeps the system prompt free of any one title', function (): void {

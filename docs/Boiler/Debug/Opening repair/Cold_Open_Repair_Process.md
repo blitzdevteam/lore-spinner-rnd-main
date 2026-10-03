@@ -37,8 +37,9 @@ The user message is the rest of the record, so the model is not guessing:
 - What the diagnosis says is already true (`situation_stakes_world.established`)
 - What must stay out (`deferred`)
 - Facts marked `COLD_OPEN` in `format_specific_cut.must_reintroduce`. Facts marked `LATER` are left out. A title that stores `must_reintroduce` as one string (Anima) keeps that string.
-- The previous `cold_open`, so the model can see the opening it is replacing and must not finish a task the player has not chosen
-- Source events from `start_event_position` through the next 11 events, capped so the prompt stays bounded
+- The previous `cold_open`, labeled as the opening being replaced. If it already shows the protagonist solving the problem, that action is still ahead of the player.
+- Source events from `start_event_position` through the next 11 events, as reference for names and concrete details. They are not a plot to retell. A later passage that shows the problem already solved is left undone, so the opening can stop where the first choice is offered.
+- Editorial tails on cold-open facts (`this matters because...`) are removed before the model sees them. The plain fact stays.
 
 ## How a run works
 
@@ -71,30 +72,30 @@ Existing games are not reset. The next new start of that story reads the stored 
 
 ## Laravel Cloud
 
-In the environment's command box, Cloud runs Artisan for you. Do not prefix `php artisan` or `vendor/bin/sail`.
+The Cloud command box runs bash. Prefix Artisan. Do not use `vendor/bin/sail`.
 
 Read what would be sent, without calling the model:
 
 ```
-stories:repair-cold-open peter-pan --dry-run
+php artisan stories:repair-cold-open peter-pan --dry-run
 ```
 
 Print the full prompt as well:
 
 ```
-stories:repair-cold-open peter-pan --dry-run --show-prompt
+php artisan stories:repair-cold-open peter-pan --dry-run --show-prompt
 ```
 
 Generate a candidate and print it. This calls the model. It does not save.
 
 ```
-stories:repair-cold-open peter-pan
+php artisan stories:repair-cold-open peter-pan
 ```
 
 Store a candidate that passes the checks:
 
 ```
-stories:repair-cold-open peter-pan --apply
+php artisan stories:repair-cold-open peter-pan --apply
 ```
 
 Another title is the same command with that story's slug. Session 1 is the default.

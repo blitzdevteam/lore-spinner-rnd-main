@@ -14,7 +14,7 @@ Decisions that override this specification for the review repair:
 | Closing question | The prose does not end on a question. The choice buttons carry the decision. |
 | Worked example | Appendix A keeps the Peter Pan screen as the quality example. The prompt names no story and no character until that title's record is loaded. |
 | Model | `claude-sonnet-4-6` at temperature 0.6. |
-| Command | `stories:repair-cold-open {slug}` on Laravel Cloud. `--dry-run` prints the pull. No flag generates and does not save. `--apply` stores a candidate that passes the checks. |
+| Command | `php artisan stories:repair-cold-open {slug}` in the Laravel Cloud command box. The box runs bash, so the `php artisan` prefix is required. `--dry-run` prints the pull. No flag generates and does not save. `--apply` stores a candidate that passes the checks. |
 
 The sections below are the original 27 September handoff. Where they disagree with the table above, the table is what the review command does.
 

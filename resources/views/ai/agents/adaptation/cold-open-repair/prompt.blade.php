@@ -32,10 +32,10 @@ Do not write this question or any other question to the player: {{ $first_choice
 - {{ $option }}
 @endforeach
 
-PREVIOUS OPENING (replace this. Do not copy its vagueness, and do not keep any action it already completed for the player):
+PREVIOUS OPENING (this is the defective opening you are replacing. If it already shows {{ $protagonist }} solving the problem, accepting, refusing, or receiving something, that action has not happened. Do not repeat it. Do not copy its vagueness.):
 {{ $current_cold_open !== '' ? $current_cold_open : 'None stored.' }}
 
-SOURCE AROUND THE ENTRY (use this for what is actually happening. Do not invent a fact the source and the diagnosis do not support):
+SOURCE (names, place, objects, and what is wrong. Not a plot to retell. If a later passage shows {{ $protagonist }} already solving the problem or taking the offer, leave that undone. Do not invent a fact the source and the diagnosis do not support. Stop when the pending decision is offered.):
 @forelse($source_events as $event)
 Event {{ $event['position'] }}: {{ $event['title'] }}
 {{ $event['content'] }}

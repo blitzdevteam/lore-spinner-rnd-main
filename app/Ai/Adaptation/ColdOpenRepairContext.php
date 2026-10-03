@@ -152,7 +152,7 @@ final class ColdOpenRepairContext
     private function coldOpenFacts(mixed $mustReintroduce): array
     {
         if (is_string($mustReintroduce)) {
-            $fact = mb_trim($mustReintroduce);
+            $fact = $this->plainFact($mustReintroduce);
 
             return $fact === '' ? [] : [$fact];
         }
@@ -165,7 +165,7 @@ final class ColdOpenRepairContext
 
         foreach ($mustReintroduce as $item) {
             if (is_string($item)) {
-                $fact = mb_trim($item);
+                $fact = $this->plainFact($item);
 
                 if ($fact !== '') {
                     $facts[] = $fact;
@@ -184,7 +184,7 @@ final class ColdOpenRepairContext
                 continue;
             }
 
-            $fact = mb_trim((string) ($item['fact'] ?? ''));
+            $fact = $this->plainFact((string) ($item['fact'] ?? ''));
 
             if ($fact !== '') {
                 $facts[] = $fact;
@@ -192,5 +192,16 @@ final class ColdOpenRepairContext
         }
 
         return $facts;
+    }
+
+    /**
+     * Diagnosis facts often end with an editor's reason ("this matters because...").
+     * That reason is not a line for the player.
+     */
+    private function plainFact(string $fact): string
+    {
+        $plain = preg_replace('/\s*[;,]?\s*(?:this|which|that)\s+matters\s+because\b.*$/isu', '', $fact);
+
+        return mb_trim((string) $plain, " \t\n\r\0\x0B;,");
     }
 }
