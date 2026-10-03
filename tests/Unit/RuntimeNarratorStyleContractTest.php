@@ -88,13 +88,14 @@ it('replaces the callback-material dump with a capped background line in tier tw
         ->not->toContain('Relic 8: intact');
 });
 
-it('keeps Continue a read-ahead that stops before open decisions and does not rehash', function (): void {
+it('keeps Continue a compact authored read-ahead without assigning a branch', function (): void {
     $action = (string) file_get_contents(app_path('Actions/Game/ProcessGameTurnAction.php'));
 
     expect($action)
-        ->toContain('Continue is a request to read ahead, not a decision by the protagonist.')
-        ->toContain('never make a choice')
-        ->toContain('Do not re-describe the journey');
+        ->toContain('wants the authored story told')
+        ->toContain('every fact, rule, object change, location change')
+        ->toContain('Never select or commit A/B/C')
+        ->toContain('caught_up_to_moment_key');
 });
 
 it('replaces the critique footnote and repetition primes in the narrator template', function (): void {
@@ -115,13 +116,13 @@ it('replaces the critique footnote and repetition primes in the narrator templat
         ->not->toContain('PROVOCATION');
 });
 
-it('makes continue turns read ahead to the next decision point', function (): void {
+it('makes Continue compact the authored story and report its natural landing point', function (): void {
     $engine = styleContractEngine();
 
     expect($engine->turnInstructions('WENDY', true))
-        ->toContain('Read ahead through the author\'s pages')
-        ->toContain('the next point where WENDY must decide something')
-        ->toContain('stop at the decision point so the player makes it')
+        ->toContain('Read ahead through the ordered moments and source events')
+        ->toContain('You may pass such a decision without committing it')
+        ->toContain('Report the later moment where the prose truly stopped')
         ->and($engine->turnInstructions('WENDY'))
         ->not->toContain('THIS IS A CONTINUE');
 });
@@ -164,15 +165,31 @@ it('marks a card with an untaken branching choice as a decision point', function
         ->not->toContain('DECISION POINT');
 });
 
-it('ends every turn instruction with the hard self-check, adding the Continue stop only on Continue', function () {
+it('lets Continue pass a decision without weakening the ordinary choice gate', function (): void {
+    $context = [
+        'moment_key' => 'S1_M02',
+        'turn_count' => 1,
+        'target_turns' => 5,
+        'pending_branching_choice_ids' => ['S1_C1'],
+    ];
+    $normal = callEnginePrivate('buildActiveMomentBlock', [$context]);
+    $continue = callEnginePrivate('buildActiveMomentBlock', [$context, false, true]);
+
+    expect($normal)->toContain('The runtime holds this card until it is.')
+        ->and($continue)->toContain('player deliberately asked the authored story to continue without choosing a path')
+        ->and($continue)->toContain('You may leave this card and later choice cards behind')
+        ->and($continue)->not->toContain('The runtime holds this card until it is.');
+});
+
+it('ends every turn instruction with a mode-specific hard self-check', function () {
     $engine = app(ChaosEngineService::class);
     $normal = $engine->turnInstructions('WENDY');
     $continue = $engine->turnInstructions('WENDY', true);
 
     expect($normal)->toContain('HARD CHECK BEFORE YOU RETURN')
         ->and($normal)->toContain('DO NOT INVENT CANON')
-        ->and($normal)->not->toContain('STOP AT THE CARD NAMED IN THE CONTINUE LIMIT')
-        ->and($continue)->toContain('STOP AT THE CARD NAMED IN THE CONTINUE LIMIT')
+        ->and($normal)->not->toContain('REPORT WHERE THE PROSE ACTUALLY STOPPED')
+        ->and($continue)->toContain('REPORT WHERE THE PROSE ACTUALLY STOPPED')
         ->and($normal)->toEndWith('Return the full structured object.');
 });
 

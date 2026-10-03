@@ -743,6 +743,60 @@ it('blocks session complete until an authored session-ending choice is resolved'
         ->and($completed->moment_result)->toBe('completed');
 });
 
+it('lets Continue finish the authored session close without inventing an ending choice', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update([
+        'scene_card' => [
+            'moment_key' => 'S1_M02',
+            'choice_ids' => ['S1_C4'],
+        ],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [[
+                'choice_id' => 'S1_C4',
+                'options' => [
+                    ['label' => 'A', 'text' => 'Close with mercy'],
+                    ['label' => 'B', 'text' => 'Close with steel'],
+                    ['label' => 'C', 'text' => 'Close with silence'],
+                ],
+            ]],
+            'emotional_choices' => [],
+        ],
+    ]);
+    $fixture['game']->update([
+        'current_playable_moment_id' => $fixture['second']->id,
+        'playable_moment_turn_count' => 1,
+    ]);
+    $result = array_merge(
+        boilerResolverResult(
+            'S1_M02',
+            true,
+            'The authored close happened without attributing a path to the player.',
+        ),
+        [
+            'defining_choice_id' => 'S1_C4',
+            'defining_path_label' => 'A',
+            'defining_choice_line' => 'The model tried to choose.',
+        ],
+    );
+
+    $completed = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        '__continue__',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+        isContinue: true,
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_session_complete)->toBeTrue()
+        ->and($game->defining_choice_id)->toBeNull()
+        ->and($completed->moment_result)->toBe('completed');
+});
+
 it('replaces near-duplicate symbolic_memory and player_style entries', function () {
     $engine = app(ChaosEngineService::class);
 
@@ -925,7 +979,7 @@ it('takes a far catch-up once the narrator reports the same card on consecutive 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($third->id);
 });
 
-it('bounds a Continue at the next card that carries an authored decision', function () {
+it('reconciles Continue immediately to its narrated landing moment across authored choices', function () {
     $fixture = boilerResolverFixture();
     $fixture['second']->update([
         'scene_card' => ['moment_key' => 'S1_M02', 'title' => 'The Window', 'choice_ids' => ['S1_C1']],
@@ -934,14 +988,73 @@ it('bounds a Continue at the next card that carries an authored decision', funct
         'moment_key' => 'S1_M03',
         'moment_order' => 3,
         'source_event_ids' => [],
-        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => ['S1_C2']],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
     ]);
+    $fourth = $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M04',
+        'moment_order' => 4,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M04', 'choice_ids' => ['S1_C4']],
+    ]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                [
+                    'choice_id' => 'S1_C1',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Go'],
+                        ['label' => 'B', 'text' => 'Stay'],
+                        ['label' => 'C', 'text' => 'Bargain'],
+                    ],
+                ],
+                [
+                    'choice_id' => 'S1_C4',
+                    'options' => [
+                        ['label' => 'A', 'text' => 'Adventure'],
+                        ['label' => 'B', 'text' => 'Home'],
+                        ['label' => 'C', 'text' => 'Brothers'],
+                    ],
+                ],
+            ],
+            'emotional_choices' => [],
+        ],
+    ]);
+    $result = boilerResolverResult('S1_M04', true, 'The compact story stopped at the departure.');
+    $result['defining_choice_id'] = 'S1_C1';
+    $result['defining_path_label'] = 'A';
+    $result['defining_choice_line'] = 'She chose adventure.';
+    $result['state_delta']['player_style'] = ['chooses adventure over home'];
+    $result['state_delta']['emotional_ledger_entries'] = [[
+        'category' => 'defining_moral_choices',
+        'entry' => 'She chose adventure.',
+    ]];
+    $result['alignment_tally_delta'] = ['chaotic' => 2, 'lawful' => 0, 'neutral' => 0];
+    $result['symbolic_memory_update'] = 'She chose adventure over home.';
+    $choices = [
+        ['text' => 'Take the adventure path.', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'A'],
+        ['text' => 'Keep home in mind.', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'B'],
+        ['text' => 'Put the brothers first.', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'C'],
+    ];
 
-    $bound = app(ChaosEngineService::class)->continueBoundInstruction($fixture['game']->fresh());
+    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        '__continue__',
+        $result,
+        $choices,
+        $fixture['adaptation']->sessionAdaptations()->get(),
+        isContinue: true,
+    );
+    $game = $fixture['game']->fresh();
 
-    expect($bound)->toContain('S1_M02 "The Window"')
-        ->and($bound)->toContain('caught_up_to_moment_key=S1_M02')
-        ->and($bound)->not->toContain('S1_M03');
+    expect($game->current_playable_moment_id)->toBe($fourth->id)
+        ->and($game->defining_choice_id)->toBeNull()
+        ->and($game->alignment_scaffold)->toBe(['chaotic' => 0, 'lawful' => 0, 'neutral' => 0])
+        ->and($game->symbolic_memory)->toBeNull()
+        ->and($game->world_state['player_style'])->toBe([])
+        ->and($game->world_state['emotional_ledger'])->toBe([])
+        ->and($response->choices[0]['canonical_choice_id'])->toBe('S1_C4')
+        ->and($response->moment_result)->toBe('advanced');
 });
 
 it('treats a later card named as moment_key as a catch-up instead of holding the stale card', function () {

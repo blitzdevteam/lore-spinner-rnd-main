@@ -34,40 +34,28 @@ final class ProcessGameTurnAction
 
     private const CONTINUE_MODE_INSTRUCTION = <<<'PROMPT'
 CONTINUE MODE: MEANINGFUL FAST-FORWARD.
-The player explicitly wants to move past low-agency material. Use the future
-session context already available to you (the beat map, source events, current
-moment context, and conversation history) to judge what is connective and what
-is meaningful. Compress or resolve routine travel, waiting, scenery, and other
-uneventful material instead of making the player repeat it.
+The player has no particular action in mind and wants the authored story told
+forward at a quicker pace. Use the ordered moments, source events, current
+moment context, and conversation history already available to you. Narrate
+significant events and changes; compress connective description, routine
+movement, waiting, and scenery.
 
-Move the story forward until the next meaningful playable moment. If the
-remaining material in the active moment is optional connective material and the
-player's Continue makes it safe to bypass, you may set exit_condition_met=true
-and advance normally. Do not hold the player in a low-agency loop merely
-because the ordinary moment budget has not been exhausted.
+The player must still learn every fact, rule, object change, location change,
+relationship change, promise, and consequence that later story material needs.
+Do not turn the fast-forward into a broad overview detached from the scene:
+tell the compact story in the author's voice.
 
-Stop and return control to the player before an authored branch, crisis,
-relationship or moral decision, required interaction, or session-ending choice.
-Continue may bring the player to that decision, but it
-must never choose an authored branch, invent a player action, or commit a
-canonical choice for them.
-Preserve established state and consequences. In Boiler, keep
-moment_progress.moment_key accurate and use the existing resolver contract; in
-legacy mode, set session_complete only when the actual session close is
+Continue may pass an authored choice because the player deliberately declined
+to choose. Never select or commit A/B/C, invent a preference, or turn authored
+actions into a player-style or moral-ledger judgment. Follow the shared or
+canonical story and stop naturally when renewed action, danger, or meaningful
+interaction makes ordinary play worthwhile again.
+
+In Boiler, if the prose reaches a later ordered moment, report that actual
+landing point as caught_up_to_moment_key. Name where the story now is, never
+where it is merely heading. Runtime will reconcile the pointer to that report.
+In legacy mode, set session_complete only when the actual session close is
 reached.
-Keep the fast-forward response concise: a short transition or montage followed
-by the meaningful situation and its choices. Do not offer more filler actions
-such as "keep walking" or "look around" when the player has explicitly chosen
-to move past that material.
-
-Continue is a request to read ahead, not a decision by the protagonist. Play
-the author's pages for this scene forward at a quicker pace. The protagonist may
-do and say what the source has them do along the way, but never make a choice
-the source leaves open and never take an authored decision for the player; stop
-when the story reaches it. Each Continue must
-bring something the previous turn did not have: a new place, a new person, or a
-new development. Do not re-describe the journey, the company, or what the
-protagonist is carrying.
 PROMPT;
 
     /** How far back to look for a player restating the same intent. */
@@ -236,6 +224,7 @@ PROMPT;
             $worldState = $game->world_state ?? $this->engine->emptyWorldState();
             $alignment = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
             $isClimactic = (bool) $game->is_climactic_choice;
+            $isContinue = $storedPromptValue === self::CONTINUE_MARKER;
             $systemPrompt = $this->engine->renderSystemPrompt(
                 sessionContext: $sessionContext,
                 worldState: $worldState,
@@ -249,6 +238,7 @@ PROMPT;
                     array_filter($history, static fn (array $entry): bool => ($entry['role'] ?? '') === 'narrator'),
                     'text',
                 ), -3),
+                isContinue: $isContinue,
             );
 
             if ($explicitBranch !== null) {
@@ -257,12 +247,8 @@ PROMPT;
                     .'. Resolve this selected authored path; do not infer a different one.';
             }
 
-            if ($storedPromptValue === self::CONTINUE_MARKER) {
+            if ($isContinue) {
                 $systemPrompt .= "\n\n".self::CONTINUE_MODE_INSTRUCTION;
-                $continueBound = $this->engine->continueBoundInstruction($game);
-                if ($continueBound !== '') {
-                    $systemPrompt .= "\n\n".$continueBound;
-                }
             }
 
             $repeatedAttempts = $this->countRepeatedIntent($game, $playerAction);
@@ -337,6 +323,7 @@ PROMPT;
                 $usageMoment,
                 $usageOccurredAt,
                 $systemPrompt,
+                $isContinue,
             ): Prompt {
                 $committedPrompt = $boilerActive
                     ? $this->momentResolver->applyPlayerTurn(
@@ -347,6 +334,7 @@ PROMPT;
                         $normalizedChoices,
                         $story->adaptation->sessionAdaptations,
                         $explicitBranch,
+                        $isContinue,
                     )
                     : $this->commitLegacyTurn(
                         $game,

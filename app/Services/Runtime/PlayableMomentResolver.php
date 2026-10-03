@@ -95,6 +95,7 @@ final class PlayableMomentResolver
         array $normalizedChoices,
         Collection $sessionAdaptations,
         ?array $explicitBranch = null,
+        bool $isContinue = false,
     ): Prompt {
         return DB::transaction(function () use (
             $game,
@@ -104,6 +105,7 @@ final class PlayableMomentResolver
             $normalizedChoices,
             $sessionAdaptations,
             $explicitBranch,
+            $isContinue,
         ): Prompt {
             $lockedGame = Game::query()->whereKey($game->id)->lockForUpdate()->firstOrFail();
             $lockedSource = Prompt::query()
@@ -130,17 +132,26 @@ final class PlayableMomentResolver
                 ->lockForUpdate()
                 ->firstOrFail();
             $progress = $result['moment_progress'] ?? null;
+            $hadProgressObject = is_array($progress);
+            $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
+            $isContinueLandingReport = $isContinue
+                && is_string($rawMomentKey)
+                && $rawMomentKey !== $currentMoment->moment_key
+                && is_bool($progress['exit_condition_met'] ?? null)
+                && PlayableMoment::query()
+                    ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
+                    ->where('moment_key', $rawMomentKey)
+                    ->where('moment_order', '>', $currentMoment->moment_order)
+                    ->exists();
 
             if (
-                ! is_array($progress)
+                ! $hadProgressObject
                 || ($progress['moment_key'] ?? null) !== $currentMoment->moment_key
                 || ! is_bool($progress['exit_condition_met'] ?? null)
             ) {
                 // Soft structural fallback — rare malformed metadata only.
                 // Never invent earned exits; never kill the player turn; never second callAgent.
                 // Progression is prompt-contract led, not this repair path.
-                $hadProgressObject = is_array($progress);
-                $rawMomentKey = $hadProgressObject ? ($progress['moment_key'] ?? null) : null;
                 $footnote = $hadProgressObject ? ($progress['moment_footnote'] ?? null) : null;
                 $rawRoute = $hadProgressObject ? (string) ($progress['route_relation'] ?? '') : '';
                 $rawImpact = $hadProgressObject ? (string) ($progress['impact_scope'] ?? '') : '';
@@ -158,13 +169,19 @@ final class PlayableMomentResolver
                 ];
                 $result['moment_progress'] = $progress;
 
-                Log::channel('narration')->warning('boiler.moment_progress_repaired_on_commit', [
-                    'game_id' => $lockedGame->id,
-                    'source_prompt_id' => $lockedSource->id,
-                    'active_moment_key' => $currentMoment->moment_key,
-                    'had_progress_object' => $hadProgressObject,
-                    'raw_moment_key' => $rawMomentKey,
-                ]);
+                Log::channel('narration')->log(
+                    $isContinueLandingReport ? 'info' : 'warning',
+                    $isContinueLandingReport
+                        ? 'boiler.continue_progress_normalized'
+                        : 'boiler.moment_progress_repaired_on_commit',
+                    [
+                        'game_id' => $lockedGame->id,
+                        'source_prompt_id' => $lockedSource->id,
+                        'active_moment_key' => $currentMoment->moment_key,
+                        'had_progress_object' => $hadProgressObject,
+                        'raw_moment_key' => $rawMomentKey,
+                    ],
+                );
             }
 
             $carried = $this->carriedMomentState($lockedGame, $currentMoment);
@@ -173,6 +190,7 @@ final class PlayableMomentResolver
                 (string) ($progress['caught_up_to_moment_key'] ?? ''),
                 $lockedGame->id,
                 $carried['catch_up_candidate'],
+                $isContinue,
             );
             $nextMoment = $catchUp['target'];
             $catchUpCandidate = $catchUp['candidate'];
@@ -205,17 +223,11 @@ final class PlayableMomentResolver
                 }
             }
 
-            // Sanitize mapped suggestions against the pre-exit (current) moment so
-            // authored choice maps for the room being resolved are not demoted when
-            // the pointer advances in the same response.
-            $normalizedChoices = $this->sanitizeMappedSuggestions(
-                $normalizedChoices,
-                $currentMoment,
-                $sessionAdaptations,
-                $lockedGame->id,
-            );
-
-            if ($explicitBranch !== null) {
+            if ($isContinue) {
+                $result['defining_choice_id'] = '';
+                $result['defining_path_label'] = '';
+                $result['defining_choice_line'] = '';
+            } elseif ($explicitBranch !== null) {
                 if (
                     ($result['defining_choice_id'] ?? '') !== ''
                     && (
@@ -243,7 +255,7 @@ final class PlayableMomentResolver
                 ?? ($branchCommit['defining_choice_id'] ?? $lockedGame->defining_choice_id);
             $choiceBlockedTurns = $carried['choice_blocked_turns'];
 
-            if ($nextMoment !== null && ! $confirmedCatchUp) {
+            if ($nextMoment !== null && ! $confirmedCatchUp && ! $isContinue) {
                 $pendingChoiceIds = $this->unresolvedBranchingChoiceIds(
                     $currentMoment,
                     $sessionAdaptations,
@@ -274,9 +286,30 @@ final class PlayableMomentResolver
             }
             $resultingMoment = $nextMoment ?? $currentMoment;
 
+            // An ordinary exit resolves the old room, so mappings still belong to
+            // that room. Continue is different: its suggestions are offered at the
+            // point where the compact narration stopped and must be validated there.
+            $suggestionMoment = $isContinue && $nextMoment !== null
+                ? $resultingMoment
+                : $currentMoment;
+            $normalizedChoices = $this->sanitizeMappedSuggestions(
+                $normalizedChoices,
+                $suggestionMoment,
+                $sessionAdaptations,
+                $lockedGame->id,
+            );
+
+            $stateDelta = (array) $result['state_delta'];
+            if ($isContinue) {
+                // Authored actions traversed during Continue are real world history,
+                // but they are not evidence of a preference or moral choice made by
+                // the player. Preserve objective state while dropping those inferences.
+                $stateDelta['player_style'] = null;
+                $stateDelta['emotional_ledger_entries'] = null;
+            }
             $worldState = $this->engine->mergeStateDelta(
                 $lockedGame->world_state ?? $this->engine->emptyWorldState(),
-                (array) $result['state_delta'],
+                $stateDelta,
             );
 
             // Phase A: track which MUST REINTRODUCE facts have landed.
@@ -290,14 +323,18 @@ final class PlayableMomentResolver
                 $existing = (array) ($worldState['reintroduced_facts'] ?? []);
                 $worldState['reintroduced_facts'] = array_values(array_unique(array_merge($existing, $newKeys)));
             }
-            $alignment = $this->engine->mergeAlignmentDelta(
-                $lockedGame->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold(),
-                (array) $result['alignment_tally_delta'],
-            );
-            $symbolicMemory = $this->engine->appendMemory(
-                $lockedGame->symbolic_memory,
-                (string) $result['symbolic_memory_update'],
-            );
+            $alignment = $isContinue
+                ? ($lockedGame->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold())
+                : $this->engine->mergeAlignmentDelta(
+                    $lockedGame->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold(),
+                    (array) $result['alignment_tally_delta'],
+                );
+            $symbolicMemory = $isContinue
+                ? $lockedGame->symbolic_memory
+                : $this->engine->appendMemory(
+                    $lockedGame->symbolic_memory,
+                    (string) $result['symbolic_memory_update'],
+                );
             $footnote = $this->boundedFootnote(
                 (string) ($progress['moment_footnote'] ?? ''),
                 $lockedGame->id,
@@ -315,7 +352,11 @@ final class PlayableMomentResolver
             $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
             $endingBlockedTurns = $carried['ending_blocked_turns'];
 
-            if ($isFinalExit && ! $this->authoredSessionEndingChoiceResolved($currentMoment, $committedChoiceId)) {
+            if (
+                $isFinalExit
+                && ! $isContinue
+                && ! $this->authoredSessionEndingChoiceResolved($currentMoment, $committedChoiceId)
+            ) {
                 $endingBlockedTurns++;
 
                 if ($endingBlockedTurns >= self::ENDING_BLOCK_TOLERANCE) {
@@ -353,7 +394,8 @@ final class PlayableMomentResolver
                 'symbolic_memory' => $symbolicMemory,
                 // A turn that genuinely changed the world earns the full state load next
                 // turn, so the narrator can see what it must now honour.
-                'is_climactic_choice' => (bool) $result['is_climactic_choice'] || $impactScope === 'persistent',
+                'is_climactic_choice' => ! $isContinue
+                    && ((bool) $result['is_climactic_choice'] || $impactScope === 'persistent'),
                 'defining_choice_id' => $branchCommit ? $branchCommit['defining_choice_id'] : $lockedGame->defining_choice_id,
                 'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $lockedGame->defining_path_label,
                 'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $lockedGame->defining_choice_line,
@@ -432,11 +474,19 @@ final class PlayableMomentResolver
      * the bound, or over a card carrying an authored choice, is only taken when
      * the narrator reports the same card on two consecutive turns: by then the
      * prose has left those cards behind and holding the pointer only desyncs it.
+     * Continue is narrator-led fast-forward, so a valid later card in the same
+     * cut is accepted immediately; the runtime reconciles after the prose rather
+     * than choosing its destination before generation.
      *
      * @return array{target:?PlayableMoment, candidate:?string, confirmed:bool}
      */
-    private function catchUpTarget(PlayableMoment $currentMoment, string $targetKey, string $gameId, ?string $previousCandidate): array
-    {
+    private function catchUpTarget(
+        PlayableMoment $currentMoment,
+        string $targetKey,
+        string $gameId,
+        ?string $previousCandidate,
+        bool $isContinue,
+    ): array {
         $none = ['target' => null, 'candidate' => null, 'confirmed' => false];
         $targetKey = mb_trim($targetKey);
         if ($targetKey === '' || $targetKey === $currentMoment->moment_key) {
@@ -451,11 +501,11 @@ final class PlayableMomentResolver
         $rejection = match (true) {
             $target === null => 'unknown_key',
             $target->moment_order <= $currentMoment->moment_order => 'not_later',
-            $target->moment_order - $currentMoment->moment_order > self::MAX_CATCH_UP_CARDS => 'too_far',
+            ! $isContinue && $target->moment_order - $currentMoment->moment_order > self::MAX_CATCH_UP_CARDS => 'too_far',
             default => null,
         };
 
-        if ($rejection === null) {
+        if ($rejection === null && ! $isContinue) {
             $skipped = PlayableMoment::query()
                 ->where('playable_session_cut_id', $currentMoment->playable_session_cut_id)
                 ->where('moment_order', '>', $currentMoment->moment_order)
@@ -465,6 +515,16 @@ final class PlayableMomentResolver
             if ($skipped->contains(fn (PlayableMoment $moment): bool => (array) data_get($moment->scene_card, 'choice_ids', []) !== [])) {
                 $rejection = 'would_skip_authored_choice';
             }
+        }
+
+        if ($rejection === null && $isContinue) {
+            Log::channel('narration')->info('boiler.moment_caught_up_continue', [
+                'game_id' => $gameId,
+                'from_moment_key' => $currentMoment->moment_key,
+                'target_moment_key' => $targetKey,
+            ]);
+
+            return ['target' => $target, 'candidate' => null, 'confirmed' => true];
         }
 
         $confirmable = in_array($rejection, ['too_far', 'would_skip_authored_choice'], true);

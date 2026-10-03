@@ -377,6 +377,7 @@ TEXT;
         bool $isEpisodeTransition = false,
         ?string $playerAction = null,
         array $recentNarrations = [],
+        bool $isContinue = false,
     ): string {
         $prompt = $sessionContext['runtime_prompt'];
 
@@ -432,6 +433,7 @@ TEXT;
         $activeMomentBlock = $this->buildActiveMomentBlock(
             $sessionContext['active_moment_context'] ?? null,
             $isSessionStart,
+            $isContinue,
         );
 
         $liveBlocks = [
@@ -1161,7 +1163,7 @@ TEXT;
     public function turnInstructions(string $protagonistUpper, bool $isContinue = false): string
     {
         $continueLine = $isContinue
-            ? "THIS IS A CONTINUE: the player has no particular action and wants the story to move faster. Read ahead through the author's pages for this scene and play them at a quicker pace, compressing what connects, until the story arrives naturally at the next point where {$protagonistUpper} must decide something. Along the way {$protagonistUpper} may do and say what the author's pages have them do. Do not invent a decision the pages leave open, and stop at the decision point so the player makes it.\n\n"
+            ? "THIS IS A CONTINUE: the player has no particular action and wants the authored story to move forward more quickly. Read ahead through the ordered moments and source events, narrating them compactly rather than broadly describing each room. Preserve every significant event and every fact, rule, object, location, relationship, promise, or consequence the player will need later. {$protagonistUpper} may do and say what the author's pages have them do, but do not invent a preference or claim the player selected an authored A/B/C path. You may pass such a decision without committing it. Stop naturally when renewed action, danger, or meaningful interaction makes ordinary play worthwhile again. Report the later moment where the prose truly stopped as caught_up_to_moment_key; never report where it is merely heading.\n\n"
             : '';
 
         return "Now narrate the world's response to this action.\n\n".
@@ -1183,60 +1185,8 @@ TEXT;
             "2. ANY SENTENCE, IMAGE, OR SAYING YOU ALREADY WROTE IN AN EARLIER TURN: CUT IT OR SAY SOMETHING NEW.\n".
             "3. ANY RULE, LAW, OR FACT ABOUT THE WORLD THAT IS NOT IN THE SOURCE OR ALREADY ON THE PAGE: REMOVE IT. DO NOT INVENT CANON.\n".
             "4. ANY CLOSING LINE ABOUT WHAT THE MOMENT MEANS OR WHO SOMEONE IS BECOMING: DELETE IT.\n".
-            ($isContinue ? "5. CONTINUE: STOP AT THE CARD NAMED IN THE CONTINUE LIMIT. NOTHING PAST IT.\n" : '').
+            ($isContinue ? "5. CONTINUE: KEEP THE IMPORTANT STORY, COMPRESS THE CONNECTIVE WRITING, AND REPORT WHERE THE PROSE ACTUALLY STOPPED.\n" : '').
             "\nReturn the full structured object.";
-    }
-
-    /**
-     * How far a Continue may read ahead, taken from the card map.
-     *
-     * Continue fast-forwards to the next authored decision, not to the end of
-     * the session: without a named stopping card the narrator reads the whole
-     * beat map in one or two turns and leaves the pointer far behind the prose.
-     */
-    public function continueBoundInstruction(Game $game): string
-    {
-        $current = $game->current_playable_moment_id === null
-            ? null
-            : PlayableMoment::query()->find($game->current_playable_moment_id);
-
-        if ($current === null) {
-            return '';
-        }
-
-        $committedChoiceId = mb_strtolower(mb_trim((string) $game->defining_choice_id));
-        $currentChoiceIds = array_values(array_filter(
-            array_map(static fn ($id): string => (string) $id, (array) data_get($current->scene_card, 'choice_ids', [])),
-            static fn (string $id): bool => $id !== '' && mb_strtolower($id) !== $committedChoiceId,
-        ));
-        $currentTitle = (string) data_get($current->scene_card, 'title', '');
-
-        if ($currentChoiceIds !== []) {
-            return 'CONTINUE LIMIT (from the card map): the next authored decision is on the active card, '
-                .$current->moment_key." \"{$currentTitle}\" (".implode(', ', $currentChoiceIds).'). '
-                .'Play the rest of this card quickly and stop at that decision. Do not narrate anything from a later card this turn.';
-        }
-
-        $later = PlayableMoment::query()
-            ->where('playable_session_cut_id', $current->playable_session_cut_id)
-            ->where('moment_order', '>', $current->moment_order)
-            ->orderBy('moment_order')
-            ->get();
-
-        $stop = $later->first(fn (PlayableMoment $moment): bool => (array) data_get($moment->scene_card, 'choice_ids', []) !== [])
-            ?? $later->last();
-
-        if ($stop === null) {
-            return 'CONTINUE LIMIT (from the card map): this is the session\'s final card. '
-                .'Bring the story to its exit and stop; nothing beyond it belongs to this session.';
-        }
-
-        $stopTitle = (string) data_get($stop->scene_card, 'title', '');
-
-        return 'CONTINUE LIMIT (from the card map): the next authored decision is on '
-            .$stop->moment_key." \"{$stopTitle}\". Fast-forward from ".$current->moment_key
-            .' through the cards between, and stop when the story arrives in that card\'s situation. '
-            .'Do not narrate anything past it this turn. If you reach it, report caught_up_to_moment_key='.$stop->moment_key.'.';
     }
 
     /**
@@ -1693,8 +1643,11 @@ TEXT;
     /**
      * @param  array<string, mixed>|null  $context
      */
-    private function buildActiveMomentBlock(?array $context, bool $isSessionStart = false): string
-    {
+    private function buildActiveMomentBlock(
+        ?array $context,
+        bool $isSessionStart = false,
+        bool $isContinue = false,
+    ): string {
         if ($context === null) {
             return '';
         }
@@ -1775,7 +1728,9 @@ TEXT;
                 'STORYGUARD BOUNDARIES FOR THIS ROOM:',
                 'Two different kinds live in this list; read each one and treat it accordingly.',
                 '- If it names a truth of the world or a character (what is real, what someone would never do, what cannot happen): that is a wall. Never cross it.',
-                '- If it names material that belongs to a LATER room (a scene, reveal, or confrontation not yet due): that is staging, not truth. You may let it be referenced, feared, foreshadowed, or attempted and fail forward; you simply may not stage it as a scene here.',
+                $isContinue
+                    ? '- If it names material that belongs to a LATER room: Continue may reach and compactly narrate it only in the authored order. This permission changes timing, never truth.'
+                    : '- If it names material that belongs to a LATER room (a scene, reveal, or confrontation not yet due): that is staging, not truth. You may let it be referenced, feared, foreshadowed, or attempted and fail forward; you simply may not stage it as a scene here.',
                 ...array_map(static fn (string $rule): string => '- '.$rule, $forbidden),
             ]);
         }
@@ -1794,12 +1749,21 @@ TEXT;
             (array) ($context['pending_branching_choice_ids'] ?? []),
         )));
         if (! $isSessionStart && $pendingChoiceIds !== []) {
-            $lines[] = implode("\n", [
-                'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
-                '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
-                '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
-                '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
-            ]);
+            if ($isContinue) {
+                $lines[] = implode("\n", [
+                    'CONTINUE AT A DECISION: this card carries '.implode(', ', $pendingChoiceIds).', but the player deliberately asked the authored story to continue without choosing a path.',
+                    '- Do not select, infer, or report an A/B/C path, defining choice, moral preference, or player-style judgment.',
+                    '- Narrate the author\'s shared/canonical progression compactly. You may leave this card and later choice cards behind.',
+                    '- If the prose reaches a later ordered moment, report that exact landing moment as caught_up_to_moment_key so runtime state follows the story immediately.',
+                ]);
+            } else {
+                $lines[] = implode("\n", [
+                    'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
+                    '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                    '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
+                    '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
+                ]);
+            }
         }
 
         if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {

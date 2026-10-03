@@ -71,7 +71,7 @@ final class ChaosNarrationSchema
                 ->array()
                 ->required()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / risk / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment. Return [] outside Boiler mode.')
+                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / risk / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment on an ordinary turn, or the later landing moment reported by a Continue. Return [] outside Boiler mode.')
                 ->items(
                     $schema->object([
                         'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration. Only name things already said or seen on the page; never use demand, insist, or command as the verb.'),
@@ -84,13 +84,13 @@ final class ChaosNarrationSchema
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),
                 'exit_condition_met' => $schema->boolean()->required()->title('Exit Condition Met'),
                 'caught_up_to_moment_key' => $schema->string()->required()->title('Caught Up To Moment Key')
-                    ->description('Empty string on almost every turn. Only when the prose has already carried the story past the active card into a LATER moment listed in the ordered Boiler map: that later moment\'s key, with exit_condition_met=true. Name where the story is now, never where it is heading. Empty string outside Boiler mode.'),
+                    ->description('Empty string on almost every ordinary turn. When the prose has carried the story past the active card into a LATER moment listed in the ordered Boiler map, especially during Continue, return that later moment\'s key with exit_condition_met=true. Name where the narrated story actually stopped, never where it is merely heading. Empty string outside Boiler mode.'),
                 'route_relation' => $schema->string()->required()->title('Route Relation')
                     ->description('How this turn related to the active room: "advanced" (its purpose moved materially forward), "deepened" (stayed and enriched it), "detoured" (you followed the player somewhere the card did not anticipate), "reconverged" (you carried the story back to the spine after a detour). A detour is legitimate — report it honestly rather than mislabelling it. Empty string outside Boiler mode.'),
                 'impact_scope' => $schema->string()->required()->title('Impact Scope')
                     ->description('What this turn actually changed: "expressive" (tone and texture only), "local" (real but contained in this scene), "persistent" (the world, a relationship, or the protagonist\'s standing genuinely changed and must stay changed). When "persistent", the change must also appear in state_delta. Empty string outside Boiler mode.'),
                 'moment_footnote' => $schema->string()->required()->title('Hidden Moment Footnote')
-                    ->description('REQUIRED after every player turn. One to three plain sentences for the NEXT narrator describing how the player is steering the story, built only from what they actually submitted: what they did or asked this turn (in their own verb), the person, place, or thread their actions keep reaching toward, and any request or question still open. Describe actions and directions, never personality, motive, or who they are becoming. On a Continue turn, say only that they chose to move on and what remains open. Never credit them with a choice the narration made for them; if the world stopped them, say so. Plain reporting, no imagery or dashes. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders; the model must produce this.'),
+                    ->description('REQUIRED after every player turn. One to three plain sentences for the NEXT narrator. On an ordinary turn, describe how the player is steering the story, built only from what they actually submitted: what they did or asked, the person, place, or thread their actions keep reaching toward, and any request or question still open. On Continue, state where the compact narration stopped, the major objective changes it established, and what remains open; never credit the player with an A/B/C choice, preference, motive, or personality judgment. Plain reporting, no imagery or dashes. Never shown to the player. Empty string ONLY for opening narration or outside Boiler mode. Never invent PHP placeholders; the model must produce this.'),
             ])->required()->withoutAdditionalProperties()->title('Boiler Moment Progress')
                 ->description('Boiler-only progress. Outside Boiler mode return moment_key="", exit_condition_met=false, caught_up_to_moment_key="", route_relation="", impact_scope="", and moment_footnote="". Runtime soft-holds the active room only when this block is malformed — emit correct progress every turn.'),
 
@@ -169,7 +169,7 @@ final class ChaosNarrationSchema
                     ->required()
                     ->nullable()
                     ->title('Player Style')
-                    ->description('Only newly observed behavioural patterns from this turn, in plain terms tied to what the player actually did ("asks questions before acting"). Never personality verdicts or anything the narration did on their behalf. Return null when nothing new was observed. Runtime appends and deduplicates.')
+                    ->description('Only newly observed behavioural patterns from this turn, in plain terms tied to what the player actually did ("asks questions before acting"). Never personality verdicts or anything the narration did on their behalf. Always return null on Continue because authored fast-forward actions are not player behaviour. Return null when nothing new was observed. Runtime appends and deduplicates.')
                     ->items($schema->string()->required()),
 
                 'unresolved_promises' => $schema
@@ -185,7 +185,7 @@ final class ChaosNarrationSchema
                     ->required()
                     ->nullable()
                     ->title('Emotional Ledger Entries')
-                    ->description('Only new entries from this turn to append to the player historical archive. Return null when there are none.')
+                    ->description('Only new entries earned by the player\'s submitted action this turn. Always return null on Continue because an authored fast-forward is not a moral choice made by the player. Return null when there are none.')
                     ->items(
                         $schema->object([
                             'category' => $schema->string()->required()->title('Category')->description('Must match a Phase 2 Task 6D archive category (e.g. defining_moral_choices, npcs_helped_or_harmed, promises_made, secrets_discovered).'),
@@ -202,19 +202,19 @@ final class ChaosNarrationSchema
                 'chaotic' => $schema->number()->required()->title('Chaotic')->description('Hidden internal counter increment. 0 or positive integer. NEVER appears in the response field.'),
                 'lawful' => $schema->number()->required()->title('Lawful')->description('Hidden internal counter increment.'),
                 'neutral' => $schema->number()->required()->title('Neutral')->description('Hidden internal counter increment.'),
-            ])->required()->withoutAdditionalProperties()->title('Alignment Tally Delta')->description('Hidden alignment scaffold — never narrated, never surfaced. Used at runtime to derive the story-native alignment label that subtly tunes voice.'),
+            ])->required()->withoutAdditionalProperties()->title('Alignment Tally Delta')->description('Hidden alignment scaffold — never narrated, never surfaced. Used at runtime to derive the story-native alignment label that subtly tunes voice. Return zeroes on Continue because authored fast-forward actions are not player alignment choices.'),
 
             'is_climactic_choice' => $schema
                 ->boolean()
                 ->required()
                 ->title('Is Climactic Choice')
-                ->description('True when this turn resolved a Choice #3 moral-weight moment OR a Choice #4 session-end hook. Triggers Tier 3 state loading on the NEXT turn.'),
+                ->description('True when the player resolved a Choice #3 moral-weight moment OR a Choice #4 session-end hook. Always false on Continue. Triggers Tier 3 state loading on the NEXT turn.'),
 
             'defining_choice_id' => $schema
                 ->string()
                 ->required()
                 ->title('Defining Choice ID')
-                ->description('When this turn resolved a branching choice, copy the Phase 5 choice_id (e.g. "S2_C3"). Empty string otherwise.'),
+                ->description('When the player resolved a branching choice, copy the Phase 5 choice_id (e.g. "S2_C3"). Empty string otherwise and always empty on Continue.'),
 
             'defining_path_label' => $schema
                 ->string()
@@ -232,7 +232,7 @@ final class ChaosNarrationSchema
                 ->string()
                 ->required()
                 ->title('Symbolic Memory Update')
-                ->description('One plain sentence recording what the protagonist did, chose, gave, or promised this turn that later turns must honor. Facts only: no imagery, no meaning, no "has learned that" or "is becoming". Never restate a fact already in memory. Runtime appends it to symbolic memory. Empty string when nothing new was committed.'),
+                ->description('One plain sentence recording what the protagonist did, chose, gave, or promised through the player\'s submitted action that later turns must honor. Facts only: no imagery, no meaning, no "has learned that" or "is becoming". Never restate a fact already in memory. Always empty on Continue; its objective events belong in state_delta and conversation history. Runtime appends it to symbolic memory. Empty string when nothing new was committed.'),
 
             'session_memory_update' => $schema
                 ->string()

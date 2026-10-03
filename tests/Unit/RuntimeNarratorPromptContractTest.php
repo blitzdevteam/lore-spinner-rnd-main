@@ -63,15 +63,15 @@ it('accepts a prompt carrying every required contract block', function (): void 
     (new RuntimeNarratorPromptValidator)->validate(promptWithRequiredBlocks(), false);
 })->throwsNoExceptions();
 
-it('defines Continue as meaningful fast-forward without granting branch authority', function (): void {
+it('defines Continue as compact narrator-led progress without granting branch authority', function (): void {
     $action = file_get_contents(app_path('Actions/Game/ProcessGameTurnAction.php'));
     $card = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
 
     expect($action)
         ->toContain('CONTINUE MODE: MEANINGFUL FAST-FORWARD.')
-        ->toContain('you may set exit_condition_met=true')
-        ->toContain('must never choose an authored branch')
-        ->toContain('Do not hold the player in a low-agency loop')
+        ->toContain('significant events and changes')
+        ->toContain('Never select or commit A/B/C')
+        ->toContain('landing point as caught_up_to_moment_key')
         ->and($card)
         ->toContain("isContinued.value ? 'Continue story'")
         ->not->toContain("isContinued.value ? 'Continued the story'");
