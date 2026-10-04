@@ -427,7 +427,13 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
             </div>
         </div>
 
-        <StoryPlayModeModal :open="isPlayModeOpen" @close="closePlayMode" @solo="handleStartStory" @group="handleMultiplayer" />
+        <StoryPlayModeModal
+            :open="isPlayModeOpen"
+            :cover="coverImageUrl"
+            @close="closePlayMode"
+            @solo="handleStartStory"
+            @group="handleMultiplayer"
+        />
         <StoryPlayRestartModal
             :open="isRestartConfirmOpen"
             :confirming="isRestarting"

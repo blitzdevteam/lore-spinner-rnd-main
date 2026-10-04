@@ -246,6 +246,7 @@ it('opens a play mode modal from a single start story button', function (): void
     expect($storyShow)
         ->toContain("'Start Story'")
         ->toContain('StoryPlayModeModal')
+        ->toContain(':cover="coverImageUrl"')
         ->toContain('@solo="handleStartStory"')
         ->toContain('@group="handleMultiplayer"')
         ->not->toContain('label="Group Spin"')
@@ -262,7 +263,11 @@ it('opens a play mode modal from a single start story button', function (): void
         ->toContain('Solo Spin')
         ->toContain('Play on your own')
         ->toContain('Group Spin')
-        ->toContain('Play with friends');
+        ->toContain('Play with friends')
+        ->toContain('border-[#59c1ca]')
+        ->toContain('text-[#ffbe58]')
+        ->toContain('play-mode-cover-fade')
+        ->toContain('mb-[-34px]');
 });
 
 it('uses a blurred story cover as the mobile-only background', function (): void {
