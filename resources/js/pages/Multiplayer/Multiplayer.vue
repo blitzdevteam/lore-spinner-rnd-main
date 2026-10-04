@@ -119,7 +119,7 @@ const storyModes: StoryMode[] = [
         selectedBackground: '#221b0f',
         border: '#59c1ca',
         icon: LucideScale,
-        features: ['2-4 Players', 'Turn Based', 'One judge at a time'],
+        features: ['2-4\nPlayers', 'Turn\nBased', 'One judge\nat a time'],
         available: true,
     },
     {
@@ -131,7 +131,7 @@ const storyModes: StoryMode[] = [
         selectedBackground: '#102324',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['2-4 Players', 'Shared story', 'Each player a character'],
+        features: ['2-4\nPlayers', 'Shared\nstory', 'Each player\na character'],
         available: true,
     },
     {
@@ -143,7 +143,7 @@ const storyModes: StoryMode[] = [
         selectedBackground: '#1a1420',
         border: '#373737',
         icon: LucideGamepad2,
-        features: ['2-500 Players', 'Audience voting', 'Real-time story'],
+        features: ['2-500\nPlayers', 'Audience\nvoting', 'Real-time\nstory'],
         available: false,
     },
 ];
@@ -184,6 +184,15 @@ function chooseMode(mode: StoryMode): void {
     }
 
     selectedModeName.value = mode.name;
+}
+
+function chooseModeFromDetails(mode: StoryMode): void {
+    if (!mode.available) {
+        return;
+    }
+
+    chooseMode(mode);
+    showModeDetails.value = false;
 }
 
 function isOnOffSetting(setting: LobbySettingOption): boolean {
@@ -476,50 +485,51 @@ function joinRoom(): void {
                 </div>
             </div>
 
-            <div class="mt-6 grid w-full grid-cols-1 items-stretch gap-2.5 sm:grid-cols-3">
-                <article
+            <div class="mx-auto mt-8 grid w-full max-w-[58rem] grid-cols-1 items-stretch justify-center gap-2.5 min-[960px]:grid-cols-3">
+                <button
                     v-for="mode in storyModes"
                     :key="mode.name"
-                    class="flex flex-col items-center gap-5 rounded-xl border-[0.5px] bg-black p-2.5 text-center"
+                    type="button"
+                    class="mx-auto flex h-full w-full max-w-[22rem] flex-col rounded-xl border-[0.5px] bg-black p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca] focus-visible:outline-none disabled:opacity-100 min-[960px]:max-w-none"
+                    :class="mode.available ? 'cursor-pointer' : 'cursor-not-allowed'"
                     :style="{ borderColor: isModeSelected(mode) ? mode.accent : '#373737' }"
+                    :disabled="!mode.available"
+                    @click="chooseModeFromDetails(mode)"
                 >
-                    <div class="flex w-full flex-col items-center gap-5">
-                        <div class="flex w-full flex-col items-center gap-5">
-                            <span class="flex flex-col items-center gap-1.5">
-                                <span
-                                    class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
-                                    :style="{ borderColor: mode.accent, color: mode.accent }"
-                                >
-                                    <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
-                                </span>
-                                <span class="text-xl leading-none" :style="{ color: mode.accent }">{{ mode.name }}</span>
+                    <span class="flex w-full flex-col items-center gap-5">
+                        <span class="flex flex-col items-center gap-1.5">
+                            <span
+                                class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
+                                :style="{ borderColor: mode.accent, color: mode.accent }"
+                            >
+                                <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
                             </span>
-                            <span class="h-px w-full bg-white/20" />
-                        </div>
-                        <div class="flex w-full flex-col items-center gap-2.5">
-                            <p class="min-h-[2.3rem] text-base leading-normal font-light whitespace-pre-line text-white">{{ mode.headline }}</p>
-                            <p class="min-h-[3.375rem] text-xs leading-normal font-light text-[#8f8f8f]">{{ mode.details }}</p>
-                        </div>
-                    </div>
-                    <div class="flex w-full items-stretch justify-center gap-1.5">
-                        <template v-for="(feature, index) in mode.features" :key="feature">
-                            <span v-if="index > 0" class="w-px shrink-0 self-stretch bg-white/20" />
-                            <span class="flex min-w-0 flex-1 items-start gap-1.5 text-left text-xs leading-normal text-[#8f8f8f]">
-                                <span class="mt-1.5 size-1 shrink-0 rounded-full" :style="{ backgroundColor: mode.accent }" />
-                                <span>{{ feature }}</span>
-                            </span>
-                        </template>
-                    </div>
-                    <button
-                        type="button"
-                        class="flex h-10 w-full items-center justify-center rounded-[5px] border-[0.5px] text-sm font-medium focus-visible:ring-2 focus-visible:ring-[#59c1ca] focus-visible:outline-none disabled:cursor-not-allowed"
+                            <span class="text-xl leading-none" :style="{ color: mode.accent }">{{ mode.name }}</span>
+                        </span>
+                        <span class="h-px w-full bg-white/20" />
+                    </span>
+                    <span class="mt-2.5 flex w-full flex-col items-center gap-2.5">
+                        <span class="flex min-h-[4.5rem] items-center text-base leading-snug font-light whitespace-pre-line text-white">{{ mode.headline }}</span>
+                        <span class="flex min-h-[4.5rem] items-start text-xs leading-normal font-light text-[#8f8f8f]">{{ mode.details }}</span>
+                    </span>
+                    <span class="mt-2.5 grid min-h-11 w-full grid-cols-3 items-center">
+                        <span
+                            v-for="(feature, index) in mode.features"
+                            :key="feature"
+                            class="flex h-full items-center gap-1.5 px-1 text-left text-[12px] leading-[15px] text-[#8f8f8f]"
+                            :class="index > 0 ? 'border-l border-white/20' : ''"
+                        >
+                            <span class="size-1 shrink-0 rounded-full" :style="{ backgroundColor: mode.accent }" />
+                            <span class="whitespace-pre-line">{{ feature }}</span>
+                        </span>
+                    </span>
+                    <span
+                        class="mt-[1.875rem] flex h-10 w-full items-center justify-center rounded-[5px] border-[0.5px] text-sm font-medium"
                         :style="modeActionStyle(mode)"
-                        :disabled="!mode.available"
-                        @click="chooseMode(mode)"
                     >
                         {{ mode.available ? 'Choose Mode' : 'Coming Soon' }}
-                    </button>
-                </article>
+                    </span>
+                </button>
             </div>
         </section>
 

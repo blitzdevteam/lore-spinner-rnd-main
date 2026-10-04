@@ -51,9 +51,10 @@ it('marks streamer mode as coming soon and unavailable', function () {
         ->toContain('function modeActionStyle(mode: StoryMode): Record<string, string>')
         ->toContain('showModeDetails')
         ->toContain('function openModeDetails(): void')
+        ->toContain('function chooseModeFromDetails(mode: StoryMode): void')
         ->toContain('Different ways to play. One unforgettable story.')
         ->toContain('Take turns being the judge and choose the final action after everyone has had a chance to contribute.')
-        ->toContain('2-500 Players');
+        ->toContain('2-500\\nPlayers');
 });
 
 it('offers mode-specific lobby settings before a room is created', function () {
