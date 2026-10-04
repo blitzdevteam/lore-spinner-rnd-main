@@ -61,5 +61,7 @@ it('offers mode-specific lobby settings before a room is created', function () {
         ->toContain("{ key: 'customInput' as const, label: 'Custom Input', options: ['On', 'Off'] }")
         ->toContain("{ key: 'voiceOver', label: 'Voice Over', options: ['On', 'Off'] }")
         ->toContain("{ key: 'votingTime', label: 'Countdown', options: ['Off', '3 Min', '4 Min', '5 Min', '6 Min'] }")
+        ->toContain('OnOffToggle')
+        ->toContain('function isOnOffSetting(setting: LobbySettingOption): boolean')
         ->not->toContain('Power-ups Per User');
 });

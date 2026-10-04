@@ -9,6 +9,7 @@ import scalesIcon from '@/assets/multiplayer/scales.svg';
 import sparkleIcon from '@/assets/multiplayer/sparkle.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import MultiplayerInviteCard from '@/components/MultiplayerInviteCard.vue';
+import OnOffToggle from '@/components/OnOffToggle.vue';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { MultiplayerLobbyInterface } from '@/types';
 import {
@@ -432,6 +433,15 @@ function toggleReadiness(): void {
     );
 }
 
+function isOnOffSetting(setting: LobbySettingOption): boolean {
+    return setting.options.length === 2 && setting.options.every((option) => option === 'On' || option === 'Off');
+}
+
+function setOnOffSetting(key: LobbySettingKey, value: string): void {
+    lobbySettingsForm[key] = value;
+    updateLobbySettings();
+}
+
 function updateLobbySettings(): void {
     if (!canUpdateLobbySettings.value || updatingLobbySettings.value) {
         syncLobbySettingsForm();
@@ -574,9 +584,22 @@ onUnmounted(() => {
                                 <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">Host</p>
                                 <p class="truncate text-right text-sm leading-[33px] text-white">{{ hostLabel }}</p>
                                 <template v-for="setting in displayedLobbySettings" :key="setting.label">
-                                    <p class="text-[13px] leading-4 font-light tracking-[0.5px] text-[#838383]">{{ setting.label }}</p>
+                                    <p
+                                        class="text-[13px] leading-4 font-light tracking-[0.5px]"
+                                        :class="isOnOffSetting(setting) ? 'text-[#59c1ca]' : 'text-[#838383]'"
+                                    >
+                                        {{ setting.label }}
+                                    </p>
+                                    <div v-if="isOnOffSetting(setting)" class="flex w-[100px] shrink-0 justify-end">
+                                        <OnOffToggle
+                                            :model-value="lobbySettingsForm[setting.key]"
+                                            :label="setting.label"
+                                            :disabled="!canUpdateLobbySettings || updatingLobbySettings"
+                                            @update:model-value="setOnOffSetting(setting.key, $event)"
+                                        />
+                                    </div>
                                     <div
-                                        v-if="canUpdateLobbySettings"
+                                        v-else-if="canUpdateLobbySettings"
                                         class="relative flex h-6 w-[100px] shrink-0 items-center"
                                     >
                                         <select

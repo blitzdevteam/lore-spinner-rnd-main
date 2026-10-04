@@ -6,6 +6,7 @@ import crownIcon from '@/assets/multiplayer/crown.svg';
 import plusIcon from '@/assets/multiplayer/plus.svg';
 import starFourIcon from '@/assets/multiplayer/star-four.svg';
 import treasureIslandBackdrop from '@/assets/top-moods/Treasure island 16_9 untitled.png';
+import OnOffToggle from '@/components/OnOffToggle.vue';
 import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import { StoryInterface } from '@/types';
 import { join as joinMultiplayerLobby, store as storeMultiplayerLobby } from '@/wayfinder/actions/App/Http/Controllers/User/MultiplayerLobbyController';
@@ -168,6 +169,10 @@ function chooseMode(mode: StoryMode): void {
     }
 
     selectedModeName.value = mode.name;
+}
+
+function isOnOffSetting(setting: LobbySettingOption): boolean {
+    return setting.options.length === 2 && setting.options.every((option) => option === 'On' || option === 'Off');
 }
 
 function isModeSelected(mode: StoryMode): boolean {
@@ -505,22 +510,33 @@ function joinRoom(): void {
                 <div class="flex flex-col gap-2.5">
                     <h2 class="text-base">2. Lobby Settings</h2>
                     <div class="grid gap-3.5 sm:grid-cols-2">
-                        <label
+                        <div
                             v-for="setting in lobbySettingOptions"
                             :key="setting.key"
                             class="flex h-[50px] items-center justify-between gap-2 rounded-lg bg-[#191919] px-2 py-1.5"
                         >
-                            <span class="text-sm tracking-wide text-[#838383]">{{ setting.label }}</span>
-                            <span class="relative flex h-[38px] w-[8rem] items-center">
+                            <span
+                                class="text-sm tracking-[0.5px]"
+                                :class="isOnOffSetting(setting) ? 'text-[#59c1ca]' : 'text-[#838383]'"
+                            >
+                                {{ setting.label }}
+                            </span>
+                            <OnOffToggle
+                                v-if="isOnOffSetting(setting)"
+                                v-model="lobbySettings[setting.key]"
+                                :label="setting.label"
+                            />
+                            <span v-else class="relative flex h-[38px] w-[8rem] items-center">
                                 <select
                                     v-model="lobbySettings[setting.key]"
                                     class="h-full w-full appearance-none rounded-[5px] border-[0.5px] border-[#303030] bg-[#1b1b1b] px-3 pr-8 text-center text-sm text-white outline-none focus:border-[#59c1ca]"
+                                    :aria-label="setting.label"
                                 >
                                     <option v-for="option in setting.options" :key="option" :value="option">{{ option }}</option>
                                 </select>
                                 <img :src="caretDownIcon" alt="" class="pointer-events-none absolute right-2 size-[18px]" />
                             </span>
-                        </label>
+                        </div>
                     </div>
                 </div>
 
