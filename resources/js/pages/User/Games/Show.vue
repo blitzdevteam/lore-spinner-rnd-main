@@ -202,6 +202,7 @@ const isLastSession = computed(() => {
 });
 const completionReceipt = computed(() => props.game.completion_receipt ?? null);
 const ceremonyReady = ref(false);
+const openedOnCompletedSession = props.game.current_session_complete === true;
 
 const episodePosition = computed(() => props.game.currentEvent?.chapter?.position);
 
@@ -283,6 +284,33 @@ function handleNarrationFinished() {
         ceremonyReady.value = true;
     }
 }
+
+function keepWindowScroll(scrollY: number): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const apply = (): void => {
+        if (Math.abs(window.scrollY - scrollY) > 1) {
+            window.scrollTo({ top: scrollY, behavior: 'auto' });
+        }
+    };
+
+    void nextTick(() => {
+        window.requestAnimationFrame(() => {
+            apply();
+            window.requestAnimationFrame(apply);
+        });
+    });
+}
+
+watch(ceremonyReady, (ready) => {
+    if (!ready || typeof window === 'undefined') {
+        return;
+    }
+
+    keepWindowScroll(window.scrollY);
+});
 
 // Cinematic opening: shown on first visit (no prompts yet); hidden once begin fires
 const showCinematic = ref(!hasPrompts.value && !showOutro.value);
@@ -532,6 +560,12 @@ function setPromptCardElement(promptId: string, element: unknown) {
 }
 
 function scrollToPromptStart(promptId: string): boolean {
+    // The completion card is appended under the episode the reader just finished.
+    // Anchoring to a narration start here pulls them back to the top of the story.
+    if (ceremonyReady.value) {
+        return true;
+    }
+
     const element = promptCardElements.value[promptId];
     if (!element) {
         return false;
@@ -729,12 +763,14 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             }
 
             if (event.event === 'done' && event.prompt) {
+                const scrollY = window.scrollY;
                 commitStreamedPrompt(
                     activeStreamingPromptId,
                     event.source_prompt_id ?? options.promptId,
                     event.source_prompt_value ?? prompt,
                     event.prompt,
                 );
+                keepWindowScroll(scrollY);
                 completed = true;
                 isSubmitting.value = false;
                 isStreamingTurn.value = false;
@@ -914,7 +950,13 @@ onMounted(() => {
 
     if (hasPrompts.value) {
         showCinematic.value = false;
-        if (latestPromptId.value) {
+        if (openedOnCompletedSession) {
+            void nextTick(() => {
+                document
+                    .querySelector('[data-completion-ceremony]')
+                    ?.scrollIntoView({ block: 'start', behavior: 'auto' });
+            });
+        } else if (latestPromptId.value) {
             scrollToNarrationStartOnce(latestPromptId.value);
         }
     }
@@ -1015,7 +1057,7 @@ onUnmounted(() => {
         @recap="loadRecap"
     >
         <template #header>
-            <div v-if="!(sessionComplete && ceremonyReady)" class="flex flex-col items-center gap-3 pt-2 pb-4">
+            <div class="flex flex-col items-center gap-3 pt-2 pb-4">
                 <h1 class="text-center text-2xl font-semibold text-white md:text-[28px]">
                     {{ game.story?.title ?? 'Adventure' }}
                 </h1>
@@ -1058,7 +1100,6 @@ onUnmounted(() => {
 
             <div
                 v-for="(prompt, index) in prompts"
-                v-show="!(sessionComplete && ceremonyReady)"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
@@ -1081,33 +1122,40 @@ onUnmounted(() => {
                 />
             </div>
 
-            <!-- Episode / story completion ceremony -->
-            <GameCompletionCeremony
-                v-if="sessionComplete && !isStartingNextSession && ceremonyReady && completionReceipt"
-                :receipt="completionReceipt"
-                @continue="handleNextSession"
-                @begin-again="handleBeginAgain"
-                @library="handleStoryLibrary"
-            />
-
+            <!-- Episode / story completion ceremony. Stays under the episode that just
+                 finished so revealing it does not collapse the page back to the opening. -->
             <div
-                v-else-if="sessionComplete && !isStartingNextSession && ceremonyReady && !completionReceipt"
-                class="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 rounded-2xl border border-[#d4b483]/40 bg-black/25 px-6 py-10 text-center"
+                v-if="sessionComplete && !isStartingNextSession && ceremonyReady"
+                data-completion-ceremony
+                class="scroll-mt-28"
             >
-                <div class="flex flex-col gap-2">
-                    <p class="text-lg font-light text-gray-200">
-                        {{ isLastSession ? 'Story complete.' : 'Episode complete.' }}
-                    </p>
-                    <p v-if="!isLastSession" class="text-sm text-gray-500">
-                        The story continues in the next episode.
-                    </p>
-                </div>
-                <button
-                    class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200"
-                    @click="handleNextSession"
+                <GameCompletionCeremony
+                    v-if="completionReceipt"
+                    :receipt="completionReceipt"
+                    @continue="handleNextSession"
+                    @begin-again="handleBeginAgain"
+                    @library="handleStoryLibrary"
+                />
+
+                <div
+                    v-else
+                    class="mx-auto flex w-full max-w-2xl flex-col items-center gap-6 rounded-2xl border border-[#d4b483]/40 bg-black/25 px-6 py-10 text-center"
                 >
-                    {{ isLastSession ? 'Click to end story' : 'Continue to next episode' }}
-                </button>
+                    <div class="flex flex-col gap-2">
+                        <p class="text-lg font-light text-gray-200">
+                            {{ isLastSession ? 'Story complete.' : 'Episode complete.' }}
+                        </p>
+                        <p v-if="!isLastSession" class="text-sm text-gray-500">
+                            The story continues in the next episode.
+                        </p>
+                    </div>
+                    <button
+                        class="rounded-full border border-primary-400/60 bg-primary-400/10 px-8 py-3 text-sm font-medium text-primary-300 transition hover:bg-primary-400/20 hover:text-primary-200"
+                        @click="handleNextSession"
+                    >
+                        {{ isLastSession ? 'Click to end story' : 'Continue to next episode' }}
+                    </button>
+                </div>
             </div>
 
             <!-- Loading state for next-session call -->
