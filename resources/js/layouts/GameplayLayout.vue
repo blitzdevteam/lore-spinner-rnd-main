@@ -43,12 +43,6 @@ const props = withDefaults(
          */
         nudgeTrigger?: number;
         /**
-         * The bar is disabled by design rather than because the AI is working
-         * (onboarding turn 2, where the player picks from the listed options).
-         * Suppresses the orbit glow so the UI does not read as "thinking".
-         */
-        inputLockedByDesign?: boolean;
-        /**
          * Hide the chat bar entirely (episode/story completion ceremony).
          */
         hideInput?: boolean;
@@ -65,7 +59,6 @@ const props = withDefaults(
         storySlug: undefined,
         inputPlaceholder: '',
         nudgeTrigger: 0,
-        inputLockedByDesign: false,
         hideInput: false,
         recapText: null,
         recapLoading: false,
@@ -104,11 +97,11 @@ watch(
 );
 
 watch(
-    [() => props.inputDisabled, () => props.inputLockedByDesign],
-    ([disabled, lockedByDesign]) => {
+    () => props.inputDisabled,
+    (disabled) => {
         if (disabled) {
             nudge.stop();
-            inputGlowVariant.value = lockedByDesign ? undefined : 'orbit';
+            inputGlowVariant.value = 'orbit';
         } else {
             inputGlowVariant.value = undefined;
         }

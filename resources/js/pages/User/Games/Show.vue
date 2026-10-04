@@ -377,26 +377,6 @@ watch(
 // Subsequent-prompt autoplay is owned by the typewriter-completion watcher in
 // GameplayChatCard.vue — it fires once text is fully generated, same on all platforms.
 
-// Onboarding staging — the first two moves of a game teach the two ways to play,
-// one at a time, before both are offered together.
-//   Move 1: no choice buttons. The only way forward is to speak or type.
-//   Move 2: choice buttons only. The chat bar is disabled.
-//   Move 3+: both, which is the normal game from here on.
-// `prompts` spans every session of this game, so the staging runs once per game
-// and never reappears at a later session boundary.
-//
-// Two different lifetimes here. The chat bar is a single live control, so it reads
-// the stage the game is in NOW (below). A card's staging belongs to its own turn and
-// is permanent: the first card was authored without buttons, so it must never grow
-// them once later turns arrive. That per-card rule is bound by index in the template.
-const introStage = computed(() => {
-    if (prompts.value.length === 1) return 1;
-    if (prompts.value.length === 2) return 2;
-    return 0;
-});
-
-const freeformLocked = computed(() => introStage.value === 2);
-
 const hasActionAllowance = computed(() => {
     if (!props.subscriptionUsage) return true;
 
@@ -407,7 +387,6 @@ const canSubmitInput = computed(() => {
     if (isSubmitting.value) return false;
     if (!hasActionAllowance.value) return false;
     if (sessionComplete.value) return false;
-    if (freeformLocked.value) return false;
     const latest = prompts.value[prompts.value.length - 1];
     return latest && !latest.prompt;
 });
@@ -424,7 +403,6 @@ const isFirstChoiceMoment = computed(() =>
 
 const inputPlaceholder = computed(() => {
     if (!hasActionAllowance.value) return 'Your action allowance has been reached for this billing period.';
-    if (freeformLocked.value) return 'Pick one of the paths above for this move.';
     if (!isFirstChoiceMoment.value) return '';
     return props.game.first_input_hint ?? '';
 });
@@ -1039,7 +1017,6 @@ onUnmounted(() => {
         v-else
         :input-disabled="!canSubmitInput"
         :hide-input="sessionComplete"
-        :input-locked-by-design="freeformLocked"
         :input-placeholder="inputPlaceholder"
         :nudge-trigger="nudgeTrigger"
         :game-id="game.id"
@@ -1099,7 +1076,7 @@ onUnmounted(() => {
             </p>
 
             <div
-                v-for="(prompt, index) in prompts"
+                v-for="prompt in prompts"
                 :key="prompt.id"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
@@ -1113,8 +1090,6 @@ onUnmounted(() => {
                     :animate="shouldAnimate && prompt.id === prompts[prompts.length - 1]?.id"
                     :is-streaming-response="prompt.id === streamingPromptId"
                     :uses-playable-moments="game.uses_playable_moments"
-                    :choices-locked="index === 0"
-                    :freeform-locked="index === 1"
                     @choice-selected="handleChoiceSelected"
                     @continue="handleContinue"
                     @choices-ready="handleChoicesReady"
