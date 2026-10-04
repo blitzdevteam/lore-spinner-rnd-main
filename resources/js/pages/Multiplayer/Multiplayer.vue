@@ -31,6 +31,7 @@ type LobbySettingOption = {
 };
 
 const showHostSetup = ref(false);
+const showModeDetails = ref(false);
 const selectedModeName = ref('Arbiter');
 const lobbySettings = ref({
     choices: 'On',
@@ -98,6 +99,7 @@ const joiningPlayerUsername = computed(() => (joiningPlayer.value?.username ? `@
 type StoryMode = {
     name: string;
     description: string;
+    headline: string;
     details: string;
     accent: string;
     selectedBackground: string;
@@ -111,45 +113,57 @@ const storyModes: StoryMode[] = [
     {
         name: 'Arbiter',
         description: 'Everyone contributes. One player decides.',
-        details: 'Take turns being the Arbiter and choose the final action after everyone has had a chance to contribute.',
+        headline: 'Everyone contributes.\nOne player decides.',
+        details: 'Take turns being the judge and choose the final action after everyone has had a chance to contribute.',
         accent: '#ffbe58',
         selectedBackground: '#221b0f',
         border: '#59c1ca',
         icon: LucideScale,
-        features: ['3-4 Players', 'Turn Based', 'One Arbiter at a time'],
+        features: ['2-4 Players', 'Turn Based', 'One judge at a time'],
         available: true,
     },
     {
         name: 'Roulette',
         description: 'one player decides, the story moves, and the turn changes.',
-        details: 'One player decides, the story moves, and the turn changes.',
+        headline: 'one player decides, the story moves, and the turn changes.',
+        details: 'Roulette makes multiplayer immediately legible: one player decides, the story moves, and the turn changes.',
         accent: '#59c1ca',
         selectedBackground: '#102324',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['3-4 Players', 'Turn Based', 'One player decides'],
+        features: ['2-4 Players', 'Shared story', 'Each player a character'],
         available: true,
     },
     {
         name: 'Streamer',
         description: 'One story. Hundreds of voices.',
-        details: 'Let your audience vote on what happens next and experience the story together in real time.',
+        headline: 'One story.\nHundreds of voices.',
+        details: 'Turn a live broadcast into a shared story room: viewers propose the possibilities, and active players decide what becomes canon.',
         accent: '#cca0f3',
         selectedBackground: '#1a1420',
         border: '#373737',
         icon: LucideGamepad2,
-        features: ['2-4 Players', 'Audience voting', 'Real-time story'],
+        features: ['2-500 Players', 'Audience voting', 'Real-time story'],
         available: false,
     },
 ];
 
 function goBack(): void {
+    if (showModeDetails.value) {
+        showModeDetails.value = false;
+        return;
+    }
+
     if (showHostSetup.value) {
         showHostSetup.value = false;
         return;
     }
 
     window.history.back();
+}
+
+function openModeDetails(): void {
+    showModeDetails.value = true;
 }
 
 function createRoom(): void {
@@ -160,6 +174,7 @@ function createRoom(): void {
     }
 
     selectedModeName.value = 'Arbiter';
+    showModeDetails.value = false;
     showHostSetup.value = true;
 }
 
@@ -450,6 +465,65 @@ function joinRoom(): void {
         </section>
 
         <section
+            v-else-if="showModeDetails"
+            class="relative z-[1] mx-auto flex min-h-svh w-full max-w-[82rem] flex-col items-center px-5 pt-[6.3rem] pb-10 sm:pt-[8.8rem]"
+        >
+            <div class="flex w-full max-w-[36rem] flex-col items-center gap-6 text-center">
+                <p class="text-sm font-medium tracking-tight text-[#ffbe58] sm:text-lg">MULTIPLAYER ADVENTURE</p>
+                <div class="flex flex-col gap-2.5">
+                    <h1 class="font-['Inria_Serif',serif] text-[2rem] leading-tight font-bold sm:text-4xl">Choose your story mode</h1>
+                    <p class="text-xs text-[#8f8f8f] sm:text-sm">Different ways to play. One unforgettable story.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 grid w-full grid-cols-1 items-stretch gap-2.5 sm:grid-cols-3">
+                <article
+                    v-for="mode in storyModes"
+                    :key="mode.name"
+                    class="flex flex-col items-center gap-5 rounded-xl border-[0.5px] bg-black p-2.5 text-center"
+                    :style="{ borderColor: isModeSelected(mode) ? mode.accent : '#373737' }"
+                >
+                    <div class="flex w-full flex-col items-center gap-5">
+                        <div class="flex w-full flex-col items-center gap-5">
+                            <span class="flex flex-col items-center gap-1.5">
+                                <span
+                                    class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
+                                    :style="{ borderColor: mode.accent, color: mode.accent }"
+                                >
+                                    <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
+                                </span>
+                                <span class="text-xl leading-none" :style="{ color: mode.accent }">{{ mode.name }}</span>
+                            </span>
+                            <span class="h-px w-full bg-white/20" />
+                        </div>
+                        <div class="flex w-full flex-col items-center gap-2.5">
+                            <p class="min-h-[2.3rem] text-base leading-normal font-light whitespace-pre-line text-white">{{ mode.headline }}</p>
+                            <p class="min-h-[3.375rem] text-xs leading-normal font-light text-[#8f8f8f]">{{ mode.details }}</p>
+                        </div>
+                    </div>
+                    <div class="flex w-full items-stretch justify-center gap-1.5">
+                        <template v-for="(feature, index) in mode.features" :key="feature">
+                            <span v-if="index > 0" class="w-px shrink-0 self-stretch bg-white/20" />
+                            <span class="flex min-w-0 flex-1 items-start gap-1.5 text-left text-xs leading-normal text-[#8f8f8f]">
+                                <span class="mt-1.5 size-1 shrink-0 rounded-full" :style="{ backgroundColor: mode.accent }" />
+                                <span>{{ feature }}</span>
+                            </span>
+                        </template>
+                    </div>
+                    <button
+                        type="button"
+                        class="flex h-10 w-full items-center justify-center rounded-[5px] border-[0.5px] text-sm font-medium focus-visible:ring-2 focus-visible:ring-[#59c1ca] focus-visible:outline-none disabled:cursor-not-allowed"
+                        :style="modeActionStyle(mode)"
+                        :disabled="!mode.available"
+                        @click="chooseMode(mode)"
+                    >
+                        {{ mode.available ? 'Choose Mode' : 'Coming Soon' }}
+                    </button>
+                </article>
+            </div>
+        </section>
+
+        <section
             v-else
             class="relative z-[1] mx-auto flex min-h-svh w-full max-w-[42rem] flex-col items-center px-5 pt-[6.3rem] pb-10 sm:pt-[8.8rem]"
         >
@@ -465,7 +539,13 @@ function joinRoom(): void {
                 <div class="flex flex-col gap-2.5">
                     <div class="flex items-center justify-between">
                         <h2 class="text-base">1.Choose your story mode</h2>
-                        <span class="text-sm font-medium text-[#59c1ca]">View Details</span>
+                        <button
+                            type="button"
+                            class="text-sm font-medium text-[#59c1ca] focus-visible:ring-2 focus-visible:ring-[#59c1ca] focus-visible:outline-none"
+                            @click="openModeDetails"
+                        >
+                            View Details
+                        </button>
                     </div>
                     <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
                         <button
