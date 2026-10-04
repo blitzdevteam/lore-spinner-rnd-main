@@ -12,14 +12,9 @@
      *     unavailable:?string
      * } $invoiceHistory */
     $user = $subscription->user;
-    $priceIds = $subscription->items
-        ->pluck('stripe_price')
-        ->prepend($subscription->stripe_price)
-        ->filter()
-        ->unique()
-        ->values();
-    $planLabels = $priceIds
-        ->map(static fn (string $priceId): string => \App\Enums\PricingPlan::fromStripePriceId($priceId)?->label() ?? 'Custom Stripe plan');
+    $planNames = app(\App\Services\PurchasedPlanName::class);
+    $priceIds = $planNames->priceIds($subscription);
+    $planLabels = $planNames->labelsFor($subscription);
     $subscriptionStatus = $subscription->stripe_status;
     $paymentMethod = $user instanceof \App\Models\User && filled($user->pm_last_four)
         ? (is_string($user->pm_type) ? str($user->pm_type)->headline().' ' : 'Card ').'•••• '.$user->pm_last_four

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Billings\Pages;
 
-use App\Enums\PricingPlan;
 use App\Filament\Manager\Resources\Billings\BillingResource;
 use App\Models\User;
+use App\Services\PurchasedPlanName;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
@@ -39,11 +39,10 @@ final class ViewBilling extends ViewRecord
     {
         $subscription = $this->subscription();
         $user = $subscription->user;
-        $plan = PricingPlan::fromStripePriceId($subscription->stripe_price);
 
         return implode(' · ', [
             $user instanceof User ? $user->email : 'Unknown player',
-            $plan?->label() ?? 'Custom Stripe plan',
+            app(PurchasedPlanName::class)->summary($subscription),
             $subscription->created_at?->format('M j, Y H:i') ?? 'Purchase date unavailable',
         ]);
     }

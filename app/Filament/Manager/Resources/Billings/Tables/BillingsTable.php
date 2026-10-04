@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Billings\Tables;
 
-use App\Enums\PricingPlan;
 use App\Models\User;
+use App\Services\PurchasedPlanName;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -17,6 +17,8 @@ final class BillingsTable
 {
     public static function configure(Table $table): Table
     {
+        $planNames = app(PurchasedPlanName::class);
+
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
@@ -32,8 +34,8 @@ final class BillingsTable
                 TextColumn::make('stripe_price')
                     ->label('Plan')
                     ->badge()
-                    ->formatStateUsing(static fn (?string $state): string => self::planLabel($state))
-                    ->color(static fn (?string $state): string => PricingPlan::fromStripePriceId($state) instanceof PricingPlan ? 'primary' : 'gray')
+                    ->formatStateUsing(static fn (?string $state): string => $planNames->label($state))
+                    ->color(static fn (?string $state): string => $planNames->recognizes($state) ? 'primary' : 'gray')
                     ->description(static fn (Subscription $record): string => $record->stripe_price ?? 'No single price synchronized')
                     ->sortable(),
                 TextColumn::make('stripe_status')
@@ -75,7 +77,7 @@ final class BillingsTable
             ->filters([
                 SelectFilter::make('stripe_price')
                     ->label('Plan')
-                    ->options(PricingPlan::stripePriceOptions()),
+                    ->options(static fn (): array => $planNames->filterOptions()),
                 SelectFilter::make('stripe_status')
                     ->label('Status')
                     ->options([
@@ -99,15 +101,6 @@ final class BillingsTable
             ])
             ->toolbarActions([])
             ->striped();
-    }
-
-    private static function planLabel(?string $priceId): string
-    {
-        if (blank($priceId)) {
-            return 'No single plan';
-        }
-
-        return PricingPlan::fromStripePriceId($priceId)?->label() ?? 'Custom Stripe plan';
     }
 
     private static function statusColor(string $status): string

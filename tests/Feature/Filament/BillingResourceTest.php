@@ -7,11 +7,14 @@ use App\Filament\Manager\Resources\Billings\BillingResource;
 use App\Filament\Manager\Resources\Billings\Pages\ListBillings;
 use App\Filament\Manager\Resources\Billings\Tables\BillingsTable;
 use App\Models\Manager;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\StripePriceCatalog;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Cashier\Subscription;
+use Stripe\StripeClient;
 
 uses(RefreshDatabase::class);
 
@@ -111,3 +114,132 @@ it('keeps local subscription details available when Stripe invoice access is not
         ->assertSee('Adventurer')
         ->assertSee('Stripe invoice access is not configured.');
 });
+
+it('shows the linked package when the purchased price is not one of the legacy plans', function () {
+    SubscriptionPlan::factory()->create([
+        'name' => 'Story Plus',
+        'slug' => 'story-plus',
+        'stripe_price_id' => 'price_story_plus',
+    ]);
+
+    $manager = Manager::factory()->create();
+    $user = User::factory()->create([
+        'email' => 'sean@lemons.com',
+    ]);
+    $subscription = Subscription::factory()
+        ->for($user)
+        ->withPrice('price_story_plus')
+        ->create();
+
+    $this->actingAs($manager, 'manager')
+        ->get(BillingResource::getUrl('view', ['record' => $subscription]))
+        ->assertSuccessful()
+        ->assertSee('Story Plus')
+        ->assertDontSee('Custom Stripe plan');
+
+    $this->get(BillingResource::getUrl('index'))
+        ->assertSuccessful()
+        ->assertSee('Story Plus')
+        ->assertDontSee('Custom Stripe plan');
+});
+
+it('shows the stripe product the customer bought when that price is not linked locally', function () {
+    config(['cashier.secret' => 'sk_test_billing']);
+
+    $catalog = new StripePriceCatalog;
+    $catalog->usingClient(stripePriceCatalogClient([
+        'price_story' => 'Story',
+        'price_story_plus' => 'Story Plus',
+        'price_library' => 'Library',
+        'price_all_access' => 'All Access',
+    ]));
+    app()->instance(StripePriceCatalog::class, $catalog);
+
+    $manager = Manager::factory()->create();
+    $user = User::factory()->create([
+        'email' => 'sean@lemons.com',
+    ]);
+    $subscription = Subscription::factory()
+        ->for($user)
+        ->withPrice('price_library')
+        ->create();
+
+    $this->actingAs($manager, 'manager')
+        ->get(BillingResource::getUrl('view', ['record' => $subscription]))
+        ->assertSuccessful()
+        ->assertSee('Library')
+        ->assertDontSee('Custom Stripe plan');
+
+    $this->get(BillingResource::getUrl('index'))
+        ->assertSuccessful()
+        ->assertSee('Library')
+        ->assertDontSee('Custom Stripe plan');
+});
+
+it('prefers the stripe product name over a differently named local package', function () {
+    config(['cashier.secret' => 'sk_test_billing']);
+
+    SubscriptionPlan::factory()->create([
+        'name' => 'Mythic Pass',
+        'slug' => 'mythic-pass',
+        'stripe_price_id' => 'price_all_access',
+    ]);
+
+    $catalog = new StripePriceCatalog;
+    $catalog->usingClient(stripePriceCatalogClient([
+        'price_all_access' => 'All Access',
+    ]));
+    app()->instance(StripePriceCatalog::class, $catalog);
+
+    $manager = Manager::factory()->create();
+    $subscription = Subscription::factory()
+        ->for(User::factory()->create())
+        ->withPrice('price_all_access')
+        ->create();
+
+    $this->actingAs($manager, 'manager')
+        ->get(BillingResource::getUrl('view', ['record' => $subscription]))
+        ->assertSuccessful()
+        ->assertSee('All Access')
+        ->assertDontSee('Mythic Pass')
+        ->assertDontSee('Custom Stripe plan');
+});
+
+/**
+ * @param  array<string, string>  $productNamesByPriceId
+ */
+function stripePriceCatalogClient(array $productNamesByPriceId): StripeClient
+{
+    $prices = Mockery::mock();
+    $prices->shouldReceive('all')->andReturn(stripeActivePriceList($productNamesByPriceId));
+
+    $client = Mockery::mock(StripeClient::class);
+    $client->prices = $prices;
+
+    return $client;
+}
+
+/**
+ * @param  array<string, string>  $productNamesByPriceId
+ */
+function stripeActivePriceList(array $productNamesByPriceId): Stripe\Collection
+{
+    return Stripe\Collection::constructFrom([
+        'object' => 'list',
+        'has_more' => false,
+        'url' => '/v1/prices',
+        'data' => collect($productNamesByPriceId)
+            ->map(static fn (string $productName, string $priceId): array => [
+                'id' => $priceId,
+                'object' => 'price',
+                'active' => true,
+                'product' => [
+                    'id' => 'prod_'.$priceId,
+                    'object' => 'product',
+                    'name' => $productName,
+                ],
+            ])
+            ->values()
+            ->all(),
+    ]);
+}
