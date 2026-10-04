@@ -2,7 +2,6 @@
 import arrowRightIcon from '@/assets/multiplayer/arrow-right.svg';
 import backChevronIcon from '@/assets/multiplayer/back-chevron.svg';
 import caretDownIcon from '@/assets/multiplayer/caret-down.svg';
-import checkCircleSelectedIcon from '@/assets/multiplayer/check-circle-selected.svg';
 import crownIcon from '@/assets/multiplayer/crown.svg';
 import plusIcon from '@/assets/multiplayer/plus.svg';
 import starFourIcon from '@/assets/multiplayer/star-four.svg';
@@ -100,6 +99,7 @@ type StoryMode = {
     description: string;
     details: string;
     accent: string;
+    selectedBackground: string;
     border: string;
     icon: typeof LucideScale;
     features: string[];
@@ -112,6 +112,7 @@ const storyModes: StoryMode[] = [
         description: 'Everyone contributes. One player decides.',
         details: 'Take turns being the Arbiter and choose the final action after everyone has had a chance to contribute.',
         accent: '#ffbe58',
+        selectedBackground: '#221b0f',
         border: '#59c1ca',
         icon: LucideScale,
         features: ['3-4 Players', 'Turn Based', 'One Arbiter at a time'],
@@ -122,6 +123,7 @@ const storyModes: StoryMode[] = [
         description: 'one player decides, the story moves, and the turn changes.',
         details: 'One player decides, the story moves, and the turn changes.',
         accent: '#59c1ca',
+        selectedBackground: '#102324',
         border: '#373737',
         icon: LucideVenetianMask,
         features: ['3-4 Players', 'Turn Based', 'One player decides'],
@@ -132,6 +134,7 @@ const storyModes: StoryMode[] = [
         description: 'One story. Hundreds of voices.',
         details: 'Let your audience vote on what happens next and experience the story together in real time.',
         accent: '#cca0f3',
+        selectedBackground: '#1a1420',
         border: '#373737',
         icon: LucideGamepad2,
         features: ['2-4 Players', 'Audience voting', 'Real-time story'],
@@ -165,6 +168,48 @@ function chooseMode(mode: StoryMode): void {
     }
 
     selectedModeName.value = mode.name;
+}
+
+function isModeSelected(mode: StoryMode): boolean {
+    return mode.available && selectedModeName.value === mode.name;
+}
+
+function modeCardStyle(mode: StoryMode): Record<string, string> {
+    if (!isModeSelected(mode)) {
+        return {
+            backgroundColor: '#000000',
+            borderColor: '#373737',
+        };
+    }
+
+    return {
+        backgroundColor: mode.selectedBackground,
+        borderColor: mode.accent,
+    };
+}
+
+function modeActionStyle(mode: StoryMode): Record<string, string> {
+    if (!mode.available) {
+        return {
+            backgroundColor: 'transparent',
+            borderColor: '#8f8f8f',
+            color: '#8f8f8f',
+        };
+    }
+
+    if (isModeSelected(mode)) {
+        return {
+            backgroundColor: mode.accent,
+            borderColor: '#000000',
+            color: '#000000',
+        };
+    }
+
+    return {
+        backgroundColor: 'transparent',
+        borderColor: mode.accent,
+        color: '#ffffff',
+    };
 }
 
 function decisionWindowSeconds(value: string): number {
@@ -414,44 +459,43 @@ function joinRoom(): void {
             <div class="mt-10 flex w-full flex-col gap-5 rounded-[14px]">
                 <div class="flex flex-col gap-2.5">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-base">1. Chosen Story Mode</h2>
-                        <span class="text-sm font-medium text-[#59c1ca]">View More</span>
+                        <h2 class="text-base">1.Choose your story mode</h2>
+                        <span class="text-sm font-medium text-[#59c1ca]">View Details</span>
                     </div>
-                    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
                         <button
                             v-for="mode in storyModes"
                             :key="mode.name"
                             type="button"
-                            class="relative flex h-[190px] flex-col items-center justify-end rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
-                            :class="[
-                                selectedModeName === mode.name ? 'bg-[#141819]' : 'bg-black',
-                                mode.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-70',
-                            ]"
-                            :style="{ borderColor: selectedModeName === mode.name ? '#59c1ca' : '#373737' }"
+                            class="relative flex w-full flex-col items-center justify-end gap-2.5 rounded-xl border-[0.5px] p-2.5 text-center transition-colors focus-visible:ring-2 focus-visible:ring-[#59c1ca]"
+                            :class="mode.available ? 'cursor-pointer' : 'cursor-not-allowed'"
+                            :style="modeCardStyle(mode)"
                             :disabled="!mode.available"
+                            :aria-pressed="mode.available ? isModeSelected(mode) : undefined"
                             :aria-disabled="!mode.available"
                             @click="chooseMode(mode)"
                         >
-                            <img
-                                v-if="selectedModeName === mode.name"
-                                :src="checkCircleSelectedIcon"
-                                alt=""
-                                class="absolute top-1.5 right-1.5 size-6"
-                            />
-                            <span
-                                v-else-if="!mode.available"
-                                class="absolute top-2 right-2 z-[1] flex h-6 items-center justify-center rounded-full border-[0.5px] border-[#8f8f8f] bg-black/80 px-2 font-['Inter',sans-serif] text-[0.6875rem] leading-none font-normal tracking-wide text-[#8f8f8f]"
-                            >
-                                Coming Soon
+                            <span class="flex w-full flex-col items-center gap-1.5">
+                                <span
+                                    class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
+                                    :style="{ borderColor: mode.accent, color: mode.accent }"
+                                >
+                                    <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
+                                </span>
+                                <span class="text-xl leading-none" :style="{ color: mode.accent }">{{ mode.name }}</span>
                             </span>
                             <span
-                                class="flex size-[50px] items-center justify-center overflow-clip rounded-full border-[0.4px]"
-                                :style="{ borderColor: mode.accent, color: mode.accent }"
+                                class="min-h-[3.375rem] text-xs leading-normal font-light"
+                                :class="isModeSelected(mode) ? 'text-white' : 'text-[#8f8f8f]'"
                             >
-                                <component :is="mode.icon" class="size-[30px]" :stroke-width="1.4" />
+                                {{ mode.description }}
                             </span>
-                            <span class="mt-1.5 text-xl" :style="{ color: mode.accent }">{{ mode.name }}</span>
-                            <span class="mt-2.5 min-h-[3.375rem] text-xs leading-normal font-light text-[#8f8f8f]">{{ mode.description }}</span>
+                            <span
+                                class="flex h-10 w-full items-center justify-center rounded-[5px] border-[0.5px] text-sm font-medium"
+                                :style="modeActionStyle(mode)"
+                            >
+                                {{ mode.available ? 'Choose Mode' : 'Coming Soon' }}
+                            </span>
                         </button>
                     </div>
                 </div>

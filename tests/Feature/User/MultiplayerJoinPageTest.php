@@ -43,7 +43,12 @@ it('marks streamer mode as coming soon and unavailable', function () {
         ->toContain("name: 'Streamer'")
         ->toContain('available: false')
         ->toContain('Coming Soon')
-        ->toContain('!mode.available');
+        ->toContain('!mode.available')
+        ->toContain("selectedBackground: '#221b0f'")
+        ->toContain('Choose Mode')
+        ->toContain('function isModeSelected(mode: StoryMode): boolean')
+        ->toContain('function modeCardStyle(mode: StoryMode): Record<string, string>')
+        ->toContain('function modeActionStyle(mode: StoryMode): Record<string, string>');
 });
 
 it('offers mode-specific lobby settings before a room is created', function () {
