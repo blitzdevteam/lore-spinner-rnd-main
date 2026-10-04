@@ -65,6 +65,13 @@ createInertiaApp({
         appName = appNameFromPage(props.initialPage);
         router.on('navigate', (event) => {
             appName = appNameFromPage(event.detail.page);
+
+            const pageUrl = event.detail.page.url;
+            window.gtag?.('event', 'page_view', {
+                page_path: pageUrl,
+                page_location: new URL(pageUrl, window.location.origin).href,
+                page_title: document.title,
+            });
         });
 
         createApp({ render: () => h(App, props) })

@@ -6,6 +6,16 @@
 
         <title inertia>{{ config('app.display_name', 'LoreSpinner') }}</title>
 
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-SYP9BDH337"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-SYP9BDH337');
+        </script>
+
         <!-- Favicon — versioned to bust browser/Google cache -->
         <link rel="icon" href="/favicon.ico?v=3" sizes="any">
         <link rel="icon" href="/favicon.png?v=3" type="image/png">

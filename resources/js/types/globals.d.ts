@@ -19,6 +19,13 @@ declare module 'vue' {
     }
 }
 
+declare global {
+    interface Window {
+        dataLayer?: unknown[];
+        gtag?: (...args: unknown[]) => void;
+    }
+}
+
 declare module '@inertiajs/core' {
     interface PageProps extends InertiaPageProps {
         flash: {
