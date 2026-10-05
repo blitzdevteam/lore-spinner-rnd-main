@@ -9,6 +9,7 @@ use App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget;
 use App\Filament\Manager\Widgets\Analytics\AnalyticsRetentionWidget;
 use App\Models\Story;
 use App\Models\User;
+use App\Services\SubscriptionEntitlementService;
 use App\Support\Analytics;
 use App\Support\AnalyticsFilters;
 use BackedEnum;
@@ -45,6 +46,12 @@ final class AnalyticsDashboard extends Page
 
     public function mount(): void
     {
+        $requestedUserId = request()->integer('user');
+
+        if ($requestedUserId > 0 && User::query()->whereKey($requestedUserId)->exists()) {
+            $this->filters['user_id'] = $requestedUserId;
+        }
+
         $this->filters = AnalyticsFilters::normalize($this->filters);
         $this->populateCustomDateRangeDefaults();
     }
@@ -188,6 +195,63 @@ final class AnalyticsDashboard extends Page
             'is_filtered' => $filters['range'] !== AnalyticsFilters::RANGE_ALL
                 || $filters['user_id'] !== null
                 || $filters['story_id'] !== null,
+        ];
+    }
+
+    /**
+     * Plan and action allowance for the player selected in the dashboard filters.
+     *
+     * @return array{
+     *     player: string,
+     *     plan: string,
+     *     is_free: bool,
+     *     actions_spent: int|null,
+     *     actions_remaining: int|null,
+     *     actions_limit: int|null,
+     *     voice_spent: string|null,
+     *     voice_remaining: string|null
+     * }|null
+     */
+    public function getSelectedPlayerAllowance(): ?array
+    {
+        $userId = $this->getAnalyticsFilters()['user_id'];
+
+        if ($userId === null) {
+            return null;
+        }
+
+        $user = User::query()->with('plan')->find($userId);
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $summary = app(SubscriptionEntitlementService::class)->summary($user);
+
+        if ($summary === null) {
+            $assignedPlan = $user->plan?->name;
+
+            return [
+                'player' => $this->formatUserOption($user),
+                'plan' => filled($assignedPlan) ? $assignedPlan : 'No active plan',
+                'is_free' => $user->plan?->slug === SubscriptionEntitlementService::FREE_PLAN_SLUG,
+                'actions_spent' => null,
+                'actions_remaining' => null,
+                'actions_limit' => null,
+                'voice_spent' => null,
+                'voice_remaining' => null,
+            ];
+        }
+
+        return [
+            'player' => $this->formatUserOption($user),
+            'plan' => $summary['plan']['name'],
+            'is_free' => $summary['is_one_time'],
+            'actions_spent' => $summary['actions']['used'],
+            'actions_remaining' => $summary['actions']['remaining'],
+            'actions_limit' => $summary['actions']['limit'],
+            'voice_spent' => $this->formatVoiceDuration($summary['voice']['used_milliseconds']),
+            'voice_remaining' => $this->formatVoiceDuration($summary['voice']['remaining_milliseconds']),
         ];
     }
 
@@ -580,6 +644,19 @@ final class AnalyticsDashboard extends Page
     private function searchLike(string $search): string
     {
         return '%'.addcslashes($search, '%_\\').'%';
+    }
+
+    private function formatVoiceDuration(int $milliseconds): string
+    {
+        $totalSeconds = intdiv(max(0, $milliseconds), 1000);
+        $minutes = intdiv($totalSeconds, 60);
+        $seconds = $totalSeconds % 60;
+
+        if ($seconds === 0) {
+            return $minutes === 1 ? '1 min' : "{$minutes} min";
+        }
+
+        return "{$minutes} min {$seconds} sec";
     }
 
     private function populateCustomDateRangeDefaults(): void

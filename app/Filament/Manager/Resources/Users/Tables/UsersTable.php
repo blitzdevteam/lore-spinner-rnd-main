@@ -6,12 +6,14 @@ namespace App\Filament\Manager\Resources\Users\Tables;
 
 use App\Actions\Investor\UpdateInvestorAccessAction;
 use App\Enums\UserType;
+use App\Filament\Manager\Pages\AnalyticsDashboard;
 use App\Models\User;
 use App\Services\PurchasedPlanName;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -92,6 +94,12 @@ final class UsersTable
                     ->options(UserType::class),
             ])
             ->recordActions([
+                Action::make('viewAnalytics')
+                    ->label('Analytics')
+                    ->icon(Heroicon::OutlinedPresentationChartBar)
+                    ->url(fn (User $record): string => AnalyticsDashboard::getUrl([
+                        'user' => $record->getKey(),
+                    ])),
                 Action::make('blockAccess')
                     ->label('Block test access')
                     ->icon('heroicon-o-no-symbol')

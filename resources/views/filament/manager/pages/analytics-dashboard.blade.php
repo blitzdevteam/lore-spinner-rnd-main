@@ -9,6 +9,7 @@
         $funnel      = $this->getEngagementFunnel();
         $topStories  = $this->getTopStories();
         $keyInsights = $this->getKeyInsights();
+        $playerAllowance = $this->getSelectedPlayerAllowance();
         $baselineLabel = \App\Support\Analytics::baselineLabel();
         $abandonedLabel = \App\Support\Analytics::abandonedLabel();
 
@@ -118,6 +119,44 @@
             </div>
         </div>
     </div>
+
+    {{-- ── Selected player plan and allowance ──────────────────────── --}}
+    @if ($playerAllowance)
+    <div id="analytics-player-allowance" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 bg-gray-50 px-6 pb-3 pt-4 dark:border-gray-800 dark:bg-gray-800/60">
+            <div>
+                <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Player subscription</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $playerAllowance['player'] }}</p>
+            </div>
+            @if ($playerAllowance['is_free'])
+                <span class="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Free plan</span>
+            @endif
+        </div>
+        <div class="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-3">
+            <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Plan</p>
+                <p id="analytics-player-plan" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ $playerAllowance['plan'] }}</p>
+            </div>
+            @if ($playerAllowance['actions_spent'] === null)
+                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40 md:col-span-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</p>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">No action allowance recorded for this player.</p>
+                </div>
+            @else
+                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions spent</p>
+                    <p id="analytics-actions-spent" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ number_format($playerAllowance['actions_spent']) }}</p>
+                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">of {{ number_format($playerAllowance['actions_limit']) }} on this plan</p>
+                </div>
+                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions remaining</p>
+                    <p id="analytics-actions-remaining" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ number_format($playerAllowance['actions_remaining']) }}</p>
+                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Voice spent {{ $playerAllowance['voice_spent'] }} · {{ $playerAllowance['voice_remaining'] }} left</p>
+                </div>
+            @endif
+        </div>
+    </div>
+    @endif
 
     {{-- ── KPI Stat Cards ──────────────────────────────────────────── --}}
     @livewire(\App\Filament\Manager\Widgets\Analytics\AnalyticsKpiWidget::class, ['pageFilters' => $analyticsFilters], key('analytics-kpi-'.$filterKey))

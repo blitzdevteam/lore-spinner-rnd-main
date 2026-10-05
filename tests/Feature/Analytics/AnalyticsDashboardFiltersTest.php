@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Filament\Manager\Pages\AnalyticsDashboard;
 use App\Models\Manager;
+use App\Models\SubscriptionEntitlement;
+use App\Services\SubscriptionEntitlementService;
 use App\Support\Analytics;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
@@ -151,6 +153,75 @@ it('populates visible dates when a custom range is selected', function (): void 
             'from' => Analytics::baselineDateString(),
             'to' => Analytics::asOf()->toDateString(),
         ]);
+});
+
+it('opens on a player and shows that player plan and remaining actions', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('manager'));
+
+    $manager = Manager::factory()->create();
+    $user = $this->ctx->createUser([
+        'first_name' => 'Lina',
+        'last_name' => 'Reed',
+        'email' => 'lina.reed.analytics@example.com',
+    ]);
+    $withoutPlan = $this->ctx->createUser([
+        'email' => 'no.plan.analytics@example.com',
+    ]);
+
+    $claim = app(SubscriptionEntitlementService::class)->claimFreeTrial($user);
+
+    expect($claim->granted)->toBeTrue();
+
+    SubscriptionEntitlement::query()
+        ->where('user_id', $user->id)
+        ->update([
+            'actions_used' => 7,
+            'voice_milliseconds_used' => 180_000,
+        ]);
+
+    $this->page->filters['user_id'] = $user->id;
+    $allowance = $this->page->getSelectedPlayerAllowance();
+
+    expect($allowance)->not->toBeNull()
+        ->and($allowance['plan'])->toBe('Free Pass')
+        ->and($allowance['is_free'])->toBeTrue()
+        ->and($allowance['actions_spent'])->toBe(7)
+        ->and($allowance['actions_remaining'])->toBe(13)
+        ->and($allowance['actions_limit'])->toBe(20)
+        ->and($allowance['voice_spent'])->toBe('3 min')
+        ->and($allowance['voice_remaining'])->toBe('7 min');
+
+    $this->page->filters['user_id'] = $withoutPlan->id;
+
+    expect($this->page->getSelectedPlayerAllowance())
+        ->toMatchArray([
+            'plan' => 'No active plan',
+            'is_free' => false,
+            'actions_spent' => null,
+            'actions_remaining' => null,
+        ]);
+
+    $this->page->filters['user_id'] = null;
+
+    expect($this->page->getSelectedPlayerAllowance())->toBeNull();
+
+    $this->actingAs($manager, 'manager');
+
+    try {
+        Livewire::withQueryParams(['user' => $user->id])
+            ->test(AnalyticsDashboard::class)
+            ->assertSet('filters.user_id', $user->id)
+            ->assertSeeHtml('id="analytics-player-allowance"')
+            ->assertSeeHtml('id="analytics-player-plan"')
+            ->assertSee('Free Pass')
+            ->assertSee('Free plan')
+            ->assertSeeHtml('id="analytics-actions-spent"')
+            ->assertSee('7')
+            ->assertSeeHtml('id="analytics-actions-remaining"')
+            ->assertSee('13');
+    } finally {
+        $manager->delete();
+    }
 });
 
 it('renders real date inputs that accept a custom range', function (): void {

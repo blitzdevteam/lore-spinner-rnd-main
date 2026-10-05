@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Authentication\CreateAuthenticatableGuardAction;
 use App\Enums\UserType;
+use App\Filament\Manager\Pages\AnalyticsDashboard;
 use App\Filament\Manager\Resources\Investors\InvestorResource;
 use App\Filament\Manager\Resources\Users\Pages\CreateUser;
 use App\Filament\Manager\Resources\Users\Pages\EditUser;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\SubscriptionEntitlementService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Cashier\Subscription;
 use Livewire\Livewire;
@@ -269,6 +271,22 @@ it('shows a player purchased plan on the users table', function (): void {
         ->assertCanSeeTableRecords([$player, $withoutPlan])
         ->assertTableColumnStateSet('plan.name', 'Story', $player)
         ->assertTableColumnStateSet('plan.name', null, $withoutPlan);
+});
+
+it('links each user to the analytics dashboard for that player', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('manager'));
+
+    $manager = Manager::factory()->create();
+    $user = User::factory()->create();
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(ListUsers::class)
+        ->assertActionVisible(TestAction::make('viewAnalytics')->table($user))
+        ->assertActionHasUrl(
+            TestAction::make('viewAnalytics')->table($user),
+            AnalyticsDashboard::getUrl(['user' => $user->getKey()]),
+        );
 });
 
 it('lists investors alongside players in the users table', function (): void {
