@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import errorIcon from '@/assets/notifications/error.svg';
+import infoIcon from '@/assets/notifications/info.svg';
+import successIcon from '@/assets/notifications/success.svg';
+import warningIcon from '@/assets/notifications/warning.svg';
 import FeedbackWidget from '@/components/FeedbackWidget.vue';
 import InvestorWelcomeModal from '@/components/InvestorWelcomeModal.vue';
 import PlayerWelcomeModal from '@/components/PlayerWelcomeModal.vue';
 import { usePage } from '@inertiajs/vue3';
-import { Check, CircleAlert, X } from 'lucide-vue-next';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Toaster, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
@@ -56,15 +59,20 @@ onMounted(() => {
 </script>
 
 <template>
-    <Toaster position="top-center">
+    <Toaster position="top-center" theme="dark" :style="{ '--width': 'min(347.5px, calc(100vw - 2rem))' }">
         <template #success-icon>
-            <Check :strokeWidth="2.5" />
+            <img :src="successIcon" alt="" width="18" height="18" />
+        </template>
+        <template #info-icon>
+            <img :src="infoIcon" alt="" width="18" height="18" />
         </template>
         <template #error-icon>
-            <X />
+            <img :src="errorIcon" alt="" width="18" height="18" />
+            <span data-toast-label>ERROR</span>
         </template>
         <template #warning-icon>
-            <CircleAlert />
+            <img :src="warningIcon" alt="" width="18" height="18" />
+            <span data-toast-label>Attention</span>
         </template>
     </Toaster>
     <slot />
@@ -90,42 +98,96 @@ onMounted(() => {
 @reference "../../css/app.css";
 
 @layer components {
-    [data-sonner-toast] {
-        @apply flex! items-center! gap-2! rounded-xl! border-none! bg-gray-900/75! p-4! outline-4! backdrop-blur-xl;
+    [data-sonner-toaster] {
+        @apply font-inter!;
+    }
+
+    [data-sonner-toast][data-styled='true'] {
+        @apply grid! items-center! gap-x-1.5! gap-y-0! rounded-xl! border-[0.5px]! border-gray-700! bg-black! p-2.5! font-inter! text-[13px]! font-normal! text-white! shadow-none! outline-none!;
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+
+        &:focus-visible {
+            @apply shadow-none!;
+        }
+
         [data-icon] {
-            all: unset !important;
-            @apply m-0! flex! h-6! w-6! items-center! justify-center! rounded-md! p-0!;
-            svg {
-                @apply m-0! h-4! w-4! justify-center! p-0!;
+            @apply col-start-1 row-start-1 m-0! flex! size-[18px]! items-center! justify-center! p-0!;
+
+            img {
+                @apply block! size-[18px]! max-w-none! shrink-0!;
             }
         }
+
         [data-content] {
-            [data-title] {
-                @apply font-light!;
+            display: contents !important;
+        }
+
+        [data-title] {
+            @apply col-start-2 row-start-1 min-w-0 text-[13px]! leading-[18px]! font-normal! text-white!;
+        }
+
+        [data-description] {
+            @apply col-span-full row-start-2 text-[13px]! leading-[1.45]! font-normal! text-[#8f8f8f]!;
+        }
+
+        [data-button] {
+            @apply col-start-3 row-start-1 m-0! h-auto! cursor-pointer! rounded-none! border-0! bg-transparent! p-0! text-[13px]! leading-[18px]! font-normal! whitespace-nowrap! text-primary! shadow-none!;
+        }
+
+        [data-button]:hover {
+            @apply opacity-80;
+        }
+    }
+
+    [data-sonner-toast][data-styled='true'][data-type='info'] {
+        @apply items-start! gap-y-1!;
+    }
+
+    [data-sonner-toast][data-styled='true'][data-type='error'],
+    [data-sonner-toast][data-styled='true'][data-type='warning'] {
+        @apply items-start!;
+
+        [data-icon] {
+            display: contents !important;
+
+            img {
+                @apply col-start-1 row-start-1;
             }
         }
 
-        &[data-type='success'] {
-            @apply text-primary-300! outline-primary-200/15!;
-
-            [data-icon] {
-                @apply bg-primary-400/30!;
-            }
+        [data-toast-label] {
+            @apply col-start-2 row-start-1 text-[13px]! leading-[18px]! font-normal! whitespace-nowrap!;
         }
-        &[data-type='warning'] {
-            @apply text-secondary-300! outline-secondary-300/10!;
 
-            [data-icon] {
-                @apply bg-secondary-400/30!;
-            }
+        [data-title],
+        [data-button] {
+            @apply row-start-2 mt-2.5!;
         }
-        &[data-type='error'] {
-            @apply text-red-500! outline-red-500/10!;
 
-            [data-icon] {
-                @apply bg-red-500/30!;
-            }
+        [data-title] {
+            grid-column: 1 / 3;
+            @apply text-sm! leading-5! font-medium! text-white!;
         }
+
+        [data-description] {
+            @apply row-start-3 mt-1.5!;
+        }
+    }
+
+    [data-sonner-toast][data-styled='true'][data-type='error'] [data-toast-label] {
+        @apply text-[#b64b4b]!;
+    }
+
+    [data-sonner-toast][data-styled='true'][data-type='warning'] [data-toast-label] {
+        @apply text-secondary-300!;
+    }
+
+    [data-sonner-toast][data-expanded='false'][data-front='false'][data-styled='true'] [data-title],
+    [data-sonner-toast][data-expanded='false'][data-front='false'][data-styled='true'] [data-description],
+    [data-sonner-toast][data-expanded='false'][data-front='false'][data-styled='true'] [data-toast-label],
+    [data-sonner-toast][data-expanded='false'][data-front='false'][data-styled='true'] [data-icon] img,
+    [data-sonner-toast][data-expanded='false'][data-front='false'][data-styled='true'] [data-button] {
+        opacity: 0;
     }
 }
 </style>
