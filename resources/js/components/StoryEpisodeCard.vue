@@ -50,7 +50,7 @@ const statusLabel = computed(() => {
 </script>
 
 <template>
-    <article class="rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-1.5">
+    <article class="rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-2.5">
         <div class="flex items-center gap-2">
             <div class="relative h-[116px] w-[79px] shrink-0 overflow-hidden rounded-md bg-gray-800">
                 <img :src="coverImage" alt="" class="size-full object-cover" />

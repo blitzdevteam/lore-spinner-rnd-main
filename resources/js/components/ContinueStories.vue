@@ -103,7 +103,7 @@ const creatorName = computed(() => {
                 <SectionHeader title="Continue Your Adventure" subtitle="Pick up where you left off." />
 
                 <article
-                    class="flex flex-col rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] px-2.5 pt-2.5 pb-3.5"
+                    class="flex flex-col rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-2.5"
                 >
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                         <div

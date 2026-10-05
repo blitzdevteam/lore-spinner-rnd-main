@@ -43,7 +43,7 @@ function joinRoom(): void {
 </script>
 
 <template>
-    <article class="group relative rounded-lg border border-[#373737] bg-[#0f0f0f] p-1 transition-colors hover:border-[#59c1ca]/70">
+    <article class="group relative rounded-lg border border-[#373737] bg-[#0f0f0f] p-2.5 transition-colors hover:border-[#59c1ca]/70">
         <div class="relative overflow-hidden rounded-[5px] bg-[#191919]">
             <img :src="cover" :alt="room.story.title" class="h-[15rem] w-full object-cover sm:h-[17.625rem]" />
             <div class="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-transparent" />

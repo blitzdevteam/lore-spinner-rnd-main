@@ -402,3 +402,25 @@ it('adds pricing to the home navigation and keeps subscription usage in the prof
         ->not->toContain('Remaining subscription allowances')
         ->not->toContain('w-[9.5rem]');
 });
+
+it('uses 10px padding on story cards', function (): void {
+    $tokens = file_get_contents(resource_path('css/story-cards.css'));
+    $portrait = file_get_contents(resource_path('js/components/HomePortraitStoryCard.vue'));
+    $storyCard = file_get_contents(resource_path('js/components/StoryCard.vue'));
+    $worldStory = file_get_contents(resource_path('js/components/WorldAvailableStoryCard.vue'));
+    $moodPicks = file_get_contents(resource_path('js/components/MoodTopPicks.vue'));
+    $continue = file_get_contents(resource_path('js/components/ContinueStories.vue'));
+
+    expect($tokens)
+        ->toContain('--story-card-body-pad-x: 10px;')
+        ->toContain('--story-card-body-pad-y: 10px;');
+
+    expect($portrait)
+        ->toContain('hp-card__cover-wrap p-2.5')
+        ->toContain('padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x);');
+
+    expect($storyCard)->toContain('story-card__cover-wrap p-2.5');
+    expect($worldStory)->toContain('p-2.5');
+    expect($moodPicks)->toContain('p-2.5');
+    expect($continue)->toContain('p-2.5');
+});

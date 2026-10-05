@@ -50,7 +50,7 @@ const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
         @click="!isDesktopHover && !storyUrl && emit('preview')"
     >
         <div class="hp-card__frame">
-            <div class="hp-card__cover-wrap p-1">
+            <div class="hp-card__cover-wrap p-2.5">
                 <StoryCardCover :src="cover" :title="title" />
 
                 <div class="hp-card__image-reveal" :class="expandOnHover && focused && 'hp-card__image-reveal--open'" aria-hidden="true">
@@ -138,7 +138,7 @@ const ctaLabel = computed(() => (props.playable ? 'Play' : 'Coming Soon'));
     flex: 1;
     flex-direction: column;
     gap: var(--story-card-body-gap);
-    padding: 6px;
+    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x);
     min-height: 0;
 }
 

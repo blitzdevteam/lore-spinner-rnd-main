@@ -126,7 +126,7 @@ function openSheet(story: StoryInterface): void {
                                         :is="isPlayable(story) && story.slug ? Link : 'button'"
                                         :href="isPlayable(story) && story.slug ? storyShow(story.slug).url : undefined"
                                         type="button"
-                                        class="new-story-card flex h-[13.625rem] w-[min(18.75rem,78vw)] shrink-0 flex-col items-center justify-center gap-[0.375rem] rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] px-1 pt-1 pb-2 text-left outline-none transition-colors hover:border-primary/50 md:w-[18.75rem]"
+                                        class="new-story-card flex h-[13.625rem] w-[min(18.75rem,78vw)] shrink-0 flex-col items-center justify-center gap-[0.375rem] rounded-lg border-[0.5px] border-[#373737] bg-[#0f0f0f] p-2.5 text-left outline-none transition-colors hover:border-primary/50 md:w-[18.75rem]"
                                         @click="!isPlayable(story) && openSheet(story)"
                                     >
                                         <span class="relative min-h-0 w-full flex-1 overflow-hidden rounded-[0.46875rem]">
@@ -136,7 +136,7 @@ function openSheet(story: StoryInterface): void {
                                                 class="absolute inset-0 size-full object-cover"
                                             />
                                         </span>
-                                        <span class="flex w-full items-end justify-between gap-2 px-1">
+                                        <span class="flex w-full items-end justify-between gap-2">
                                             <span class="flex min-w-0 flex-1 flex-col gap-[0.1875rem]">
                                                 <span class="truncate text-[0.8125rem] font-semibold text-white">{{ story.title }}</span>
                                                 <span class="flex items-center gap-3 text-[0.75rem] text-[#7e7e7e]">

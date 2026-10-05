@@ -179,7 +179,7 @@ function onImageError(): void {
     flex: 1;
     flex-direction: column;
     gap: var(--story-card-body-gap);
-    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x) calc(var(--story-card-body-pad-y) + 0.125rem);
+    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x);
     min-height: 0;
 }
 

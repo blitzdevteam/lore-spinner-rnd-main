@@ -108,7 +108,7 @@ function onInfoActivate(): void {
                 :aria-label="!isDesktopHover ? (isInteractive ? `Open ${title}` : `Preview ${title}`) : undefined"
                 @click="onCoverActivate"
             >
-                <div class="story-card__cover-wrap p-1">
+                <div class="story-card__cover-wrap p-2.5">
                     <StoryCardCover :src="coverImage" :title="title" :zoom-on-hover="false" />
 
                     <div v-if="hasReveal && isDesktopHover" class="story-card__cover-hover" aria-hidden="true">
@@ -221,7 +221,7 @@ function onInfoActivate(): void {
     display: flex;
     flex-direction: column;
     gap: var(--story-card-body-gap);
-    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x) calc(var(--story-card-body-pad-y) + 0.125rem);
+    padding: var(--story-card-body-pad-y) var(--story-card-body-pad-x);
 }
 
 .story-card__info {

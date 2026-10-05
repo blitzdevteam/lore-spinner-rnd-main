@@ -59,7 +59,7 @@ const timeAgo = computed(() => {
             'cursor-pointer': selectable,
             'border-primary-500 outline-primary-200/20': active,
         }"
-        class="flex gap-3 rounded-xl border border-gray-700 bg-gray-800 p-3 outline-4 outline-transparent transition hover:border-primary-500"
+        class="flex gap-3 rounded-xl border border-gray-700 bg-gray-800 p-2.5 outline-4 outline-transparent transition hover:border-primary-500"
         :href="!selectable && isRow ? show(story.slug).url : undefined"
         @click="selectable ? $emit('select', story) : undefined"
     >
