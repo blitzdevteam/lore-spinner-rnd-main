@@ -7,6 +7,7 @@ namespace App\Filament\Manager\Resources\Users\Tables;
 use App\Actions\Investor\UpdateInvestorAccessAction;
 use App\Enums\UserType;
 use App\Models\User;
+use App\Services\PurchasedPlanName;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -15,13 +16,18 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Laravel\Cashier\Subscription;
 
 final class UsersTable
 {
     public static function configure(Table $table): Table
     {
+        $planNames = app(PurchasedPlanName::class);
+
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->withCount(['games', 'bookmarkedStories', 'comments']))
+            ->modifyQueryUsing(fn ($query) => $query
+                ->with('subscriptions')
+                ->withCount(['games', 'bookmarkedStories', 'comments']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('type')
@@ -58,6 +64,7 @@ final class UsersTable
                 TextColumn::make('plan.name')
                     ->label('Plan')
                     ->placeholder('—')
+                    ->state(fn (User $record): ?string => self::planLabel($record, $planNames))
                     ->toggleable(),
                 IconColumn::make('is_active')
                     ->sortable()
@@ -112,5 +119,33 @@ final class UsersTable
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private static function planLabel(User $record, PurchasedPlanName $planNames): ?string
+    {
+        $subscription = self::displayedSubscription($record);
+
+        if ($subscription !== null && filled($subscription->stripe_price)) {
+            return $planNames->label($subscription->stripe_price);
+        }
+
+        $assignedPlan = $record->plan?->name;
+
+        return filled($assignedPlan) ? $assignedPlan : null;
+    }
+
+    private static function displayedSubscription(User $record): ?Subscription
+    {
+        $paidSubscription = $record->subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->type === 'default' && $subscription->valid(),
+        );
+
+        if ($paidSubscription !== null) {
+            return $paidSubscription;
+        }
+
+        return $record->subscriptions->first(
+            static fn (Subscription $subscription): bool => $subscription->valid(),
+        );
     }
 }

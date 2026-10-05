@@ -16,6 +16,7 @@ use App\Services\SubscriptionEntitlementService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Cashier\Subscription;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -229,6 +230,45 @@ it('deletes the investor account when a manager removes an investor', function (
         ->assertRedirect();
 
     expect(User::query()->find($userId))->toBeNull();
+});
+
+it('shows a player purchased plan on the users table', function (): void {
+    config(['cashier.secret' => null]);
+
+    $manager = Manager::factory()->create();
+    SubscriptionPlan::factory()->create([
+        'name' => 'Story',
+        'slug' => 'story',
+        'stripe_price_id' => 'price_story',
+    ]);
+    $player = User::factory()->create([
+        'first_name' => 'Sean',
+        'last_name' => 'LeMons',
+        'email' => 'sean@lemons.com',
+        'subscription_plan_id' => null,
+    ]);
+    $withoutPlan = User::factory()->create([
+        'email' => 'sean@lemons.org',
+        'subscription_plan_id' => null,
+    ]);
+
+    Subscription::factory()
+        ->for($player)
+        ->withPrice('price_story')
+        ->create();
+
+    Subscription::factory()
+        ->for($withoutPlan)
+        ->withPrice('price_story')
+        ->canceled()
+        ->create();
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(ListUsers::class)
+        ->assertCanSeeTableRecords([$player, $withoutPlan])
+        ->assertTableColumnStateSet('plan.name', 'Story', $player)
+        ->assertTableColumnStateSet('plan.name', null, $withoutPlan);
 });
 
 it('lists investors alongside players in the users table', function (): void {
