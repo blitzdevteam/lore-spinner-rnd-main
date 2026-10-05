@@ -208,8 +208,11 @@ final class AnalyticsDashboard extends Page
      *     actions_spent: int|null,
      *     actions_remaining: int|null,
      *     actions_limit: int|null,
+     *     actions_remaining_percent: int|null,
      *     voice_spent: string|null,
-     *     voice_remaining: string|null
+     *     voice_remaining: string|null,
+     *     voice_limit: string|null,
+     *     voice_remaining_percent: int|null
      * }|null
      */
     public function getSelectedPlayerAllowance(): ?array
@@ -238,10 +241,15 @@ final class AnalyticsDashboard extends Page
                 'actions_spent' => null,
                 'actions_remaining' => null,
                 'actions_limit' => null,
+                'actions_remaining_percent' => null,
                 'voice_spent' => null,
                 'voice_remaining' => null,
+                'voice_limit' => null,
+                'voice_remaining_percent' => null,
             ];
         }
+
+        $voiceLimitMilliseconds = $summary['voice']['used_milliseconds'] + $summary['voice']['remaining_milliseconds'];
 
         return [
             'player' => $this->formatUserOption($user),
@@ -250,8 +258,17 @@ final class AnalyticsDashboard extends Page
             'actions_spent' => $summary['actions']['used'],
             'actions_remaining' => $summary['actions']['remaining'],
             'actions_limit' => $summary['actions']['limit'],
+            'actions_remaining_percent' => $this->allowancePercent(
+                $summary['actions']['remaining'],
+                $summary['actions']['limit'],
+            ),
             'voice_spent' => $this->formatVoiceDuration($summary['voice']['used_milliseconds']),
             'voice_remaining' => $this->formatVoiceDuration($summary['voice']['remaining_milliseconds']),
+            'voice_limit' => $this->formatVoiceDuration($voiceLimitMilliseconds),
+            'voice_remaining_percent' => $this->allowancePercent(
+                $summary['voice']['remaining_milliseconds'],
+                $voiceLimitMilliseconds,
+            ),
         ];
     }
 
@@ -644,6 +661,15 @@ final class AnalyticsDashboard extends Page
     private function searchLike(string $search): string
     {
         return '%'.addcslashes($search, '%_\\').'%';
+    }
+
+    private function allowancePercent(int $remaining, int $limit): int
+    {
+        if ($limit <= 0) {
+            return 0;
+        }
+
+        return (int) min(100, max(0, round($remaining / $limit * 100)));
     }
 
     private function formatVoiceDuration(int $milliseconds): string

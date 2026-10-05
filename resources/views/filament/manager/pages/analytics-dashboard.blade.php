@@ -128,30 +128,70 @@
                 <p class="mb-0.5 text-[15px] font-semibold text-gray-950 dark:text-white">Player subscription</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ $playerAllowance['player'] }}</p>
             </div>
-            @if ($playerAllowance['is_free'])
-                <span class="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Free plan</span>
-            @endif
-        </div>
-        <div class="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-3">
-            <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Plan</p>
-                <p id="analytics-player-plan" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ $playerAllowance['plan'] }}</p>
+            <div class="flex flex-wrap items-center gap-2">
+                <span id="analytics-player-plan" class="rounded-full bg-white px-2.5 py-1 text-[13px] font-semibold text-gray-950 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-white dark:ring-gray-700">{{ $playerAllowance['plan'] }}</span>
+                @if ($playerAllowance['is_free'])
+                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Free plan</span>
+                @endif
             </div>
+        </div>
+        <div class="px-6 py-5">
             @if ($playerAllowance['actions_spent'] === null)
-                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40 md:col-span-2">
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</p>
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">No action allowance recorded for this player.</p>
-                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-300">No action allowance recorded for this player.</p>
             @else
-                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions spent</p>
-                    <p id="analytics-actions-spent" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ number_format($playerAllowance['actions_spent']) }}</p>
-                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">of {{ number_format($playerAllowance['actions_limit']) }} on this plan</p>
-                </div>
-                <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
-                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions remaining</p>
-                    <p id="analytics-actions-remaining" class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ number_format($playerAllowance['actions_remaining']) }}</p>
-                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Voice spent {{ $playerAllowance['voice_spent'] }} · {{ $playerAllowance['voice_remaining'] }} left</p>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm font-semibold text-primary-600 dark:text-primary-400">Actions</p>
+                            <p id="analytics-actions-spent" class="text-sm font-semibold tabular-nums text-gray-950 dark:text-white">
+                                {{ number_format($playerAllowance['actions_spent']) }} / {{ number_format($playerAllowance['actions_limit']) }}
+                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">used</span>
+                            </p>
+                        </div>
+                        <div
+                            id="analytics-actions-progress"
+                            class="mt-3.5 h-1.5 overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600"
+                            role="progressbar"
+                            aria-label="Actions remaining"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="{{ $playerAllowance['actions_remaining_percent'] }}"
+                            aria-valuetext="{{ number_format($playerAllowance['actions_remaining']) }} of {{ number_format($playerAllowance['actions_limit']) }} actions remaining"
+                        >
+                            <span class="block h-full rounded-full bg-primary-500" style="width: {{ $playerAllowance['actions_remaining_percent'] }}%;"></span>
+                        </div>
+                        <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                            <span id="analytics-actions-remaining" class="font-semibold text-gray-950 dark:text-white">{{ number_format($playerAllowance['actions_remaining']) }}</span>
+                            remaining
+                            <span class="text-gray-400 dark:text-gray-500">· {{ $playerAllowance['actions_remaining_percent'] }}% left</span>
+                        </p>
+                    </div>
+                    <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm font-semibold text-amber-600 dark:text-amber-300">Voice</p>
+                            <p id="analytics-voice-spent" class="text-sm font-semibold tabular-nums text-gray-950 dark:text-white">
+                                {{ $playerAllowance['voice_spent'] }} / {{ $playerAllowance['voice_limit'] }}
+                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">used</span>
+                            </p>
+                        </div>
+                        <div
+                            id="analytics-voice-progress"
+                            class="mt-3.5 h-1.5 overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600"
+                            role="progressbar"
+                            aria-label="Voice remaining"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="{{ $playerAllowance['voice_remaining_percent'] }}"
+                            aria-valuetext="{{ $playerAllowance['voice_remaining'] }} of {{ $playerAllowance['voice_limit'] }} voice remaining"
+                        >
+                            <span class="block h-full rounded-full bg-amber-400" style="width: {{ $playerAllowance['voice_remaining_percent'] }}%;"></span>
+                        </div>
+                        <p class="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                            <span class="font-semibold text-gray-950 dark:text-white">{{ $playerAllowance['voice_remaining'] }}</span>
+                            remaining
+                            <span class="text-gray-400 dark:text-gray-500">· {{ $playerAllowance['voice_remaining_percent'] }}% left</span>
+                        </p>
+                    </div>
                 </div>
             @endif
         </div>

@@ -188,8 +188,11 @@ it('opens on a player and shows that player plan and remaining actions', functio
         ->and($allowance['actions_spent'])->toBe(7)
         ->and($allowance['actions_remaining'])->toBe(13)
         ->and($allowance['actions_limit'])->toBe(20)
+        ->and($allowance['actions_remaining_percent'])->toBe(65)
         ->and($allowance['voice_spent'])->toBe('3 min')
-        ->and($allowance['voice_remaining'])->toBe('7 min');
+        ->and($allowance['voice_remaining'])->toBe('7 min')
+        ->and($allowance['voice_limit'])->toBe('10 min')
+        ->and($allowance['voice_remaining_percent'])->toBe(70);
 
     $this->page->filters['user_id'] = $withoutPlan->id;
 
@@ -216,9 +219,15 @@ it('opens on a player and shows that player plan and remaining actions', functio
             ->assertSee('Free Pass')
             ->assertSee('Free plan')
             ->assertSeeHtml('id="analytics-actions-spent"')
-            ->assertSee('7')
+            ->assertSee('7 / 20')
+            ->assertSeeHtml('id="analytics-actions-progress"')
+            ->assertSeeHtml('role="progressbar"')
+            ->assertSeeHtml('aria-valuenow="65"')
             ->assertSeeHtml('id="analytics-actions-remaining"')
-            ->assertSee('13');
+            ->assertSee('13')
+            ->assertSee('remaining')
+            ->assertSee('3 min / 10 min')
+            ->assertSeeHtml('aria-valuenow="70"');
     } finally {
         $manager->delete();
     }
