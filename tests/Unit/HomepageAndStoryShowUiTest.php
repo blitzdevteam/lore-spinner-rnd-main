@@ -58,10 +58,10 @@ it('features the curated homepage story order', function (): void {
 
     $covers = file_get_contents(resource_path('js/data/storyCoverBySlug.ts'));
 
-    expect($covers)->toContain("import sherlockCover from '@/assets/featured/sherlock-speckled-band.jpg'")
-        ->toContain("import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.webp'")
+    expect($covers)->toContain("import sherlockCover from '@/assets/featured/sherlock-speckled-band.webp'")
+        ->toContain("import holyGrailCover from '@/assets/featured/the-quest-of-the-holy-grail.card.webp'")
         ->toContain("'the-quest-of-the-holy-grail': holyGrailCover")
-        ->toContain("import senseAndSensibilityCover from '@/assets/featured/sense-and-sensibility.webp'")
+        ->toContain("import senseAndSensibilityCover from '@/assets/featured/sense-and-sensibility.card.webp'")
         ->toContain("'sense-and-sensibility': senseAndSensibilityCover");
 
     $worldStoryCovers = file_get_contents(resource_path('js/data/storyTopMoodCoverBySlug.ts'));

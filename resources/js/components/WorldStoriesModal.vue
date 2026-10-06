@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import WorldAvailableStoryCard from '@/components/WorldAvailableStoryCard.vue';
+import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
+import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { isStoryPlayable } from '@/data/playableStorySlugs';
+import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
+import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { WorldInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
 import { usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
-import { computed, onUnmounted, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps<{
     world: WorldInterface | null;
@@ -16,6 +19,8 @@ const emit = defineEmits<{
 }>();
 
 const page = usePage();
+const isDesktopHover = useDesktopStoryPreview();
+const hoveredStoryId = ref<number | null>(null);
 const stories = computed(() => props.world?.stories ?? []);
 const storyCountLabel = computed(() => {
     const count = props.world?.stories_count ?? stories.value.length;
@@ -173,12 +178,21 @@ onUnmounted(() => {
                                             role="list"
                                             aria-label="Available stories"
                                         >
-                                            <WorldAvailableStoryCard
+                                            <HomePortraitStoryCard
                                                 v-for="story in stories"
                                                 :key="story.id"
                                                 class="world-modal__story-slide"
-                                                :story="story"
+                                                :title="story.title"
+                                                :cover="resolveStoryCover(story.slug, story.cover)"
+                                                :themes="getStoryDescriptorThemes(story.slug)"
+                                                :teaser="story.teaser"
                                                 :playable="isPlayable(story.slug)"
+                                                :slug="story.slug"
+                                                :focused="isDesktopHover && hoveredStoryId === story.id"
+                                                :is-desktop-hover="true"
+                                                :expand-on-hover="isDesktopHover"
+                                                @mouseenter="hoveredStoryId = story.id"
+                                                @mouseleave="hoveredStoryId = null"
                                             />
                                         </div>
                                         <p v-else class="text-sm text-[#8f8f8f]">This world has no published stories yet.</p>
@@ -202,7 +216,7 @@ onUnmounted(() => {
 }
 
 .world-modal__hero {
-    min-height: 48%;
+    min-height: 15.5rem;
 }
 
 .world-modal__hero p,
@@ -223,21 +237,21 @@ onUnmounted(() => {
 
 .world-modal__sheet {
     position: relative;
-    margin-top: -5.5rem;
+    margin-top: -4rem;
 }
 
 .world-modal__veil {
     pointer-events: none;
     position: absolute;
     inset: 0;
-    top: -20rem;
+    top: -12rem;
     background: linear-gradient(
         to bottom,
         rgb(0 0 0 / 0) 0,
-        rgb(0 0 0 / 0) 29.5rem,
-        rgb(0 0 0 / 0.14) 31rem,
-        rgb(0 0 0 / 0.55) 32.5rem,
-        rgb(0 0 0 / 0.9) 34rem,
+        rgb(0 0 0 / 0) 10rem,
+        rgb(0 0 0 / 0.14) 11.25rem,
+        rgb(0 0 0 / 0.55) 12.75rem,
+        rgb(0 0 0 / 0.9) 14.25rem,
         rgb(0 0 0 / 0.97) 100%
     );
 }
@@ -248,11 +262,13 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    padding: 11.5rem 1.25rem 2.5rem;
+    padding: 5.5rem 1.25rem 1.75rem;
 }
 
 .world-modal__stories-slider {
+    --story-portrait-card-width: min(11.25rem, 42vw);
     display: flex;
+    align-items: stretch;
     flex-wrap: nowrap;
     gap: 0.625rem;
     overflow-x: auto;
@@ -270,6 +286,7 @@ onUnmounted(() => {
 }
 
 .world-modal__story-slide {
+    flex: 0 0 var(--story-portrait-card-width, 11.25rem);
     scroll-snap-align: start;
 }
 
@@ -279,31 +296,32 @@ onUnmounted(() => {
     }
 
     .world-modal__hero {
-        min-height: 52%;
+        min-height: 18rem;
     }
 
     .world-modal__sheet {
-        margin-top: -6.5rem;
+        margin-top: -5rem;
     }
 
     .world-modal__veil {
-        top: -22rem;
+        top: -14rem;
         background: linear-gradient(
             to bottom,
             rgb(0 0 0 / 0) 0,
-            rgb(0 0 0 / 0) 33.25rem,
-            rgb(0 0 0 / 0.14) 34.75rem,
-            rgb(0 0 0 / 0.55) 36.5rem,
-            rgb(0 0 0 / 0.9) 38.25rem,
+            rgb(0 0 0 / 0) 12rem,
+            rgb(0 0 0 / 0.14) 13.5rem,
+            rgb(0 0 0 / 0.55) 15rem,
+            rgb(0 0 0 / 0.9) 16.5rem,
             rgb(0 0 0 / 0.97) 100%
         );
     }
 
     .world-modal__sheet-body {
-        padding: 13.5rem 1.75rem 2.75rem;
+        padding: 6.5rem 1.75rem 2rem;
     }
 
     .world-modal__stories-slider {
+        --story-portrait-card-width: 11.25rem;
         margin-inline: -1.75rem;
         padding-inline: 1.75rem;
     }

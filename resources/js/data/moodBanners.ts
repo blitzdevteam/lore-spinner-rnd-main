@@ -1,9 +1,9 @@
-import defaultLibraryBanner from '@/assets/banner-stories.jpg';
-import adventurousBanner from '@/assets/mood/AdventurousBanner.png';
-import epicBanner from '@/assets/mood/EpicBanner.png';
-import heartfeltBanner from '@/assets/mood/HeartfeltBanner.png';
-import mysteriousBanner from '@/assets/mood/MysteriousBanner.JPG';
-import whimsicalBanner from '@/assets/mood/WhimsicalBanner.png';
+import defaultLibraryBanner from '@/assets/banner-stories.webp';
+import adventurousBanner from '@/assets/mood/AdventurousBanner.webp';
+import epicBanner from '@/assets/mood/EpicBanner.webp';
+import heartfeltBanner from '@/assets/mood/HeartfeltBanner.webp';
+import mysteriousBanner from '@/assets/mood/MysteriousBanner.webp';
+import whimsicalBanner from '@/assets/mood/WhimsicalBanner.webp';
 
 import { MOOD_IDS, type MoodId } from '@/data/moodStories';
 

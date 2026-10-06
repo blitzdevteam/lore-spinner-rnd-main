@@ -40,6 +40,7 @@ function onImageError(): void {
             class="story-card-cover__img"
             :class="zoomOnHover && 'story-card-cover__img--zoom'"
             decoding="async"
+            loading="lazy"
             @error="onImageError"
         />
         <div v-else class="story-card-cover__fallback" aria-hidden="true">

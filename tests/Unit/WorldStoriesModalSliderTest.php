@@ -7,9 +7,14 @@ it('shows available stories in a horizontal snap slider inside the world modal',
 
     expect($modal)
         ->toContain('world-modal__stories-slider')
+        ->toContain('HomePortraitStoryCard')
+        ->toContain('resolveStoryCover')
+        ->toContain('--story-portrait-card-width')
         ->toContain('scroll-snap-type: x mandatory')
         ->toContain('scroll-snap-align: start')
         ->toContain('overflow-x: auto')
         ->toContain('flex-wrap: nowrap')
+        ->not->toContain('WorldAvailableStoryCard')
+        ->not->toContain('resolveStoryTopMoodCover')
         ->not->toContain('flex flex-wrap gap-2.5');
 });
