@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
-import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
+import WorldAvailableStoryCard from '@/components/WorldAvailableStoryCard.vue';
 import { isStoryPlayable } from '@/data/playableStorySlugs';
-import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
-import { resolveStoryCover } from '@/data/storyCoverBySlug';
 import type { WorldInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
 import { usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onUnmounted, watch } from 'vue';
 
 const props = defineProps<{
     world: WorldInterface | null;
@@ -19,8 +16,6 @@ const emit = defineEmits<{
 }>();
 
 const page = usePage();
-const isDesktopHover = useDesktopStoryPreview();
-const hoveredStoryId = ref<number | null>(null);
 const stories = computed(() => props.world?.stories ?? []);
 const storyCountLabel = computed(() => {
     const count = props.world?.stories_count ?? stories.value.length;
@@ -165,12 +160,12 @@ onUnmounted(() => {
                                 <div class="world-modal__veil" aria-hidden="true" />
 
                                 <div class="world-modal__sheet-body">
-                                    <p v-if="world.description" class="world-modal__copy max-w-2xl text-sm leading-relaxed text-[#d2d2d2]">
+                                    <p v-if="world.description" class="max-w-2xl text-sm leading-relaxed text-[#b8b8b8]">
                                         {{ world.description }}
                                     </p>
 
                                     <div class="flex min-w-0 flex-col gap-3">
-                                        <h3 class="world-modal__copy text-sm font-medium tracking-wide text-white">Available stories</h3>
+                                        <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
 
                                         <div
                                             v-if="stories.length"
@@ -178,21 +173,12 @@ onUnmounted(() => {
                                             role="list"
                                             aria-label="Available stories"
                                         >
-                                            <HomePortraitStoryCard
+                                            <WorldAvailableStoryCard
                                                 v-for="story in stories"
                                                 :key="story.id"
                                                 class="world-modal__story-slide"
-                                                :title="story.title"
-                                                :cover="resolveStoryCover(story.slug, story.cover)"
-                                                :themes="getStoryDescriptorThemes(story.slug)"
-                                                :teaser="story.teaser"
+                                                :story="story"
                                                 :playable="isPlayable(story.slug)"
-                                                :slug="story.slug"
-                                                :focused="isDesktopHover && hoveredStoryId === story.id"
-                                                :is-desktop-hover="true"
-                                                :expand-on-hover="isDesktopHover"
-                                                @mouseenter="hoveredStoryId = story.id"
-                                                @mouseleave="hoveredStoryId = null"
                                             />
                                         </div>
                                         <p v-else class="text-sm text-[#8f8f8f]">This world has no published stories yet.</p>
@@ -216,7 +202,7 @@ onUnmounted(() => {
 }
 
 .world-modal__hero {
-    min-height: 15.5rem;
+    min-height: 48%;
 }
 
 .world-modal__hero p,
@@ -237,21 +223,22 @@ onUnmounted(() => {
 
 .world-modal__sheet {
     position: relative;
-    margin-top: -4rem;
+    margin-top: -5.5rem;
 }
 
 .world-modal__veil {
     pointer-events: none;
     position: absolute;
     inset: 0;
-    top: -12rem;
+    top: -20rem;
     background: linear-gradient(
         to bottom,
         rgb(0 0 0 / 0) 0,
-        rgb(0 0 0 / 0) 9rem,
-        rgb(0 0 0 / 0.12) 12rem,
-        rgb(0 0 0 / 0.28) 15rem,
-        rgb(0 0 0 / 0.4) 100%
+        rgb(0 0 0 / 0) 29.5rem,
+        rgb(0 0 0 / 0.14) 31rem,
+        rgb(0 0 0 / 0.55) 32.5rem,
+        rgb(0 0 0 / 0.9) 34rem,
+        rgb(0 0 0 / 0.97) 100%
     );
 }
 
@@ -261,17 +248,11 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    padding: 5.5rem 1.25rem 1.75rem;
-}
-
-.world-modal__copy {
-    text-shadow: 0 1px 12px rgb(0 0 0 / 0.85);
+    padding: 11.5rem 1.25rem 2.5rem;
 }
 
 .world-modal__stories-slider {
-    --story-portrait-card-width: min(11.25rem, 42vw);
     display: flex;
-    align-items: stretch;
     flex-wrap: nowrap;
     gap: 0.625rem;
     overflow-x: auto;
@@ -289,7 +270,6 @@ onUnmounted(() => {
 }
 
 .world-modal__story-slide {
-    flex: 0 0 var(--story-portrait-card-width, 11.25rem);
     scroll-snap-align: start;
 }
 
@@ -299,31 +279,31 @@ onUnmounted(() => {
     }
 
     .world-modal__hero {
-        min-height: 18rem;
+        min-height: 52%;
     }
 
     .world-modal__sheet {
-        margin-top: -5rem;
+        margin-top: -6.5rem;
     }
 
     .world-modal__veil {
-        top: -14rem;
+        top: -22rem;
         background: linear-gradient(
             to bottom,
             rgb(0 0 0 / 0) 0,
-            rgb(0 0 0 / 0) 11rem,
-            rgb(0 0 0 / 0.12) 14rem,
-            rgb(0 0 0 / 0.28) 17rem,
-            rgb(0 0 0 / 0.4) 100%
+            rgb(0 0 0 / 0) 33.25rem,
+            rgb(0 0 0 / 0.14) 34.75rem,
+            rgb(0 0 0 / 0.55) 36.5rem,
+            rgb(0 0 0 / 0.9) 38.25rem,
+            rgb(0 0 0 / 0.97) 100%
         );
     }
 
     .world-modal__sheet-body {
-        padding: 6.5rem 1.75rem 2rem;
+        padding: 13.5rem 1.75rem 2.75rem;
     }
 
     .world-modal__stories-slider {
-        --story-portrait-card-width: 11.25rem;
         margin-inline: -1.75rem;
         padding-inline: 1.75rem;
     }
