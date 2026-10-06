@@ -13,21 +13,15 @@ use App\Jobs\Adaptation\EntryPointDiagnosisJob;
 use App\Jobs\Adaptation\RuntimeNarratorAssemblyJob;
 use App\Jobs\Adaptation\SessionArchitectureJob;
 use App\Jobs\Adaptation\SessionCloseJob;
-use App\Jobs\Adaptation\StoryRepairJob;
 use App\Models\Story;
 use Illuminate\Support\Facades\Bus;
 
 final class SessionAdaptationChain
 {
     /**
-     * The story repair pass checks a session against its neighbours, so inside
-     * a session's own chain it only runs when the neighbours are already final:
-     * a single-session rerun. A multi-session batch runs it once the whole
-     * batch has finished instead (see dispatchBatch).
-     *
      * @return array<int, object>
      */
-    public static function jobsForSession(Story $story, int $sessionNumber, bool $withStoryRepair = true): array
+    public static function jobsForSession(Story $story, int $sessionNumber): array
     {
         $boilerEnabled = (bool) $story->adaptation()->value('boiler_enabled');
 
@@ -49,10 +43,6 @@ final class SessionAdaptationChain
 
         if ($boilerEnabled) {
             $jobs[] = new BoilerFinalizeJob($story, $sessionNumber);
-
-            if ($withStoryRepair) {
-                $jobs[] = new StoryRepairJob($story, $sessionNumber);
-            }
         }
 
         array_push(
@@ -78,10 +68,8 @@ final class SessionAdaptationChain
         $storyId = $story->id;
         $sessionChains = [];
 
-        $withStoryRepair = count($sessionNumbers) === 1;
-
         foreach ($sessionNumbers as $sessionNumber) {
-            $sessionChains[] = self::jobsForSession($story, $sessionNumber, $withStoryRepair);
+            $sessionChains[] = self::jobsForSession($story, $sessionNumber);
         }
 
         // Sessions are independent chains. Without allowFailures() the first failing
@@ -92,50 +80,10 @@ final class SessionAdaptationChain
             ->allowFailures()
             ->onQueue('adaptation');
 
-        $boilerEnabled = (bool) $story->adaptation()->value('boiler_enabled');
-
-        if (! $withStoryRepair && $boilerEnabled) {
-            $batch->finally(static function () use ($storyId, $sessionNumbers, $finally): void {
-                self::dispatchStoryRepairPass($storyId, $sessionNumbers, $finally);
-            });
-        } elseif ($finally !== null) {
+        if ($finally !== null) {
             $batch->finally($finally);
         }
 
         $batch->dispatch();
-    }
-
-    /**
-     * Repair every session in story order once all of them are final, rebuild
-     * the runtime prompt of any session the pass changed, then hand over to
-     * the caller's completion step.
-     *
-     * @param  array<int, int>  $sessionNumbers
-     */
-    public static function dispatchStoryRepairPass(int $storyId, array $sessionNumbers, ?callable $finally = null): void
-    {
-        $story = Story::findOrFail($storyId);
-        sort($sessionNumbers);
-
-        $jobs = array_map(
-            static fn (int $sessionNumber): StoryRepairJob => new StoryRepairJob($story, $sessionNumber, rebuildRuntimePrompt: true),
-            $sessionNumbers,
-        );
-
-        if ($finally !== null) {
-            $jobs[] = static function () use ($finally): void {
-                $finally();
-            };
-        }
-
-        $chain = Bus::chain($jobs)->onQueue('adaptation');
-
-        if ($finally !== null) {
-            $chain->catch(static function () use ($finally): void {
-                $finally();
-            });
-        }
-
-        $chain->dispatch();
     }
 }
