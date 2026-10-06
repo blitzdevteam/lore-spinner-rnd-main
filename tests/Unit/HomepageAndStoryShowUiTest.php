@@ -84,6 +84,7 @@ it('features the curated homepage story order', function (): void {
         'the-wonderful-wizard-of-oz',
         'the-tell-tale-heart',
         'pride-and-prejudice',
+        'sir-gawain-and-the-green-knight',
     ];
     $newStories = [
         'peter-pan',

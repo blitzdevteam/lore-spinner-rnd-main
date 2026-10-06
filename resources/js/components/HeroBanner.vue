@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import greenKnightImage from '@/assets/carosel/greenknight.png';
 import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
 import ozImage from '@/assets/carosel/Ultrawide Oz.png';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.jpg';
@@ -98,6 +99,20 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         fallbackTeaser:
             'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
         fallbackAuthor: 'Jane Austen',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'sir-gawain-and-the-green-knight',
+        image: greenKnightImage,
+        imagePosition: 'object-center',
+        titleLines: ['Sir Gawain &', 'The Green Knight'],
+        fallbackTitle: 'Sir Gawain & The Green Knight',
+        teaserLines: [
+            'Green knights, oaths, and the year',
+            'that will define a hero.',
+        ],
+        fallbackTeaser: 'Green knights, oaths, and the year that will define a hero.',
+        fallbackAuthor: 'Anonymous',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
 ];
