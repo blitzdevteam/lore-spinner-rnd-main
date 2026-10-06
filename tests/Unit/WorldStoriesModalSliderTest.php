@@ -14,6 +14,8 @@ it('shows available stories in a horizontal snap slider inside the world modal',
         ->toContain('scroll-snap-align: start')
         ->toContain('overflow-x: auto')
         ->toContain('flex-wrap: nowrap')
+        ->toContain('rgb(0 0 0 / 0.4)')
+        ->not->toContain('rgb(0 0 0 / 0.97)')
         ->not->toContain('WorldAvailableStoryCard')
         ->not->toContain('resolveStoryTopMoodCover')
         ->not->toContain('flex flex-wrap gap-2.5');

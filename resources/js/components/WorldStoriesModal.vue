@@ -165,12 +165,12 @@ onUnmounted(() => {
                                 <div class="world-modal__veil" aria-hidden="true" />
 
                                 <div class="world-modal__sheet-body">
-                                    <p v-if="world.description" class="max-w-2xl text-sm leading-relaxed text-[#b8b8b8]">
+                                    <p v-if="world.description" class="world-modal__copy max-w-2xl text-sm leading-relaxed text-[#d2d2d2]">
                                         {{ world.description }}
                                     </p>
 
                                     <div class="flex min-w-0 flex-col gap-3">
-                                        <h3 class="text-sm font-medium tracking-wide text-white/80">Available stories</h3>
+                                        <h3 class="world-modal__copy text-sm font-medium tracking-wide text-white">Available stories</h3>
 
                                         <div
                                             v-if="stories.length"
@@ -248,11 +248,10 @@ onUnmounted(() => {
     background: linear-gradient(
         to bottom,
         rgb(0 0 0 / 0) 0,
-        rgb(0 0 0 / 0) 10rem,
-        rgb(0 0 0 / 0.14) 11.25rem,
-        rgb(0 0 0 / 0.55) 12.75rem,
-        rgb(0 0 0 / 0.9) 14.25rem,
-        rgb(0 0 0 / 0.97) 100%
+        rgb(0 0 0 / 0) 9rem,
+        rgb(0 0 0 / 0.12) 12rem,
+        rgb(0 0 0 / 0.28) 15rem,
+        rgb(0 0 0 / 0.4) 100%
     );
 }
 
@@ -263,6 +262,10 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 1.25rem;
     padding: 5.5rem 1.25rem 1.75rem;
+}
+
+.world-modal__copy {
+    text-shadow: 0 1px 12px rgb(0 0 0 / 0.85);
 }
 
 .world-modal__stories-slider {
@@ -308,11 +311,10 @@ onUnmounted(() => {
         background: linear-gradient(
             to bottom,
             rgb(0 0 0 / 0) 0,
-            rgb(0 0 0 / 0) 12rem,
-            rgb(0 0 0 / 0.14) 13.5rem,
-            rgb(0 0 0 / 0.55) 15rem,
-            rgb(0 0 0 / 0.9) 16.5rem,
-            rgb(0 0 0 / 0.97) 100%
+            rgb(0 0 0 / 0) 11rem,
+            rgb(0 0 0 / 0.12) 14rem,
+            rgb(0 0 0 / 0.28) 17rem,
+            rgb(0 0 0 / 0.4) 100%
         );
     }
 
