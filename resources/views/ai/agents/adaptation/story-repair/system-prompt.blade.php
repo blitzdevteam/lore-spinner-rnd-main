@@ -19,12 +19,28 @@ WHAT COUNTS AS A DEFECT
 6. Banned prose (AI writing tells), listed below, anywhere in the material.
 7. Continuity. A cold open that ignores where the previous session's close leaves {!! $protagonist !!}, or a close that hands off to something the next session's cold open does not begin from.
 
+THE COLD OPEN AND THE FIRST CARDS
+
+The cold open is the first page the player reads, delivered word for word. Repair it by the cold-open contract, using the entry-point decisions in the user message (where the entry starts, what is established and what is held back, the facts it must say plainly, and the first choice). Those decisions are the reasoning behind the opening. They are not a verdict that its prose is right.
+- Second person, present tense, as {!! $protagonist !!}, named within the first 80 words. At most 350 words.
+- It says plainly where you are, who you are, who else is present and what is happening, in the author's voice.
+- It ends on the action of the first choice. No closing question to the player and no list of options.
+@if($session_number > 1)
+- This is session {!! $session_number !!}: it begins where the previous session's authored close leaves {!! $protagonist !!}, and it never recaps that close.
+@endif
+- The cards must begin where the cold open ends. If the opening tells events that later cards stage again, one of them is wrong. Decide which one, from the entry-point decisions and the source, and fix that one: rewrite the opening to stop where the first card begins, or rebind or rewrite the cards. Say in the finding which you chose and why.
+- Leave the cold open alone when it is sound. A patch replaces it whole.
+
+CHOICE BINDING
+
+Every authored choice is attached to the card whose scene presents it, and the player is offered it only on that card. A choice attached to the wrong card is offered at the wrong moment: before its setup has happened, or after the scene has passed. When a choice's own text belongs to another card's scene, return a rebind moving it there. The runtime updates the card lists, the choice design and the consequence map together. Then patch any text that names the old card. The choice on the session's closing card is the session-end choice and never moves.
+
 HOW TO PATCH
 
-- A patch replaces the complete text of one existing text field. You cannot add or remove fields, and you cannot change moment keys, choice ids, labels, or any other identifier; those patches are rejected.
+- A patch replaces the complete text of one existing text field. You cannot add or remove fields, and you cannot change moment keys, choice ids, labels, or any other identifier; those patches are rejected. Moving a choice to another card is a rebind, not a patch.
 - Change only what the defect requires. Keep every authored beat, fact, and intent that is not defective.
 - Patched text follows the same bans and the same voice as narration.
-- When a defect cannot be fixed by replacing text (it needs a new card or a changed identifier), report it as a finding with no patch.
+- When a defect cannot be fixed by a patch or a rebind (it needs a new card, a new choice, or a changed identifier), report it as a finding with no fix.
 - Report every defect as a finding, critical first. Quote the evidence.
 
 THE AUTHOR'S VOICE

@@ -40,12 +40,17 @@ final class StoryRepairContext
      *     narrator_rules: string,
      *     universal_bans: array{punctuation: list<string>, words: list<string>, phrases: list<string>},
      *     material: array<string, mixed>,
+     *     entry_decisions: array<string, mixed>,
+     *     skip_targets: list<string>,
      *     previous_session: array<string, mixed>|null,
      *     next_session: array<string, mixed>|null,
      *     source_events: list<array{position: int, title: string, content: string}>
      * }
      */
-    public function build(Story $story, SessionAdaptation $session): array
+    /**
+     * @param  list<string>  $skipTargets
+     */
+    public function build(Story $story, SessionAdaptation $session, array $skipTargets = []): array
     {
         $adaptation = $story->adaptation;
         $sessions = $adaptation->sessionAdaptations()->orderBy('session_number')->get();
@@ -61,7 +66,12 @@ final class StoryRepairContext
             'voice_profile' => (array) ($adaptation->voice_profile ?? []),
             'narrator_rules' => $this->narratorRules((string) $session->runtime_narrator_prompt),
             'universal_bans' => BannedProseValidator::universalBans(),
-            'material' => $this->material($session),
+            'material' => array_diff_key($this->material($session), array_flip($skipTargets === [] ? [] : array_map(
+                static fn (string $target): string => $target === 'scene_card' ? 'scene_cards' : $target,
+                $skipTargets,
+            ))),
+            'entry_decisions' => $this->entryDecisions((array) ($session->entry_point_diagnosis ?? [])),
+            'skip_targets' => $skipTargets,
             'previous_session' => $previous === null ? null : [
                 'session_number' => (int) $previous->session_number,
                 'session_close_design' => $previous->session_close_design,
@@ -92,6 +102,26 @@ final class StoryRepairContext
             'session_close_design' => (array) ($session->session_close_design ?? []),
             'entry_point_diagnosis' => array_intersect_key($diagnosis, array_flip(['cold_open', 'first_choice_spec', 'emotional_promise'])),
         ];
+    }
+
+    /**
+     * The entry-point decisions the cold open is written from. They are the
+     * reasoning behind the opening, not a verdict on its prose.
+     *
+     * @param  array<string, mixed>  $diagnosis
+     * @return array<string, mixed>
+     */
+    public function entryDecisions(array $diagnosis): array
+    {
+        $coldOpenContext = $this->coldOpenContext->build('', '', 0, '', [], $diagnosis, []);
+
+        return array_filter([
+            'start_event_position' => $diagnosis['start_event_position'] ?? null,
+            'established' => $coldOpenContext['established'],
+            'deferred' => $coldOpenContext['deferred'],
+            'facts_the_cold_open_must_say_plainly' => $coldOpenContext['cold_open_facts'],
+            'first_choice' => $coldOpenContext['first_choice'],
+        ], static fn ($value): bool => $value !== null && $value !== '' && $value !== []);
     }
 
     /**

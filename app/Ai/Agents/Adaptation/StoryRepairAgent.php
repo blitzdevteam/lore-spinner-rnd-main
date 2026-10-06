@@ -18,8 +18,8 @@ use Throwable;
  * Reviews one finalized session's stored story material against the source,
  * the author's voice, and the narrator's own rules, and proposes text patches.
  *
- * Patches only replace existing prose fields. Identity fields (keys, choice
- * ids, labels) are never patched; StoryRepairPatchApplier enforces that.
+ * Patches only replace existing prose fields, and rebinds only move an
+ * authored choice between cards. StoryRepairPatchApplier enforces both.
  */
 #[Provider('anthropic')]
 #[Model('claude-opus-5-5')]
@@ -60,6 +60,14 @@ final class StoryRepairAgent implements Agent, HasStructuredOutput
                     'path' => $schema->string()->required()->description('Dot path to an existing text field inside the target, list indexes as numbers, e.g. branching_choices.0.options.2.text.'),
                     'new_value' => $schema->string()->required()->description('The complete replacement text for that field.'),
                     'reason' => $schema->string()->required()->description('Which finding this fixes.'),
+                ])->required()->withoutAdditionalProperties()),
+            'rebinds' => $schema->array()->required()->title('Rebinds')
+                ->description('Authored choices attached to the wrong card, moved to the card whose scene they belong to. Empty when every choice is on its scene.')
+                ->items($schema->object([
+                    'choice_id' => $schema->string()->required()->description('The authored choice id, exactly as stored.'),
+                    'from_moment_key' => $schema->string()->required()->description('The card that carries it now.'),
+                    'to_moment_key' => $schema->string()->required()->description('The card whose scene the choice belongs to.'),
+                    'reason' => $schema->string()->required()->description('Which finding this fixes, with the evidence.'),
                 ])->required()->withoutAdditionalProperties()),
         ];
     }

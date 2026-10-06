@@ -6,51 +6,65 @@ namespace App\Console\Commands;
 
 use App\Ai\Adaptation\StoryRepairContext;
 use App\Ai\Adaptation\StoryRepairPatchApplier;
-use App\Ai\Agents\Adaptation\StoryRepairAgent;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
+use App\Models\StoryRepairReport;
+use App\Services\Adaptation\StoryRepairService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Review a session's stored story material with the repair editor and,
- * with --apply, store the validated text patches.
+ * Review a session's stored story material with the repair editor.
  *
- * Every run writes its findings and patches to the local disk under
- * story-repairs/, so a review can be read in full before anything is applied.
+ * A review is stored as a report and changes nothing. --apply-report stores
+ * exactly what that report accepted, and --revert undoes it.
  */
 final class RepairStorySessionCommand extends Command
 {
     protected $signature = 'stories:repair-session
                             {story : Story ID or slug}
                             {--session=* : Session numbers. Omit to review every session}
-                            {--dry-run : Print the gathered context size without calling the model}
+                            {--skip=* : Targets to leave out of the review (scene_card, session_choice_design, choice_consequence_map, session_close_design, entry_point_diagnosis)}
+                            {--dry-run : Print the gathered context without calling the model}
                             {--show-prompt : With --dry-run, print the full prompt}
-                            {--apply : Store the validated patches}';
+                            {--apply : Review and store the accepted changes in one step}
+                            {--apply-report= : Store the changes accepted by this report ID}
+                            {--revert= : Undo the changes stored by this report ID}
+                            {--list : List recent reports for the story}';
 
-    protected $description = 'Review and repair stored story material (scene cards, choices, consequences, close, cold open) for a session';
+    protected $description = 'Review and repair stored story material (scene cards, choice binding, choices, consequences, close, cold open)';
 
-    public function handle(StoryRepairContext $contextBuilder, StoryRepairPatchApplier $applier): int
+    public function handle(StoryRepairService $repairs, StoryRepairContext $contextBuilder): int
     {
-        if ($this->option('dry-run') && $this->option('apply')) {
-            $this->error('Choose either --dry-run or --apply.');
+        $story = $this->resolveStory();
+
+        if ($story?->adaptation === null) {
+            $this->error('No matching story with an adaptation found.');
 
             return self::FAILURE;
         }
 
-        $identifier = (string) $this->argument('story');
-        $story = Story::query()
-            ->with('adaptation')
-            ->when(
-                is_numeric($identifier),
-                fn ($query) => $query->whereKey((int) $identifier),
-                fn ($query) => $query->where('slug', $identifier),
-            )
-            ->first();
+        try {
+            return match (true) {
+                $this->option('list') => $this->listReports($story),
+                filled($this->option('apply-report')) => $this->applyReport($story, $repairs, (int) $this->option('apply-report')),
+                filled($this->option('revert')) => $this->revertReport($story, $repairs, (int) $this->option('revert')),
+                default => $this->review($story, $repairs, $contextBuilder),
+            };
+        } catch (Throwable $throwable) {
+            $this->error($throwable->getMessage());
 
-        if ($story?->adaptation === null) {
-            $this->error('No matching story with an adaptation found.');
+            return self::FAILURE;
+        }
+    }
+
+    private function review(Story $story, StoryRepairService $repairs, StoryRepairContext $contextBuilder): int
+    {
+        $skip = array_values(array_map('strval', (array) $this->option('skip')));
+        $unknown = array_diff($skip, StoryRepairPatchApplier::TARGETS);
+
+        if ($unknown !== []) {
+            $this->error('Unknown --skip target: '.implode(', ', $unknown));
 
             return self::FAILURE;
         }
@@ -70,101 +84,110 @@ final class RepairStorySessionCommand extends Command
         $failed = false;
 
         foreach ($sessions as $session) {
-            $failed = ! $this->repairSession($story, $session, $contextBuilder, $applier) || $failed;
+            $this->newLine();
+            $this->info("Story repair: {$story->slug}, session {$session->session_number}");
+
+            if ($this->option('dry-run')) {
+                $this->dryRun($story, $session, $contextBuilder, $skip);
+
+                continue;
+            }
+
+            try {
+                $report = $repairs->review($story, $session, 'command', $skip);
+            } catch (Throwable $throwable) {
+                $this->error($throwable->getMessage());
+                $failed = true;
+
+                continue;
+            }
+
+            $this->printReport($report);
+
+            if ($this->option('apply')) {
+                $this->printApplied($repairs->apply($story, $report), $report);
+            } else {
+                $this->info("Review only. Nothing was saved. To store exactly these changes: php artisan stories:repair-session {$story->slug} --apply-report={$report->id}");
+            }
         }
 
         return $failed ? self::FAILURE : self::SUCCESS;
     }
 
-    private function repairSession(
-        Story $story,
-        SessionAdaptation $session,
-        StoryRepairContext $contextBuilder,
-        StoryRepairPatchApplier $applier,
-    ): bool {
-        $context = $contextBuilder->build($story, $session);
-        $sessionNumber = (int) $session->session_number;
-
-        $this->newLine();
-        $this->info("Story repair: {$story->slug}, session {$sessionNumber}");
+    /**
+     * @param  list<string>  $skip
+     */
+    private function dryRun(Story $story, SessionAdaptation $session, StoryRepairContext $contextBuilder, array $skip): void
+    {
+        $context = $contextBuilder->build($story, $session, $skip);
         $this->line('Protagonist: '.$context['protagonist']);
-        $this->line('Scene cards: '.count($context['material']['scene_cards']).'. Source events: '.count($context['source_events']).'.');
+        $this->line('Scene cards: '.count($context['material']['scene_cards'] ?? []).'. Source events: '.count($context['source_events']).'.');
 
-        if ($context['material']['scene_cards'] === []) {
-            $this->error('This session has no finalized standard cut to review.');
-
-            return false;
+        if ($this->option('show-prompt')) {
+            $this->line(view('ai.agents.adaptation.story-repair.system-prompt', $context)->render());
+            $this->newLine();
+            $this->line(view('ai.agents.adaptation.story-repair.prompt', $context)->render());
         }
 
-        $prompt = view('ai.agents.adaptation.story-repair.prompt', $context)->render();
-
-        if ($this->option('dry-run')) {
-            if ($this->option('show-prompt')) {
-                $this->line(view('ai.agents.adaptation.story-repair.system-prompt', $context)->render());
-                $this->newLine();
-                $this->line($prompt);
-            }
-            $this->info('Dry run only. The model was not called and nothing was saved.');
-
-            return true;
-        }
-
-        try {
-            $response = (new StoryRepairAgent($context))->prompt($prompt, timeout: 840);
-        } catch (Throwable $throwable) {
-            $this->error($throwable->getMessage());
-
-            return false;
-        }
-
-        $findings = array_values((array) ($response['findings'] ?? []));
-        $review = $applier->validate(
-            $session,
-            array_values((array) ($response['patches'] ?? [])),
-            $context['voice_profile'],
-            $contextBuilder,
-        );
-
-        $this->report($findings, $review);
-
-        $reportPath = sprintf('story-repairs/%s/session-%d-%s.json', $story->slug, $sessionNumber, now()->format('Ymd-His'));
-        Storage::disk('local')->put($reportPath, (string) json_encode([
-            'story' => $story->slug,
-            'session_number' => $sessionNumber,
-            'applied' => (bool) $this->option('apply'),
-            'findings' => $findings,
-            'accepted_patches' => $review['accepted'],
-            'rejected_patches' => $review['rejected'],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        $this->line("Full report: storage/app/private/{$reportPath}");
-
-        if (! $this->option('apply')) {
-            $this->info('Review only. Nothing was saved. Pass --apply to store the accepted patches.');
-
-            return true;
-        }
-
-        if ($review['accepted'] === []) {
-            $this->info('No accepted patches to store.');
-
-            return true;
-        }
-
-        $applier->apply($session, $review['accepted'], $contextBuilder);
-        $this->info('Stored '.count($review['accepted'])." patches on session {$sessionNumber}. Rebuild its runtime prompt next.");
-
-        return true;
+        $this->info('Dry run only. The model was not called and nothing was saved.');
     }
 
-    /**
-     * @param  list<mixed>  $findings
-     * @param  array{accepted: list<array<string, string>>, rejected: list<array{patch: array<string, mixed>, reason: string}>}  $review
-     */
-    private function report(array $findings, array $review): void
+    private function applyReport(Story $story, StoryRepairService $repairs, int $reportId): int
     {
-        $this->line('Findings: '.count($findings));
+        $report = $this->reportFor($story, $reportId);
+        $this->printApplied($repairs->apply($story, $report), $report);
 
-        foreach ($findings as $finding) {
+        return self::SUCCESS;
+    }
+
+    private function revertReport(Story $story, StoryRepairService $repairs, int $reportId): int
+    {
+        $report = $this->reportFor($story, $reportId);
+        $repairs->revert($report);
+        $this->info("Reverted report {$report->id}. Rebuild the session's runtime prompt next.");
+
+        return self::SUCCESS;
+    }
+
+    private function listReports(Story $story): int
+    {
+        $reports = StoryRepairReport::query()
+            ->whereIn('session_adaptation_id', $story->adaptation->sessionAdaptations()->pluck('id'))
+            ->with('sessionAdaptation:id,session_number')
+            ->latest('id')
+            ->limit(30)
+            ->get();
+
+        $this->table(
+            ['Report', 'Session', 'Source', 'Status', 'Findings', 'Patches', 'Rebinds', 'Created'],
+            $reports->map(fn (StoryRepairReport $report): array => [
+                $report->id,
+                $report->sessionAdaptation->session_number,
+                $report->source,
+                $report->status,
+                count((array) $report->findings),
+                count((array) $report->patches),
+                count((array) $report->rebinds),
+                $report->created_at?->toDateTimeString(),
+            ])->all(),
+        );
+
+        return self::SUCCESS;
+    }
+
+    private function reportFor(Story $story, int $reportId): StoryRepairReport
+    {
+        return StoryRepairReport::query()
+            ->whereKey($reportId)
+            ->whereIn('session_adaptation_id', $story->adaptation->sessionAdaptations()->pluck('id'))
+            ->firstOrFail();
+    }
+
+    private function printReport(StoryRepairReport $report): void
+    {
+        $this->line('Findings: '.count((array) $report->findings));
+
+        foreach ((array) $report->findings as $finding) {
             $this->line(sprintf(
                 '- [%s/%s] %s: %s',
                 (string) data_get($finding, 'severity', '?'),
@@ -174,22 +197,46 @@ final class RepairStorySessionCommand extends Command
             ));
         }
 
-        $this->line('Accepted patches: '.count($review['accepted']));
+        $this->line('Accepted rebinds: '.count((array) $report->rebinds));
 
-        foreach ($review['accepted'] as $patch) {
-            $location = mb_trim($patch['target'].' '.$patch['key']).' '.$patch['path'];
-            $this->line("- {$location}");
+        foreach ((array) $report->rebinds as $rebind) {
+            $this->line("- {$rebind['choice_id']}: {$rebind['from_moment_key']} -> {$rebind['to_moment_key']} ({$rebind['reason']})");
+        }
+
+        $this->line('Accepted patches: '.count((array) $report->patches));
+
+        foreach ((array) $report->patches as $patch) {
+            $this->line('- '.mb_trim($patch['target'].' '.$patch['key']).' '.$patch['path']);
             $this->line('  was: '.$patch['old_value']);
             $this->line('  now: '.$patch['new_value']);
         }
 
-        foreach ($review['rejected'] as $rejection) {
-            $this->warn(sprintf(
-                'Rejected %s %s: %s',
-                (string) data_get($rejection, 'patch.target', '?'),
-                (string) data_get($rejection, 'patch.path', '?'),
-                $rejection['reason'],
-            ));
+        foreach ((array) $report->rejected as $rejection) {
+            $this->warn('Rejected: '.json_encode($rejection['change'] ?? [], JSON_UNESCAPED_UNICODE).' ('.($rejection['reason'] ?? '').')');
         }
+
+        $this->line("Report ID: {$report->id}");
+    }
+
+    /**
+     * @param  array{applied_patches: int, applied_rebinds: int, stale: list<array{change: array<string, mixed>, reason: string}>}  $result
+     */
+    private function printApplied(array $result, StoryRepairReport $report): void
+    {
+        foreach ($result['stale'] as $stale) {
+            $this->warn('Skipped: '.($stale['reason'] ?? ''));
+        }
+
+        $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds from report {$report->id}. Undo with --revert={$report->id}. Rebuild the session's runtime prompt next.");
+    }
+
+    private function resolveStory(): ?Story
+    {
+        $identifier = (string) $this->argument('story');
+        $query = Story::query()->with('adaptation');
+
+        return is_numeric($identifier)
+            ? $query->find((int) $identifier)
+            : $query->where('slug', $identifier)->first();
     }
 }
