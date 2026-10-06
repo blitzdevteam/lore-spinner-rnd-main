@@ -7,7 +7,6 @@ namespace App\Ai\Agents\Adaptation;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -22,9 +21,8 @@ use Throwable;
  * until a repaired opening is greenlit.
  */
 #[Provider('anthropic')]
-#[Model('claude-sonnet-4-6')]
-#[Temperature(0.6)]
-#[Timeout(180)]
+#[Model('claude-opus-5-5')]
+#[Timeout(300)]
 final class ColdOpenRepairAgent implements Agent, HasStructuredOutput
 {
     use Promptable;

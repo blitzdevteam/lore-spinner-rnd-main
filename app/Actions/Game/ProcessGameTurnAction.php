@@ -33,29 +33,27 @@ final class ProcessGameTurnAction
     private const CONTINUE_MARKER = '__continue__';
 
     private const CONTINUE_MODE_INSTRUCTION = <<<'PROMPT'
-CONTINUE MODE: MEANINGFUL FAST-FORWARD.
+CONTINUE MODE: THE STORY READS ON LIKE A BOOK.
 The player has no particular action in mind and wants the authored story told
-forward at a quicker pace. Use the ordered moments, source events, current
-moment context, and conversation history already available to you. Narrate
-significant events and changes; compress connective description, routine
-movement, waiting, and scenery.
+forward. Use the ordered moments, source events, current moment context, and
+conversation history already available to you. Narrate the significant events
+and changes as the next pages of the author's book; compress connective
+description, routine movement, waiting, and scenery.
 
 The player must still learn every fact, rule, object change, location change,
 relationship change, promise, and consequence that later story material needs.
-Do not turn the fast-forward into a broad overview detached from the scene:
-tell the compact story in the author's voice.
+Never turn the fast-forward into an overview detached from the scene.
 
-Continue may pass an authored choice because the player deliberately declined
-to choose. Never select or commit A/B/C, invent a preference, or turn authored
-actions into a player-style or moral-ledger judgment. Follow the shared or
-canonical story and stop naturally when renewed action, danger, or meaningful
-interaction makes ordinary play worthwhile again.
+Slow down where the player can shape the story. When the story reaches an
+authored decision the player has not been offered, stop with that decision in
+front of the protagonist and offer its options. If the player was already
+offered it and pressed Continue, carry on along the author's path to the next
+such decision or the session close. Never select or commit A/B/C, invent a
+preference, or turn authored actions into a player-style or moral judgment.
 
-In Boiler, if the prose reaches a later ordered moment, report that actual
-landing point as caught_up_to_moment_key. Name where the story now is, never
-where it is merely heading. Runtime will reconcile the pointer to that report.
-In legacy mode, set session_complete only when the actual session close is
-reached.
+In Boiler, report where the prose actually stopped exactly as the Continue
+directive in the active moment describes. In legacy mode, set session_complete
+only when the actual session close is reached.
 PROMPT;
 
     /** How far back to look for a player restating the same intent. */

@@ -83,6 +83,7 @@ final class RepairColdOpenCommand extends Command
             (array) ($story->adaptation->voice_profile ?? []),
             $diagnosis,
             $sourceEvents,
+            $this->previousSessionClose($story, $sessionNumber, $contextBuilder),
         );
 
         $missing = $contextBuilder->missingContext($context);
@@ -116,7 +117,7 @@ final class RepairColdOpenCommand extends Command
             try {
                 $response = (new ColdOpenRepairAgent($context))->prompt(
                     view('ai.agents.adaptation.cold-open-repair.prompt', $context)->render(),
-                    timeout: 180,
+                    timeout: 300,
                 );
             } catch (Throwable $throwable) {
                 $this->error($throwable->getMessage());
@@ -165,8 +166,10 @@ final class RepairColdOpenCommand extends Command
         $this->line('Protagonist: '.$context['protagonist']);
         $this->line('Contract: '.ColdOpenRepairContext::CONTRACT_VERSION.' — Tom\'s first-output prompt, with no closing question');
 
-        if ((int) $context['session_number'] !== 1) {
-            $this->warn('This contract is the first output a new player reads. Session '.$context['session_number'].' does not include the previous session handoff.');
+        if ((int) $context['session_number'] > 1) {
+            $this->line($context['previous_session_close'] !== []
+                ? 'Previous session close loaded: '.implode(', ', array_keys($context['previous_session_close']))
+                : 'No previous session close is stored; the cold open is repaired from this session alone.');
         }
 
         if ($context['cold_open_facts'] !== []) {
@@ -184,6 +187,27 @@ final class RepairColdOpenCommand extends Command
         }
 
         $this->line('Source events pulled: '.count($context['source_events']));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function previousSessionClose(Story $story, int $sessionNumber, ColdOpenRepairContext $contextBuilder): array
+    {
+        if ($sessionNumber < 2) {
+            return [];
+        }
+
+        $previous = $story->adaptation->sessionAdaptations()
+            ->where('session_number', $sessionNumber - 1)
+            ->first();
+        $arcRow = collect((array) data_get($story->adaptation->story_session_map, 'arc_progression', []))
+            ->first(fn ($row): bool => (int) data_get($row, 'session_number', data_get($row, 'session', 0)) === $sessionNumber);
+
+        return $contextBuilder->previousSessionClose(
+            $previous?->session_close_design,
+            (string) data_get($arcRow, 'opens_with', ''),
+        );
     }
 
     /**

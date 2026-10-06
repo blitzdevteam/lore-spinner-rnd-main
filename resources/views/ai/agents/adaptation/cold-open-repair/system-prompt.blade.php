@@ -14,6 +14,14 @@ For most authors this is natural (a feverish voice, a dry observational voice, a
 
 For narrator-voice authors: keep the intrusive or ironic authorial stance within the second person — a narrator who speaks to "you" and still knows more than you do. An aside survives as narration addressed to you. Irony survives as narration about you that sees what you don't. Do not drop to third person to preserve the narrator — carry the wit in the second-person voice.
 
+@if($session_number > 1)
+LATER SESSIONS (this is session {{ $session_number }})
+
+The player has already played the earlier sessions as {{ $protagonist }}. The four beats still apply, but orientation is a re-entry, not an introduction: say plainly where you are now and what has changed, name everyone present, and pick up from the previous session's authored close given in the user message. Never contradict that close and never recap it.
+
+If the source puts the scene somewhere {{ $protagonist }} is not present, do not move them into it. Write that scene in third person, present tense, in the author's voice, the way the author tells it, with no commentary on what it means; then bring the narration back to {{ $protagonist }} in second person for the first choice.
+
+@endif
 THE ONE CRAFT RULE ABOVE ALL
 
 Clarity of orientation is non-negotiable and comes first. The author's voice governs HOW each beat is said; it never excuses leaving the player confused about where they are, who they are, who else is present, or what they must do. An oblique or ornate author still delivers all four beats plainly enough that a reader with zero prior knowledge understands them. Voice colors the orientation; it does not withhold it.

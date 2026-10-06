@@ -27,10 +27,9 @@ use Throwable;
  *      the unified story_spine from all chapter spine fragments.
  *   3. Writes the final Deliverable 7 package to story_adaptations.ip_trimming.
  *
- * claude-opus-5 via Anthropic: precise editorial triage requiring nuanced
- * PRESERVE/TRIM judgment and verbatim prose reconstruction. Thinking is forced
- * off by AnthropicThinkingPolicy so the swap from Opus 4.8 does not add
- * output-billed thinking tokens to every chapter call.
+ * claude-opus-5-5 via Anthropic: precise editorial triage requiring nuanced
+ * PRESERVE/TRIM judgment and verbatim prose reconstruction. Opus 5.5 always
+ * thinks; AnthropicThinkingPolicy keeps its requests in the accepted shape.
  *
  * Prism v0.99.21+ (composer.lock updated) fixes the HTTP 400 that was caused by
  * the old NativeOutputFormatStructuredStrategy sending the deprecated `output_format`
@@ -39,8 +38,8 @@ use Throwable;
  * is now the default in v0.100.0+.
  */
 #[Provider('anthropic')]
-#[Model('claude-opus-5')]
-#[Timeout(300)]
+#[Model('claude-opus-5-5')]
+#[Timeout(600)]
 final class IpTrimmingChapterAgent implements Agent, HasStructuredOutput
 {
     use Promptable;

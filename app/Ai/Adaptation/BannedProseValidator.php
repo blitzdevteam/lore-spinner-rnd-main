@@ -45,10 +45,10 @@ final class BannedProseValidator
      * Em dash in all variants, double-hyphen, semicolons, ellipses.
      */
     private const HARD_BAN_PATTERNS = [
-        'em_dash'      => '/\x{2014}|\x{2013}|\x{2015}/u',
+        'em_dash' => '/\x{2014}|\x{2013}|\x{2015}/u',
         'double_hyphen' => '/--/',
-        'semicolon'    => '/;/',
-        'ellipsis'     => '/\.\.\./u',
+        'semicolon' => '/;/',
+        'ellipsis' => '/\.\.\./u',
     ];
 
     /**
@@ -103,19 +103,54 @@ final class BannedProseValidator
     ];
 
     /**
+     * The universal bans in a form a prompt can state.
+     *
+     * @return array{punctuation: list<string>, words: list<string>, phrases: list<string>}
+     */
+    public static function universalBans(): array
+    {
+        return [
+            'punctuation' => ['em dash and en dash', 'double hyphen (--)', 'semicolon', 'ellipsis (...)', 'three or more "like a/an" similes in one field'],
+            'words' => self::UNIVERSAL_BANNED_WORDS,
+            'phrases' => array_values(array_unique(array_map(
+                static fn (string $phrase): string => str_replace('’', "'", $phrase),
+                self::UNIVERSAL_BANNED_PHRASES,
+            ))),
+        ];
+    }
+
+    /**
+     * Rewrite hard-ban punctuation into legal separators so a connective field
+     * (next_bridge, why, a close hook) cannot brick Finalize over a semicolon.
+     *
+     * Vocabulary bans are not rewritten here — those still fail the scan.
+     */
+    public static function neutralizeBannedPunctuation(string $text): string
+    {
+        $text = preg_replace('/\x{2014}|\x{2013}|\x{2015}/u', ',', $text) ?? $text;
+        $text = str_replace('--', ',', $text);
+        $text = str_replace(';', '.', $text);
+        $text = preg_replace('/\.{3,}/u', '.', $text) ?? $text;
+        $text = preg_replace('/[ \t]+([.,])/u', '$1', $text) ?? $text;
+        $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
+
+        return mb_trim($text);
+    }
+
+    /**
      * Scan prose fields in an artifact for banned patterns.
      *
-     * @param  array<string, mixed>  $artifact   The generated artifact (draft or final cut)
+     * @param  array<string, mixed>  $artifact  The generated artifact (draft or final cut)
      * @param  array<string, mixed>  $voiceProfile  Full voice profile with master_rule_1_hard_bans
-     * @param  array<int, string>    $prosePaths  Dot-notation paths to prose fields to scan
+     * @param  array<int, string>  $prosePaths  Dot-notation paths to prose fields to scan
      * @return array{errors: array<int, string>, warnings: array<int, string>}
      */
     public function scan(array $artifact, array $voiceProfile, array $prosePaths): array
     {
-        $errors   = [];
+        $errors = [];
         $warnings = [];
 
-        $ipBans      = $this->extractIpBannedWords($voiceProfile);
+        $ipBans = $this->extractIpBannedWords($voiceProfile);
         $bannedWords = array_unique(array_merge(self::UNIVERSAL_BANNED_WORDS, $ipBans['hard']));
 
         $proseValues = $this->extractProseValues($artifact, $prosePaths);
@@ -128,13 +163,13 @@ final class BannedProseValidator
             }
 
             foreach ($bannedWords as $word) {
-                if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $text)) {
+                if (preg_match('/\b'.preg_quote($word, '/').'\b/i', $text)) {
                     $errors[] = "{$path}: banned vocabulary '{$word}'. Use the author's diction from the voice profile instead.";
                 }
             }
 
             foreach ($ipBans['soft'] as $word) {
-                if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $text)) {
+                if (preg_match('/\b'.preg_quote($word, '/').'\b/i', $text)) {
                     $warnings[] = "{$path}: IP-specific ban '{$word}' appears — verify it is the author's diction, not a shorthand.";
                 }
             }
@@ -154,24 +189,6 @@ final class BannedProseValidator
         }
 
         return ['errors' => $errors, 'warnings' => $warnings];
-    }
-
-    /**
-     * Rewrite hard-ban punctuation into legal separators so a connective field
-     * (next_bridge, why, a close hook) cannot brick Finalize over a semicolon.
-     *
-     * Vocabulary bans are not rewritten here — those still fail the scan.
-     */
-    public static function neutralizeBannedPunctuation(string $text): string
-    {
-        $text = preg_replace('/\x{2014}|\x{2013}|\x{2015}/u', ',', $text) ?? $text;
-        $text = str_replace('--', ',', $text);
-        $text = str_replace(';', '.', $text);
-        $text = preg_replace('/\.{3,}/u', '.', $text) ?? $text;
-        $text = preg_replace('/[ \t]+([.,])/u', '$1', $text) ?? $text;
-        $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
-
-        return mb_trim($text);
     }
 
     /**
@@ -255,7 +272,7 @@ final class BannedProseValidator
      * wildcards into concrete indices.
      *
      * @param  array<string, mixed>  $artifact
-     * @param  array<int, string>    $paths
+     * @param  array<int, string>  $paths
      * @return array<string, string>
      */
     private function extractProseValues(array $artifact, array $paths): array
@@ -267,7 +284,7 @@ final class BannedProseValidator
             if (str_contains($path, '.*')) {
                 [$prefix, $suffix] = str_contains($path, '.*.')
                     ? explode('.*.', $path, 2)
-                    : [substr($path, 0, -2), ''];
+                    : [mb_substr($path, 0, -2), ''];
 
                 $collection = data_get($artifact, $prefix);
 

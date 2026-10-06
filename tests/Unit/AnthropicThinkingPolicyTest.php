@@ -87,22 +87,45 @@ it('leaves malformed bodies alone', function () {
     expect((string) AnthropicThinkingPolicy::disableOpusThinking($request)->getBody())->toBe('not-json');
 });
 
-it('pins IP Trimming to Opus 5', function () {
-    $reflection = new ReflectionClass(IpTrimmingChapterAgent::class);
-
-    expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
-        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5');
-});
-
-// Opus 5 with thinking disabled returned schema-noncompliant Boiler drafts, so
-// drafting and finalizing stay on the model that produced valid cuts across the
-// launch titles. The thinking policy above is scoped by model name, so it simply
-// stops applying to these two agents.
-it('keeps the Boiler agents off Opus 5 until it is proven on a full session', function (string $agent) {
+it('runs the Anthropic pipeline agents on Opus 5.5', function (string $agent) {
     $reflection = new ReflectionClass($agent);
 
-    expect($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-4-8');
-})->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
+    expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
+        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5-5');
+})->with([IpTrimmingChapterAgent::class, BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
+
+it('never sends disabled thinking to Opus 5.5', function () {
+    $untouched = AnthropicThinkingPolicy::disableOpusThinking(anthropicRequest(['model' => 'claude-opus-5-5']));
+    $stripped = AnthropicThinkingPolicy::disableOpusThinking(
+        anthropicRequest(['model' => 'claude-opus-5-5', 'thinking' => ['type' => 'disabled']])
+    );
+
+    expect(decodedBody($untouched))->not->toHaveKey('thinking')
+        ->and(decodedBody($stripped))->not->toHaveKey('thinking');
+});
+
+it('turns forced tool use into auto with a system instruction for Opus 5.5', function () {
+    $request = AnthropicThinkingPolicy::disableOpusThinking(anthropicRequest([
+        'model' => 'claude-opus-5-5',
+        'system' => [['type' => 'text', 'text' => 'Base prompt.']],
+        'tool_choice' => ['type' => 'tool', 'name' => 'output_structured_data'],
+        'temperature' => 0.6,
+    ]));
+
+    $body = decodedBody($request);
+
+    expect($body['tool_choice'])->toBe(['type' => 'auto'])
+        ->and($body)->not->toHaveKey('temperature')
+        ->and($body['system'])->toHaveCount(2)
+        ->and($body['system'][1]['text'])->toContain('output_structured_data');
+});
+
+it('prices Opus 5.5 at its standard rate', function () {
+    $pricing = config('player-token-usage.models.claude-opus-5-5');
+
+    expect($pricing['periods'][0]['input'])->toBe('4.000000')
+        ->and($pricing['periods'][0]['output'])->toBe('20.000000');
+});
 
 it('prices Opus 5 at the standard Opus rate', function () {
     $pricing = config('player-token-usage.models.claude-opus-5');

@@ -299,12 +299,16 @@ final class ProcessGameOpeningAction
             if ($sessionContext === null) {
                 throw new RuntimeException('The next session has not been adapted yet.');
             }
+            $sessionContext['previous_session_ending'] = $this->engine->previousSessionEnding($game, $nextSessionNumber - 1);
 
             $usageMoment = $game->current_playable_moment_id === null
                 ? null
                 : PlayableMoment::query()->findOrFail($game->current_playable_moment_id);
 
-            $carriedWorldState = $game->world_state ?? $this->engine->emptyWorldState();
+            $carriedWorldState = $this->engine->archiveSessionState(
+                $game->world_state ?? $this->engine->emptyWorldState(),
+                $nextSessionNumber - 1,
+            );
             $carriedAlignment = $game->alignment_scaffold ?? $this->engine->emptyAlignmentScaffold();
             $carriedMemory = $game->symbolic_memory;
 

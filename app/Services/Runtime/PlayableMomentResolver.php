@@ -143,6 +143,11 @@ final class PlayableMomentResolver
                     ->where('moment_key', $rawMomentKey)
                     ->where('moment_order', '>', $currentMoment->moment_order)
                     ->exists();
+            // On Continue, exit_condition_met describes the card the prose stopped on
+            // (caught_up_to_moment_key), so it must be read before normalization.
+            $continueLandingExitMet = $isContinue
+                && $hadProgressObject
+                && ($progress['exit_condition_met'] ?? null) === true;
 
             if (
                 ! $hadProgressObject
@@ -196,6 +201,27 @@ final class PlayableMomentResolver
             $catchUpCandidate = $catchUp['candidate'];
             $confirmedCatchUp = $catchUp['confirmed'];
             $caughtUp = $nextMoment !== null;
+            $landingUnderway = false;
+            $continueFinalCard = null;
+
+            if ($caughtUp && $isContinue) {
+                // Continue reports the card the prose stopped on. That card has been
+                // narrated, so it is either finished (move past it) or underway.
+                if ($continueLandingExitMet) {
+                    $beyondLanding = PlayableMoment::query()
+                        ->where('playable_session_cut_id', $nextMoment->playable_session_cut_id)
+                        ->where('moment_order', $nextMoment->moment_order + 1)
+                        ->first();
+
+                    if ($beyondLanding !== null) {
+                        $nextMoment = $beyondLanding;
+                    } else {
+                        $continueFinalCard = $nextMoment;
+                    }
+                } else {
+                    $landingUnderway = true;
+                }
+            }
 
             if ($caughtUp) {
                 $progress['exit_condition_met'] = true;
@@ -349,13 +375,14 @@ final class PlayableMomentResolver
                 $nextMoment !== null,
             );
 
-            $isFinalExit = $progress['exit_condition_met'] && $nextMoment === null;
+            $isFinalExit = ($progress['exit_condition_met'] && $nextMoment === null) || $continueFinalCard !== null;
+            $finalCard = $continueFinalCard ?? $currentMoment;
             $endingBlockedTurns = $carried['ending_blocked_turns'];
 
             if (
                 $isFinalExit
-                && ! $isContinue
-                && ! $this->authoredSessionEndingChoiceResolved($currentMoment, $committedChoiceId)
+                && ! $this->authoredSessionEndingChoiceResolved($finalCard, $committedChoiceId)
+                && ! ($isContinue && $this->endingChoicePresented($finalCard, (array) ($lockedSource->choices ?? [])))
             ) {
                 $endingBlockedTurns++;
 
@@ -373,6 +400,9 @@ final class PlayableMomentResolver
                     ]);
                 } else {
                     $isFinalExit = false;
+                    if ($continueFinalCard !== null) {
+                        $landingUnderway = true;
+                    }
                     Log::channel('narration')->info('boiler.session_complete_blocked_awaiting_ending_choice', [
                         'game_id' => $lockedGame->id,
                         'moment_key' => $currentMoment->moment_key,
@@ -400,15 +430,17 @@ final class PlayableMomentResolver
                 'defining_path_label' => $branchCommit ? $branchCommit['defining_path_label'] : $lockedGame->defining_path_label,
                 'defining_choice_line' => $branchCommit ? $branchCommit['defining_choice_line'] : $lockedGame->defining_choice_line,
                 'current_playable_moment_id' => $resultingMoment->id,
-                'playable_moment_turn_count' => $nextMoment !== null
-                    ? 0
-                    : $lockedGame->playable_moment_turn_count + 1,
+                'playable_moment_turn_count' => match (true) {
+                    $landingUnderway => 1,
+                    $nextMoment !== null => 0,
+                    default => $lockedGame->playable_moment_turn_count + 1,
+                },
                 'moment_footnote' => [
                     'moment_key' => $resultingMoment->moment_key,
                     'text' => $footnote !== '' ? $footnote : null,
                     'source_prompt_id' => $lockedSource->id,
                     'detour_beats_used' => $detourBeatsUsed,
-                    'ending_blocked_turns' => $nextMoment !== null ? 0 : $endingBlockedTurns,
+                    'ending_blocked_turns' => $nextMoment !== null && $continueFinalCard === null ? 0 : $endingBlockedTurns,
                     'choice_blocked_turns' => $nextMoment !== null ? 0 : $choiceBlockedTurns,
                     'catch_up_candidate' => $nextMoment !== null ? null : $catchUpCandidate,
                 ],
@@ -633,6 +665,34 @@ final class PlayableMomentResolver
             'advanced', 'reconverged' => 0,
             default => $carried,
         };
+    }
+
+    /**
+     * The player declines an ending choice by pressing Continue while it is on
+     * screen; the session may then close through the authored ending.
+     *
+     * @param  array<int, mixed>  $presentedChoices
+     */
+    private function endingChoicePresented(PlayableMoment $finalMoment, array $presentedChoices): bool
+    {
+        $required = array_map(
+            static fn ($id): string => mb_strtolower((string) $id),
+            (array) data_get($finalMoment->scene_card, 'choice_ids', []),
+        );
+
+        if ($required === []) {
+            return true;
+        }
+
+        foreach ($presentedChoices as $choice) {
+            $choiceId = is_array($choice) ? mb_strtolower((string) ($choice['canonical_choice_id'] ?? '')) : '';
+
+            if ($choiceId !== '' && in_array($choiceId, $required, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

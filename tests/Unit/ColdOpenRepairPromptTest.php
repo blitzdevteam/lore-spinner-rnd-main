@@ -167,12 +167,12 @@ it('keeps Peter Pan as a labeled craft example while filling another title from 
         ->toContain('A shard is set down between you.');
 });
 
-it('runs the repair on Sonnet 4.6', function (): void {
+it('runs the repair on Opus 5.5', function (): void {
     $model = (new ReflectionClass(ColdOpenRepairAgent::class))
         ->getAttributes(Model::class)[0]
         ->newInstance();
 
-    expect($model->value)->toBe('claude-sonnet-4-6');
+    expect($model->value)->toBe('claude-opus-5-5');
 });
 
 it('keeps a string reintroduction list for titles that store one', function (): void {

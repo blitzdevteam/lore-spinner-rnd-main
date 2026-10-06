@@ -15,12 +15,13 @@ use App\Models\Story;
  */
 final class ColdOpenRepairContext
 {
-    public const string CONTRACT_VERSION = '2026-10-03';
+    public const string CONTRACT_VERSION = '2026-10-06';
 
     /**
      * @param  array<string, mixed>  $diagnosis
      * @param  array<string, mixed>  $voiceProfile
      * @param  list<array{position: int, title: string, content: string}>  $sourceEvents
+     * @param  array<string, string>  $previousSessionClose
      * @return array{
      *     story_title: string,
      *     story_slug: string,
@@ -34,7 +35,8 @@ final class ColdOpenRepairContext
      *     cold_open_facts: list<string>,
      *     first_choice: array{setup_prose: string, threshold_stake: string, question: string, options: list<string>},
      *     current_cold_open: string,
-     *     source_events: list<array{position: int, title: string, content: string}>
+     *     source_events: list<array{position: int, title: string, content: string}>,
+     *     previous_session_close: array<string, string>
      * }
      */
     public function build(
@@ -45,6 +47,7 @@ final class ColdOpenRepairContext
         array $voiceProfile,
         array $diagnosis,
         array $sourceEvents,
+        array $previousSessionClose = [],
     ): array {
         $firstChoice = (array) ($diagnosis['first_choice_spec'] ?? []);
 
@@ -71,6 +74,24 @@ final class ColdOpenRepairContext
             ],
             'current_cold_open' => (string) ($diagnosis['cold_open'] ?? ''),
             'source_events' => $sourceEvents,
+            'previous_session_close' => array_filter($previousSessionClose, fn (string $text): bool => mb_trim($text) !== ''),
+        ];
+    }
+
+    /**
+     * How the previous session is authored to end, so a later session's cold
+     * open starts where that close leaves the protagonist.
+     *
+     * @param  array<string, mixed>|null  $closeDesign
+     * @return array<string, string>
+     */
+    public function previousSessionClose(?array $closeDesign, string $opensWith = ''): array
+    {
+        return [
+            'resolution_prose' => (string) data_get($closeDesign, 'resolution_prose', ''),
+            'hook_transition' => (string) data_get($closeDesign, 'hook_transition', ''),
+            'final_line' => (string) data_get($closeDesign, 'session_end_choice.final_line', ''),
+            'next_session_opens_with' => $opensWith,
         ];
     }
 

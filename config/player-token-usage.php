@@ -96,6 +96,19 @@ return [
                 'source' => 'https://developers.openai.com/api/docs/models/chat-latest',
             ]],
         ],
+        'claude-opus-5-5' => [
+            'provider' => 'anthropic',
+            'periods' => [[
+                'version' => 'anthropic-standard-2026-10-06',
+                'effective_from' => null,
+                'effective_until' => null,
+                'input' => '4.000000',
+                'output' => '20.000000',
+                'cache_write' => '8.000000',
+                'cache_read' => '0.200000',
+                'source' => 'https://platform.claude.com/docs/en/about-claude/pricing',
+            ]],
+        ],
         'claude-opus-5' => [
             'provider' => 'anthropic',
             'periods' => [[

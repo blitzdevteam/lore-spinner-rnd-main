@@ -68,10 +68,10 @@ it('defines Continue as compact narrator-led progress without granting branch au
     $card = file_get_contents(resource_path('js/components/GameplayChatCard.vue'));
 
     expect($action)
-        ->toContain('CONTINUE MODE: MEANINGFUL FAST-FORWARD.')
-        ->toContain('significant events and changes')
+        ->toContain('CONTINUE MODE: THE STORY READS ON LIKE A BOOK.')
+        ->toContain('significant events')
+        ->toContain('Slow down where the player can shape the story.')
         ->toContain('Never select or commit A/B/C')
-        ->toContain('landing point as caught_up_to_moment_key')
         ->and($card)
         ->toContain("isContinued.value ? 'Continue story'")
         ->not->toContain("isContinued.value ? 'Continued the story'");

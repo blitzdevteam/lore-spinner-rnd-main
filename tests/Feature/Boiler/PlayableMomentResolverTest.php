@@ -743,7 +743,7 @@ it('blocks session complete until an authored session-ending choice is resolved'
         ->and($completed->moment_result)->toBe('completed');
 });
 
-it('lets Continue finish the authored session close without inventing an ending choice', function () {
+it('lets Continue close the session once the ending choice was offered and declined', function () {
     $fixture = boilerResolverFixture();
     $fixture['second']->update([
         'scene_card' => [
@@ -781,9 +781,15 @@ it('lets Continue finish the authored session close without inventing an ending 
         ],
     );
 
+    $fixture['source']->update(['choices' => [
+        ['text' => 'Close with mercy', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'A'],
+        ['text' => 'Close with steel', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'B'],
+        ['text' => 'Close with silence', 'canonical_choice_id' => 'S1_C4', 'canonical_path_label' => 'C'],
+    ]]);
+
     $completed = app(PlayableMomentResolver::class)->applyPlayerTurn(
         $fixture['game']->fresh(),
-        $fixture['source'],
+        $fixture['source']->fresh(),
         '__continue__',
         $result,
         [],
@@ -1271,4 +1277,109 @@ it('does not gate a card that only carries an emotional choice', function () {
     );
 
     expect($fixture['game']->fresh()->current_playable_moment_id)->toBe($fixture['second']->id);
+});
+
+it('holds a Continue close until the session-ending choice has been offered', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['second']->update(['scene_card' => ['moment_key' => 'S1_M02', 'choice_ids' => ['S1_C4']]]);
+    $fixture['game']->update(['current_playable_moment_id' => $fixture['second']->id, 'playable_moment_turn_count' => 1]);
+
+    $response = app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        '__continue__',
+        boilerResolverResult('S1_M02', true, 'The narrator tried to close without the ending choice.'),
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+        isContinue: true,
+    );
+
+    expect($fixture['game']->fresh()->current_session_complete)->toBeFalse()
+        ->and($response->moment_result)->toBe('retained');
+});
+
+it('moves past a Continue landing card whose scene has fully played out', function () {
+    $fixture = boilerResolverFixture();
+    $third = $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
+    ]);
+    $result = boilerResolverResult('S1_M01', true, 'The story read on through the second room.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M02';
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        '__continue__',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+        isContinue: true,
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($third->id)
+        ->and($game->playable_moment_turn_count)->toBe(0);
+});
+
+it('keeps an unfinished Continue landing card as already underway', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['cut']->moments()->create([
+        'moment_key' => 'S1_M03',
+        'moment_order' => 3,
+        'source_event_ids' => [],
+        'scene_card' => ['moment_key' => 'S1_M03', 'choice_ids' => []],
+    ]);
+    $result = boilerResolverResult('S1_M01', false, 'The story stopped inside the second room.');
+    $result['moment_progress']['caught_up_to_moment_key'] = 'S1_M02';
+
+    app(PlayableMomentResolver::class)->applyPlayerTurn(
+        $fixture['game']->fresh(),
+        $fixture['source'],
+        '__continue__',
+        $result,
+        [],
+        $fixture['adaptation']->sessionAdaptations()->get(),
+        isContinue: true,
+    );
+    $game = $fixture['game']->fresh();
+
+    expect($game->current_playable_moment_id)->toBe($fixture['second']->id)
+        ->and($game->playable_moment_turn_count)->toBe(1);
+});
+
+it('makes Continue stop at an unseen decision and read on once it was declined', function () {
+    $fixture = boilerResolverFixture();
+    $fixture['first']->update(['scene_card' => ['moment_key' => 'S1_M01', 'title' => 'The Window', 'choice_ids' => ['S1_C1']]]);
+    $fixture['second']->update(['scene_card' => ['moment_key' => 'S1_M02', 'title' => 'The Flight', 'choice_ids' => ['S1_C2']]]);
+    $fixture['session']->update([
+        'session_choice_design' => [
+            'branching_choices' => [
+                ['choice_id' => 'S1_C1', 'options' => [['label' => 'A', 'text' => 'Open the window']]],
+                ['choice_id' => 'S1_C2', 'options' => [['label' => 'A', 'text' => 'Follow the star']]],
+            ],
+            'emotional_choices' => [],
+        ],
+    ]);
+
+    $engine = app(ChaosEngineService::class);
+    $resolve = (new ReflectionClass($engine))->getMethod('resolveActiveMomentContext');
+    $build = (new ReflectionClass($engine))->getMethod('buildActiveMomentBlock');
+
+    $unseen = $build->invoke($engine, $resolve->invoke($engine, $fixture['game']->fresh(), $fixture['session']->fresh()), false, true);
+
+    $fixture['source']->update(['choices' => [
+        ['text' => 'Open the window', 'canonical_choice_id' => 'S1_C1', 'canonical_path_label' => 'A'],
+    ]]);
+    $declined = $build->invoke($engine, $resolve->invoke($engine, $fixture['game']->fresh(), $fixture['session']->fresh()), false, true);
+
+    expect($unseen)->toContain('CONTINUE SLOWS DOWN HERE')
+        ->and($unseen)->toContain('Open the window')
+        ->and($unseen)->not->toContain('EXIT CHECK')
+        ->and($declined)->not->toContain('CONTINUE SLOWS DOWN HERE')
+        ->and($declined)->toContain('pressed Continue instead')
+        ->and($declined)->toContain('NEXT DECISION THE PLAYER CAN SHAPE: S1_M02')
+        ->and($declined)->toContain('Follow the star');
 });

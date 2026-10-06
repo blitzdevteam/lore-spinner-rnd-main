@@ -51,6 +51,7 @@ final class ChaosEngineService
         'gpt-5.2' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'gpt-4.1' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
         'chat-latest' => ['provider' => 'openai',    'temperature' => 0.9,  'reasoning_effort' => null],
+        'claude-opus-5-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-opus-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-opus-4-8' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
         'claude-opus-4-7' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
@@ -96,6 +97,17 @@ final class ChaosEngineService
     private const KEYED_DELTA_STATE_FIELDS = ['object_states', 'relationship_updates', 'world_flags'];
 
     private const APPEND_ONLY_STATE_FIELDS = ['knowledge', 'notes', 'player_style'];
+
+    private const SESSION_SCOPED_STATE_FIELDS = ['object_states', 'relationship_updates', 'world_flags', 'notes', 'conditions'];
+
+    private const HISTORY_MAX_ENTRIES = 60;
+
+    private const HISTORY_RELEVANT_ENTRIES = 8;
+
+    /** State the runtime writes itself; the narrator's delta never touches it. */
+    private const RUNTIME_OWNED_STATE_FIELDS = ['history', 'reintroduced_facts'];
+
+    private const PREVIOUS_ENDING_MAX_CHARS = 1800;
 
     /**
      * Per-turn injection caps for the append-only lists. Storage keeps every
@@ -424,11 +436,16 @@ TEXT;
         // it is not asked to self-suppress them. strtr still processes the other three tokens
         // normally; [OPENING_SCENE_INJECTION_POINT] simply goes unused on continuation paths.
         $consequenceBlock = $this->buildConsequenceEchoBlock(
-            $sessionContext['resolved_consequence_path'] ?? null
+            $sessionContext['resolved_consequence_path'] ?? null,
+            (int) ($sessionContext['session_number'] ?? 1),
         );
 
-        $closeBlock = $isClimacticThisTurn
-            ? $this->buildSessionCloseBlock($sessionContext['session_close_design'] ?? null)
+        $continueAtFinalCard = $isContinue && ! $isSessionStart && (bool) ($activeContext['is_final_card'] ?? false);
+        $closeBlock = $isClimacticThisTurn || $continueAtFinalCard
+            ? $this->buildSessionCloseBlock(
+                $sessionContext['session_close_design'] ?? null,
+                endingChoiceDeclined: $continueAtFinalCard && (bool) ($activeContext['card_choice_presented'] ?? false),
+            )
             : '';
         $activeMomentBlock = $this->buildActiveMomentBlock(
             $sessionContext['active_moment_context'] ?? null,
@@ -577,7 +594,10 @@ TEXT;
             }
         }
 
-        return array_merge($matchedPath, $freeform ?? []);
+        return [
+            ...array_merge($matchedPath, $freeform ?? []),
+            'choice_session_number' => $this->extractSessionNumber($definingChoiceId),
+        ];
     }
 
     /**
@@ -1021,6 +1041,12 @@ TEXT;
 
         $merged['emotional_ledger'] = array_values(array_merge($previousLedger, $newLedger));
 
+        foreach (self::RUNTIME_OWNED_STATE_FIELDS as $key) {
+            if (array_key_exists($key, $previous)) {
+                $merged[$key] = $previous[$key];
+            }
+        }
+
         return $merged;
     }
 
@@ -1125,6 +1151,60 @@ TEXT;
      *   emotional_ledger:array<int, array{category:string, entry:string}>,
      * }
      */
+    /**
+     * The closing narration this player actually received in a session, so the
+     * next session's opening can be reconciled against it.
+     */
+    public function previousSessionEnding(Game $game, int $sessionNumber): string
+    {
+        if ($sessionNumber < 1) {
+            return '';
+        }
+
+        $response = $game->prompts()
+            ->where('session_number', $sessionNumber)
+            ->whereNotNull('response')
+            ->orderByDesc('id')
+            ->value('response');
+
+        $text = mb_trim($this->stripHtml((string) $response));
+
+        return mb_strlen($text) > self::PREVIOUS_ENDING_MAX_CHARS
+            ? '…'.mb_substr($text, -self::PREVIOUS_ENDING_MAX_CHARS)
+            : $text;
+    }
+
+    /**
+     * Move session-scoped state into history at an episode boundary.
+     *
+     * Object states, relationships, flags, notes and conditions describe the
+     * world as the last session left it. Carried forward as live state they
+     * read as the present, so a story that has moved on keeps being pulled
+     * back. Items, knowledge, promises and player style stay live.
+     *
+     * @param  array<string, mixed>  $worldState
+     * @return array<string, mixed>
+     */
+    public function archiveSessionState(array $worldState, int $endedSessionNumber): array
+    {
+        $entries = [];
+
+        foreach (self::SESSION_SCOPED_STATE_FIELDS as $field) {
+            foreach ((array) ($worldState[$field] ?? []) as $entry) {
+                $text = is_scalar($entry) ? mb_trim((string) $entry) : '';
+                if ($text !== '') {
+                    $entries[] = "Session {$endedSessionNumber}: {$text}";
+                }
+            }
+            $worldState[$field] = [];
+        }
+
+        $history = [...array_values((array) ($worldState['history'] ?? [])), ...$entries];
+        $worldState['history'] = array_slice($history, -self::HISTORY_MAX_ENTRIES);
+
+        return $worldState;
+    }
+
     public function emptyWorldState(): array
     {
         return [
@@ -1163,7 +1243,7 @@ TEXT;
     public function turnInstructions(string $protagonistUpper, bool $isContinue = false): string
     {
         $continueLine = $isContinue
-            ? "THIS IS A CONTINUE: the player has no particular action and wants the authored story to move forward more quickly. Read ahead through the ordered moments and source events, narrating them compactly rather than broadly describing each room. Preserve every significant event and every fact, rule, object, location, relationship, promise, or consequence the player will need later. {$protagonistUpper} may do and say what the author's pages have them do, but do not invent a preference or claim the player selected an authored A/B/C path. You may pass such a decision without committing it. Stop naturally when renewed action, danger, or meaningful interaction makes ordinary play worthwhile again. Report the later moment where the prose truly stopped as caught_up_to_moment_key; never report where it is merely heading.\n\n"
+            ? "THIS IS A CONTINUE: the player wants the story told forward like the next pages of the book. Narrate the ordered moments meaningfully, several beats, compressing connective writing but never the events, facts, objects, relationships, promises, or consequences later material needs. {$protagonistUpper} may do and say what the author's pages have them do, but never invent a preference or claim the player selected an authored A/B/C path. Follow the Continue directive in the active moment exactly: it names the decision where you must slow down and stop so the player can steer, and how to report where the prose stopped.\n\n"
             : '';
 
         return "Now narrate the world's response to this action.\n\n".
@@ -1185,7 +1265,7 @@ TEXT;
             "2. ANY SENTENCE, IMAGE, OR SAYING YOU ALREADY WROTE IN AN EARLIER TURN: CUT IT OR SAY SOMETHING NEW.\n".
             "3. ANY RULE, LAW, OR FACT ABOUT THE WORLD THAT IS NOT IN THE SOURCE OR ALREADY ON THE PAGE: REMOVE IT. DO NOT INVENT CANON.\n".
             "4. ANY CLOSING LINE ABOUT WHAT THE MOMENT MEANS OR WHO SOMEONE IS BECOMING: DELETE IT.\n".
-            ($isContinue ? "5. CONTINUE: KEEP THE IMPORTANT STORY, COMPRESS THE CONNECTIVE WRITING, AND REPORT WHERE THE PROSE ACTUALLY STOPPED.\n" : '').
+            ($isContinue ? "5. CONTINUE: KEEP THE IMPORTANT STORY, COMPRESS THE CONNECTIVE WRITING, STOP AT THE NAMED DECISION, AND REPORT WHERE THE PROSE ACTUALLY STOPPED.\n" : '').
             "\nReturn the full structured object.";
     }
 
@@ -1547,6 +1627,8 @@ TEXT;
         // allowance is deliberately independent of turn_count: engaging deeply
         // with a room must never cost the player the right to improvise later.
         $detourBeatsUsed = max(0, (int) ($footnote['detour_beats_used'] ?? 0));
+        $presentedChoiceIds = $this->presentedChoiceIds($game);
+        $cardChoiceIds = array_map(static fn ($id): string => mb_strtolower((string) $id), (array) data_get($card, 'choice_ids', []));
 
         return [
             'moment' => $card,
@@ -1566,7 +1648,69 @@ TEXT;
             'next_moment_preview' => $preview,
             'detour_beats_used' => $detourBeatsUsed,
             'detour_beats_remaining' => max(0, self::DETOUR_BEAT_ALLOWANCE - $detourBeatsUsed),
+            'is_final_card' => $nextMoment === null,
+            'card_choice_presented' => array_intersect($cardChoiceIds, $presentedChoiceIds) !== [],
+            'continue_decision_stop' => $this->nextContinueDecisionStop($session, $moment, $branchingIds, $committedChoiceId),
         ];
+    }
+
+    /**
+     * Canonical choice ids on screen right now: the options attached to the
+     * newest response, which is the one the player is answering.
+     *
+     * @return array<int, string>
+     */
+    private function presentedChoiceIds(Game $game): array
+    {
+        $choices = (array) ($game->prompts()->orderByDesc('id')->first(['id', 'choices'])?->choices ?? []);
+
+        return array_values(array_filter(array_map(
+            static fn ($choice): string => is_array($choice) ? mb_strtolower((string) ($choice['canonical_choice_id'] ?? '')) : '',
+            $choices,
+        )));
+    }
+
+    /**
+     * The next later card where Continue must slow down: one that carries an
+     * authored branching choice the player has not yet taken.
+     *
+     * @param  array<int, string>  $branchingIds
+     * @return array{moment_key:string, title:string, choice_ids:array<int, string>, options:array<int, mixed>}|null
+     */
+    private function nextContinueDecisionStop(
+        SessionAdaptation $session,
+        PlayableMoment $moment,
+        array $branchingIds,
+        string $committedChoiceId,
+    ): ?array {
+        if ($branchingIds === []) {
+            return null;
+        }
+
+        $laterMoments = PlayableMoment::query()
+            ->where('playable_session_cut_id', $moment->playable_session_cut_id)
+            ->where('moment_order', '>', $moment->moment_order)
+            ->orderBy('moment_order')
+            ->get();
+
+        foreach ($laterMoments as $later) {
+            $choiceIds = array_values(array_filter(
+                array_map(static fn ($id): string => (string) $id, (array) data_get($later->scene_card, 'choice_ids', [])),
+                static fn (string $id): bool => in_array(mb_strtolower($id), $branchingIds, true)
+                    && mb_strtolower($id) !== $committedChoiceId,
+            ));
+
+            if ($choiceIds !== []) {
+                return [
+                    'moment_key' => $later->moment_key,
+                    'title' => (string) data_get($later->scene_card, 'title', ''),
+                    'choice_ids' => $choiceIds,
+                    'options' => $this->authoredOptionsForMoment($session, $choiceIds),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1679,6 +1823,10 @@ TEXT;
             'REQUIRED: emit valid moment_progress for this key in THIS response (moment_key exact match, boolean exit_condition_met, honest route_relation and impact_scope, and after player input a non-empty moment_footnote of one to three sentences).',
         ];
 
+        if (! $isSessionStart && $turnCount > 0) {
+            $lines[] = 'THIS CARD IS ALREADY UNDERWAY: earlier responses have narrated part of it. Pick up exactly where the last response stopped. Never restage its opening_image, re-introduce people already present, or replay beats already on the page.';
+        }
+
         $targetWords = (int) ($context['target_words_per_turn'] ?? 0);
         $previousWords = (int) ($context['previous_turn_words'] ?? 0);
         if ($targetWords > 0) {
@@ -1703,12 +1851,12 @@ TEXT;
 
         if ($exitCondition !== '') {
             $lines[] = 'EXIT CONDITION (semantic: outcomes, not a checklist): '.$exitCondition;
-            if (! $isSessionStart) {
+            if (! $isSessionStart && ! $isContinue) {
                 $lines[] = 'EXIT CHECK (every turn, before you write): read the conversation history, the opening included, and this turn\'s narration. If EVERY outcome in the exit condition has already happened on the page, set exit_condition_met=true in THIS response, even if it happened turns ago and even if the player never mentioned it. If any part has not happened on the page (a character who must appear has not appeared, a thing that must be seen has not been seen), it is not met: keep playing the card and let that part happen. Holding a finished card is an error, and so is leaving one with its scene unplayed.';
             }
         }
 
-        if (! $isSessionStart && $targetTurns > 0 && $turnCount >= $targetTurns) {
+        if (! $isSessionStart && ! $isContinue && $targetTurns > 0 && $turnCount >= $targetTurns) {
             $lines[] = "STORY CHECK: this card has held {$turnCount} turns against a target of {$targetTurns}. Compare it with where the prose actually is. If the story has already left this card behind, set exit_condition_met=true and report the moment it is in now as caught_up_to_moment_key (see the moment_progress contract). If the story is still here, keep playing it.";
         }
 
@@ -1748,22 +1896,15 @@ TEXT;
             static fn ($id): string => (string) $id,
             (array) ($context['pending_branching_choice_ids'] ?? []),
         )));
-        if (! $isSessionStart && $pendingChoiceIds !== []) {
-            if ($isContinue) {
-                $lines[] = implode("\n", [
-                    'CONTINUE AT A DECISION: this card carries '.implode(', ', $pendingChoiceIds).', but the player deliberately asked the authored story to continue without choosing a path.',
-                    '- Do not select, infer, or report an A/B/C path, defining choice, moral preference, or player-style judgment.',
-                    '- Narrate the author\'s shared/canonical progression compactly. You may leave this card and later choice cards behind.',
-                    '- If the prose reaches a later ordered moment, report that exact landing moment as caught_up_to_moment_key so runtime state follows the story immediately.',
-                ]);
-            } else {
-                $lines[] = implode("\n", [
-                    'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
-                    '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
-                    '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
-                    '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
-                ]);
-            }
+        if (! $isSessionStart && $isContinue) {
+            $lines[] = $this->continueDirective($context, $pendingChoiceIds);
+        } elseif (! $isSessionStart && $pendingChoiceIds !== []) {
+            $lines[] = implode("\n", [
+                'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
+                '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
+                '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
+            ]);
         }
 
         if (in_array($pacingState, ['AT GRAVITY', 'PAST GRAVITY'], true)) {
@@ -1806,6 +1947,61 @@ TEXT;
     }
 
     /**
+     * Continue reads the story forward like a book and slows down only where
+     * the player can shape it: an authored branching choice they have not seen.
+     * Once they have seen it and pressed Continue again, the author's path
+     * carries on to the next such decision or the session close.
+     *
+     * @param  array<string, mixed>  $context
+     * @param  array<int, string>  $pendingChoiceIds
+     */
+    private function continueDirective(array $context, array $pendingChoiceIds): string
+    {
+        $encode = static fn (mixed $value): string => json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
+        $momentKey = (string) ($context['moment_key'] ?? '');
+        $progressContract = implode("\n", [
+            'CONTINUE PROGRESS REPORT:',
+            "- moment_progress.moment_key stays {$momentKey}.",
+            '- caught_up_to_moment_key names the card where the prose actually stopped; leave it empty if the prose never left this card. Never name where the story is merely heading.',
+            '- exit_condition_met describes the card where the prose stopped: true only if everything in that card has fully happened on the page.',
+        ]);
+        $neverChoose = 'Never select, infer, or report an A/B/C path, defining choice, moral preference, or player-style judgment on a Continue.';
+
+        if ($pendingChoiceIds !== [] && ! (bool) ($context['card_choice_presented'] ?? false)) {
+            return implode("\n\n", [
+                implode("\n", [
+                    'CONTINUE SLOWS DOWN HERE: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not been offered it yet. This is a decision they can shape.',
+                    '- Narrate forward like the next page of the book until the decision is in front of the protagonist, then stop there.',
+                    '- The three visible_suggestions ARE its A, B, and C options, each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                    '- '.$neverChoose.' Keep exit_condition_met=false and caught_up_to_moment_key empty.',
+                ]),
+                'THE DECISION:',
+                $encode($context['authored_options'] ?? []),
+            ]);
+        }
+
+        $lines = [];
+        if ($pendingChoiceIds !== []) {
+            $lines[] = 'The player was offered '.implode(', ', $pendingChoiceIds).' and pressed Continue instead: they want the author\'s story to carry on. Follow the author\'s canonical path through it.';
+        }
+        $lines[] = 'CONTINUE NARRATES LIKE A BOOK: move the story forward meaningfully, several beats, through the ordered moments in the author\'s order and voice. Compress connective description, routine movement, and waiting; never compress the events, or any fact, object, relationship, promise, or consequence later material needs.';
+        $lines[] = $neverChoose;
+
+        $stop = $context['continue_decision_stop'] ?? null;
+        if (is_array($stop)) {
+            $lines[] = "NEXT DECISION THE PLAYER CAN SHAPE: {$stop['moment_key']} \"{$stop['title']}\" (".implode(', ', (array) $stop['choice_ids']).'). If the story reaches it, narrate up to the moment that decision is in front of the protagonist and stop there. Offer its options as the three visible_suggestions, each mapped to its canonical_choice_id and canonical_path_label. Report it as caught_up_to_moment_key with exit_condition_met=false.';
+            $lines[] = $encode($stop['options'] ?? []);
+            $lines[] = 'Before that card, stop earlier only where a moment arrives that clearly asks for the player\'s own hand (a confrontation, a person speaking directly to the protagonist and waiting for an answer).';
+        } elseif ((bool) ($context['is_final_card'] ?? false)) {
+            $lines[] = 'This is the last card of the session. Carry the story to its authored close as the AUTHORED SESSION CLOSE section directs.';
+        } else {
+            $lines[] = 'No authored decision remains before the session close. Stop where a moment arrives that clearly asks for the player\'s own hand, or at the session\'s last card.';
+        }
+
+        return implode("\n", [...$lines, '', $progressContract]);
+    }
+
+    /**
      * Build the consequence echo block injected at [CONSEQUENCE_ECHO_INJECTION_POINT].
      *
      * Tells the narrator how to surface the player's prior defining choice:
@@ -1816,34 +2012,43 @@ TEXT;
      *
      * @param  array<string, mixed>|null  $path
      */
-    private function buildConsequenceEchoBlock(?array $path): string
+    private function buildConsequenceEchoBlock(?array $path, int $currentSessionNumber = 1): string
     {
         if ($path === null) {
             return '';
         }
 
+        // The full guidance belongs to the session the choice was made in. One
+        // session later only its payoff and the narrator stance still apply;
+        // after that only the stance, so a settled choice stops re-staging.
+        $choiceSession = (int) ($path['choice_session_number'] ?? $currentSessionNumber);
+        $sessionsSince = max(0, $currentSessionNumber - $choiceSession);
+
         $lines = ['ACTIVE CONSEQUENCE GUIDANCE (player\'s prior defining choice):'];
 
-        if (! empty($path['current_session_echo'])) {
+        if ($sessionsSince > 0) {
+            $lines[] = 'This choice was made '.($sessionsSince === 1 ? 'last session' : "{$sessionsSince} sessions ago").'. It is settled history: honour what it changed, never re-stage it or treat it as still open.';
+        }
+        if ($sessionsSince === 0 && ! empty($path['current_session_echo'])) {
             $lines[] = 'Echo this session: '.$path['current_session_echo'];
         }
-        if (! empty($path['next_session_payoff'])) {
+        if ($sessionsSince === 1 && ! empty($path['next_session_payoff'])) {
             $lines[] = 'Honour this session: '.$path['next_session_payoff'];
         }
         if (! empty($path['narrator_behavior'])) {
             $lines[] = 'Narrator behaviour going forward: '.$path['narrator_behavior'];
         }
-        if (! empty($path['consequence_visibility']['what_changes'])) {
+        if ($sessionsSince === 0 && ! empty($path['consequence_visibility']['what_changes'])) {
             $vis = $path['consequence_visibility'];
             $target = (int) ($vis['when_visible_target_responses'] ?? 2);
             $lines[] = 'Make visible within '.$target.' responses: '.$vis['what_changes']
                 .' ('.($vis['how_player_sees_it'] ?? '').')';
         }
-        if (! empty($path['fold_back_acknowledge'])) {
+        if ($sessionsSince === 0 && ! empty($path['fold_back_acknowledge'])) {
             $lines[] = 'Fold-back, acknowledge: "'.$path['fold_back_acknowledge']
                 .'" → redirect: "'.($path['fold_back_redirect'] ?? '').'"';
         }
-        if (! empty($path['hard_limits'])) {
+        if ($sessionsSince === 0 && ! empty($path['hard_limits'])) {
             $lines[] = 'Hard limits at this node: '.implode(' / ', (array) $path['hard_limits']);
         }
 
@@ -1859,9 +2064,13 @@ TEXT;
      *
      * Returns empty string when no close design is provided.
      *
+     * A Continue on the last card also receives it. When the player has already
+     * seen the session-end choice and pressed Continue, they have declined it,
+     * so the close is delivered along the author's path without asking again.
+     *
      * @param  array<string, mixed>|null  $closeDesign
      */
-    private function buildSessionCloseBlock(?array $closeDesign): string
+    private function buildSessionCloseBlock(?array $closeDesign, bool $endingChoiceDeclined = false): string
     {
         if ($closeDesign === null) {
             return '';
@@ -1881,7 +2090,15 @@ TEXT;
         }
 
         $choice = $closeDesign['session_end_choice'] ?? null;
-        if ($choice !== null) {
+        if ($choice !== null && $endingChoiceDeclined) {
+            $lines[] = '';
+            $lines[] = 'SESSION-END CHOICE DECLINED: the player was offered the session-end choice and pressed Continue. Close the session along the author\'s own path: deliver the resolution prose and hook transition, end on the final line, and set exit_condition_met=true. Do not present the choice again, do not invent a different ending, and do not report a defining choice.';
+
+            if (! empty($choice['final_line'])) {
+                $lines[] = '';
+                $lines[] = 'FINAL LINE (last words of this session): '.$choice['final_line'];
+            }
+        } elseif ($choice !== null) {
             $lines[] = '';
             $lines[] = 'SESSION-END CHOICE: present these three options.';
             $lines[] = 'What it asks (design intent, never spoken to the player): '.($choice['choice_question'] ?? '');
@@ -1924,8 +2141,23 @@ TEXT;
         $mustReintroduce = $sessionContext['must_reintroduce'] ?? '';
         $reintroducedFacts = (array) ($worldState['reintroduced_facts'] ?? []);
         $activeMomentKey = (string) data_get($sessionContext, 'active_moment_context.moment_key', '');
+        $previousEnding = mb_trim((string) ($sessionContext['previous_session_ending'] ?? ''));
+        $bridgeAllowed = $sessionNumber > 1 && $previousEnding !== '' && $coldOpen !== '';
 
         $lines = [];
+
+        if ($bridgeAllowed) {
+            $lines[] = 'HOW THE LAST SESSION ACTUALLY ENDED FOR THIS PLAYER (their last page; reference, never text to recite):';
+            $lines[] = $previousEnding;
+            $lines[] = '';
+            $lines[] = implode("\n", [
+                'CONTINUITY BRIDGE: the authored cold open below was written for the author\'s own ending of the last session, and this player may have ended somewhere else.',
+                '- Compare them. If the cold open fits this ending, add nothing before it.',
+                '- If the cold open assumes something this ending contradicts (where the protagonist is, who is with them, what they hold or know, what has already happened), open with one to three sentences in the author\'s voice, in the cold open\'s person and tense, that carry the protagonist from where they actually are into the cold open\'s situation. Then deliver the cold open.',
+                '- The bridge is the next page of the story: no summary, no recap, no explanation, nothing outside the fiction.',
+            ]);
+            $lines[] = '';
+        }
 
         // Sessions 2+: prepend the continuity handoff from the previous session close.
         if ($sessionNumber > 1 && $openingHandoff !== '') {
@@ -1951,7 +2183,9 @@ TEXT;
                 'COLD OPEN DELIVERY CONTRACT (this turn only):',
                 '- Reproduce the text above word for word as the opening prose of this response. Do not rewrite, re-order, paraphrase, trim, expand, or "improve" it.',
                 '- It is already written in the author\'s voice and already carries the designed opening formulas: the player lands inside their own body in the first sentence, the protagonist\'s identity arrives in the prose at a moment of weight, it runs in second-person present tense, and it ends on the first real choice. Any rewrite breaks at least one of these.',
-                '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
+                $bridgeAllowed
+                    ? '- Add NOTHING before it except the continuity bridge, and only when the bridge rule above calls for one. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble.'
+                    : '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
                 '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
                 '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE (rhythm, diction, compression) and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
                 '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions; those carry the handoff, not a question.',
@@ -2227,14 +2461,38 @@ TEXT;
     ): string {
         $tier1 = $this->formatTier1($worldState, $focusText, $lastNarration);
         $tier2 = $this->formatTier2($worldState, $sessionEvents, $focusText);
+        $history = $this->formatHistory($worldState, $isClimactic, $focusText);
 
         if ($isClimactic) {
             $tier3 = $this->formatTier3($worldState);
 
-            return implode("\n\n", array_filter([$tier1, $tier2, $tier3]));
+            return implode("\n\n", array_filter([$tier1, $tier2, $tier3, $history]));
         }
 
-        return implode("\n\n", array_filter([$tier1, $tier2]));
+        return implode("\n\n", array_filter([$tier1, $tier2, $history]));
+    }
+
+    /**
+     * Archived state from earlier sessions, labelled as the past so it is
+     * never mistaken for how the world stands now.
+     *
+     * @param  array<string, mixed>  $w
+     */
+    private function formatHistory(array $w, bool $loadAll, string $focusText): string
+    {
+        $history = $this->cleanStringList($w['history'] ?? []);
+
+        if ($history === []) {
+            return '';
+        }
+
+        $shown = $loadAll ? $history : $this->selectRelevantMemories($history, self::HISTORY_RELEVANT_ENTRIES, $focusText);
+
+        return implode("\n", [
+            'EARLIER SESSIONS (history: how things stood when those sessions ended, NOT how they stand now):',
+            'The present is the conversation and the state above. Use this only to stay consistent with what already happened; never stage it again or treat an old position, condition, or object state as current.',
+            $this->joinList($shown),
+        ]);
     }
 
     /**
@@ -2810,6 +3068,7 @@ TEXT;
     private function modelAcceptsSamplingParams(string $model): bool
     {
         return ! in_array($model, [
+            'claude-opus-5-5',
             'claude-sonnet-5',
             'claude-opus-5',
             'claude-opus-4-8',

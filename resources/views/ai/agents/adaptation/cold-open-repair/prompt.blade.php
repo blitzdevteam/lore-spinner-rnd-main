@@ -11,6 +11,13 @@ entry-point intent and use its own first_choice_spec. The existing cold_open is 
 to repair, not approved prose.
 {{ json_encode($current_entry_point_diagnosis, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
+@if($session_number > 1 && $previous_session_close !== [])
+HOW SESSION {{ $session_number - 1 }} IS AUTHORED TO END (the player arrives here from it):
+{{ json_encode($previous_session_close, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+Begin where this close leaves {{ $protagonist }}. Nothing in the cold open may contradict it:
+place, people present, objects held or lost, what is already known. Do not retell it.
+
+@endif
 SOURCE AROUND THE BOILER ENTRY AND HANDOFF:
 Use this to keep names and events canonical. Do not invent unsupported facts.
 @forelse($source_events as $event)
