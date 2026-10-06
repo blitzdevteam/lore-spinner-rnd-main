@@ -51,7 +51,9 @@ it('features the curated homepage story order', function (): void {
     $featured = file_get_contents(resource_path('js/data/homepageFeaturedStories.ts'));
     $hero = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
-    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.jpg'");
+    expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.webp'")
+        ->toContain('shouldLoadSlideImage')
+        ->toContain(":fetchpriority=\"index === activeIndex ? 'high' : 'low'\"");
 
     $covers = file_get_contents(resource_path('js/data/storyCoverBySlug.ts'));
 

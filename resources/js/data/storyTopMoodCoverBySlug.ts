@@ -18,7 +18,7 @@ import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg
 import speckledBandCover from '@/assets/newStories/speckled-band-landscape.jpg';
 import tellTaleHomeLandscape from '@/assets/newStories/Tell Tale 5_3 landscape.png';
 import pjsTopMood from '@/assets/top-moods/PJS 16_9 untitled.JPG';
-import prideTopMood from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
+import prideTopMood from '@/assets/top-moods/Pride prejudice 16_9 untitled.webp';
 import romeoTopMood from '@/assets/top-moods/Romeo juliet 16_9 untitled.png';
 import treasureTopMood from '@/assets/top-moods/Treasure island 16_9 untitled.png';
 import momotaroFeatured from '@/assets/featured/momotaro.png';

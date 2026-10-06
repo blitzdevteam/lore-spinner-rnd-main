@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import greenKnightImage from '@/assets/carosel/greenknight.png';
-import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.png';
-import ozImage from '@/assets/carosel/Ultrawide Oz.png';
-import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.jpg';
-import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.png';
+import greenKnightImage from '@/assets/carosel/greenknight.webp';
+import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.webp';
+import ozImage from '@/assets/carosel/Ultrawide Oz.webp';
+import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.webp';
+import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.webp';
 import BaseButton from '@/components/BaseButton.vue';
 import { LORE_SPINNER_CLASSIC } from '@/data/loreSpinnerSeriesLabels';
 import { StoryInterface } from '@/types';
@@ -189,6 +189,20 @@ const slides = computed((): ResolvedHeroSlide[] => featuredSlides.value);
 
 const activeSlide = computed(() => slides.value[activeIndex.value] ?? slides.value[0]);
 
+function shouldLoadSlideImage(index: number): boolean {
+    const count = slides.value.length;
+
+    if (count === 0) {
+        return false;
+    }
+
+    const active = activeIndex.value;
+    const previous = (active - 1 + count) % count;
+    const next = (active + 1) % count;
+
+    return index === active || index === previous || index === next;
+}
+
 function onSwiper(swiper: SwiperInstance) {
     swiperRef.value = swiper;
 }
@@ -223,14 +237,16 @@ function goNext() {
                     @swiper="onSwiper"
                     @slide-change="onSlideChange"
                 >
-                    <SwiperSlide v-for="slide in slides" :key="slide.slug" class="hero-slide">
+                    <SwiperSlide v-for="(slide, index) in slides" :key="slide.slug" class="hero-slide">
                         <div class="hero-slide-media">
                             <img
-                                v-if="slide.image"
+                                v-if="slide.image && shouldLoadSlideImage(index)"
                                 :src="slide.image"
                                 alt=""
                                 class="hero-slide-image h-full w-full object-cover"
                                 :class="slide.imagePosition"
+                                :fetchpriority="index === activeIndex ? 'high' : 'low'"
+                                decoding="async"
                             />
                             <div v-else class="hero-slide-fallback" aria-hidden="true" />
                             <div class="hero-slide-gradient" aria-hidden="true" />
