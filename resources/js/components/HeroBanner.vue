@@ -12,7 +12,7 @@ import { Autoplay, EffectFade, Pagination } from 'swiper/modules';
 import type { Swiper as SwiperInstance } from 'swiper';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import { LucideArrowRight, LucideStar } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import 'swiper/css';
 import 'swiper/css/effect-fade';
@@ -189,18 +189,57 @@ const slides = computed((): ResolvedHeroSlide[] => featuredSlides.value);
 
 const activeSlide = computed(() => slides.value[activeIndex.value] ?? slides.value[0]);
 
-function shouldLoadSlideImage(index: number): boolean {
-    const count = slides.value.length;
+const preloadedSlideIndexes = ref<number[]>([]);
+const warmedSlideUrls = new Set<string>();
 
+function forwardSlideIndexes(active: number, count: number): number[] {
     if (count === 0) {
-        return false;
+        return [];
     }
 
-    const active = activeIndex.value;
-    const previous = (active - 1 + count) % count;
-    const next = (active + 1) % count;
+    const ahead = Math.min(2, count - 1);
 
-    return index === active || index === previous || index === next;
+    return Array.from({ length: ahead + 1 }, (_, offset) => (active + offset) % count);
+}
+
+function warmSlideImage(index: number): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const url = slides.value[index]?.image;
+
+    if (!url || warmedSlideUrls.has(url)) {
+        return;
+    }
+
+    warmedSlideUrls.add(url);
+
+    const image = new Image();
+    image.decoding = 'async';
+    image.fetchPriority = index === activeIndex.value ? 'high' : 'auto';
+    image.src = url;
+}
+
+function queueForwardSlideImages(active: number): void {
+    const nextIndexes = forwardSlideIndexes(active, slides.value.length);
+    const merged = new Set([...preloadedSlideIndexes.value, ...nextIndexes]);
+
+    if (merged.size !== preloadedSlideIndexes.value.length) {
+        preloadedSlideIndexes.value = [...merged];
+    }
+
+    nextIndexes.forEach((index) => {
+        warmSlideImage(index);
+    });
+}
+
+watch(activeIndex, (active) => {
+    queueForwardSlideImages(active);
+}, { immediate: true });
+
+function shouldLoadSlideImage(index: number): boolean {
+    return preloadedSlideIndexes.value.includes(index);
 }
 
 function onSwiper(swiper: SwiperInstance) {
@@ -212,6 +251,16 @@ function onSlideChange(swiper: SwiperInstance) {
 }
 
 function goPrev() {
+    const count = slides.value.length;
+
+    if (count > 0) {
+        const previous = (activeIndex.value - 1 + count) % count;
+
+        if (!preloadedSlideIndexes.value.includes(previous)) {
+            preloadedSlideIndexes.value = [...preloadedSlideIndexes.value, previous];
+        }
+    }
+
     swiperRef.value?.slidePrev();
 }
 
@@ -245,8 +294,8 @@ function goNext() {
                                 alt=""
                                 class="hero-slide-image h-full w-full object-cover"
                                 :class="slide.imagePosition"
-                                :fetchpriority="index === activeIndex ? 'high' : 'low'"
-                                decoding="async"
+                                :fetchpriority="index === activeIndex ? 'high' : 'auto'"
+                                decoding="auto"
                             />
                             <div v-else class="hero-slide-fallback" aria-hidden="true" />
                             <div class="hero-slide-gradient" aria-hidden="true" />

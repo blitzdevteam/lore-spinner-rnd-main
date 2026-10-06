@@ -53,7 +53,8 @@ it('features the curated homepage story order', function (): void {
 
     expect($hero)->toContain("import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.webp'")
         ->toContain('shouldLoadSlideImage')
-        ->toContain(":fetchpriority=\"index === activeIndex ? 'high' : 'low'\"");
+        ->toContain('queueForwardSlideImages')
+        ->toContain(":fetchpriority=\"index === activeIndex ? 'high' : 'auto'\"");
 
     $covers = file_get_contents(resource_path('js/data/storyCoverBySlug.ts'));
 
