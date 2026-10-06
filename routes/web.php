@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Route;
 require __DIR__.'/routes/user.php';
 require __DIR__.'/routes/writer.php';
 
+Route::get('sitemap.xml', Controllers\SitemapController::class)->name('sitemap');
+Route::get('robots.txt', Controllers\RobotsController::class)->name('robots');
+
 // Manager — login as writer (accessible only while manager is authenticated)
 Route::middleware(['auth:manager'])
     ->get('manager/writers/{writer}/login-as', Controllers\Manager\LoginAsWriterController::class)

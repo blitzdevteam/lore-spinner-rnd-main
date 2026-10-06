@@ -21,6 +21,7 @@
         <link rel="icon" href="/favicon.png?v=3" type="image/png">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
         <link rel="manifest" href="/site.webmanifest">
+        <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ rtrim((string) config('app.canonical_url'), '/') }}/sitemap.xml">
 
         <!-- Google Search Console verification -->
         <meta name="google-site-verification" content="google3e64d38c504450d9">

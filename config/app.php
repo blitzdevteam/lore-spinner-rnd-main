@@ -71,6 +71,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Canonical URL
+    |--------------------------------------------------------------------------
+    |
+    | Public origin used in the sitemap and robots.txt. Kept separate from
+    | APP_URL so local requests still advertise the live domain to crawlers.
+    |
+    */
+
+    'canonical_url' => env('APP_CANONICAL_URL', 'https://lorespinner.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
