@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property array<int, array<string, string>> $findings
  * @property array<int, array<string, string>> $patches
  * @property array<int, array<string, string>> $rebinds
+ * @property list<string>|null $reorder
  * @property array<int, array<string, mixed>> $rejected
  * @property array<string, mixed>|null $backup
  * @property Carbon|null $applied_at
@@ -48,6 +49,7 @@ final class StoryRepairReport extends Model
             'findings' => 'json',
             'patches' => 'json',
             'rebinds' => 'json',
+            'reorder' => 'json',
             'rejected' => 'json',
             'backup' => 'json',
             'applied_at' => 'datetime',

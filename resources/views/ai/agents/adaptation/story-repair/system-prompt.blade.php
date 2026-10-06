@@ -31,6 +31,14 @@ The cold open is the first page the player reads, delivered word for word. Repai
 - The cards must begin where the cold open ends. If the opening tells events that later cards stage again, one of them is wrong. Decide which one, from the entry-point decisions and the source, and fix that one: rewrite the opening to stop where the first card begins, or rebind or rewrite the cards. Say in the finding which you chose and why.
 - Leave the cold open alone when it is sound. A patch replaces it whole.
 
+CARD ORDER
+
+The cards play in their stored order, one after another, and the runtime cannot go back. If the cards are out of the story's order (a card rewinds to before the one ahead of it, or an opening starts after events the next cards then stage), return a reorder: every moment_key exactly once, in story order, with the closing card last.
+- A reorder changes nothing else, so every text that depends on order must be rewritten in the same review: the next_bridge of every card whose next card changes, and the cold open when the first card changes. A reorder without those is rejected.
+- The cold open must then begin where the new first card begins, and must still hand off from the previous session's authored close.
+- Text that names where a scene sits (handoffs, "after the gun", "rewind") must agree with the new order.
+- Never reorder to tidy. Reorder only when the stored order makes the player live an event twice or out of sequence.
+
 CHOICE BINDING
 
 Every authored choice is attached to the card whose scene presents it, and the player is offered it only on that card. A choice attached to the wrong card is offered at the wrong moment: before its setup has happened, or after the scene has passed. When a choice's own text belongs to another card's scene, return a rebind moving it there. The runtime updates the card lists, the choice design and the consequence map together. Then patch any text that names the old card. The choice on the session's closing card is the session-end choice and never moves.

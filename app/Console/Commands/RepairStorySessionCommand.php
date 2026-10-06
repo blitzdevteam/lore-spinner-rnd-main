@@ -203,6 +203,10 @@ final class RepairStorySessionCommand extends Command
             $this->line("- {$rebind['choice_id']}: {$rebind['from_moment_key']} -> {$rebind['to_moment_key']} ({$rebind['reason']})");
         }
 
+        if ((array) ($report->reorder ?? []) !== []) {
+            $this->line('Accepted reorder: '.implode(' -> ', (array) $report->reorder));
+        }
+
         $this->line('Accepted patches: '.count((array) $report->patches));
 
         foreach ((array) $report->patches as $patch) {
@@ -219,7 +223,7 @@ final class RepairStorySessionCommand extends Command
     }
 
     /**
-     * @param  array{applied_patches: int, applied_rebinds: int, stale: list<array{change: array<string, mixed>, reason: string}>}  $result
+     * @param  array{applied_patches: int, applied_rebinds: int, applied_reorder: bool, stale: list<array{change: array<string, mixed>, reason: string}>}  $result
      */
     private function printApplied(array $result, StoryRepairReport $report): void
     {
@@ -227,7 +231,8 @@ final class RepairStorySessionCommand extends Command
             $this->warn('Skipped: '.($stale['reason'] ?? ''));
         }
 
-        $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds from report {$report->id}. Undo with --revert={$report->id}. Rebuild the session's runtime prompt next.");
+        $reordered = $result['applied_reorder'] ? ', and reordered the cards' : '';
+        $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds{$reordered} from report {$report->id}. Undo with --revert={$report->id}. Rebuild the session's runtime prompt next.");
     }
 
     private function resolveStory(): ?Story

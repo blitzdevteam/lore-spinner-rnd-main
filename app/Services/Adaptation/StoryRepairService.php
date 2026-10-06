@@ -45,6 +45,7 @@ final readonly class StoryRepairService
             array_values((array) ($response['rebinds'] ?? [])),
             $context,
             $skipTargets,
+            array_values((array) ($response['reorder'] ?? [])),
         );
 
         return StoryRepairReport::create([
@@ -54,6 +55,7 @@ final readonly class StoryRepairService
             'findings' => array_values((array) ($response['findings'] ?? [])),
             'patches' => $review['patches'],
             'rebinds' => $review['rebinds'],
+            'reorder' => $review['reorder'],
             'rejected' => $review['rejected'],
         ]);
     }
@@ -62,7 +64,7 @@ final readonly class StoryRepairService
      * Apply the changes a report accepted, re-checked against the material as
      * it stands now. Anything that changed since the review is skipped.
      *
-     * @return array{applied_patches: int, applied_rebinds: int, stale: list<array{change: array<string, mixed>, reason: string}>}
+     * @return array{applied_patches: int, applied_rebinds: int, applied_reorder: bool, stale: list<array{change: array<string, mixed>, reason: string}>}
      */
     public function apply(Story $story, StoryRepairReport $report): array
     {
@@ -72,9 +74,13 @@ final readonly class StoryRepairService
 
         $session = $report->sessionAdaptation;
         $context = $this->contextBuilder->build($story, $session);
-        $current = $this->applier->validate($session, (array) $report->patches, (array) $report->rebinds, $context);
+        $current = $this->applier->validate($session, (array) $report->patches, (array) $report->rebinds, $context, [], (array) ($report->reorder ?? []));
 
-        $backup = $this->applier->apply($session, $current['patches'], $current['rebinds']);
+        if ((array) ($report->reorder ?? []) !== [] && $current['reorder'] === []) {
+            throw new RuntimeException("Report {$report->id} reorders the cards, but the reorder no longer validates against the stored material. Nothing was applied. Run a fresh review.");
+        }
+
+        $backup = $this->applier->apply($session, $current['patches'], $current['rebinds'], $current['reorder']);
 
         $report->update([
             'status' => StoryRepairReport::STATUS_APPLIED,
@@ -85,6 +91,7 @@ final readonly class StoryRepairService
         return [
             'applied_patches' => count($current['patches']),
             'applied_rebinds' => count($current['rebinds']),
+            'applied_reorder' => $current['reorder'] !== [],
             'stale' => $current['rejected'],
         ];
     }

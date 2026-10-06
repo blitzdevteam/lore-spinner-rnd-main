@@ -61,6 +61,9 @@ final class StoryRepairAgent implements Agent, HasStructuredOutput
                     'new_value' => $schema->string()->required()->description('The complete replacement text for that field.'),
                     'reason' => $schema->string()->required()->description('Which finding this fixes.'),
                 ])->required()->withoutAdditionalProperties()),
+            'reorder' => $schema->array()->required()->title('Reorder')
+                ->description('Empty unless the cards are out of story order. Otherwise the complete list of every moment_key in the new order, closing card last. Every card whose next card changes needs a next_bridge patch, and a new first card needs a cold_open patch.')
+                ->items($schema->string()->required()),
             'rebinds' => $schema->array()->required()->title('Rebinds')
                 ->description('Authored choices attached to the wrong card, moved to the card whose scene they belong to. Empty when every choice is on its scene.')
                 ->items($schema->object([

@@ -35,4 +35,4 @@ Event {!! $event['position'] !!}: {!! $event['title'] !!}
 No source events were available. Judge canon from the material and the neighbouring sessions only.
 @endforelse
 
-Review all of the material above. Return every finding, a rebind for every choice on the wrong card, and a patch for every finding that replacing text can fix.
+Review all of the material above. Return every finding, a reorder if the cards are out of story order, a rebind for every choice on the wrong card, and a patch for every finding that replacing text can fix.

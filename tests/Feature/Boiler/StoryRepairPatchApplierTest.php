@@ -145,3 +145,48 @@ it('converts banned punctuation in a patch instead of rejecting it', function ()
 
     expect($review['patches'][0]['new_value'])->not->toContain(';');
 });
+
+it('reorders cards only with every bridge and the cold open rewritten, and reverts the order', function () {
+    $session = storyRepairSession();
+    $session->update(['entry_point_diagnosis' => ['cold_open' => 'You are Wendy Darling, alone in the dark.']]);
+    $context = app(StoryRepairContext::class);
+    foreach ($context->moments($session) as $moment) {
+        $moment->update(['scene_card' => [...$moment->scene_card, 'next_bridge' => "Out of {$moment->moment_key}."]]);
+    }
+    $applier = app(StoryRepairPatchApplier::class);
+    $voice = ['protagonist' => 'Wendy Darling', 'voice_profile' => []];
+    $order = ['S4_M03', 'S4_M02', 'S4_M04'];
+    $bridges = [
+        ['target' => 'scene_card', 'key' => 'S4_M03', 'path' => 'next_bridge', 'new_value' => 'Into the cabin.', 'reason' => 'x'],
+        ['target' => 'scene_card', 'key' => 'S4_M02', 'path' => 'next_bridge', 'new_value' => 'Into the dawn.', 'reason' => 'x'],
+    ];
+    $coldOpen = ['target' => 'entry_point_diagnosis', 'key' => '', 'path' => 'cold_open', 'new_value' => 'You are Wendy Darling, and the cup waits on the table.', 'reason' => 'x'];
+
+    $withoutBridges = $applier->validate($session, [$coldOpen], [], $voice, [], $order);
+    $withoutColdOpen = $applier->validate($session, $bridges, [], $voice, [], $order);
+    $missingCard = $applier->validate($session, [...$bridges, $coldOpen], [], $voice, [], ['S4_M03', 'S4_M04']);
+    $closingMoved = $applier->validate($session, [...$bridges, $coldOpen], [], $voice, [], ['S4_M04', 'S4_M03', 'S4_M02']);
+    $valid = $applier->validate($session, [...$bridges, $coldOpen], [], $voice, [], $order);
+
+    expect($withoutBridges['reorder'])->toBe([])
+        ->and($withoutColdOpen['reorder'])->toBe([])
+        ->and($missingCard['reorder'])->toBe([])
+        ->and($closingMoved['reorder'])->toBe([])
+        ->and($valid['reorder'])->toBe($order);
+
+    $backup = $applier->apply($session, $valid['patches'], [], $valid['reorder']);
+    $session->refresh();
+    $moments = $context->moments($session);
+
+    expect($moments->pluck('moment_key')->all())->toBe($order)
+        ->and($moments->pluck('moment_order')->all())->toBe([1, 2, 3])
+        ->and($moments[0]->scene_card['next_moment_key'])->toBe('S4_M02')
+        ->and($moments[1]->scene_card['next_moment_key'])->toBe('S4_M04')
+        ->and($moments[2]->scene_card)->not->toHaveKey('next_moment_key')
+        ->and(collect($session->boiler_final_cut['moments'])->pluck('moment_key')->all())->toBe(['S4_M03', 'S4_M02'])
+        ->and($session->entry_point_diagnosis['cold_open'])->toContain('the cup waits');
+
+    $applier->revert($session, $backup);
+
+    expect($context->moments($session->fresh())->pluck('moment_key')->all())->toBe(['S4_M02', 'S4_M03', 'S4_M04']);
+});
