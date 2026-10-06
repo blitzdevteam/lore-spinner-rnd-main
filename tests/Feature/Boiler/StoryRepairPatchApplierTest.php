@@ -79,7 +79,7 @@ it('accepts text patches and rejects identifiers, unknown paths, and banned pros
         ['target' => 'scene_card', 'key' => 'S4_M02', 'path' => 'opening_image', 'new_value' => 'Hook sits alone in the cabin.', 'reason' => 'pov'],
         ['target' => 'scene_card', 'key' => 'S4_M02', 'path' => 'moment_key', 'new_value' => 'S4_M09', 'reason' => 'x'],
         ['target' => 'session_choice_design', 'key' => '', 'path' => 'branching_choices.0.options.0.label', 'new_value' => 'B', 'reason' => 'x'],
-        ['target' => 'session_choice_design', 'key' => '', 'path' => 'branching_choices.0.options.0.text', 'new_value' => 'You knock the cup aside; it rolls.', 'reason' => 'x'],
+        ['target' => 'session_choice_design', 'key' => '', 'path' => 'branching_choices.0.options.0.text', 'new_value' => 'You knock the cup aside, as the tapestry rolls.', 'reason' => 'x'],
         ['target' => 'session_choice_design', 'key' => '', 'path' => 'branching_choices.0.missing', 'new_value' => 'New text.', 'reason' => 'x'],
         ['target' => 'scene_card', 'key' => 'S4_M99', 'path' => 'opening_image', 'new_value' => 'Text.', 'reason' => 'x'],
     ], [], $voice);
@@ -135,4 +135,13 @@ it('rejects a reviewed patch whose field changed before it was applied', functio
 
     expect($review['patches'])->toBe([])
         ->and($review['rejected'][0]['reason'])->toContain('changed since it was reviewed');
+});
+
+it('converts banned punctuation in a patch instead of rejecting it', function () {
+    $review = app(StoryRepairPatchApplier::class)->validate(storyRepairSession(), [[
+        'target' => 'session_close_design', 'key' => '', 'path' => 'resolution_prose',
+        'new_value' => 'The ship sleeps; the crew does not.', 'reason' => 'x',
+    ]], [], ['protagonist' => 'Wendy Darling', 'voice_profile' => []]);
+
+    expect($review['patches'][0]['new_value'])->not->toContain(';');
 });

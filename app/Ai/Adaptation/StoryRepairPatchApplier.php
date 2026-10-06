@@ -76,7 +76,7 @@ final class StoryRepairPatchApplier
             $target = (string) ($patch['target'] ?? '');
             $key = mb_trim((string) ($patch['key'] ?? ''));
             $path = mb_trim((string) ($patch['path'] ?? ''));
-            $newValue = mb_trim((string) ($patch['new_value'] ?? ''));
+            $newValue = BannedProseValidator::neutralizeBannedPunctuation(mb_trim((string) ($patch['new_value'] ?? '')));
             $document = $this->document($material, $target, $key);
             $current = $document === null ? null : data_get($document, $path);
             $leaf = (string) last(explode('.', $path));
