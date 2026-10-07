@@ -24,7 +24,7 @@ final class RepairStorySessionCommand extends Command
     protected $signature = 'stories:repair-session
                             {story : Story ID or slug}
                             {--session=* : Session numbers. Omit to review every session}
-                            {--skip=* : Targets to leave out of the review (scene_card, session_choice_design, choice_consequence_map, session_close_design, entry_point_diagnosis)}
+                            {--skip=* : Targets to leave out of the review (scene_card, session_choice_design, choice_consequence_map, session_close_design, entry_point_diagnosis, previous_session_close, next_session_entry)}
                             {--dry-run : Print the gathered context without calling the model}
                             {--show-prompt : With --dry-run, print the full prompt}
                             {--apply : Review and store the accepted changes in one step}
@@ -232,7 +232,19 @@ final class RepairStorySessionCommand extends Command
         }
 
         $reordered = $result['applied_reorder'] ? ', and reordered the cards' : '';
-        $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds{$reordered} from report {$report->id}. Undo with --revert={$report->id}. Rebuild the session's runtime prompt next.");
+        $number = (int) $report->sessionAdaptation->session_number;
+        $rebuild = collect((array) $report->patches)
+            ->pluck('target')
+            ->map(fn (string $target): ?int => match ($target) {
+                'previous_session_close' => $number - 1,
+                'next_session_entry' => $number + 1,
+                default => $number,
+            })
+            ->push($number)
+            ->unique()
+            ->sort()
+            ->implode(', ');
+        $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds{$reordered} from report {$report->id}. Undo with --revert={$report->id}. Rebuild the runtime prompt for session(s) {$rebuild} next.");
     }
 
     private function resolveStory(): ?Story

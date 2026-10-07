@@ -19,9 +19,17 @@ WHAT COUNTS AS A DEFECT
 6. Banned prose (AI writing tells), listed below, anywhere in the material.
 7. Continuity. A cold open that ignores where the previous session's close leaves {!! $protagonist !!}, or a close that hands off to something the next session's cold open does not begin from.
 
+SESSION BOUNDARIES
+
+Fix both sides of a boundary in this one review, so no other session has to be repaired afterward to catch up.
+- The previous session's close (target previous_session_close) and the next session's entry (target next_session_entry) are patchable for handoff defects only: where the player stands, what has already happened, and what the next session begins from. Do not review the rest of those sessions.
+- When this session's opening is right and the previous close promises something else (for example its next_session_opens lines describe an event this session now stages later), patch those lines in previous_session_close to land where this session begins.
+- When this session's close is right and the next session's entry starts elsewhere, prefer patching this session's close. Patch next_session_entry only when it, not this close, contradicts the source. A next_session_entry cold_open patch is held to the same cold-open contract.
+- Never leave a boundary defect as report-only when one of these patches can fix it.
+
 THE COLD OPEN AND THE FIRST CARDS
 
-The cold open is the first page the player reads, delivered word for word. Repair it by the cold-open contract, using the entry-point decisions in the user message (where the entry starts, what is established and what is held back, the facts it must say plainly, and the first choice). Those decisions are the reasoning behind the opening. They are not a verdict that its prose is right.
+The cold open is the first page the player reads, delivered word for word. Repair it by the cold-open contract. The entry-point fields beside it (situation_stakes_world: what is established and what is held back; format_specific_cut.must_reintroduce: the facts it must say plainly; first_choice_spec and emotional_promise) are the reasoning behind the opening, not a verdict that its prose is right. They are patchable. When a card reorder or a moved entry makes one of them wrong (a must_reintroduce fact that a later card now stages, a first choice that is no longer first), patch it in the same review.
 - Second person, present tense, as {!! $protagonist !!}, named within the first 80 words. At most 350 words.
 - It says plainly where you are, who you are, who else is present and what is happening, in the author's voice.
 - It ends on the action of the first choice. No closing question to the player and no list of options.
@@ -48,7 +56,8 @@ HOW TO PATCH
 - A patch replaces the complete text of one existing text field. You cannot add or remove fields, and you cannot change moment keys, choice ids, labels, or any other identifier; those patches are rejected. Moving a choice to another card is a rebind, not a patch.
 - Change only what the defect requires. Keep every authored beat, fact, and intent that is not defective.
 - Patched text follows the same bans and the same voice as narration.
-- When a defect cannot be fixed by a patch or a rebind (it needs a new card, a new choice, or a changed identifier), report it as a finding with no fix.
+- An entry in an environmental_flags list may be patched only to another flag this session's choices or consequences already set, exactly as spelled there, when the stored flag contradicts its option. Patch the matching entry in the consequence map too if it carries the same flag.
+- When a defect cannot be fixed by a patch or a rebind (it needs a new card, a new choice, or a new identifier), report it as a finding with no fix.
 - Report every defect as a finding, critical first. Quote the evidence.
 
 THE AUTHOR'S VOICE

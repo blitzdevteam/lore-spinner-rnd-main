@@ -54,8 +54,7 @@ final class StoryRepairContext
     {
         $adaptation = $story->adaptation;
         $sessions = $adaptation->sessionAdaptations()->orderBy('session_number')->get();
-        $previous = $sessions->firstWhere('session_number', $session->session_number - 1);
-        $next = $sessions->firstWhere('session_number', $session->session_number + 1);
+        [$previous, $next] = $this->neighbours($session);
 
         return [
             'story_title' => (string) $story->title,
@@ -74,11 +73,11 @@ final class StoryRepairContext
             'skip_targets' => $skipTargets,
             'previous_session' => $previous === null ? null : [
                 'session_number' => (int) $previous->session_number,
-                'session_close_design' => $previous->session_close_design,
+                'session_close_design' => (array) ($previous->session_close_design ?? []),
             ],
             'next_session' => $next === null ? null : [
                 'session_number' => (int) $next->session_number,
-                'cold_open' => (string) data_get($next->entry_point_diagnosis, 'cold_open', ''),
+                'entry' => $this->entryMaterial($next),
             ],
             'source_events' => $this->sourceEvents($story, (int) $session->session_number),
         ];
@@ -91,8 +90,6 @@ final class StoryRepairContext
      */
     public function material(SessionAdaptation $session): array
     {
-        $diagnosis = (array) ($session->entry_point_diagnosis ?? []);
-
         return [
             'scene_cards' => $this->moments($session)
                 ->mapWithKeys(fn (PlayableMoment $moment): array => [$moment->moment_key => (array) $moment->scene_card])
@@ -100,28 +97,63 @@ final class StoryRepairContext
             'session_choice_design' => (array) ($session->session_choice_design ?? []),
             'choice_consequence_map' => (array) ($session->choice_consequence_map ?? []),
             'session_close_design' => (array) ($session->session_close_design ?? []),
-            'entry_point_diagnosis' => array_intersect_key($diagnosis, array_flip(['cold_open', 'first_choice_spec', 'emotional_promise'])),
+            'entry_point_diagnosis' => $this->entryMaterial($session),
         ];
     }
 
     /**
-     * The entry-point decisions the cold open is written from. They are the
-     * reasoning behind the opening, not a verdict on its prose.
+     * The handoff material of the neighbouring sessions, keyed by patch target,
+     * so a repair can fix both sides of a session boundary in one review.
      *
+     * @return array{previous_session_close: array<string, mixed>, next_session_entry: array<string, mixed>}
+     */
+    public function neighbourMaterial(SessionAdaptation $session): array
+    {
+        [$previous, $next] = $this->neighbours($session);
+
+        return [
+            'previous_session_close' => $previous === null ? [] : (array) ($previous->session_close_design ?? []),
+            'next_session_entry' => $next === null ? [] : $this->entryMaterial($next),
+        ];
+    }
+
+    /**
+     * @return array{0: ?SessionAdaptation, 1: ?SessionAdaptation}
+     */
+    public function neighbours(SessionAdaptation $session): array
+    {
+        $siblings = SessionAdaptation::query()
+            ->where('story_adaptation_id', $session->story_adaptation_id)
+            ->whereIn('session_number', [$session->session_number - 1, $session->session_number + 1])
+            ->get()
+            ->keyBy('session_number');
+
+        return [$siblings->get($session->session_number - 1), $siblings->get($session->session_number + 1)];
+    }
+
+    /**
+     * The entry-point fields the cold open is written from, all patchable: the
+     * opening itself, what it establishes and holds back, the facts it must
+     * say plainly, and the first choice it hands to.
+     *
+     * @return array<string, mixed>
+     */
+    public function entryMaterial(SessionAdaptation $session): array
+    {
+        return array_intersect_key((array) ($session->entry_point_diagnosis ?? []), array_flip([
+            'cold_open', 'first_choice_spec', 'emotional_promise', 'situation_stakes_world', 'format_specific_cut',
+        ]));
+    }
+
+    /**
      * @param  array<string, mixed>  $diagnosis
      * @return array<string, mixed>
      */
     public function entryDecisions(array $diagnosis): array
     {
-        $coldOpenContext = $this->coldOpenContext->build('', '', 0, '', [], $diagnosis, []);
-
         return array_filter([
             'start_event_position' => $diagnosis['start_event_position'] ?? null,
-            'established' => $coldOpenContext['established'],
-            'deferred' => $coldOpenContext['deferred'],
-            'facts_the_cold_open_must_say_plainly' => $coldOpenContext['cold_open_facts'],
-            'first_choice' => $coldOpenContext['first_choice'],
-        ], static fn ($value): bool => $value !== null && $value !== '' && $value !== []);
+        ], static fn ($value): bool => $value !== null && $value !== '');
     }
 
     /**

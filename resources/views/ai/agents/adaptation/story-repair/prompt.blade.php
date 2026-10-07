@@ -8,7 +8,7 @@ STORED MATERIAL FOR THIS SESSION (patch targets: scene_card keyed by moment key,
 {!! json_encode($material, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @if($entry_decisions !== [])
-ENTRY-POINT DECISIONS FOR THIS SESSION (the reasoning the cold open is written from; not a patch target):
+WHERE THIS SESSION'S ENTRY STARTS IN THE SOURCE:
 {!! json_encode($entry_decisions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @endif
@@ -17,13 +17,13 @@ NOT UNDER REVIEW THIS RUN (leave them unchanged and propose no patches or rebind
 
 @endif
 @if($previous_session !== null)
-HOW SESSION {!! $previous_session['session_number'] !!} IS AUTHORED TO END (this session must begin from it; not a patch target):
+HOW SESSION {!! $previous_session['session_number'] !!} IS AUTHORED TO END (this session must begin from it; patch target previous_session_close):
 {!! json_encode($previous_session['session_close_design'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @endif
-@if($next_session !== null && $next_session['cold_open'] !== '')
-HOW SESSION {!! $next_session['session_number'] !!} OPENS (this session's close must hand off to it; not a patch target):
-{!! $next_session['cold_open'] !!}
+@if($next_session !== null && $next_session['entry'] !== [])
+HOW SESSION {!! $next_session['session_number'] !!} OPENS (this session's close must hand off to it; patch target next_session_entry):
+{!! json_encode($next_session['entry'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @endif
 SOURCE EVENTS FOR THIS SESSION (canon; the material must agree with it):

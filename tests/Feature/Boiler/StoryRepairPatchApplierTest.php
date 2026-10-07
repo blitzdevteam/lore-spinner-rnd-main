@@ -146,6 +146,68 @@ it('converts banned punctuation in a patch instead of rejecting it', function ()
     expect($review['patches'][0]['new_value'])->not->toContain(';');
 });
 
+it('patches both sides of a session boundary in one review and reverts both', function () {
+    $session = storyRepairSession();
+    $previous = SessionAdaptation::create([
+        'story_adaptation_id' => $session->story_adaptation_id,
+        'session_number' => 3,
+        'session_status' => SessionAdaptationStatusEnum::COMPLETED,
+        'session_close_design' => ['session_end_choice' => ['next_session_opens' => ['The great gun has scattered you.']]],
+    ]);
+    $next = SessionAdaptation::create([
+        'story_adaptation_id' => $session->story_adaptation_id,
+        'session_number' => 5,
+        'session_status' => SessionAdaptationStatusEnum::COMPLETED,
+        'entry_point_diagnosis' => [
+            'cold_open' => 'You are Wendy Darling, on the deck.',
+            'format_specific_cut' => ['must_reintroduce' => ['The gun scattered the children.']],
+            'start_event_position' => 80,
+        ],
+    ]);
+    $applier = app(StoryRepairPatchApplier::class);
+
+    $review = $applier->validate($session, [
+        ['target' => 'previous_session_close', 'key' => '', 'path' => 'session_end_choice.next_session_opens.0', 'new_value' => 'The island comes into sight below you.', 'reason' => 'x'],
+        ['target' => 'next_session_entry', 'key' => '', 'path' => 'format_specific_cut.must_reintroduce.0', 'new_value' => 'The children reached the island together.', 'reason' => 'x'],
+        ['target' => 'next_session_entry', 'key' => '', 'path' => 'start_event_position', 'new_value' => '81', 'reason' => 'x'],
+    ], [], ['protagonist' => 'Wendy Darling', 'voice_profile' => []]);
+
+    expect($review['patches'])->toHaveCount(2)
+        ->and($review['rejected'])->toHaveCount(1);
+
+    $backup = $applier->apply($session, $review['patches'], []);
+
+    expect($previous->fresh()->session_close_design['session_end_choice']['next_session_opens'][0])->toBe('The island comes into sight below you.')
+        ->and($next->fresh()->entry_point_diagnosis['format_specific_cut']['must_reintroduce'][0])->toBe('The children reached the island together.')
+        ->and($next->fresh()->entry_point_diagnosis['start_event_position'])->toBe(80);
+
+    $applier->revert($session, $backup);
+
+    expect($previous->fresh()->session_close_design['session_end_choice']['next_session_opens'][0])->toBe('The great gun has scattered you.')
+        ->and($next->fresh()->entry_point_diagnosis['format_specific_cut']['must_reintroduce'][0])->toBe('The gun scattered the children.');
+});
+
+it('swaps a flag only for one the session already uses', function () {
+    $session = storyRepairSession();
+    $session->update(['session_choice_design' => ['branching_choices' => [[
+        'choice_id' => 'S4_C2',
+        'moment_key' => 'S4_M02',
+        'options' => [
+            ['label' => 'A', 'text' => 'You settle to mothering.', 'environmental_flags' => ['MOTHER_RELUCTANT']],
+            ['label' => 'B', 'text' => 'You hesitate.', 'environmental_flags' => ['MOTHER_EMBRACED']],
+        ],
+    ]]]]);
+    $voice = ['protagonist' => 'Wendy Darling', 'voice_profile' => []];
+    $path = 'branching_choices.0.options.0.environmental_flags.0';
+
+    $known = app(StoryRepairPatchApplier::class)->validate($session, [['target' => 'session_choice_design', 'key' => '', 'path' => $path, 'new_value' => 'MOTHER_EMBRACED', 'reason' => 'x']], [], $voice);
+    $invented = app(StoryRepairPatchApplier::class)->validate($session, [['target' => 'session_choice_design', 'key' => '', 'path' => $path, 'new_value' => 'MOTHER_INVENTED', 'reason' => 'x']], [], $voice);
+
+    expect($known['patches'])->toHaveCount(1)
+        ->and($invented['patches'])->toBe([])
+        ->and($invented['rejected'][0]['reason'])->toContain('not a flag');
+});
+
 it('reorders cards only with every bridge and the cold open rewritten, and reverts the order', function () {
     $session = storyRepairSession();
     $session->update(['entry_point_diagnosis' => ['cold_open' => 'You are Wendy Darling, alone in the dark.']]);

@@ -26,6 +26,14 @@ final class StoryRepairPatchApplier
         'choice_consequence_map',
         'session_close_design',
         'entry_point_diagnosis',
+        'previous_session_close',
+        'next_session_entry',
+    ];
+
+    /** Targets stored on a neighbouring session, with the column each writes. */
+    private const array NEIGHBOUR_TARGETS = [
+        'previous_session_close' => 'session_close_design',
+        'next_session_entry' => 'entry_point_diagnosis',
     ];
 
     /** Columns a repair may write, snapshotted whole before any change. */
@@ -65,7 +73,8 @@ final class StoryRepairPatchApplier
      */
     public function validate(SessionAdaptation $session, array $patches, array $rebinds, array $context, array $skipTargets = [], array $reorder = []): array
     {
-        $material = $this->context->material($session);
+        $material = [...$this->context->material($session), ...$this->context->neighbourMaterial($session)];
+        $flags = $this->flagVocabulary($material);
         $rejected = [];
 
         [$acceptedRebinds, $rebindRejections] = $this->validateRebinds($session, $material, $rebinds, $skipTargets);
@@ -95,8 +104,9 @@ final class StoryRepairPatchApplier
                 $newValue === '' => 'The replacement text is empty.',
                 $newValue === mb_trim($current) => 'The replacement is identical to the stored text.',
                 isset($seen[$identity]) => 'This field already has a patch.',
+                $this->isFlagPath($path) => in_array($newValue, $flags, true) ? null : "Flag '{$newValue}' is not a flag this session already uses.",
                 default => $this->banFailure($newValue, $context['voice_profile'])
-                    ?? ($target === 'entry_point_diagnosis' && $path === 'cold_open' ? $this->coldOpenFailure($newValue, $context['protagonist']) : null),
+                    ?? (in_array($target, ['entry_point_diagnosis', 'next_session_entry'], true) && $path === 'cold_open' ? $this->coldOpenFailure($newValue, $context['protagonist']) : null),
             };
 
             if ($failure !== null) {
@@ -130,7 +140,7 @@ final class StoryRepairPatchApplier
      * @param  list<array{target:string, key:string, path:string, old_value:string, new_value:string, reason:string}>  $patches
      * @param  list<array{choice_id:string, from_moment_key:string, to_moment_key:string, reason:string}>  $rebinds
      * @param  list<string>  $reorder
-     * @return array{scene_cards: array<string, array<string, mixed>>, moment_orders: array<string, int>, columns: array<string, mixed>}
+     * @return array{scene_cards: array<string, array<string, mixed>>, moment_orders: array<string, int>, columns: array<string, mixed>, neighbours: array<int, array<string, mixed>>}
      */
     public function apply(SessionAdaptation $session, array $patches, array $rebinds, array $reorder = []): array
     {
@@ -142,6 +152,28 @@ final class StoryRepairPatchApplier
                 'moment_orders' => $moments->map(fn (PlayableMoment $moment): int => (int) $moment->moment_order)->all(),
                 'columns' => collect(self::COLUMNS)->mapWithKeys(fn (string $column): array => [$column => $session->getAttribute($column)])->all(),
             ];
+
+            [$previous, $next] = $this->context->neighbours($session);
+            $neighbours = array_filter(['previous_session_close' => $previous, 'next_session_entry' => $next]);
+            $neighbourPatches = array_filter($patches, static fn (array $patch): bool => isset(self::NEIGHBOUR_TARGETS[$patch['target']]));
+            $patches = array_diff_key($patches, $neighbourPatches);
+            $backup['neighbours'] = [];
+
+            foreach ($neighbourPatches as $patch) {
+                $neighbour = $neighbours[$patch['target']] ?? null;
+                if ($neighbour === null) {
+                    continue;
+                }
+
+                $column = self::NEIGHBOUR_TARGETS[$patch['target']];
+                if (! array_key_exists($column, $backup['neighbours'][$neighbour->id] ?? [])) {
+                    $backup['neighbours'][$neighbour->id][$column] = $neighbour->getAttribute($column);
+                }
+
+                $value = (array) ($neighbour->getAttribute($column) ?? []);
+                data_set($value, $patch['path'], $patch['new_value']);
+                $neighbour->update([$column => $value]);
+            }
 
             $cards = $backup['scene_cards'];
             $columns = array_map(static fn ($value): array => (array) ($value ?? []), $backup['columns']);
@@ -172,7 +204,7 @@ final class StoryRepairPatchApplier
     }
 
     /**
-     * @param  array{scene_cards: array<string, array<string, mixed>>, moment_orders?: array<string, int>, columns: array<string, mixed>}  $backup
+     * @param  array{scene_cards: array<string, array<string, mixed>>, moment_orders?: array<string, int>, columns: array<string, mixed>, neighbours?: array<int, array<string, mixed>>}  $backup
      */
     public function revert(SessionAdaptation $session, array $backup): void
     {
@@ -188,7 +220,46 @@ final class StoryRepairPatchApplier
             }
 
             $session->update($backup['columns']);
+
+            foreach ((array) ($backup['neighbours'] ?? []) as $sessionId => $columns) {
+                SessionAdaptation::query()->find($sessionId)?->update($columns);
+            }
         });
+    }
+
+    /**
+     * Every flag the session's choices and consequences already set. A flag may
+     * only be swapped for one of these, so the runtime still recognises it.
+     *
+     * @param  array<string, mixed>  $material
+     * @return list<string>
+     */
+    private function flagVocabulary(array $material): array
+    {
+        $flags = [];
+        $walk = function (mixed $node) use (&$walk, &$flags): void {
+            if (! is_array($node)) {
+                return;
+            }
+
+            foreach ($node as $key => $value) {
+                if ($key === 'environmental_flags' && is_array($value)) {
+                    array_push($flags, ...array_filter($value, 'is_string'));
+                } else {
+                    $walk($value);
+                }
+            }
+        };
+        $walk([$material['session_choice_design'] ?? [], $material['choice_consequence_map'] ?? []]);
+
+        return array_values(array_unique($flags));
+    }
+
+    private function isFlagPath(string $path): bool
+    {
+        $segments = explode('.', $path);
+
+        return count($segments) >= 2 && $segments[count($segments) - 2] === 'environmental_flags';
     }
 
     /**

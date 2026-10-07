@@ -102,14 +102,15 @@ final readonly class StoryRepairService
             throw new RuntimeException("Report {$report->id} is {$report->status}; only an applied report can be reverted.");
         }
 
+        $touched = [$report->session_adaptation_id, ...array_keys((array) ($report->backup['neighbours'] ?? []))];
         $newer = StoryRepairReport::query()
-            ->where('session_adaptation_id', $report->session_adaptation_id)
+            ->whereIn('session_adaptation_id', $touched)
             ->where('status', StoryRepairReport::STATUS_APPLIED)
             ->where('applied_at', '>', $report->applied_at)
             ->exists();
 
         if ($newer) {
-            throw new RuntimeException("A later repair was applied to this session after report {$report->id}. Revert that one first.");
+            throw new RuntimeException("A later repair was applied to a session this report touched after report {$report->id}. Revert that one first.");
         }
 
         $this->applier->revert($report->sessionAdaptation, $report->backup);

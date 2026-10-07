@@ -55,7 +55,7 @@ final class StoryRepairAgent implements Agent, HasStructuredOutput
             'patches' => $schema->array()->required()->title('Patches')
                 ->description('Replacements for existing text fields. One patch per field.')
                 ->items($schema->object([
-                    'target' => $schema->string()->required()->description('scene_card, session_choice_design, choice_consequence_map, session_close_design, or entry_point_diagnosis.'),
+                    'target' => $schema->string()->required()->description('scene_card, session_choice_design, choice_consequence_map, session_close_design, entry_point_diagnosis, previous_session_close (the previous session\'s close design), or next_session_entry (the next session\'s entry-point fields).'),
                     'key' => $schema->string()->required()->description('The moment_key for scene_card patches. Empty string for every other target.'),
                     'path' => $schema->string()->required()->description('Dot path to an existing text field inside the target, list indexes as numbers, e.g. branching_choices.0.options.2.text.'),
                     'new_value' => $schema->string()->required()->description('The complete replacement text for that field.'),
