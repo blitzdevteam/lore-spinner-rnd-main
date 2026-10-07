@@ -10,6 +10,8 @@ use App\Ai\Agents\Adaptation\StoryRepairAgent;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryRepairReport;
+use Laravel\Ai\Responses\Data\FinishReason;
+use Laravel\Ai\Responses\Data\Step;
 use RuntimeException;
 
 /**
@@ -37,8 +39,12 @@ final readonly class StoryRepairService
 
         $response = (new StoryRepairAgent($context))->prompt(
             view('ai.agents.adaptation.story-repair.prompt', $context)->render(),
-            timeout: 840,
+            timeout: 2400,
         );
+
+        if ($response->steps->contains(fn (Step $step): bool => $step->finishReason === FinishReason::Length)) {
+            throw new RuntimeException("Session {$session->session_number}: the review ran out of output tokens before it finished, so its patches are incomplete. Nothing was saved. Re-run with --skip for targets that need no work, or review again.");
+        }
 
         $review = $this->applier->validate(
             $session,

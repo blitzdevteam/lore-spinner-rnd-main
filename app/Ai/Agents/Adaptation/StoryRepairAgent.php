@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai\Agents\Adaptation;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
@@ -23,7 +24,8 @@ use Throwable;
  */
 #[Provider('anthropic')]
 #[Model('claude-opus-5-5')]
-#[Timeout(840)]
+#[MaxTokens(128000)]
+#[Timeout(2400)]
 final class StoryRepairAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
