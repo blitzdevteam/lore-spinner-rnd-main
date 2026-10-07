@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
+use App\Ai\Adaptation\PlayableProtagonist;
+use App\Ai\Adaptation\SessionHandoff;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ConsequenceMappingAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -68,6 +71,9 @@ final class ConsequenceMappingJob implements ShouldQueue
                 'persistentStateSchema' => $adaptation->story_session_map['persistent_state_schema'] ?? [],
                 'worldReactivityRules' => $adaptation->story_session_map['world_reactivity_rules'] ?? [],
                 'protagonistCoreTrait' => $adaptation->ip_audit['bounded_agency']['evidence'] ?? '',
+                'protagonist' => PlayableProtagonist::for($this->story),
+                'nextSessionOpening' => SessionHandoff::nextSessionOpening($session),
+                'isFinalSession' => SessionHandoff::isFinalSession($session),
                 'sessionNumber' => $this->sessionNumber,
                 'voiceProfile' => VoiceProfilePromptSlice::dnaAndBans((array) ($adaptation->voice_profile ?? [])),
                 'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
@@ -112,10 +118,10 @@ final class ConsequenceMappingJob implements ShouldQueue
         return $this->generateValidatedArtifact(
             artifact: 'consequence_mapping',
             originalPrompt: $originalPrompt,
-            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new ConsequenceMappingAgent(true))->prompt($prompt)->toArray(),
+            generate: fn (string $prompt): array => BannedProseValidator::neutralizeArtifact($canonicalizer->canonicalize(
+                $this->completeArtifact((new ConsequenceMappingAgent(true))->prompt($prompt), 'consequence mapping'),
                 $choiceDesign,
-            ),
+            )),
             validate: fn (array $consequenceMap) => $validator->validate($consequenceMap, $choiceDesign, $draft),
             repairPrompt: fn (string $error, array $previousConsequenceMap): string => view(
                 'ai.agents.adaptation.consequence-mapping.repair-prompt',

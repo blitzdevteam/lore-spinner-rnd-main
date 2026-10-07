@@ -57,6 +57,13 @@ final class BannedProseValidator
      */
     private const SIMILE_PATTERN = '/\blike\s+(?:a|an)\s+\w+/i';
 
+    /** Keys whose string values are identifiers the runtime matches on. */
+    private const array IDENTIFIER_KEYS = [
+        'choice_id', 'canonical_choice_id', 'moment_key', 'closing_moment_key', 'next_moment_key',
+        'target_moment_key', 'label', 'path_label', 'shift_id', 'marker', 'id', 'key', 'category',
+        'trigger_id', 'status', 'version', 'boiler_version',
+    ];
+
     /**
      * Universal banned vocabulary — applies to every IP.
      * Supplemented by the voice profile's ip_specific_bans at runtime.
@@ -135,6 +142,26 @@ final class BannedProseValidator
         $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;
 
         return mb_trim($text);
+    }
+
+    /**
+     * Neutralize banned punctuation in every string of a generated artifact.
+     * Identifier keys are left untouched so ids, keys and flags still match.
+     *
+     * @param  array<array-key, mixed>  $artifact
+     * @return array<array-key, mixed>
+     */
+    public static function neutralizeArtifact(array $artifact): array
+    {
+        foreach ($artifact as $key => $value) {
+            if (is_array($value)) {
+                $artifact[$key] = self::neutralizeArtifact($value);
+            } elseif (is_string($value) && ! in_array($key, self::IDENTIFIER_KEYS, true)) {
+                $artifact[$key] = self::neutralizeBannedPunctuation($value);
+            }
+        }
+
+        return $artifact;
     }
 
     /**

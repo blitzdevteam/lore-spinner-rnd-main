@@ -4,25 +4,32 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\BannedProseValidator;
+use App\Ai\Adaptation\PlayableProtagonist;
+use App\Ai\Adaptation\SessionCloseValidator;
+use App\Ai\Adaptation\SessionHandoff;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\SessionCloseAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
+use App\Exceptions\Adaptation\ArtifactValidationException;
 use App\Models\Event;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Collection;
 use RuntimeException;
 use Throwable;
 
 final class SessionCloseJob implements ShouldQueue
 {
-    use Batchable, Queueable;
+    use Batchable, GeneratesValidatedArtifact, Queueable;
 
     public int $tries = 2;
 
-    public int $timeout = 420;
+    public int $timeout = 900;
 
     public int $backoff = 60;
 
@@ -34,7 +41,7 @@ final class SessionCloseJob implements ShouldQueue
     }
 
     /** @throws Throwable */
-    public function handle(SessionEventLoader $eventLoader): void
+    public function handle(SessionEventLoader $eventLoader, SessionCloseValidator $closeValidator): void
     {
         if ($this->batch()?->cancelled()) {
             return;
@@ -83,50 +90,76 @@ final class SessionCloseJob implements ShouldQueue
                 );
             }
 
-            $response = (new SessionCloseAgent((bool) $adaptation->boiler_enabled))->prompt(
-                view('ai.agents.adaptation.session-close.prompt', [
-                    'branchingChoice3Design' => $sessionEndChoice,
-                    'choice3ConsequenceMap' => $sessionEndConsequence,
-                    'sessionPrimaryGoal' => $sessionAllocation['primary_dramatic_question'] ?? '',
-                    'sessionNumber' => $this->sessionNumber,
-                    'sessionEvents' => $sessionEvents->map(fn (Event $ev) => [
-                        'story_position' => $ev->story_position,
-                        'title' => $ev->title,
-                        'objectives' => $ev->objectives,
-                    ])->all(),
-                    'resolutionSourcePages' => $resolutionSourcePages,
-                    'voiceProfile' => VoiceProfilePromptSlice::dnaAndBans((array) ($adaptation->voice_profile ?? [])),
-                    'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
-                ])->render()
+            $prompt = view('ai.agents.adaptation.session-close.prompt', [
+                'branchingChoice3Design' => $sessionEndChoice,
+                'choice3ConsequenceMap' => $sessionEndConsequence,
+                'sessionPrimaryGoal' => $sessionAllocation['primary_dramatic_question'] ?? '',
+                'sessionNumber' => $this->sessionNumber,
+                'sessionEvents' => $sessionEvents->map(fn (Event $ev) => [
+                    'story_position' => $ev->story_position,
+                    'title' => $ev->title,
+                    'objectives' => $ev->objectives,
+                ])->all(),
+                'resolutionSourcePages' => $resolutionSourcePages,
+                'voiceProfile' => VoiceProfilePromptSlice::dnaAndBans((array) ($adaptation->voice_profile ?? [])),
+                'boilerDraft' => $adaptation->boiler_enabled ? $session->boiler_draft : null,
+                'protagonist' => PlayableProtagonist::for($this->story),
+                'nextSessionOpening' => SessionHandoff::nextSessionOpening($session),
+                'isFinalSession' => SessionHandoff::isFinalSession($session),
+            ])->render();
+
+            $result = $this->generateValidatedArtifact(
+                artifact: 'session_close',
+                originalPrompt: $prompt,
+                generate: fn (string $attemptPrompt): array => $this->resolveTrigger(
+                    BannedProseValidator::neutralizeArtifact($this->completeArtifact(
+                        (new SessionCloseAgent((bool) $adaptation->boiler_enabled))->prompt($attemptPrompt),
+                        'session close',
+                    )),
+                    $sessionEvents,
+                ),
+                validate: function (array $close) use ($adaptation, $session, $closeValidator): void {
+                    $closeValidator->validate($close);
+
+                    if ($adaptation->boiler_enabled) {
+                        $this->validateBoilerClose($close, (array) $session->boiler_draft);
+                    }
+                },
+                repairPrompt: fn (string $error, array $rejected): string => $prompt
+                    ."\n\n---\n\nYOUR PREVIOUS OUTPUT WAS REJECTED. Fix every problem below and return the complete corrected JSON.\n- "
+                    .str_replace("\n", "\n- ", $error)
+                    ."\n\nREJECTED OUTPUT:\n".json_encode($rejected, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+                logContext: ['story_id' => $this->story->id, 'session_number' => $this->sessionNumber],
             );
 
-            $result = $response->toArray();
-
-            // Resolve the LLM-selected story_position back to a concrete event_id, the same
-            // way EntryPointDiagnosisJob resolves start_event_position -> start_event_id.
-            // This is the exit-point counterpart to entry-point resolution: pipeline authors
-            // an explicit integer, runtime reads it. No heuristics, no drift.
-            $triggerPos = $result['session_close_trigger_event_position'] ?? null;
-            $triggerEvent = $triggerPos !== null
-                ? $sessionEvents->firstWhere('story_position', (int) $triggerPos)
-                : null;
-
-            if ($triggerEvent === null) {
-                $triggerEvent = $sessionEvents->last();
-            }
-
-            $result['session_close_trigger_event_id'] = $triggerEvent->id;
-            $result['session_close_trigger_event_position'] = $triggerEvent->story_position;
-
-            if ($adaptation->boiler_enabled) {
-                $this->validateBoilerClose($result, (array) $session->boiler_draft);
-            }
-
             $session->update(['session_close_design' => $result]);
+        } catch (ArtifactValidationException $exception) {
+            $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
+            $this->failTerminally($exception);
         } catch (Throwable $throwable) {
             $session->update(['session_status' => SessionAdaptationStatusEnum::FAILED]);
             throw $throwable;
         }
+    }
+
+    /**
+     * Resolve the selected story_position to a concrete event, the exit-side
+     * counterpart of the entry point's start_event_position.
+     *
+     * @param  array<string, mixed>  $close
+     * @param  Collection<int, Event>  $sessionEvents
+     * @return array<string, mixed>
+     */
+    private function resolveTrigger(array $close, Collection $sessionEvents): array
+    {
+        $triggerPos = $close['session_close_trigger_event_position'] ?? null;
+        $triggerEvent = ($triggerPos !== null ? $sessionEvents->firstWhere('story_position', (int) $triggerPos) : null)
+            ?? $sessionEvents->last();
+
+        $close['session_close_trigger_event_id'] = $triggerEvent->id;
+        $close['session_close_trigger_event_position'] = $triggerEvent->story_position;
+
+        return $close;
     }
 
     /**
@@ -147,7 +180,7 @@ final class SessionCloseJob implements ShouldQueue
         }
 
         foreach (['closing_moment_relationship', 'next_bridge_guidance'] as $field) {
-            if (trim((string) ($close[$field] ?? '')) === '') {
+            if (mb_trim((string) ($close[$field] ?? '')) === '') {
                 throw new RuntimeException("Boiler Session Close requires {$field}.");
             }
         }

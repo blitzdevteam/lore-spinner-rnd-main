@@ -31,6 +31,8 @@ final class BoilerFinalizeContextBuilder
                 'title' => $story->title,
             ],
             'session_number' => $sessionNumber,
+            'protagonist' => PlayableProtagonist::for($story),
+            'cold_open' => (string) data_get($session->entry_point_diagnosis, 'cold_open', ''),
             'boiling_guidance' => collect((array) data_get($storyMap, 'boiling_profile.per_session_guidance', []))
                 ->firstWhere('session_number', $sessionNumber),
             'boiler_draft' => (array) $session->boiler_draft,

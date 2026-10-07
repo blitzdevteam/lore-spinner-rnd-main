@@ -54,6 +54,12 @@ Each moment must:
 
 Exit conditions are semantic dramatic-state outcomes. They describe when the central pressure has been resolved, transformed, bypassed, or made obsolete. Never write an exhaustive action checklist. Listed affordances are possible routes, not required commands. The runtime narrator, not PHP, will judge semantic completion including unforeseen freeform routes.
 
+The cold open and the cards are one sequence, and the runtime can never go back. So:
+
+- moments follow source order: each moment's earliest event and its anchor come later in the story than the moment before it;
+- no moment stages an event from before the Entry Point (`before_entry_point`). The cold open already covers that material, so those events take CUT, ECHO or MONTAGE with a reintroduction note;
+- the first moment begins where the cold open ends, and never retells what the cold open has told.
+
 The first moment must include the Entry Point start event. Moment keys must be contiguous exact identifiers: `S{session_number}_M01`, `S{session_number}_M02`, and so on. Preserve the playable promise across three session-local anchors: first proof, midpoint intensification, and final cash-out. Each `playable_promise_arc` value must copy one complete `moment_drafts[].moment_key` exactly—never use a title, description, event ID, shorthand such as `M01`, or a key that was not drafted. In short sessions anchors may coincide, but `final_cash_out` must exactly equal the final ordered moment key.
 
 Never:

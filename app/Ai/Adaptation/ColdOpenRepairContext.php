@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Ai\Adaptation;
 
-use App\ChaosMode\ChaosStoryConfig;
 use App\Models\Story;
 
 /**
@@ -97,11 +96,7 @@ final class ColdOpenRepairContext
 
     public function protagonistFor(Story $story): string
     {
-        $map = (array) ($story->adaptation->story_session_map ?? []);
-        $audit = (array) ($story->adaptation->ip_audit ?? []);
-        $fallback = mb_trim((string) ($map['protagonist'] ?? $audit['protagonist'] ?? ''));
-
-        return ChaosStoryConfig::protagonistFor($story->slug, $fallback !== '' ? $fallback : null);
+        return PlayableProtagonist::for($story);
     }
 
     /**

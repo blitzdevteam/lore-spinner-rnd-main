@@ -27,4 +27,15 @@ STORY SESSION MAP (cross-session payoff plan):
 
 PROTAGONIST CORE TRAIT: {{ $protagonistCoreTrait }}
 
+@include('ai.agents.adaptation._protagonist-rule', ['protagonist' => $protagonist])
+@if(! empty($nextSessionOpening))
+HOW SESSION {{ $nextSessionOpening['session_number'] }} OPENS (its authored cold open; every next_session_opening and next_session_payoff must land inside this opening or later in that session, never in a scene it skips):
+{!! $nextSessionOpening['cold_open'] !!}
+
+@elseif(! empty($isFinalSession))
+This is the final session. Write no next_session_opening that implies a further session, and land every payoff inside this session's ending.
+
+@endif
+Write consequences that the player sees as the world's response to {!! $protagonist !!}'s own choice. A payoff that names a scene or a card must name one that exists.
+
 SESSION NUMBER: {{ $sessionNumber }}

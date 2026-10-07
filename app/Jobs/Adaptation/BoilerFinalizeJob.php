@@ -219,7 +219,7 @@ final class BoilerFinalizeJob implements ShouldQueue
             artifact: 'finalize',
             originalPrompt: $originalPrompt,
             generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new BoilerFinalizeAgent)->prompt($prompt)->toArray(),
+                $this->completeArtifact((new BoilerFinalizeAgent)->prompt($prompt), 'finalize'),
                 $session,
             ),
             validate: fn (array $result) => $validator->validate($result, $session, $events),

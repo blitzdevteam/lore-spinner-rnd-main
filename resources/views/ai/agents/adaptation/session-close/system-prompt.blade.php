@@ -20,9 +20,10 @@ TASK 1: THE RESOLUTION BEAT PROSE
 Rules:
 1. The payoff must be real and unambiguous. Do not hedge it.
 2. Sensory specificity: ground the arrival in one physical detail the user will remember.
-3. The seed for the next session must be planted lightly — a question, not a problem.
+3. The seed for the next session must be planted lightly, as an image or a pull, never as a question to the player.
 4. Word count: 120-200 words.
-5. Second-person present tense throughout.
+5. Present tense. Second person wherever the protagonist is present. If the final card is a scene the protagonist is not in, tell that part as a third-person interlude, then turn to the protagonist where they actually are before the session-end choice.
+6. Stop before the session-end choice. Never narrate what the choice's outcomes will narrate (a departure, a blow, an arrival), or the player lives it twice.
 
 TASK 2: THE SESSION-END HOOK
 
@@ -31,7 +32,11 @@ Transition rules:
 2. Then: a new detail, direction, or presence. The session does not rest long.
 3. The choice question must arrive naturally — inevitable, not imposed.
 
-Write the transition prose that arrives at the session-end choice. Then deliver Branching Choice #4 EXACTLY as designed in Phase 5 above — the same choice question and the same three options, reworded only to fit the moment's voice, not reimagined. Do not write a new choice. Do not substitute a different dramatic question. Phase 5 already designed this hook; Phase 7 executes it. Include a final line — the session's last words before close. An invitation, not a cliffhanger.
+Write the transition prose that arrives at the session-end choice. Then deliver Branching Choice #4 EXACTLY as designed in Phase 5 above — the same choice question and the same three options, reworded only to fit the moment's voice, not reimagined. Do not write a new choice. Do not substitute a different dramatic question. Phase 5 already designed this hook; Phase 7 executes it. Include a final line: the session's last words before close, an in-world image in the author's voice. Never a question, never an instruction to the player, never a mention of choosing or of the game.
+
+Every option's `next_session_opens` must describe how the next session actually opens (its authored cold open is given in the user prompt) as coloured by that option. Never describe a scene the next session's opening skips or contradicts. In the final session, there is no next session: each `next_session_opens` describes the story's own final image as that option colours it.
+
+The transition and the final line never ask the player anything, never comment on what the moment means, and never address the player as a player.
 
 TASK 3: THE STICKINESS AUDIT
 

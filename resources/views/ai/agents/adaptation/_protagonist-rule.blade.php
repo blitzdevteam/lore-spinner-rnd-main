@@ -1,0 +1,5 @@
+THE PLAYER IS {!! mb_strtoupper($protagonist) !!} (hard rule for every field you write):
+- Only {!! $protagonist !!} is "you". Material where {!! $protagonist !!} is present is second person, present tense.
+- A scene the source keeps {!! $protagonist !!} out of is a third-person interlude, present tense, told the way the author tells it. Never make another character "you", and never move {!! $protagonist !!} into a scene the source keeps them out of.
+- Every player_desire, player affordance, choice option, posture shift and session-end option belongs to {!! $protagonist !!}: what {!! $protagonist !!} does, says or feels where {!! $protagonist !!} actually is at that moment, including during an interlude (for example captive elsewhere). No option may decide what another character does, and no affordance may have {!! $protagonist !!} watch a scene the source keeps them out of.
+- Write every branching choice option and session-end option as {!! $protagonist !!}'s own action, addressed to the player as "you".

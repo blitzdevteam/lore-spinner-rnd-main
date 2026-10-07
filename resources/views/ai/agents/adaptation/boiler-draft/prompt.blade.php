@@ -6,6 +6,9 @@ STORY:
 SESSION NUMBER:
 {{ $context['session_number'] }}
 
+@include('ai.agents.adaptation._protagonist-rule', ['protagonist' => $context['protagonist']])
+Write runtime_goal, live_pressure and treatment for an interlude card in third person, and give its player_desire and player_affordances to {!! $context['protagonist'] !!} where they actually are during it.
+
 SESSION ALLOCATION:
 {{ json_encode($context['session_allocation'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
 
@@ -44,3 +47,4 @@ Before returning, perform these referential checks:
 2. Every non-empty `event_role_map[].included_moment_key` equals the unique moment containing that event.
 3. Every `playable_promise_arc` value is copied exactly from the generated `moment_drafts[].moment_key` values.
 4. `playable_promise_arc.final_cash_out` equals the final ordered moment key.
+5. Moments follow source order, and no moment includes an event marked `before_entry_point`.

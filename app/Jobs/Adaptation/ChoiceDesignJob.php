@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
+use App\Ai\Adaptation\PlayableProtagonist;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ChoiceDesignAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -81,6 +83,7 @@ final class ChoiceDesignJob implements ShouldQueue
                 'beatMap' => $session->session_architecture,
                 'storySessionMap' => $adaptation->story_session_map,
                 'protagonistCoreTrait' => $ipAudit['bounded_agency']['evidence'] ?? '',
+                'protagonist' => PlayableProtagonist::for($this->story),
                 'emotionalPromise' => $session->entry_point_diagnosis['emotional_promise'] ?? '',
                 'sessionNumber' => $this->sessionNumber,
                 'choiceMomentPages' => $choiceMomentPages,
@@ -248,6 +251,31 @@ final class ChoiceDesignJob implements ShouldQueue
     }
 
     /**
+     * A branching option is something the player does. An option that never
+     * addresses the player decides what another character does instead.
+     *
+     * @param  array<string, mixed>  $choiceDesign
+     */
+    private function validatePlayerOwnedOptions(array $choiceDesign): void
+    {
+        $failures = [];
+
+        foreach ((array) ($choiceDesign['branching_choices'] ?? []) as $choice) {
+            foreach ((array) ($choice['options'] ?? []) as $option) {
+                $text = (string) ($option['text'] ?? '');
+
+                if (preg_match('/\byou(?:r|rs|rself)?\b/iu', $text) !== 1) {
+                    $failures[] = sprintf('%s option %s is not the player\'s own action: "%s". Rewrite it as what the protagonist does, addressed as you.', $choice['choice_id'] ?? '?', $option['label'] ?? '?', $text);
+                }
+            }
+        }
+
+        if ($failures !== []) {
+            throw new RuntimeException(implode("\n", $failures));
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $draft
      * @return array<string, mixed>
      */
@@ -259,13 +287,14 @@ final class ChoiceDesignJob implements ShouldQueue
         return $this->generateValidatedArtifact(
             artifact: 'choice_design',
             originalPrompt: $originalPrompt,
-            generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new ChoiceDesignAgent(true))->prompt($prompt)->toArray(),
+            generate: fn (string $prompt): array => BannedProseValidator::neutralizeArtifact($canonicalizer->canonicalize(
+                $this->completeArtifact((new ChoiceDesignAgent(true))->prompt($prompt), 'choice design'),
                 $draft,
-            ),
+            )),
             validate: function (array $choiceDesign) use ($draft): void {
                 $this->validateCanonicalTopology($choiceDesign);
                 $this->validateBoilerBindings($choiceDesign, $draft);
+                $this->validatePlayerOwnedOptions($choiceDesign);
             },
             repairPrompt: fn (string $error, array $previousChoiceDesign): string => view(
                 'ai.agents.adaptation.choice-design.repair-prompt',

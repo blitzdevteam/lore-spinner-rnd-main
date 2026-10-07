@@ -211,7 +211,9 @@ CONSTRAINTS: max 80 chars. Written in this story's world and voice — not gener
 
 ## TASK 5: WRITE THE COLD OPEN (the artifact for D8 Section 13)
 
-Now write the actual cold-open prose. Second-person present tense. Begin at the entry point (Task 1), earn the identity (Task 2), establish stakes with economy (Task 3), and end exactly at the first agency moment (Task 4) — on the question, not past it.
+Now write the actual cold-open prose. Second-person present tense. Begin at the entry point (Task 1), earn the identity (Task 2), establish stakes with economy (Task 3), and end exactly at the first agency moment (Task 4): on the live action the choice answers, not past it. The choice question is shown to the player with the options, so the prose never asks it.
+
+**THE COLD OPEN AND THE CARDS ARE ONE SEQUENCE.** Scene cards are built from the events at and after your start event, and they play in order after the cold open. So the cold open tells only what happens up to the start of the first card. Never narrate an event a card will play (an arrival, a blast, a capture, a meeting), or the player lives it twice. Events before your start event that matter are told plainly in the cold open or listed in must_reintroduce; they are never staged again.
 
 **BODY DROP-IN RULES** (ALL sources — screenplay and novel alike — and they apply even when `prefer_literal_opening=true`):
 
@@ -236,7 +238,7 @@ Constraints:
 - Write in the author's voice using the VOICE ANCHOR as your texture model. Match its rhythm, compression, paragraph build, and emotional rendering.
 - Obey Master Rule 1 (all bans) and the Anchor Card.
 - Run the RUNTIME SELF-CHECK on your draft before finalizing: scan for em dashes (the em dash character and --): if the Voice Anchor exemplars contain none, delete every one; if the author uses them, verify each surviving em dash appears in a construction the exemplars actually model and at near the author's documented frequency, not as a default connector; cut cognitive lead-ins; replace AI-substitute collocations; no 3+ same-word sentence openers; respect speech ceilings; match the nearest exemplar's texture.
-- ~120–180 words to the choice. Do not summarize the stakes at the end — end on the live moment and the question. (No "you must now decide whether…" essay-line.)
+- ~120–180 words to the choice, never more than 350. Do not summarize the stakes at the end: end on the live moment. (No "you must now decide whether…" essay-line, and no closing question such as "What do you do?".)
 
 OUTPUT — the `cold_open` field contains PLAYER-FACING PROSE ONLY:
 
@@ -247,7 +249,7 @@ The prose in `cold_open` is delivered to the player verbatim at runtime. It is r
 - NO cut point line. The cut point is pipeline metadata for Phase 4 and belongs in `entry_point.cut_point`, never in the prose.
 - NO bracketed placeholders, editorial notes, or commentary about the prose.
 
-The field starts with the first word the player reads and ends with the final question mark of the first choice. Nothing before it, nothing after it.
+The field starts with the first word the player reads and ends on the live action the first choice answers. Nothing before it, nothing after it, and no question to the player.
 
 Record the cut point separately in `entry_point.cut_point` (Task 1).
 
@@ -282,7 +284,9 @@ STOP. Do not pass to Phase 4 until all are YES:
 4A. **Three distinct actions?** Do the three options describe three different physical actions producing three different world states — not one action in three moods? Is the question something other than a yes/no on following another character's lead? If either fails, redesign per Task 4 rules 2A/2B.
 5. **Within ~300 words?** Does the choice arrive on time?
 6. **In voice?** Does the prose pass the Self-Check and read like the Voice Anchor — not generic premium prose? Blind test: side by side with a source passage, is it attributable to this author?
-7. **Ends on the live moment?** Does it stop at the question, with no end-of-passage stakes-summary essay-line?
+7. **Ends on the live moment?** Does it stop on the action the choice answers, with no closing question and no end-of-passage stakes-summary essay-line?
+8. **One sequence with the cards?** Does the cold open stop before every event a scene card will play, so nothing is told twice?
+9. **Continuous with the previous session?** For session 2 and later, does it begin where the previous session's last event leaves the protagonist, and does it state plainly every event in the gap that changed where they are, who is with them, or what they hold (a capture, a separation, a journey)?
 
 If any answer is no, revise. The opening is the product's first impression. There is no second one.
 

@@ -17,7 +17,7 @@ use Throwable;
 #[Model('gpt-5.4')]
 #[Temperature(0.7)]
 #[Timeout(180)]
-class SessionCloseAgent implements Agent, HasStructuredOutput
+final class SessionCloseAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
@@ -43,7 +43,7 @@ class SessionCloseAgent implements Agent, HasStructuredOutput
                 ->string()
                 ->required()
                 ->title('Resolution Prose')
-                ->description('120-200 words, second-person present tense. Sensory specificity. Real unambiguous payoff.'),
+                ->description('120-200 words, present tense, second person wherever the protagonist is present (a scene without them is a third-person interlude that turns back to them). Sensory specificity. Real unambiguous payoff. Stops before the session-end choice and never narrates what its outcomes narrate. Never ends on a question.'),
             'hook_transition' => $schema
                 ->string()
                 ->required()
@@ -52,8 +52,8 @@ class SessionCloseAgent implements Agent, HasStructuredOutput
             'session_end_choice' => $schema->object([
                 'choice_question' => $schema->string()->required()->title('Choice Question'),
                 'option_a' => $schema->object([
-                    'text' => $schema->string()->required()->title('Option Text'),
-                    'next_session_opens' => $schema->string()->required()->title('Next Session Opens'),
+                    'text' => $schema->string()->required()->title('Option Text')->description('The protagonist\'s own action, addressed to the player as you.'),
+                    'next_session_opens' => $schema->string()->required()->title('Next Session Opens')->description('How the next session\'s authored cold open begins, coloured by this option. In the final session, the story\'s final image.'),
                 ])->required()->withoutAdditionalProperties()->title('Option A'),
                 'option_b' => $schema->object([
                     'text' => $schema->string()->required()->title('Option Text'),
@@ -63,7 +63,7 @@ class SessionCloseAgent implements Agent, HasStructuredOutput
                     'text' => $schema->string()->required()->title('Option Text'),
                     'next_session_opens' => $schema->string()->required()->title('Next Session Opens'),
                 ])->required()->withoutAdditionalProperties()->title('Option C'),
-                'final_line' => $schema->string()->required()->title('Final Line')->description('The sessions last words. An invitation, not a cliffhanger.'),
+                'final_line' => $schema->string()->required()->title('Final Line')->description('The session\'s last words: an in-world image in the author\'s voice. Never a question, never an instruction to the player, never a mention of choosing.'),
             ])->required()->withoutAdditionalProperties()->title('Session-End Choice'),
             ...($this->boilerEnabled ? [
                 'closing_moment_key' => $schema->string()->required()->title('Boiler Closing Moment Key'),

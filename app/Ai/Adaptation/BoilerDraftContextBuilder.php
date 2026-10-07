@@ -98,6 +98,7 @@ final class BoilerDraftContextBuilder
                 'title' => $story->title,
             ],
             'session_number' => $sessionNumber,
+            'protagonist' => PlayableProtagonist::for($story),
             'session_allocation' => collect((array) ($storyMap['session_allocation'] ?? []))
                 ->firstWhere('session_number', $sessionNumber),
             'boiling_profile' => (array) ($storyMap['boiling_profile'] ?? []),

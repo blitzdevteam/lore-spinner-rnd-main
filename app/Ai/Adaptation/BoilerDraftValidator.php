@@ -245,7 +245,56 @@ final class BoilerDraftValidator
             throw new RuntimeException('Boiler Draft first moment must include the Entry Point start event.');
         }
 
+        $this->validateStoryOrder($moments, $events);
+
         $this->validateVoiceBans($draft, $session);
+    }
+
+    /**
+     * The runtime plays cards in order and cannot go back, and the cold open
+     * already covers everything before the entry point. A card that stages a
+     * pre-entry event, or starts earlier in the story than the card before it,
+     * makes the player live an event twice or out of sequence.
+     *
+     * @param  list<array<string, mixed>>  $moments
+     * @param  Collection<int, Event>  $events
+     */
+    private function validateStoryOrder(array $moments, Collection $events): void
+    {
+        $positions = $events->mapWithKeys(fn (Event $event): array => [(int) $event->id => (int) $event->getAttribute('story_position')]);
+        $preEntry = $events->filter(fn (Event $event): bool => (bool) $event->getAttribute('before_entry_point'))
+            ->map(fn (Event $event): int => (int) $event->id)
+            ->values()
+            ->all();
+        $failures = [];
+        $previous = null;
+
+        foreach ($moments as $moment) {
+            $momentKey = (string) $moment['moment_key'];
+            $sourceIds = array_map('intval', (array) $moment['source_event_ids']);
+            $staged = array_values(array_intersect($sourceIds, $preEntry));
+
+            if ($staged !== []) {
+                $failures[] = "Moment {$momentKey} stages events ".implode(', ', $staged).' from before the entry point. The cold open covers them: give them CUT, ECHO or MONTAGE with a reintroduction note instead.';
+            }
+
+            $earliest = min(array_map(fn (int $id): int => (int) ($positions[$id] ?? 0), $sourceIds));
+            $anchor = (int) ($positions[(int) $moment['anchor_event_id']] ?? 0);
+
+            $known = $earliest > 0 && $anchor > 0;
+
+            if ($known && $previous !== null && ($earliest < $previous['earliest'] || $anchor <= $previous['anchor'])) {
+                $failures[] = "Moment {$momentKey} goes back in the story before {$previous['key']} (its events start at story position {$earliest}, its anchor is {$anchor}). Cards must follow source order.";
+            }
+
+            if ($known) {
+                $previous = ['key' => $momentKey, 'earliest' => $earliest, 'anchor' => $anchor];
+            }
+        }
+
+        if ($failures !== []) {
+            throw new RuntimeException("Boiler Draft story order:\n- ".implode("\n- ", $failures));
+        }
     }
 
     /**
@@ -268,7 +317,7 @@ final class BoilerDraftValidator
 
         if ($scan['errors'] !== []) {
             throw new RuntimeException(
-                "Boiler Draft voice-ban violations:\n- " . implode("\n- ", $scan['errors'])
+                "Boiler Draft voice-ban violations:\n- ".implode("\n- ", $scan['errors'])
             );
         }
     }
@@ -278,7 +327,7 @@ final class BoilerDraftValidator
      * paths (moment_drafts.0.runtime_goal, moment_drafts.1.runtime_goal, ...).
      *
      * @param  array<string, mixed>  $artifact
-     * @param  array<int, string>    $paths
+     * @param  array<int, string>  $paths
      * @return array<int, string>
      */
     private function expandProsePaths(array $artifact, array $paths): array

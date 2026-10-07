@@ -13,6 +13,16 @@ THIS SESSION'S PRIMARY GOAL: {{ $sessionPrimaryGoal }}
 
 SESSION NUMBER: {{ $sessionNumber }}
 
+@include('ai.agents.adaptation._protagonist-rule', ['protagonist' => $protagonist])
+@if(! empty($nextSessionOpening))
+HOW SESSION {{ $nextSessionOpening['session_number'] }} OPENS (its authored cold open; every next_session_opens line must land here):
+{!! $nextSessionOpening['cold_open'] !!}
+
+@elseif(! empty($isFinalSession))
+THIS IS THE FINAL SESSION. The close lands on the source's own ending, never on an invented continuation.
+
+@endif
+
 @if(!empty($boilerDraft))
 VALIDATED BOILER DRAFT:
 {{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}

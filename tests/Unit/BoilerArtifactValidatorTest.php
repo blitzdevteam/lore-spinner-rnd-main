@@ -319,6 +319,79 @@ it('caps the moment budget at the events left playable after the entry point', f
     expect($draft['session_budget_decision']['target_moment_count'])->toBe(1);
 });
 
+/**
+ * A two-moment draft over events 101 (story position 10) and 102 (position 11).
+ *
+ * @param  array{0: int, 1: int}  $momentEvents  The event each moment stages, in card order.
+ * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: Collection}
+ */
+function boilerTwoMomentDraft(array $momentEvents, bool $firstEventBeforeEntry = false): array
+{
+    $draft = boilerTestDraft();
+    $draft['session_budget_decision']['target_moment_count'] = 2;
+    $draft['session_budget_decision']['must_breathe_event_ids'] = [];
+    $draft['moment_drafts'][0]['source_event_ids'] = [$momentEvents[0]];
+    $draft['moment_drafts'][0]['anchor_event_id'] = $momentEvents[0];
+    $draft['moment_drafts'][] = array_replace($draft['moment_drafts'][0], [
+        'moment_key' => 'S1_M02',
+        'moment_order' => 2,
+        'source_event_ids' => [$momentEvents[1]],
+        'anchor_event_id' => $momentEvents[1],
+    ]);
+    $draft['playable_promise_arc']['final_cash_out'] = 'S1_M02';
+    $draft['event_role_map'] = array_map(static fn (int $eventId, string $momentKey): array => [
+        'event_id' => $eventId,
+        'role' => 'PLAY',
+        'why' => 'The object creates immediate commitment pressure.',
+        'included_moment_key' => $momentKey,
+        'reintroduction_note' => '',
+    ], $momentEvents, ['S1_M01', 'S1_M02']);
+
+    $storyMap = boilerTestStoryMap();
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 1;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 2;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['must_breathe_event_ids'] = [];
+
+    $events = new Collection([
+        (new Event())->forceFill(['id' => 101, 'session_number' => 1])
+            ->setAttribute('story_position', 10)
+            ->setAttribute('before_entry_point', $firstEventBeforeEntry),
+        (new Event())->forceFill(['id' => 102, 'session_number' => 1])
+            ->setAttribute('story_position', 11)
+            ->setAttribute('before_entry_point', false),
+    ]);
+
+    return [$draft, $storyMap, $events];
+}
+
+it('accepts cards that follow source order', function () {
+    [$draft, $storyMap, $events] = boilerTwoMomentDraft([101, 102]);
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
+
+    expect(true)->toBeTrue();
+});
+
+it('rejects a card that goes back in the story', function () {
+    [$draft, $storyMap, $events] = boilerTwoMomentDraft([102, 101]);
+    $session = boilerTestSession();
+    $session->entry_point_diagnosis = ['start_event_id' => 102];
+
+    (new BoilerDraftValidator())->validate($draft, $session, $storyMap, $events);
+})->throws(RuntimeException::class, 'Moment S1_M02 goes back in the story before S1_M01');
+
+it('rejects a card that stages an event the cold open already covers', function () {
+    [$draft, $storyMap, $events] = boilerTwoMomentDraft([101, 102], firstEventBeforeEntry: true);
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_min'] = 1;
+    $storyMap['boiling_profile']['per_session_guidance'][0]['recommended_moment_count_max'] = 1;
+    $draft['session_budget_decision']['target_moment_count'] = 1;
+    $draft['moment_drafts'] = [array_replace($draft['moment_drafts'][0], ['source_event_ids' => [101, 102], 'anchor_event_id' => 102])];
+    $draft['playable_promise_arc']['final_cash_out'] = 'S1_M01';
+    $draft['event_role_map'][1]['included_moment_key'] = 'S1_M01';
+
+    (new BoilerDraftValidator())->validate($draft, boilerTestSession(), $storyMap, $events);
+})->throws(RuntimeException::class, 'Moment S1_M01 stages events 101 from before the entry point');
+
 it('leaves an uncut session on its authored moment range', function () {
     $events = new Collection([
         (new Event())->forceFill(['id' => 101, 'session_number' => 1]),

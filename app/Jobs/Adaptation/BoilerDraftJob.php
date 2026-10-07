@@ -192,7 +192,7 @@ final class BoilerDraftJob implements ShouldQueue
     private function generateDraft(string $prompt): array
     {
         $response = (new BoilerDraftAgent)->prompt($prompt);
-        $draft = $response->toArray();
+        $draft = $this->completeArtifact($response, 'draft');
 
         Log::info('boiler.draft_generated', [
             'story_id' => $this->story->id,

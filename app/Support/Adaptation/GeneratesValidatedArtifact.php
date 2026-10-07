@@ -7,6 +7,9 @@ namespace App\Support\Adaptation;
 use App\Exceptions\Adaptation\ArtifactValidationException;
 use Closure;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Responses\Data\FinishReason;
+use Laravel\Ai\Responses\Data\Step;
+use Laravel\Ai\Responses\TextResponse;
 use RuntimeException;
 use Throwable;
 
@@ -84,6 +87,23 @@ trait GeneratesValidatedArtifact
             $lastValidationError?->getMessage() ?? "Boiler {$artifact} validation failed without an error.",
             previous: $lastValidationError,
         );
+    }
+
+    /**
+     * A response cut off by the output-token limit parses as valid JSON with whole
+     * sections missing, so it is never accepted as a finished artifact.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws RuntimeException
+     */
+    private function completeArtifact(TextResponse $response, string $artifact): array
+    {
+        if ($response->steps->contains(fn (Step $step): bool => $step->finishReason === FinishReason::Length)) {
+            throw new RuntimeException("Boiler {$artifact} ran out of output tokens before it finished, so the response is incomplete.");
+        }
+
+        return method_exists($response, 'toArray') ? $response->toArray() : [];
     }
 
     /**

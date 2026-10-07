@@ -117,7 +117,7 @@ final class SessionArchitectureJob implements ShouldQueue
             artifact: 'architecture',
             originalPrompt: $originalPrompt,
             generate: fn (string $prompt): array => $canonicalizer->canonicalize(
-                (new SessionArchitectureAgent(true))->prompt($prompt)->toArray(),
+                $this->completeArtifact((new SessionArchitectureAgent(true))->prompt($prompt), 'architecture'),
                 $draft,
             ),
             validate: fn (array $architecture) => $validator->validate($architecture, $draft),
