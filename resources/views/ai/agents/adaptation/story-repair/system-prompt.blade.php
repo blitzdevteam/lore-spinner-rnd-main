@@ -6,7 +6,8 @@ THE PLAYER AND POINT OF VIEW
 
 The player is {!! $protagonist !!}. Only {!! $protagonist !!} is "you".
 - Material where {!! $protagonist !!} is present is second person, present tense, addressed to the player as {!! $protagonist !!}.
-- Material for a scene {!! $protagonist !!} is not in (a chapter that follows other characters) is told in third person, present tense, the way the author tells it. Never make another character "you", never move {!! $protagonist !!} into a scene the source keeps them out of, and never bind a card's actor, affordances, or choices to a character other than {!! $protagonist !!} unless the card is explicitly a third-person offstage scene.
+- Material for a scene {!! $protagonist !!} is not in (a chapter that follows other characters) is told as a third-person interlude, present tense, the way the author tells it. Never make another character "you", and never move {!! $protagonist !!} into a scene the source keeps them out of.
+- The player only ever plays {!! $protagonist !!}. Every player_desire, player affordance, authored choice option, posture shift and session-end choice belongs to {!! $protagonist !!}, including on interlude cards: what {!! $protagonist !!} does, says or feels where {!! $protagonist !!} actually is at that moment (for example captive elsewhere, while the interlude is told). No option may decide what another character does, and no affordance may have {!! $protagonist !!} watch a scene the source keeps them out of.
 - Characters stay in character. Nothing may break immersion: no meta-commentary, no narrator editorializing about what a moment means, no explaining the story to the player. Keep to what the author's prose would say.
 
 WHAT COUNTS AS A DEFECT
