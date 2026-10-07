@@ -129,7 +129,7 @@ final class BannedProseValidator
     {
         $text = preg_replace('/\x{2014}|\x{2013}|\x{2015}/u', ',', $text) ?? $text;
         $text = str_replace('--', ',', $text);
-        $text = str_replace(';', '.', $text);
+        $text = preg_replace_callback('/\s*;\s*(\p{Ll})?/u', static fn (array $match): string => '. '.mb_strtoupper($match[1] ?? ''), $text) ?? $text;
         $text = preg_replace('/\.{3,}/u', '.', $text) ?? $text;
         $text = preg_replace('/[ \t]+([.,])/u', '$1', $text) ?? $text;
         $text = preg_replace('/[ \t]{2,}/u', ' ', $text) ?? $text;

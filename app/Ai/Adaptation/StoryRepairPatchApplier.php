@@ -99,11 +99,12 @@ final class StoryRepairPatchApplier
                 in_array($target, $skipTargets, true) => "Target '{$target}' is skipped for this run.",
                 $document === null => $target === 'scene_card' ? "No scene card '{$key}' in this session." : "Target '{$target}' is empty for this session.",
                 $path === '' || ! is_string($current) || mb_trim($current) === '' => "Path '{$path}' is not an existing text field.",
-                in_array($leaf, self::PROTECTED_FIELDS, true) || $this->insideProtectedList($path) => "Path '{$path}' is an identifier and cannot be patched.",
+                ! $this->isReintroTimingPath($path) && (in_array($leaf, self::PROTECTED_FIELDS, true) || $this->insideProtectedList($path)) => "Path '{$path}' is an identifier and cannot be patched.",
                 is_string($reviewedValue) && mb_trim($reviewedValue) !== mb_trim($current) => "Path '{$path}' changed since it was reviewed.",
                 $newValue === '' => 'The replacement text is empty.',
                 $newValue === mb_trim($current) => 'The replacement is identical to the stored text.',
                 isset($seen[$identity]) => 'This field already has a patch.',
+                $this->isReintroTimingPath($path) => $this->reintroTimingFailure($target, $leaf, $newValue, $material),
                 $this->isFlagPath($path) => in_array($newValue, $flags, true) ? null : "Flag '{$newValue}' is not a flag this session already uses.",
                 default => $this->banFailure($newValue, $context['voice_profile'])
                     ?? (in_array($target, ['entry_point_diagnosis', 'next_session_entry'], true) && $path === 'cold_open' ? $this->coldOpenFailure($newValue, $context['protagonist']) : null),
@@ -253,6 +254,36 @@ final class StoryRepairPatchApplier
         $walk([$material['session_choice_design'] ?? [], $material['choice_consequence_map'] ?? []]);
 
         return array_values(array_unique($flags));
+    }
+
+    /**
+     * When a must_reintroduce fact is told (cold open or a later card) and
+     * which card tells it. The runtime reads both, so a fact a card now
+     * stages can be moved off the cold open.
+     */
+    private function isReintroTimingPath(string $path): bool
+    {
+        return preg_match('/^format_specific_cut\.must_reintroduce\.\d+\.(marker|target_moment_key)$/', $path) === 1;
+    }
+
+    /**
+     * @param  array<string, mixed>  $material
+     */
+    private function reintroTimingFailure(string $target, string $leaf, string $newValue, array $material): ?string
+    {
+        if (! in_array($target, ['entry_point_diagnosis', 'next_session_entry'], true)) {
+            return "Path '{$leaf}' is an identifier and cannot be patched.";
+        }
+
+        if ($leaf === 'marker') {
+            return in_array($newValue, ['COLD_OPEN', 'LATER'], true) ? null : 'A must_reintroduce marker is COLD_OPEN or LATER.';
+        }
+
+        if ($target === 'next_session_entry') {
+            return preg_match('/^S\d+_M\d+$/', $newValue) === 1 ? null : "'{$newValue}' is not a moment key.";
+        }
+
+        return array_key_exists($newValue, (array) ($material['scene_cards'] ?? [])) ? null : "No scene card '{$newValue}' in this session.";
     }
 
     private function isFlagPath(string $path): bool

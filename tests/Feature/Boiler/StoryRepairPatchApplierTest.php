@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\StoryRepairContext;
 use App\Ai\Adaptation\StoryRepairPatchApplier;
 use App\Enums\Adaptation\AdaptationStatusEnum;
@@ -185,6 +186,33 @@ it('patches both sides of a session boundary in one review and reverts both', fu
 
     expect($previous->fresh()->session_close_design['session_end_choice']['next_session_opens'][0])->toBe('The great gun has scattered you.')
         ->and($next->fresh()->entry_point_diagnosis['format_specific_cut']['must_reintroduce'][0])->toBe('The gun scattered the children.');
+});
+
+it('moves a must_reintroduce fact off the cold open only to a valid marker and card', function () {
+    $session = storyRepairSession();
+    $session->update(['entry_point_diagnosis' => [
+        'cold_open' => 'You are Wendy Darling, alone in the dark.',
+        'format_specific_cut' => ['must_reintroduce' => [['fact' => 'Long Tom scattered the children.', 'marker' => 'COLD_OPEN', 'target_moment_key' => 'S4_M02']]],
+    ]]);
+    $voice = ['protagonist' => 'Wendy Darling', 'voice_profile' => []];
+    $patch = fn (string $leaf, string $value): array => ['target' => 'entry_point_diagnosis', 'key' => '', 'path' => "format_specific_cut.must_reintroduce.0.{$leaf}", 'new_value' => $value, 'reason' => 'x'];
+
+    $review = app(StoryRepairPatchApplier::class)->validate($session, [
+        $patch('marker', 'LATER'),
+        $patch('target_moment_key', 'S4_M03'),
+    ], [], $voice);
+    $invalid = app(StoryRepairPatchApplier::class)->validate($session, [
+        $patch('marker', 'SOMETIME'),
+        $patch('target_moment_key', 'S4_M99'),
+    ], [], $voice);
+
+    expect($review['patches'])->toHaveCount(2)
+        ->and($invalid['patches'])->toBe([])
+        ->and($invalid['rejected'])->toHaveCount(2);
+});
+
+it('capitalizes the sentence a converted semicolon starts', function () {
+    expect(BannedProseValidator::neutralizeBannedPunctuation('He pauses; by morning he is gone.'))->toBe('He pauses. By morning he is gone.');
 });
 
 it('swaps a flag only for one the session already uses', function () {
