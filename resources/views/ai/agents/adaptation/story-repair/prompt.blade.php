@@ -26,6 +26,13 @@ HOW SESSION {!! $next_session['session_number'] !!} OPENS (this session's close 
 {!! json_encode($next_session['entry'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @endif
+@if(! empty($reviewer_notes))
+KNOWN DEFECTS REPORTED BY PLAYTESTERS (verify each against the material and the source; fix every one that is real, even where the neighbouring material agrees with it, and say in a finding what you did about each):
+@foreach($reviewer_notes as $note)
+- {!! $note !!}
+@endforeach
+
+@endif
 SOURCE EVENTS FOR THIS SESSION (canon; the material must agree with it):
 @forelse($source_events as $event)
 Event {!! $event['position'] !!}: {!! $event['title'] !!}

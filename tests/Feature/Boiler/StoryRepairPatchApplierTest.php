@@ -211,6 +211,18 @@ it('moves a must_reintroduce fact off the cold open only to a valid marker and c
         ->and($invalid['rejected'])->toHaveCount(2);
 });
 
+it('puts playtester notes into the review prompt', function () {
+    $prompt = view('ai.agents.adaptation.story-repair.prompt', [
+        'story_title' => 'Peter Pan', 'story_slug' => 'peter-pan', 'session_number' => 4, 'total_sessions' => 6,
+        'protagonist' => 'Wendy Darling', 'material' => [], 'entry_decisions' => [], 'skip_targets' => [],
+        'previous_session' => null, 'next_session' => null, 'source_events' => [],
+        'reviewer_notes' => ['The capture happens between screens.'],
+    ])->render();
+
+    expect($prompt)->toContain('KNOWN DEFECTS REPORTED BY PLAYTESTERS')
+        ->and($prompt)->toContain('- The capture happens between screens.');
+});
+
 it('capitalizes the sentence a converted semicolon starts', function () {
     expect(BannedProseValidator::neutralizeBannedPunctuation('He pauses; by morning he is gone.'))->toBe('He pauses. By morning he is gone.');
 });

@@ -25,10 +25,11 @@ final readonly class StoryRepairService
 
     /**
      * @param  list<string>  $skipTargets
+     * @param  list<string>  $notes  Known defects the review must verify and fix.
      */
-    public function review(Story $story, SessionAdaptation $session, string $source, array $skipTargets = []): StoryRepairReport
+    public function review(Story $story, SessionAdaptation $session, string $source, array $skipTargets = [], array $notes = []): StoryRepairReport
     {
-        $context = $this->contextBuilder->build($story, $session, $skipTargets);
+        $context = [...$this->contextBuilder->build($story, $session, $skipTargets), 'reviewer_notes' => $notes];
 
         if ($this->contextBuilder->moments($session)->isEmpty()) {
             throw new RuntimeException("Session {$session->session_number} has no finalized standard cut to review.");

@@ -25,6 +25,7 @@ final class RepairStorySessionCommand extends Command
                             {story : Story ID or slug}
                             {--session=* : Session numbers. Omit to review every session}
                             {--skip=* : Targets to leave out of the review (scene_card, session_choice_design, choice_consequence_map, session_close_design, entry_point_diagnosis, previous_session_close, next_session_entry)}
+                            {--note=* : Known defects (e.g. tester reports) the review must verify and fix}
                             {--dry-run : Print the gathered context without calling the model}
                             {--show-prompt : With --dry-run, print the full prompt}
                             {--apply : Review and store the accepted changes in one step}
@@ -94,7 +95,7 @@ final class RepairStorySessionCommand extends Command
             }
 
             try {
-                $report = $repairs->review($story, $session, 'command', $skip);
+                $report = $repairs->review($story, $session, 'command', $skip, $this->notes());
             } catch (Throwable $throwable) {
                 $this->error($throwable->getMessage());
                 $failed = true;
@@ -119,7 +120,7 @@ final class RepairStorySessionCommand extends Command
      */
     private function dryRun(Story $story, SessionAdaptation $session, StoryRepairContext $contextBuilder, array $skip): void
     {
-        $context = $contextBuilder->build($story, $session, $skip);
+        $context = [...$contextBuilder->build($story, $session, $skip), 'reviewer_notes' => $this->notes()];
         $this->line('Protagonist: '.$context['protagonist']);
         $this->line('Scene cards: '.count($context['material']['scene_cards'] ?? []).'. Source events: '.count($context['source_events']).'.');
 
@@ -245,6 +246,17 @@ final class RepairStorySessionCommand extends Command
             ->sort()
             ->implode(', ');
         $this->info("Stored {$result['applied_patches']} patches and {$result['applied_rebinds']} rebinds{$reordered} from report {$report->id}. Undo with --revert={$report->id}. Rebuild the runtime prompt for session(s) {$rebuild} next.");
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function notes(): array
+    {
+        return array_values(array_filter(array_map(
+            static fn ($note): string => mb_trim((string) $note),
+            (array) $this->option('note'),
+        )));
     }
 
     private function resolveStory(): ?Story
