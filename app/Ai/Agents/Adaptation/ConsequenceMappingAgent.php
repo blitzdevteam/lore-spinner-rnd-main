@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
+use App\Ai\Agents\Adaptation\Concerns\SetsOpenAiReasoningEffort;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -42,12 +43,13 @@ use Throwable;
  *                              can iterate without re-shaping)
  *   - validation_results
  */
-#[Model('gpt-5.4')]
-#[Temperature(0.6)]
-#[Timeout(300)]
-final class ConsequenceMappingAgent implements Agent, HasStructuredOutput
+#[Model('gpt-6.1-sol')]
+#[Timeout(600)]
+final class ConsequenceMappingAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use Promptable, SetsOpenAiReasoningEffort;
+
+    private const string REASONING_EFFORT = 'low';
 
     public function __construct(private bool $boilerEnabled = false) {}
 

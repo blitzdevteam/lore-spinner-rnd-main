@@ -26,7 +26,7 @@ final class SessionArchitectureJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 600;
+    public int $timeout = 1_100;
 
     public int $backoff = 60;
 

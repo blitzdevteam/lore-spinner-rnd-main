@@ -22,7 +22,7 @@ final class IpAuditJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 420;
+    public int $timeout = 600;
 
     public int $backoff = 60;
 

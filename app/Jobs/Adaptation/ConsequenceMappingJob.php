@@ -28,7 +28,7 @@ final class ConsequenceMappingJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 720;
+    public int $timeout = 1_100;
 
     public int $backoff = 60;
 

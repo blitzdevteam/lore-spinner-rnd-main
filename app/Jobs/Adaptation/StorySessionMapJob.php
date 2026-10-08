@@ -12,21 +12,23 @@ use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Models\Event;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
+use App\Support\Adaptation\GeneratesValidatedArtifact;
 use App\Support\Adaptation\SessionAdaptationChain;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
 final class StorySessionMapJob implements ShouldQueue
 {
-    use Queueable;
+    use GeneratesValidatedArtifact, Queueable;
 
-    public int $tries = 3;
+    public int $tries = 2;
 
-    public int $timeout = 600;
+    public int $timeout = 1_100;
 
     public int $backoff = 60;
 
@@ -85,6 +87,7 @@ final class StorySessionMapJob implements ShouldQueue
             // Extraction and use conversion notes for session content allocation.
             $ipTrimming = $adaptation->ip_trimming ?? [];
 
+            $startedAt = microtime(true);
             $response = (new StorySessionMapAgent((bool) $adaptation->boiler_enabled))->prompt(
                 view('ai.agents.adaptation.story-session-map.prompt', [
                     'ipAudit' => $ipAudit,
@@ -102,7 +105,12 @@ final class StorySessionMapJob implements ShouldQueue
                 ])->render()
             );
 
-            $sessionMap = $response->toArray();
+            $sessionMap = $this->completeArtifact($response, 'story_session_map');
+            Log::info('boiler.story_session_map_generated', [
+                'story_id' => $this->story->id,
+                'seconds' => round(microtime(true) - $startedAt, 1),
+                ...$this->lastUsage,
+            ]);
 
             if ($adaptation->boiler_enabled) {
                 $this->validateBoilingProfile($sessionMap, $storyGlobalEvents);

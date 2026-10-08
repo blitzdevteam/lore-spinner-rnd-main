@@ -88,7 +88,7 @@ Emma's first boil failed in IP trimming: all 55 chapters timed out on Opus 5.5 (
   - A sanity gate (`VoiceLockBookJob::assertComplete`) requires the runtime-critical parts (6+ exemplars, 8+ anchor-card commands, 8+ self-check steps, 8+ techniques, character fingerprints). Any failure falls back automatically to the per-chapter voice lock, so a boil never stalls.
   - Screenplays keep the per-chapter path: their numerical enforcement layer is built from exact per-chapter counts of action lines, beats and rhythm transitions.
   - Sampling chapters was rejected: it skews every ratio toward the sampled chapters and drops characters who speak elsewhere.
-- **Unchanged on purpose:** draft and finalize stay on Opus 5.5 (they write the scene cards in the author's voice). Format detection, entry point, session map, architecture, choice design, consequence mapping, close and editorial verification stay on `gpt-5.4`, which is proven with the `temperature` values those agents set.
+- Model choices for every phase are in section 11.
 
 Model research (October 2026): OpenAI's current API tiers are GPT-6 Astra ($10 / $50), GPT-6.1 Sol ($2 / $10) and GPT-6 Luna ($0.10 / $0.50); GPT-5.6 Sol, Terra and Luna are the previous generation. Anthropic: Opus 5.5 ($4 / $20), Sonnet 5 and 5.5 ($2 / $10), Haiku 5.5 ($0.10 / $0.50 up to 100K-token prompts). GPT-6.1 Sol is cheaper than `gpt-5.4` ($2.50 / $15) and stronger, so it is the candidate for the `gpt-5.4` steps. Migrating them means removing their `Temperature` attributes and setting reasoning effort, so it is a separate change after one validated boil.
 
@@ -97,10 +97,32 @@ Model research (October 2026): OpenAI's current API tiers are GPT-6 Astra ($10 /
 - **Each session sees its own slice of the Story Session Map** (`StorySessionMapSlice::forSession`). Entry point, architecture, choice design, consequence mapping and editorial verification were each handed the whole map, every session's allocation, guidance and branch plans. Now story-wide sections (branch dimensions, state schema, reactivity rules, canon, alignment labels) stay whole, per-session lists keep this session and its neighbours, and cross-session payoffs keep every entry that touches this session. Sections a prompt already passes separately (state schema, reactivity rules, canon) are no longer sent twice.
 - **Prompts are no longer HTML-escaped.** 210 `{{ }}` interpolations across 24 adaptation prompt views turned every straight quote into `&quot;` and apostrophe into `&#039;`, inside JSON and inside the author's own source text. They are now `{!! !!}`: the model reads exactly what was meant. Runtime narrator prompts were not touched.
 - **Repair prompts start with the original prompt**, word for word, then the errors and the rejected output, with the instruction to fix the reported errors and keep every other field as it was. The identical prefix lets both providers' prompt caching apply to every retry.
-- **GPT-5.4 phases stay on `gpt-5.4`.** Moving them to `gpt-6.1-sol` was tried and reverted: on Emma the Story Session Map ran past its 600 s job limit on GPT-6.1 Sol and was killed three times (`MaxAttemptsExceededException`, worker restart, no other error). Every phase's request and job time limits are tuned to GPT-5.4's speed. A model change for these phases needs measured latency first and time limits set from it. `Concerns\SetsOpenAiReasoningEffort` stays for agents on GPT-6 (trimming, editorial verification).
+- **Each phase runs on the model and reasoning effort its task needs** (all GPT-6 agents use `Concerns\SetsOpenAiReasoningEffort` and carry no `Temperature`, which GPT-6 rejects with reasoning on):
+
+  | Phase | Passes | Task | Model, effort |
+  |---|---|---|---|
+  | Format detection | 1 per book | easy classification | `gpt-6-luna`, low |
+  | Chapter trimming | 1 per chapter | easy to moderate, guarded by code | `gpt-6-luna`, low |
+  | Trimming merge | 1 per book | moderate synthesis | `gpt-6.1-sol`, low |
+  | IP audit | 1 per book | moderate analysis | `gpt-6.1-sol`, low |
+  | Voice profile (novels) | 1 per book | hard, product core | Opus 5.5 |
+  | Story session map | 1 per book | hard planning, large output | `gpt-6.1-sol`, medium |
+  | Entry point | 1 per session + repairs | hard, voiced prose and first choice | `gpt-6.1-sol`, medium |
+  | Session architecture | 1 per session + repairs | moderate, structural | `gpt-6.1-sol`, low |
+  | Choice design | 1 per session + repairs | hard, voiced outcomes and topology | `gpt-6.1-sol`, medium |
+  | Consequence mapping | 1 per session + repairs | moderate, structural | `gpt-6.1-sol`, low |
+  | Session close | 1 per session + repairs | hard, voiced prose and handoff | `gpt-6.1-sol`, medium |
+  | Draft, finalize | 1 per session + repairs | scene cards | Opus 5.5 |
+  | Editorial verification | 1 per session | advisory grading | `gpt-6-luna`, medium |
+
+  GPT-5.4 is no longer used by any active phase: it is the older model and costs more per token than GPT-6.1 Sol ($2.50 / $15 against $2 / $10).
+
+- **Time limits use the full safe window.** The first Emma run killed the Story Session Map at its 600 s job limit (on GPT-6.1 Sol): limits had been hand-set for one model's speed. Generating jobs now use 1,100 s (under the database queue's 1,200 s retry window), the Story Session Map makes 2 attempts instead of 3, and request timeouts are 600 s for per-session phases and 1,080 s for the Story Session Map.
+- **Repair loops stop cleanly instead of being killed.** Before each repair attempt, `GeneratesValidatedArtifact` checks that the attempt can finish inside the job's limit (longest attempt so far plus 20 percent, with 45 s kept free). If not, it logs `boiler.<phase>_out_of_time` and fails with the real validation error, instead of the worker killing the job and leaving only `MaxAttemptsExceededException`.
+- **Every model call is measured.** `boiler.<phase>_generated` (and `boiler.story_session_map_generated`) logs seconds, model, input, cached input, output and reasoning tokens for each attempt. Future model and time-limit decisions are made from these numbers.
 - **Editorial verification on `gpt-6-luna`** (reasoning `medium`): advisory grading for Writer Lab.
 - **Anthropic automatic prompt caching** (`Concerns\CachesAnthropicPrompt`, top-level `cache_control`) on draft, finalize and the whole-book voice read. Their system prompt and schema are identical across sessions, so repeat reads bill at the cache rate.
-- **Not changed:** the per-chapter voice lock path (screenplays and fallback) and the unused legacy `IpTrimmingAgent` and `VoiceLockAgent` stay on GPT-5.4. Runtime narrator prompts are untouched.
+- **Not changed:** the per-chapter voice lock path (screenplays and fallback) and the unused legacy `IpTrimmingAgent` and `VoiceLockAgent` stay on GPT-5.4 until that path is reviewed. Runtime narrator prompts are untouched.
 
 ## What did not change
 

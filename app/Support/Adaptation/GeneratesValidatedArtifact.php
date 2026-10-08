@@ -31,6 +31,28 @@ trait GeneratesValidatedArtifact
 {
     private const int MAX_VALIDATION_ATTEMPTS = 3;
 
+    /** Seconds kept free at the end of the job for saving the result and logging. */
+    private const int TIME_RESERVE_SECONDS = 45;
+
+    /** @var array<string, mixed> Usage of the latest model response, for the generation log. */
+    private array $lastUsage = [];
+
+    /**
+     * A repair attempt that cannot finish before the job's time limit gets the
+     * worker killed, which loses the error and burns a queue attempt. Stop
+     * cleanly instead and report the last validation error.
+     */
+    private function hasTimeForAnotherAttempt(float $startedAt, float $longestAttempt): bool
+    {
+        $limit = (int) ($this->timeout ?? 0);
+
+        if ($limit <= 0) {
+            return true;
+        }
+
+        return (microtime(true) - $startedAt) + $longestAttempt * 1.2 + self::TIME_RESERVE_SECONDS < $limit;
+    }
+
     /**
      * @param  string  $artifact  Log-event stem, e.g. "draft" for boiler.draft_validation_failed.
      * @param  Closure(string): array<string, mixed>  $generate  Prompt in, canonicalized artifact out.
@@ -51,9 +73,31 @@ trait GeneratesValidatedArtifact
     ): array {
         $prompt = $originalPrompt;
         $lastValidationError = null;
+        $startedAt = microtime(true);
+        $longestAttempt = 0.0;
 
         for ($attempt = 1; $attempt <= self::MAX_VALIDATION_ATTEMPTS; $attempt++) {
+            if ($attempt > 1 && ! $this->hasTimeForAnotherAttempt($startedAt, $longestAttempt)) {
+                Log::warning("boiler.{$artifact}_out_of_time", [
+                    ...$logContext,
+                    'generation_attempt' => $attempt,
+                    'elapsed_seconds' => (int) (microtime(true) - $startedAt),
+                    'longest_attempt_seconds' => (int) $longestAttempt,
+                ]);
+
+                break;
+            }
+
+            $attemptStartedAt = microtime(true);
             $result = $generate($prompt);
+            $longestAttempt = max($longestAttempt, microtime(true) - $attemptStartedAt);
+
+            Log::info("boiler.{$artifact}_generated", [
+                ...$logContext,
+                'generation_attempt' => $attempt,
+                'seconds' => round(microtime(true) - $attemptStartedAt, 1),
+                ...$this->lastUsage,
+            ]);
 
             try {
                 $validate($result);
@@ -99,6 +143,14 @@ trait GeneratesValidatedArtifact
      */
     private function completeArtifact(TextResponse $response, string $artifact): array
     {
+        $this->lastUsage = [
+            'model' => $response->meta->model,
+            'input_tokens' => $response->usage->promptTokens,
+            'cached_input_tokens' => $response->usage->cacheReadInputTokens,
+            'output_tokens' => $response->usage->completionTokens,
+            'reasoning_tokens' => $response->usage->reasoningTokens,
+        ];
+
         if ($response->steps->contains(fn (Step $step): bool => $step->finishReason === FinishReason::Length)) {
             throw new RuntimeException("Boiler {$artifact} ran out of output tokens before it finished, so the response is incomplete.");
         }

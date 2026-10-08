@@ -57,12 +57,53 @@ it('runs editorial verification on GPT-6 Luna with explicit reasoning and no sam
         ->and($reflection->newInstanceWithoutConstructor()->providerOptions('openai'))->toHaveKey('reasoning.effort');
 });
 
-it('keeps the timing-tuned design phases on gpt-5.4', function (string $agent) {
-    expect((new ReflectionClass($agent))->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-5.4');
+it('runs each phase on the model and effort sized to its task, with no sampling parameters', function (string $agent, string $model, string $effort) {
+    $reflection = new ReflectionClass($agent);
+
+    expect($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe($model)
+        ->and($reflection->getAttributes(Temperature::class))->toBe([])
+        ->and($reflection->newInstanceWithoutConstructor()->providerOptions('openai'))->toBe(['reasoning' => ['effort' => $effort]]);
 })->with([
-    ChoiceDesignAgent::class, ConsequenceMappingAgent::class, EntryPointDiagnosisAgent::class, FormatDetectionAgent::class,
-    IpAuditAgent::class, IpTrimmingMergeAgent::class, SessionArchitectureAgent::class, SessionCloseAgent::class, StorySessionMapAgent::class,
+    [FormatDetectionAgent::class, 'gpt-6-luna', 'low'],
+    [IpTrimmingMergeAgent::class, 'gpt-6.1-sol', 'low'],
+    [IpAuditAgent::class, 'gpt-6.1-sol', 'low'],
+    [StorySessionMapAgent::class, 'gpt-6.1-sol', 'medium'],
+    [EntryPointDiagnosisAgent::class, 'gpt-6.1-sol', 'medium'],
+    [SessionArchitectureAgent::class, 'gpt-6.1-sol', 'low'],
+    [ChoiceDesignAgent::class, 'gpt-6.1-sol', 'medium'],
+    [ConsequenceMappingAgent::class, 'gpt-6.1-sol', 'low'],
+    [SessionCloseAgent::class, 'gpt-6.1-sol', 'medium'],
 ]);
+
+it('stops repairing cleanly when another attempt cannot finish inside the job time limit', function () {
+    $job = new class
+    {
+        use App\Support\Adaptation\GeneratesValidatedArtifact;
+
+        public int $timeout = 45;
+
+        public int $calls = 0;
+
+        public function run(): array
+        {
+            return $this->generateValidatedArtifact(
+                artifact: 'test',
+                originalPrompt: 'p',
+                generate: function (): array {
+                    $this->calls++;
+                    usleep(40_000);
+
+                    return [];
+                },
+                validate: fn () => throw new RuntimeException('still invalid'),
+                repairPrompt: fn (): string => 'p',
+            );
+        }
+    };
+
+    expect(fn () => $job->run())->toThrow(App\Exceptions\Adaptation\ArtifactValidationException::class, 'still invalid')
+        ->and($job->calls)->toBe(1);
+});
 
 it('enables Anthropic prompt caching on the Opus phases', function (string $agent) {
     $instance = (new ReflectionClass($agent))->newInstanceWithoutConstructor();

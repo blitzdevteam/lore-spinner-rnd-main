@@ -27,7 +27,7 @@ final class ChoiceDesignJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 1100;
+    public int $timeout = 1_100;
 
     public int $backoff = 60;
 
