@@ -11,7 +11,7 @@ IMPORTANT CONSTRAINTS:
 - If the story's protagonist is first introduced in a prior chapter, leave `story_spine_fragment.protagonist` empty.
 - If the dramatic question is not clarified in this chapter, leave `story_spine_fragment.dramatic_question` empty.
 - Only report world rules that are ESTABLISHED OR CONFIRMED in this chapter's text.
-- The `trimmed_chapter_text` must include ALL preserved prose verbatim — do not paraphrase or rewrite.
+- Every paragraph of the chapter is labelled [P1], [P2], and so on. You never copy or rewrite chapter text: you classify paragraph ranges, and the trimmed text is rebuilt from the original paragraphs.
 
 ---
 
@@ -51,18 +51,12 @@ TRIM — Can be removed (excessive description, redundant establishment, backsto
 
 Every section of this chapter must be classified. No section may be skipped.
 
+Each triage entry is a contiguous paragraph range (`from_paragraph` to `to_paragraph`, inclusive). Entries go in paragraph order and together cover every paragraph exactly once. A paragraph that contains any dialogue is always PRESERVE.
+
 ---
 
 TASK 4: INTERACTIVE CONVERSION NOTES (THIS CHAPTER ONLY)
 
-For every TRIM entry from Task 3, provide a conversion note explaining how this content should appear in the interactive version (EXPLORABLE ENVIRONMENT / NPC DIALOGUE / DISCOVERABLE LORE / WORLD-EXPLORATION REWARD / EMOTIONAL DISCOVERY).
+For every TRIM entry from Task 3, provide a conversion note with the same `reference`, explaining how this content should appear in the interactive version (EXPLORABLE ENVIRONMENT / NPC DIALOGUE / DISCOVERABLE LORE / WORLD-EXPLORATION REWARD / EMOTIONAL DISCOVERY).
 
----
-
-TASK 5: TRIMMED CHAPTER TEXT
-
-Produce the trimmed text for this chapter:
-- Include ALL preserved content in original order.
-- At each trim point, insert a TRIM MARKER: [TRIMMED: N words of [type]. See Conversion Notes, [reference].]
-- Preserve all original formatting, dialogue attribution, and paragraph structure.
-- Do NOT rewrite, paraphrase, or "improve" preserved content. The author's exact words stay.
+Do not output the chapter text. PRESERVE paragraphs are kept verbatim and each TRIM range is replaced by a marker automatically.

@@ -10,6 +10,7 @@ use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -25,11 +26,14 @@ use Throwable;
  * API call to produce the complete Author Voice DNA Profile (Deliverable 1).
  *
  * IMPORTANT: Uses chapter.content (original text), not the ip_trimming output.
- * Voice extraction requires the complete range of the author's writing.
+ * A spread of up to MAX_SAMPLED_CHAPTERS chapters is analysed (see sample()).
  */
 final class VoiceLockChapterJob implements ShouldQueue
 {
     use Batchable, Queueable;
+
+    /** An author's voice is consistent across a book; a spread of chapters captures it. */
+    public const int MAX_SAMPLED_CHAPTERS = 8;
 
     public int $tries = 3;
 
@@ -42,6 +46,29 @@ final class VoiceLockChapterJob implements ShouldQueue
         private Chapter $chapter,
     ) {
         $this->onQueue('adaptation');
+    }
+
+    /**
+     * Evenly spaced chapters, always including the first and the last.
+     *
+     * @param  Collection<int, Chapter>  $chapters
+     * @return Collection<int, Chapter>
+     */
+    public static function sample(Collection $chapters): Collection
+    {
+        $chapters = $chapters->values();
+        $count = $chapters->count();
+
+        if ($count <= self::MAX_SAMPLED_CHAPTERS) {
+            return $chapters;
+        }
+
+        $step = ($count - 1) / (self::MAX_SAMPLED_CHAPTERS - 1);
+
+        return collect(range(0, self::MAX_SAMPLED_CHAPTERS - 1))
+            ->map(fn (int $index): Chapter => $chapters[(int) round($index * $step)])
+            ->unique('id')
+            ->values();
     }
 
     /**

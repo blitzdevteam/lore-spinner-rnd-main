@@ -11,21 +11,18 @@ Chapter {{ $chapterPosition }} of {{ $totalChapters }}: "{{ $chapterTitle }}"
 Chapter ID: {{ $chapterId }}
 
 @if(!empty($previousChapterTitle))
-CONTEXT ONLY — DO NOT OUTPUT content from this. The previous chapter is:
-Chapter {{ $chapterPosition - 1 }}: "{{ $previousChapterTitle }}"
+CONTEXT ONLY: the previous chapter is Chapter {{ $chapterPosition - 1 }}: "{{ $previousChapterTitle }}"
 @endif
-
 @if(!empty($nextChapterTitle))
-CONTEXT ONLY — DO NOT OUTPUT content from this. The next chapter is:
-Chapter {{ $chapterPosition + 1 }}: "{{ $nextChapterTitle }}"
+CONTEXT ONLY: the next chapter is Chapter {{ $chapterPosition + 1 }}: "{{ $nextChapterTitle }}"
 @endif
 
 @isset($chunkContext)
-NOTE: You are processing {{ $chunkContext }} of this chapter's content. Process ONLY the excerpt between the BEGIN/END markers below. Output story_spine_fragment, world_rules_fragments, content_triage_log, interactive_conversion_notes, and trimmed_chapter_text for THIS EXCERPT ONLY. Leave climax_fragment and resolution_fragment empty unless the story's climax or resolution explicitly occurs within this excerpt.
+NOTE: This is {{ $chunkContext }} of the chapter. Classify only the paragraphs below. Leave climax_fragment and resolution_fragment empty unless the story's climax or resolution occurs in them.
 @endisset
 
------ BEGIN CHAPTER {{ $chapterPosition }} CONTENT -----
+----- BEGIN CHAPTER {{ $chapterPosition }} PARAGRAPHS (P{{ $firstParagraph }} to P{{ $lastParagraph }}) -----
 {!! $chapterContent !!}
------ END CHAPTER {{ $chapterPosition }} CONTENT -----
+----- END CHAPTER {{ $chapterPosition }} PARAGRAPHS -----
 
-Process only the content between the BEGIN/END markers. Return a JSON fragment with chapter_id={{ $chapterId }}, chapter_position={{ $chapterPosition }}, and all five task outputs (story_spine_fragment, world_rules_fragments, content_triage_log, interactive_conversion_notes, trimmed_chapter_text).
+Return a JSON fragment with chapter_id={{ $chapterId }}, chapter_position={{ $chapterPosition }}, story_spine_fragment, world_rules_fragments, a content_triage_log whose paragraph ranges cover P{{ $firstParagraph }} to P{{ $lastParagraph }} exactly once in order, and interactive_conversion_notes.

@@ -6,7 +6,6 @@ namespace App\Ai\Agents\Adaptation;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -27,9 +26,10 @@ use Throwable;
  *      the unified story_spine from all chapter spine fragments.
  *   3. Writes the final Deliverable 7 package to story_adaptations.ip_trimming.
  *
- * claude-opus-5-5 via Anthropic: precise editorial triage requiring nuanced
- * PRESERVE/TRIM judgment and verbatim prose reconstruction. Opus 5.5 always
- * thinks; AnthropicThinkingPolicy keeps its requests in the accepted shape.
+ * The model returns decisions only, as paragraph ranges. IpTrimmingChapterJob
+ * rebuilds the trimmed text from the original paragraphs, so preserved prose is
+ * verbatim by construction and the output stays small. Triage is editorial
+ * classification, not deep reasoning, so the cheapest capable model does it.
  *
  * Prism v0.99.21+ (composer.lock updated) fixes the HTTP 400 that was caused by
  * the old NativeOutputFormatStructuredStrategy sending the deprecated `output_format`
@@ -37,9 +37,8 @@ use Throwable;
  * No beta header (structured-outputs-2025-11-13) is needed — GA structured output
  * is now the default in v0.100.0+.
  */
-#[Provider('anthropic')]
-#[Model('claude-opus-5-5')]
-#[Timeout(600)]
+#[Model('gpt-5.4-mini')]
+#[Timeout(300)]
 final class IpTrimmingChapterAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
@@ -65,6 +64,8 @@ final class IpTrimmingChapterAgent implements Agent, HasStructuredOutput
         ])->required()->withoutAdditionalProperties();
 
         $triageEntrySchema = $schema->object([
+            'from_paragraph' => $schema->integer()->required()->title('From Paragraph')->description('First paragraph number of this passage, from the [P#] labels.'),
+            'to_paragraph' => $schema->integer()->required()->title('To Paragraph')->description('Last paragraph number of this passage, inclusive.'),
             'reference' => $schema->string()->required()->title('Reference')->description('Scene or passage identifier within this chapter.'),
             'classification' => $schema->string()->required()->title('Classification')->description('PRESERVE or TRIM.'),
             'note' => $schema->string()->required()->title('Note')->description('One sentence: what it contains and why preserved or trimmed.'),
@@ -110,11 +111,9 @@ final class IpTrimmingChapterAgent implements Agent, HasStructuredOutput
                 ),
             ])->required()->withoutAdditionalProperties()->title('World Rules Fragments'),
 
-            'content_triage_log' => $schema->array()->required()->title('Content Triage Log')->description('Every scene and passage in this chapter must be classified.')->items($triageEntrySchema),
+            'content_triage_log' => $schema->array()->required()->title('Content Triage Log')->description('Passages in paragraph order covering every [P#] paragraph exactly once, each PRESERVE or TRIM.')->items($triageEntrySchema),
 
-            'interactive_conversion_notes' => $schema->array()->required()->title('Interactive Conversion Notes')->description('One entry for every TRIM entry in the triage log.')->items($conversionNoteSchema),
-
-            'trimmed_chapter_text' => $schema->string()->required()->title('Trimmed Chapter Text')->description('Complete trimmed chapter content with TRIM MARKER lines at each cut point. All preserved dialogue and character-action prose must appear verbatim. Do NOT rewrite or paraphrase preserved content.'),
+            'interactive_conversion_notes' => $schema->array()->required()->title('Interactive Conversion Notes')->description('One entry for every TRIM entry in the triage log, with the same reference.')->items($conversionNoteSchema),
         ];
     }
 }

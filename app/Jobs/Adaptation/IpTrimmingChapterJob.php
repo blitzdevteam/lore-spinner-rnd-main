@@ -15,37 +15,33 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Pipeline Upgrade V2 — IP Trimming per-chapter pass.
+ * IP Trimming per-chapter pass.
  *
- * Processes one chapter at a time and stores its fragment in the Laravel cache
- * under the key `ip_trimming_fragment:{story_id}:{chapter_id}`.
+ * The chapter is split into numbered paragraphs and sent whole (or in a few
+ * large slices for very long chapters). The model returns triage decisions as
+ * paragraph ranges, never the text itself, and the trimmed chapter is rebuilt
+ * here from the original paragraphs: preserved prose is verbatim by
+ * construction and the response stays small and fast.
  *
- * For chapters whose content exceeds CHUNK_SIZE characters the text is split
- * at line boundaries into overlapping chunks. Each chunk is run through the
- * agent independently (using gpt-5.4 for safety), and the resulting fragments
- * are PHP-merged into a single chapter fragment before being stored. This
- * ensures no screenplay content is lost regardless of chapter length.
- *
- * IpTrimmingMergeJob collects all fragments, PHP-merges world_rules /
- * triage_log / conversion_notes / trimmed_text, makes a single small synthesis
- * call for the story_spine, and writes the final package to
- * story_adaptations.ip_trimming.
- *
- * Fragment cache TTL: 24 hours (enough to survive any queue backpressure).
+ * The fragment is cached under `ip_trimming_fragment:{story_id}:{chapter_id}`
+ * for IpTrimmingMergeJob, which writes story_adaptations.ip_trimming.
  */
 final class IpTrimmingChapterJob implements ShouldQueue
 {
     use Batchable, Queueable;
 
-    public int $tries = 3;
+    /** Characters of chapter text per model call. Most chapters fit in one. */
+    private const int SLICE_CHARS = 60_000;
 
-    /**
-     * Default for single-pass chapters. Chunked chapters override this in
-     * {@see resolveTimeout()} (~90 s per chunk + headroom).
-     *
-     * Cloud worker command must use --timeout >= longest job timeout here.
-     */
-    public int $timeout = 900;
+    /** Seconds budgeted per model call, with room for a slow response. */
+    private const int SECONDS_PER_CALL = 240;
+
+    /** Stay under the database queue's retry_after (1200 s) so a running job is never handed out twice. */
+    private const int MAX_TIMEOUT = 1_100;
+
+    public int $tries = 2;
+
+    public int $timeout = 300;
 
     public int $backoff = 60;
 
@@ -57,39 +53,83 @@ final class IpTrimmingChapterJob implements ShouldQueue
         $this->timeout = self::resolveTimeout($chapter);
     }
 
-    /**
-     * Treasure Island Ch4 (~100 k chars) splits into ~25 chunks; at ~40–50 s
-     * per agent call that exceeds a flat 900 s ceiling. Scale timeout to chunk
-     * count so long novel chapters can finish in one job.
-     */
     public static function resolveTimeout(Chapter $chapter): int
     {
-        $chapterLength = mb_strlen($chapter->content ?? '');
+        $calls = (int) max(1, ceil(mb_strlen($chapter->content ?? '') / self::SLICE_CHARS));
 
-        if ($chapterLength <= self::CHUNK_SIZE) {
-            return 900;
-        }
-
-        $step = self::CHUNK_SIZE - self::CHUNK_OVERLAP;
-        $estimatedChunks = (int) max(1, ceil($chapterLength / $step));
-
-        return min(7200, max(900, ($estimatedChunks * 90) + 180));
+        return min(self::MAX_TIMEOUT, $calls * self::SECONDS_PER_CALL + 60);
     }
 
     /**
-     * Maximum characters to send to the model in a single call.
-     * Structured output for a 4 k-char chunk peaks around 8 k chars of JSON
-     * (~2 k tokens), well within every model's real output ceiling.
-     * Chapters shorter than this threshold are processed in a single pass.
+     * Paragraphs keyed from 1, split on blank lines, or on single newlines when
+     * the text has no blank lines.
+     *
+     * @return array<int, string>
      */
-    private const int CHUNK_SIZE = 4_000;
+    public static function paragraphs(string $content): array
+    {
+        $content = str_replace(["\r\n", "\r"], "\n", $content);
+        $separator = preg_match('/\n\s*\n/', $content) === 1 ? '/\n\s*\n/' : '/\n/';
+        $paragraphs = array_values(array_filter(array_map('rtrim', preg_split($separator, $content) ?: []), static fn (string $p): bool => mb_trim($p) !== ''));
+
+        return $paragraphs === [] ? [] : array_combine(range(1, count($paragraphs)), $paragraphs);
+    }
 
     /**
-     * Overlap between consecutive chunks, in characters.
-     * Keeps scenes that straddle a split boundary visible to both chunks so
-     * triage entries are not dropped at the seam.
+     * Keep every paragraph not inside a TRIM range verbatim, and replace each
+     * run of trimmed paragraphs with one marker. A paragraph the model failed
+     * to classify is kept, never lost.
+     *
+     * @param  array<int, string>  $paragraphs
+     * @param  list<array<string, mixed>>  $triage
+     * @param  list<array<string, mixed>>  $conversionNotes
      */
-    private const int CHUNK_OVERLAP = 300;
+    public static function assembleTrimmedText(array $paragraphs, array $triage, array $conversionNotes): string
+    {
+        $types = collect($conversionNotes)->mapWithKeys(fn ($note): array => [(string) data_get($note, 'reference', '') => (string) data_get($note, 'conversion_type', '')]);
+        $trimmedBy = [];
+
+        foreach ($triage as $entry) {
+            if (mb_strtoupper((string) data_get($entry, 'classification', '')) !== 'TRIM') {
+                continue;
+            }
+
+            for ($number = (int) data_get($entry, 'from_paragraph', 0); $number <= (int) data_get($entry, 'to_paragraph', -1); $number++) {
+                if (isset($paragraphs[$number]) && ! isset($trimmedBy[$number])) {
+                    $trimmedBy[$number] = (string) data_get($entry, 'reference', '');
+                }
+            }
+        }
+
+        $output = [];
+        $run = null;
+
+        foreach ($paragraphs as $number => $text) {
+            $reference = $trimmedBy[$number] ?? null;
+
+            if ($reference === null || ($run !== null && $run['reference'] !== $reference)) {
+                if ($run !== null) {
+                    $output[] = self::marker($run['words'], $types[$run['reference']] ?? '', $run['reference']);
+                    $run = null;
+                }
+            }
+
+            if ($reference === null) {
+                $output[] = $text;
+
+                continue;
+            }
+
+            $run ??= ['reference' => $reference, 'words' => 0];
+            $run['words'] += str_word_count($text);
+        }
+
+        if ($run !== null) {
+            $output[] = self::marker($run['words'], $types[$run['reference']] ?? '', $run['reference']);
+        }
+
+        return implode("\n\n", $output);
+    }
 
     /**
      * @throws Throwable
@@ -104,140 +144,88 @@ final class IpTrimmingChapterJob implements ShouldQueue
         $prevChapter = $this->story->chapters()->where('position', $this->chapter->position - 1)->first();
         $nextChapter = $this->story->chapters()->where('position', $this->chapter->position + 1)->first();
 
-        $rawContent = $this->chapter->content ?? '';
-        $chapterLength = mb_strlen($rawContent);
+        $paragraphs = self::paragraphs($this->chapter->content ?? '');
+        $slices = self::slices($paragraphs);
 
         Log::info('ip_trimming.chapter_start', [
-            'story_id'         => $this->story->id,
-            'chapter_id'       => $this->chapter->id,
+            'story_id' => $this->story->id,
+            'chapter_id' => $this->chapter->id,
             'chapter_position' => $this->chapter->position,
-            'chapter_title'    => $this->chapter->title,
-            'chapter_chars'    => $chapterLength,
-            'mode'             => $chapterLength > self::CHUNK_SIZE ? 'chunked' : 'single-pass',
+            'paragraphs' => count($paragraphs),
+            'calls' => count($slices),
         ]);
 
         $baseViewData = [
-            'title'                => $this->story->title,
-            'author'               => $this->story->creator?->full_name ?? 'Unknown Author',
-            'format'               => $this->story->adaptation?->format_detection['detected_format'] ?? 'UNKNOWN',
-            'chapterId'            => $this->chapter->id,
-            'chapterPosition'      => $this->chapter->position,
-            'chapterTitle'         => $this->chapter->title,
-            'totalChapters'        => $totalChapters,
+            'title' => $this->story->title,
+            'author' => $this->story->creator?->full_name ?? 'Unknown Author',
+            'format' => $this->story->adaptation?->format_detection['detected_format'] ?? 'UNKNOWN',
+            'chapterId' => $this->chapter->id,
+            'chapterPosition' => $this->chapter->position,
+            'chapterTitle' => $this->chapter->title,
+            'totalChapters' => $totalChapters,
             'previousChapterTitle' => $prevChapter?->title ?? '',
-            'nextChapterTitle'     => $nextChapter?->title ?? '',
+            'nextChapterTitle' => $nextChapter?->title ?? '',
         ];
 
-        $fragment = $chapterLength > self::CHUNK_SIZE
-            ? $this->processInChunks($rawContent, $chapterLength, $baseViewData)
-            : $this->processSinglePass($rawContent, $baseViewData);
-
-        Cache::put(
-            "ip_trimming_fragment:{$this->story->id}:{$this->chapter->id}",
-            $fragment,
-            now()->addHours(24)
-        );
-
-        Log::info('ip_trimming.chapter_complete', [
-            'story_id'         => $this->story->id,
-            'chapter_id'       => $this->chapter->id,
-            'chapter_position' => $this->chapter->position,
-            'chapter_chars'    => $chapterLength,
-            'triage_entries'   => count($fragment['content_triage_log'] ?? []),
-            'trimmed_chars'    => mb_strlen($fragment['trimmed_chapter_text'] ?? ''),
-        ]);
-    }
-
-    // -------------------------------------------------------------------------
-    // Processing paths
-    // -------------------------------------------------------------------------
-
-    /** @throws Throwable */
-    private function processSinglePass(string $content, array $baseViewData): array
-    {
-        $response = (new IpTrimmingChapterAgent)->prompt(
-            view('ai.agents.adaptation.ip-trimming.chapter-prompt', array_merge($baseViewData, [
-                'chapterContent' => $content,
-            ]))->render(),
-        );
-
-        return $response->toArray();
-    }
-
-    /** @throws Throwable */
-    private function processInChunks(string $rawContent, int $chapterLength, array $baseViewData): array
-    {
-        $chunks = $this->splitIntoChunks($rawContent);
-        $totalChunks = count($chunks);
-
-        Log::info('ip_trimming.chapter_chunked', [
-            'story_id'         => $this->story->id,
-            'chapter_id'       => $this->chapter->id,
-            'chapter_position' => $this->chapter->position,
-            'chapter_chars'    => $chapterLength,
-            'total_chunks'     => $totalChunks,
-            'chunk_size'       => self::CHUNK_SIZE,
-        ]);
-
         $parts = [];
-
-        foreach ($chunks as $i => $chunk) {
-            $chunkNum = $i + 1;
-
+        foreach ($slices as $index => $slice) {
             $response = (new IpTrimmingChapterAgent)->prompt(
-                view('ai.agents.adaptation.ip-trimming.chapter-prompt', array_merge($baseViewData, [
-                    'chapterContent' => $chunk,
-                    'chunkContext'   => "PART {$chunkNum} OF {$totalChunks}",
-                ]))->render(),
+                view('ai.agents.adaptation.ip-trimming.chapter-prompt', [
+                    ...$baseViewData,
+                    'chapterContent' => collect($slice)->map(fn (string $text, int $number): string => "[P{$number}] {$text}")->implode("\n\n"),
+                    'firstParagraph' => array_key_first($slice),
+                    'lastParagraph' => array_key_last($slice),
+                    'chunkContext' => count($slices) > 1 ? 'PART '.($index + 1).' OF '.count($slices) : null,
+                ])->render(),
             );
 
-            $parts[] = $response->toArray();
-
-            Log::info('ip_trimming.chapter_chunk_complete', [
-                'story_id'         => $this->story->id,
-                'chapter_id'       => $this->chapter->id,
-                'chunk'            => "{$chunkNum}/{$totalChunks}",
-            ]);
+            $part = $response->toArray();
+            $part['trimmed_chapter_text'] = self::assembleTrimmedText($slice, (array) ($part['content_triage_log'] ?? []), (array) ($part['interactive_conversion_notes'] ?? []));
+            $parts[] = $part;
         }
 
-        return $this->mergeChunkParts($parts, $baseViewData);
+        $fragment = $this->mergeChunkParts($parts, $baseViewData);
+
+        Cache::put("ip_trimming_fragment:{$this->story->id}:{$this->chapter->id}", $fragment, now()->addHours(24));
+
+        Log::info('ip_trimming.chapter_complete', [
+            'story_id' => $this->story->id,
+            'chapter_id' => $this->chapter->id,
+            'chapter_position' => $this->chapter->position,
+            'triage_entries' => count($fragment['content_triage_log']),
+            'trimmed_chars' => mb_strlen($fragment['trimmed_chapter_text']),
+        ]);
     }
 
-    // -------------------------------------------------------------------------
-    // Chunking helpers
-    // -------------------------------------------------------------------------
-
     /**
-     * Split a chapter into overlapping chunks at line boundaries.
-     * Splitting on newlines keeps scene headers and dialogue blocks intact so
-     * the model never sees a mid-line boundary.
-     *
-     * @return string[]
+     * @param  array<int, string>  $paragraphs
+     * @return list<array<int, string>>
      */
-    private function splitIntoChunks(string $content): array
+    private static function slices(array $paragraphs): array
     {
-        $lines   = explode("\n", $content);
-        $chunks  = [];
-        $current = '';
+        $slices = [];
+        $current = [];
+        $size = 0;
 
-        foreach ($lines as $line) {
-            $candidate = $current === '' ? $line : ($current . "\n" . $line);
-
-            if (mb_strlen($candidate) > self::CHUNK_SIZE && $current !== '') {
-                $chunks[] = $current;
-                // Start next chunk with the tail of the current one for context overlap.
-                $overlap = mb_substr($current, -self::CHUNK_OVERLAP);
-                $current = $overlap . "\n" . $line;
-            } else {
-                $current = $candidate;
+        foreach ($paragraphs as $number => $text) {
+            if ($current !== [] && $size + mb_strlen($text) > self::SLICE_CHARS) {
+                $slices[] = $current;
+                $current = [];
+                $size = 0;
             }
+
+            $current[$number] = $text;
+            $size += mb_strlen($text);
         }
 
-        if ($current !== '') {
-            $chunks[] = $current;
-        }
+        return $current === [] ? $slices : [...$slices, $current];
+    }
 
-        return $chunks;
+    private static function marker(int $words, string $type, string $reference): string
+    {
+        $type = mb_trim($type) !== '' ? mb_strtolower($type) : 'description';
+
+        return "[TRIMMED: {$words} words of {$type}. See Conversion Notes, {$reference}.]";
     }
 
     /**
@@ -259,41 +247,41 @@ final class IpTrimmingChapterJob implements ShouldQueue
     private function mergeChunkParts(array $parts, array $baseViewData): array
     {
         $merged = [
-            'chapter_id'       => $baseViewData['chapterId'],
+            'chapter_id' => $baseViewData['chapterId'],
             'chapter_position' => $baseViewData['chapterPosition'],
 
             'story_spine_fragment' => [
-                'protagonist'          => '',
-                'dramatic_question'    => '',
+                'protagonist' => '',
+                'dramatic_question' => '',
                 'major_turning_points' => [],
-                'irreversible_events'  => [],
-                'climax_fragment'      => '',
-                'resolution_fragment'  => '',
+                'irreversible_events' => [],
+                'climax_fragment' => '',
+                'resolution_fragment' => '',
             ],
 
             'world_rules_fragments' => [
                 'physics_technology' => [],
                 'creatures_entities' => [],
                 'geography_locations' => [],
-                'social_systems'      => [],
-                'what_cannot_exist'   => [],
+                'social_systems' => [],
+                'what_cannot_exist' => [],
             ],
 
-            'content_triage_log'          => [],
+            'content_triage_log' => [],
             'interactive_conversion_notes' => [],
-            'trimmed_chapter_text'         => '',
+            'trimmed_chapter_text' => '',
         ];
 
         foreach ($parts as $part) {
             $spine = $part['story_spine_fragment'] ?? [];
 
             // Protagonist: first non-empty wins
-            if ($merged['story_spine_fragment']['protagonist'] === '' && !empty($spine['protagonist'])) {
+            if ($merged['story_spine_fragment']['protagonist'] === '' && ! empty($spine['protagonist'])) {
                 $merged['story_spine_fragment']['protagonist'] = $spine['protagonist'];
             }
 
             // Dramatic question: later chunks have more context, so last non-empty wins
-            if (!empty($spine['dramatic_question'])) {
+            if (! empty($spine['dramatic_question'])) {
                 $merged['story_spine_fragment']['dramatic_question'] = $spine['dramatic_question'];
             }
 
@@ -306,10 +294,10 @@ final class IpTrimmingChapterJob implements ShouldQueue
             }
 
             // Climax / resolution: last non-empty wins
-            if (!empty($spine['climax_fragment'])) {
+            if (! empty($spine['climax_fragment'])) {
                 $merged['story_spine_fragment']['climax_fragment'] = $spine['climax_fragment'];
             }
-            if (!empty($spine['resolution_fragment'])) {
+            if (! empty($spine['resolution_fragment'])) {
                 $merged['story_spine_fragment']['resolution_fragment'] = $spine['resolution_fragment'];
             }
 
@@ -318,12 +306,12 @@ final class IpTrimmingChapterJob implements ShouldQueue
 
             foreach (['physics_technology', 'creatures_entities', 'geography_locations', 'social_systems'] as $cat) {
                 $existingKeys = array_map(
-                    fn ($r) => mb_strtolower(trim((string) ($r['rule'] ?? ''))),
+                    fn ($r) => mb_strtolower(mb_trim((string) ($r['rule'] ?? ''))),
                     $merged['world_rules_fragments'][$cat]
                 );
                 foreach ((array) ($rules[$cat] ?? []) as $rule) {
-                    $key = mb_strtolower(trim((string) ($rule['rule'] ?? '')));
-                    if ($key !== '' && !in_array($key, $existingKeys, true)) {
+                    $key = mb_strtolower(mb_trim((string) ($rule['rule'] ?? '')));
+                    if ($key !== '' && ! in_array($key, $existingKeys, true)) {
                         $merged['world_rules_fragments'][$cat][] = $rule;
                         $existingKeys[] = $key;
                     }
@@ -331,12 +319,12 @@ final class IpTrimmingChapterJob implements ShouldQueue
             }
 
             $existingThings = array_map(
-                fn ($r) => mb_strtolower(trim((string) ($r['thing'] ?? ''))),
+                fn ($r) => mb_strtolower(mb_trim((string) ($r['thing'] ?? ''))),
                 $merged['world_rules_fragments']['what_cannot_exist']
             );
             foreach ((array) ($rules['what_cannot_exist'] ?? []) as $item) {
-                $thing = mb_strtolower(trim((string) ($item['thing'] ?? '')));
-                if ($thing !== '' && !in_array($thing, $existingThings, true)) {
+                $thing = mb_strtolower(mb_trim((string) ($item['thing'] ?? '')));
+                if ($thing !== '' && ! in_array($thing, $existingThings, true)) {
                     $merged['world_rules_fragments']['what_cannot_exist'][] = $item;
                     $existingThings[] = $thing;
                 }
@@ -355,7 +343,7 @@ final class IpTrimmingChapterJob implements ShouldQueue
             // Trimmed text: concatenate with blank-line separator
             $trimmed = (string) ($part['trimmed_chapter_text'] ?? '');
             if ($trimmed !== '') {
-                $merged['trimmed_chapter_text'] .= ($merged['trimmed_chapter_text'] !== '' ? "\n\n" : '') . $trimmed;
+                $merged['trimmed_chapter_text'] .= ($merged['trimmed_chapter_text'] !== '' ? "\n\n" : '').$trimmed;
             }
         }
 

@@ -92,7 +92,14 @@ it('runs the Anthropic pipeline agents on Opus 5.5', function (string $agent) {
 
     expect($reflection->getAttributes(Provider::class)[0]->getArguments()[0])->toBe('anthropic')
         ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5-5');
-})->with([IpTrimmingChapterAgent::class, BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
+})->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
+
+it('runs chapter trimming on the cheapest capable model', function () {
+    $reflection = new ReflectionClass(IpTrimmingChapterAgent::class);
+
+    expect($reflection->getAttributes(Provider::class))->toBe([])
+        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-5.4-mini');
+});
 
 it('never sends disabled thinking to Opus 5.5', function () {
     $untouched = AnthropicThinkingPolicy::disableOpusThinking(anthropicRequest(['model' => 'claude-opus-5-5']));

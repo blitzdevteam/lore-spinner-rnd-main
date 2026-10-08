@@ -75,10 +75,21 @@ Finalize now receives the protagonist and the cold open. The first card begins w
 
 `GeneratesValidatedArtifact::completeArtifact` rejects any response that stopped at the output-token limit, so it is retried instead of saved with missing sections. Applied to entry point, draft, architecture, choice design, consequence mapping, close and finalize.
 
+### 10. Cost and speed: trimming, voice lock, model choice
+
+Emma's first boil failed in IP trimming: all 55 chapters timed out on Opus 5.5 (`MaxAttemptsExceededException`, no other error). The design was the problem, not just the model.
+
+- **Trimming returns decisions, not text.** Before, chapters were cut into 4,000-character chunks (hundreds of calls per book) and the model retyped every preserved word. Now each chapter is split into numbered paragraphs and sent whole (60,000-character slices only for very long chapters). The model returns paragraph ranges marked PRESERVE or TRIM plus its notes, and `IpTrimmingChapterJob::assembleTrimmedText` rebuilds the text from the original paragraphs with the same `[TRIMMED: …]` markers. Preserved prose is verbatim by construction, and an unclassified paragraph is kept, never lost. Output per call drops by roughly 90 percent.
+- **Trimming model: `gpt-5.4-mini`** ($0.75 / $4.50 per million tokens, against Opus 5.5 at $4 / $20). Classification and extraction do not need a reasoning model.
+- **Timeouts:** 240 s per call plus headroom, capped at 1,100 s, so a running job never outlives the database queue's 1,200 s retry window and gets handed out twice. Tries reduced to 2.
+- **Voice lock samples 8 chapters** (`VoiceLockChapterJob::sample`: evenly spaced, first and last included) instead of every chapter. An author's voice is consistent across a book. Emma: 8 calls instead of 55, and a smaller merge prompt.
+- **`gpt-5.4-mini` for format detection and editorial verification**, both simple classification or advisory grading.
+- **Unchanged on purpose:** draft and finalize stay on Opus 5.5 (they write the scene cards in the author's voice). Entry point, session map, architecture, choice design, consequence mapping and close stay on `gpt-5.4` (their judgement shapes play).
+
 ## What did not change
 
 - Product and story contract: the same phases, the same canonical four branching choices per session, the same scene cards, consequence maps and runtime prompt. The runtime reads the same fields.
-- Models: draft and finalize on Opus 5.5; entry point, architecture, choice design, consequence mapping, close and editorial verification on GPT-5.4.
+- Story contract and outputs. See section 10 for the model changes.
 - Already-boiled titles are untouched. These changes only affect new boils and reruns.
 - Repair stays manual (`stories:repair-session`), not a pipeline step.
 
