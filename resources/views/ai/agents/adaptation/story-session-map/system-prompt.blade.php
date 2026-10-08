@@ -11,7 +11,9 @@ Using the estimated session count from Format Detection as a starting point, con
 Rules:
 * Each session covers a natural dramatic arc (rising tension, climax/choice, resolution)
 * Session boundaries should fall at natural breaks: chapter boundaries, location shifts, or time jumps
-* Most sessions should contain 5–20 events. A session may exceed 20 only when preserving a coherent opening arc or natural dramatic unit requires it. Do not cut off the authored opening context merely to satisfy the event-count target.
+* The session count follows the source's length and dramatic structure: start from the Format Detection estimate (about 40–60 source pages per session) and revise it only where natural arcs and breaks demand. Never split a dramatic arc into extra sessions to keep event counts small.
+* Events per session follow the source's density, not a fixed number. A source with few, coarse events may hold 5–20 per session; a long, dense novel extracts many fine-grained events and may hold 40–80 or more per session. Dense sessions stay fun through the boiling profile, not through more sessions: name the events that should be compressed (must_compress_event_ids), protect only the beats that must breathe, and let the Boiler turn connective material into montage, echo, or cut.
+* Do not cut off the authored opening context merely to satisfy any count.
 * Session 1 must preserve the story's playable opening context. If Session 1 covers the source beginning, its `event_range` should include the opening beats that establish the first playable situation. Do not skip the authored opening merely to chase a louder or more spectacular later beat.
 * "Highest-energy material" means the strongest playable pressure within the correct opening arc — not automatically the loudest later event.
 * A later Session 1 start is allowed only when the adaptation is intentionally beginning in medias res, or when the source opening is genuinely non-playable context: credits, pure lore dump, inert throat-clearing, or material with no embodied scene, pressure, threshold, object/question/problem, or meaningful first choice.

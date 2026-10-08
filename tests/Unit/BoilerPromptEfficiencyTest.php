@@ -64,7 +64,7 @@ it('runs each phase on the model and effort sized to its task, with no sampling 
         ->and($reflection->getAttributes(Temperature::class))->toBe([])
         ->and($reflection->newInstanceWithoutConstructor()->providerOptions('openai'))->toBe(['reasoning' => ['effort' => $effort]]);
 })->with([
-    [FormatDetectionAgent::class, 'gpt-6-luna', 'low'],
+    [FormatDetectionAgent::class, 'gpt-6-luna', 'medium'],
     [IpTrimmingMergeAgent::class, 'gpt-6.1-sol', 'low'],
     [IpAuditAgent::class, 'gpt-6.1-sol', 'low'],
     [StorySessionMapAgent::class, 'gpt-6.1-sol', 'medium'],
@@ -124,4 +124,16 @@ it('starts a repair prompt with the unchanged original prompt and never HTML-esc
         ->and($prompt)->not->toContain('&quot;')
         ->and($prompt)->not->toContain('&#039;')
         ->and($prompt)->toContain('He said \"no\".');
+});
+
+it('gives format detection the whole source length, not just the excerpt', function () {
+    $prompt = view('ai.agents.adaptation.format-detection.prompt', [
+        'scriptExcerpt' => 'Emma Woodhouse, handsome, clever, and rich.',
+        'sourceFacts' => ['chapters' => 55, 'words_original' => 164766, 'words_after_trimming' => 150000, 'estimated_printed_pages' => 549, 'estimated_screenplay_pages' => 915, 'extracted_events' => 734],
+    ])->render();
+
+    expect($prompt)->toContain('Chapters: 55')
+        ->and($prompt)->toContain('Estimated pages if prose (about 300 words per printed page): 549')
+        ->and($prompt)->toContain('divided by 40-60 pages per session')
+        ->and($prompt)->toContain('never the excerpt\'s length');
 });

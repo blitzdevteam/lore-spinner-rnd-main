@@ -21,7 +21,7 @@ final class FormatDetectionAgent implements Agent, HasProviderOptions, HasStruct
 {
     use Promptable, SetsOpenAiReasoningEffort;
 
-    private const string REASONING_EFFORT = 'low';
+    private const string REASONING_EFFORT = 'medium';
 
     /**
      * @throws Throwable
