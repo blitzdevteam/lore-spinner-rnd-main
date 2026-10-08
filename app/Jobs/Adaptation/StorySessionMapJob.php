@@ -39,6 +39,115 @@ final class StorySessionMapJob implements ShouldQueue
     }
 
     /**
+     * @param  array<string, mixed>  $sessionMap
+     * @param  Collection<int, Event>  $storyGlobalEvents
+     */
+    /**
+     * Correct bookkeeping slips in an otherwise sound plan instead of throwing
+     * away a long generation over them: a must-breathe or must-compress event
+     * filed under the wrong session moves to the session whose range holds it
+     * (an unknown ID is dropped), a moment-count range is clamped to the events
+     * a session actually has (as BoilerMomentRangeResolver does downstream), and
+     * the total minutes are reconciled to the per-session sum. Structural
+     * problems are left for validateBoilingProfile to reject.
+     *
+     * @param  array<string, mixed>  $sessionMap
+     * @param  Collection<int, Event>  $storyGlobalEvents
+     * @return array<string, mixed>
+     */
+    public static function canonicalizeBoilingProfile(array $sessionMap, Collection $storyGlobalEvents, int $storyId = 0): array
+    {
+        $guidance = data_get($sessionMap, 'boiling_profile.per_session_guidance');
+        $allocations = $sessionMap['session_allocation'] ?? null;
+
+        if (! is_array($guidance) || ! is_array($allocations)) {
+            return $sessionMap;
+        }
+
+        $ownerOf = [];
+        $eventCounts = [];
+        foreach ($allocations as $allocation) {
+            $sessionNumber = (int) ($allocation['session_number'] ?? 0);
+            $range = self::parseEventRange((string) ($allocation['event_range'] ?? ''));
+            $ids = $storyGlobalEvents
+                ->filter(fn (Event $event): bool => $event->story_position >= $range[0] && $event->story_position <= $range[1])
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id);
+
+            $eventCounts[$sessionNumber] = $ids->count();
+            foreach ($ids as $id) {
+                $ownerOf[$id] ??= $sessionNumber;
+            }
+        }
+
+        $indexOf = [];
+        foreach ($guidance as $index => $entry) {
+            $indexOf[(int) data_get($entry, 'session_number', 0)] = $index;
+        }
+
+        $corrections = [];
+        foreach (['must_breathe_event_ids', 'must_compress_event_ids'] as $field) {
+            $moved = [];
+
+            foreach ($guidance as $index => $entry) {
+                $sessionNumber = (int) data_get($entry, 'session_number', 0);
+                $kept = [];
+
+                foreach ((array) ($entry[$field] ?? []) as $eventId) {
+                    $id = is_numeric($eventId) ? (int) $eventId : 0;
+                    $owner = $ownerOf[$id] ?? null;
+
+                    if ($owner === $sessionNumber) {
+                        $kept[] = $id;
+                    } elseif ($owner !== null && isset($indexOf[$owner])) {
+                        $moved[$owner][] = $id;
+                        $corrections[] = "{$field} event {$id} moved from session {$sessionNumber} to session {$owner}";
+                    } else {
+                        $corrections[] = "{$field} event {$eventId} dropped from session {$sessionNumber}: no such event in the story";
+                    }
+                }
+
+                $guidance[$index][$field] = $kept;
+            }
+
+            foreach ($moved as $owner => $ids) {
+                $index = $indexOf[$owner];
+                $guidance[$index][$field] = array_values(array_unique([...$guidance[$index][$field], ...$ids]));
+            }
+        }
+
+        foreach ($guidance as $index => $entry) {
+            $sessionNumber = (int) data_get($entry, 'session_number', 0);
+            $available = $eventCounts[$sessionNumber] ?? null;
+
+            if ($available === null || $available < 1) {
+                continue;
+            }
+
+            foreach (['recommended_moment_count_min', 'recommended_moment_count_max'] as $field) {
+                if (is_int($entry[$field] ?? null) && $entry[$field] > $available) {
+                    $guidance[$index][$field] = $available;
+                    $corrections[] = "session {$sessionNumber} {$field} clamped from {$entry[$field]} to its {$available} events";
+                }
+            }
+        }
+
+        $sessionMap['boiling_profile']['per_session_guidance'] = $guidance;
+
+        $minutes = array_sum(array_map(static fn ($entry): int => (int) data_get($entry, 'target_playtime_minutes', 0), $guidance));
+        if ($minutes > 0 && (int) data_get($sessionMap, 'boiling_profile.target_total_playtime_minutes', 0) !== $minutes) {
+            $corrections[] = 'target_total_playtime_minutes set to the per-session sum '.$minutes;
+            $sessionMap['boiling_profile']['target_total_playtime_minutes'] = $minutes;
+        }
+
+        if ($corrections !== []) {
+            Log::warning('boiler.story_session_map_canonicalized', ['story_id' => $storyId, 'corrections' => $corrections]);
+        }
+
+        return $sessionMap;
+    }
+
+    /**
      * @throws Throwable
      */
     public function handle(SessionEventLoader $eventLoader): void
@@ -113,6 +222,7 @@ final class StorySessionMapJob implements ShouldQueue
             ]);
 
             if ($adaptation->boiler_enabled) {
+                $sessionMap = self::canonicalizeBoilingProfile($sessionMap, $storyGlobalEvents, $this->story->id);
                 $this->validateBoilingProfile($sessionMap, $storyGlobalEvents);
             }
 
@@ -182,17 +292,13 @@ final class StorySessionMapJob implements ShouldQueue
     /**
      * @return array{0: int, 1: int}
      */
-    private function parseEventRange(string $range): array
+    private static function parseEventRange(string $range): array
     {
         $parts = explode('-', $range);
 
         return [(int) mb_trim($parts[0]), (int) mb_trim($parts[1] ?? $parts[0])];
     }
 
-    /**
-     * @param  array<string, mixed>  $sessionMap
-     * @param  Collection<int, Event>  $storyGlobalEvents
-     */
     private function validateBoilingProfile(array $sessionMap, Collection $storyGlobalEvents): void
     {
         $profile = $sessionMap['boiling_profile'] ?? null;
