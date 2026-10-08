@@ -10,6 +10,7 @@ use App\Services\ChaosEngineService;
 use GuzzleHttp\Psr7\Request;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Attributes\Temperature;
 
 /**
  * @param  array<string, mixed>  $payload
@@ -94,11 +95,13 @@ it('runs the Anthropic pipeline agents on Opus 5.5', function (string $agent) {
         ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5-5');
 })->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
 
-it('runs chapter trimming on the cheapest capable model', function () {
+it('runs chapter trimming on GPT-6.1 Sol with low reasoning and no sampling parameters', function () {
     $reflection = new ReflectionClass(IpTrimmingChapterAgent::class);
 
     expect($reflection->getAttributes(Provider::class))->toBe([])
-        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-5.4-mini');
+        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-6.1-sol')
+        ->and($reflection->getAttributes(Temperature::class))->toBe([])
+        ->and((new IpTrimmingChapterAgent)->providerOptions('openai'))->toBe(['reasoning' => ['effort' => 'low']]);
 });
 
 it('never sends disabled thinking to Opus 5.5', function () {

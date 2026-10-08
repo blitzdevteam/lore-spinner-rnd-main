@@ -87,7 +87,7 @@ final class IpAuditJob implements ShouldQueue
 
     private function dispatchVoiceLockChapterBatch(): void
     {
-        $chapters = VoiceLockChapterJob::sample($this->story->chapters()->orderBy('position')->get());
+        $chapters = $this->story->chapters()->orderBy('position')->get();
         $storyId = $this->story->id;
 
         if ($chapters->isEmpty()) {

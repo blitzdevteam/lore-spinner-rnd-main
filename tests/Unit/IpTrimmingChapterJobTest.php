@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Jobs\Adaptation\IpTrimmingChapterJob;
-use App\Jobs\Adaptation\VoiceLockChapterJob;
 use App\Models\Chapter;
 
 it('numbers paragraphs from one, split on blank lines', function () {
@@ -45,15 +44,4 @@ it('sizes the timeout by calls and stays under the queue retry window', function
 
     expect(IpTrimmingChapterJob::resolveTimeout($short))->toBe(300)
         ->and(IpTrimmingChapterJob::resolveTimeout($huge))->toBe(1_100);
-});
-
-it('samples a spread of chapters for voice lock, first and last included', function () {
-    $chapters = collect(range(1, 55))->map(fn (int $position): Chapter => (new Chapter)->forceFill(['id' => $position, 'position' => $position]));
-
-    $sample = VoiceLockChapterJob::sample($chapters);
-
-    expect($sample)->toHaveCount(VoiceLockChapterJob::MAX_SAMPLED_CHAPTERS)
-        ->and($sample->first()->id)->toBe(1)
-        ->and($sample->last()->id)->toBe(55)
-        ->and(VoiceLockChapterJob::sample($chapters->take(5)))->toHaveCount(5);
 });

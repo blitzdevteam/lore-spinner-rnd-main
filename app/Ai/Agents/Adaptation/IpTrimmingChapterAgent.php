@@ -8,7 +8,9 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Stringable;
 use Throwable;
@@ -28,20 +30,25 @@ use Throwable;
  *
  * The model returns decisions only, as paragraph ranges. IpTrimmingChapterJob
  * rebuilds the trimmed text from the original paragraphs, so preserved prose is
- * verbatim by construction and the output stays small. Triage is editorial
- * classification, not deep reasoning, so the cheapest capable model does it.
+ * verbatim by construction and the output stays small. With output small, input
+ * dominates cost, so a strong model stays cheap per book.
  *
- * Prism v0.99.21+ (composer.lock updated) fixes the HTTP 400 that was caused by
- * the old NativeOutputFormatStructuredStrategy sending the deprecated `output_format`
- * field. v0.99.22 sends `output_config.format` per the GA Anthropic API.
- * No beta header (structured-outputs-2025-11-13) is needed — GA structured output
- * is now the default in v0.100.0+.
+ * GPT-6.1 Sol cannot run with reasoning off, and with reasoning on OpenAI
+ * rejects temperature and top_p. Never add a Temperature attribute here.
  */
-#[Model('gpt-5.4-mini')]
+#[Model('gpt-6.1-sol')]
 #[Timeout(300)]
-final class IpTrimmingChapterAgent implements Agent, HasStructuredOutput
+final class IpTrimmingChapterAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
     use Promptable;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function providerOptions(Lab|string $provider): array
+    {
+        return ['reasoning' => ['effort' => 'low']];
+    }
 
     /**
      * @throws Throwable

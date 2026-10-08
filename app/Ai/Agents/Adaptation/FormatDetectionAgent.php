@@ -14,10 +14,10 @@ use Laravel\Ai\Promptable;
 use Stringable;
 use Throwable;
 
-#[Model('gpt-5.4-mini')]
+#[Model('gpt-5.4')]
 #[Temperature(0.4)]
 #[Timeout(120)]
-class FormatDetectionAgent implements Agent, HasStructuredOutput
+final class FormatDetectionAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 

@@ -30,10 +30,10 @@ use Throwable;
  * Per implementation note in #5 docs: a RED verdict triggers one auto-retry of the
  * EditorialVerificationJob; the reconciliation job handles that retry orchestration.
  */
-#[Model('gpt-5.4-mini')]
+#[Model('gpt-5.4')]
 #[Temperature(0.3)]
 #[Timeout(240)]
-class EditorialVerificationAgent implements Agent, HasStructuredOutput
+final class EditorialVerificationAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
