@@ -105,3 +105,16 @@ it('cancels only the unfinished session batches of the story being re-planned', 
         ->and(DB::table('job_batches')->where('id', $finished)->value('cancelled_at'))->toBeNull()
         ->and(DB::table('job_batches')->where('id', $otherStory)->value('cancelled_at'))->toBeNull();
 });
+
+it('re-runs sessions from the entry point through a command, resetting their artifacts', function () {
+    [$story, $sessions] = chainTestStory();
+    $story->adaptation->update(['story_session_map' => ['session_allocation' => []], 'voice_profile' => ['profile_type' => 'NOVELIST']]);
+    $sessions[1]->update(['entry_point_diagnosis' => ['cold_open' => 'Stale.'], 'session_status' => SessionAdaptationStatusEnum::FAILED]);
+    Bus::fake();
+
+    $this->artisan('stories:rerun-sessions', ['story' => $story->id, '--session' => [2]])->assertSuccessful();
+
+    expect($sessions[1]->fresh()->entry_point_diagnosis)->toBeNull()
+        ->and($sessions[1]->fresh()->session_status)->toBe(SessionAdaptationStatusEnum::PENDING);
+    Bus::assertBatched(fn (PendingBatch $batch): bool => $batch->jobs->count() === 1 && $batch->finallyCallbacks() !== []);
+});
