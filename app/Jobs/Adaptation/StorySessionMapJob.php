@@ -160,6 +160,11 @@ final class StorySessionMapJob implements ShouldQueue
             );
         }
 
+        $cancelled = SessionAdaptationChain::cancelUnfinished($this->story->id);
+        if ($cancelled > 0) {
+            Log::warning('boiler.previous_session_batches_cancelled', ['story_id' => $this->story->id, 'batches' => $cancelled]);
+        }
+
         try {
             $adaptation->update([
                 'adaptation_status' => AdaptationStatusEnum::STORY_SESSION_MAP,

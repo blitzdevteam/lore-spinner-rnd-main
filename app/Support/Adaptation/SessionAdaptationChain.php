@@ -17,6 +17,7 @@ use App\Jobs\Adaptation\SessionCloseJob;
 use App\Models\Story;
 use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 
 final class SessionAdaptationChain
 {
@@ -75,6 +76,7 @@ final class SessionAdaptationChain
             static fn (int $sessionNumber): EntryPointDiagnosisJob => new EntryPointDiagnosisJob($story, $sessionNumber),
             $sessionNumbers,
         ))
+            ->name(self::batchName($storyId, 'entry-points'))
             ->allowFailures()
             ->onQueue('adaptation')
             ->finally(static function (Batch $entryBatch) use ($storyId, $sessionNumbers, $finally): void {
@@ -84,10 +86,34 @@ final class SessionAdaptationChain
     }
 
     /**
+     * Cancel every unfinished session batch for a story, so a newer Story
+     * Session Map is never raced by jobs from the plan it replaces. Each
+     * session job exits as soon as it sees its batch cancelled.
+     */
+    public static function cancelUnfinished(int $storyId): int
+    {
+        $ids = DB::table(config('queue.batching.table', 'job_batches'))
+            ->where('name', 'like', "session-adaptation:{$storyId}:%")
+            ->whereNull('finished_at')
+            ->whereNull('cancelled_at')
+            ->pluck('id');
+
+        foreach ($ids as $id) {
+            Bus::findBatch($id)?->cancel();
+        }
+
+        return $ids->count();
+    }
+
+    /**
      * @param  array<int, int>  $sessionNumbers
      */
     private static function dispatchAfterEntryPoints(Story $story, array $sessionNumbers, ?callable $finally, Batch $entryBatch): void
     {
+        if ($entryBatch->cancelled()) {
+            return;
+        }
+
         $ready = $story->adaptation->sessionAdaptations()
             ->whereIn('session_number', $sessionNumbers)
             ->whereNotNull('entry_point_diagnosis')
@@ -108,6 +134,7 @@ final class SessionAdaptationChain
             static fn (int $sessionNumber): array => self::jobsAfterEntryPoint($story, $sessionNumber),
             $ready,
         ))
+            ->name(self::batchName($story->id, 'sessions'))
             ->allowFailures()
             ->onQueue('adaptation');
 
@@ -116,5 +143,10 @@ final class SessionAdaptationChain
         }
 
         $batch->dispatch();
+    }
+
+    private static function batchName(int $storyId, string $phase): string
+    {
+        return "session-adaptation:{$storyId}:{$phase}";
     }
 }
