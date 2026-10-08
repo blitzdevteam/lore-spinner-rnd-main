@@ -5,17 +5,17 @@
 
 FIRST-CHOICE SPEC (from Phase 3 / Deliverable 10):
 @if(!empty($firstChoiceSpec))
-{{ json_encode($firstChoiceSpec, JSON_PRETTY_PRINT) }}
+{!! json_encode($firstChoiceSpec, JSON_PRETTY_PRINT) !!}
 @else
 [Phase 3 has not been run for this IP: Task 1 operates in fallback mode but must still apply the stakes-tied / no-tutorial gate.]
 @endif
 
 PHASE 4 BEAT MAP:
-{{ json_encode($beatMap, JSON_PRETTY_PRINT) }}
+{!! json_encode($beatMap, JSON_PRETTY_PRINT) !!}
 
 @if(!empty($boilerDraft))
 VALIDATED BOILER DRAFT:
-{{ json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+{!! json_encode($boilerDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 Bind every branching choice, emotional choice, and posture shift to one existing `moment_key`. Preserve the complete canonical four-choice A/B/C topology, all choice IDs, option counts, outcomes, defining lines, dimensions, and freeform mapping.
 
@@ -29,13 +29,13 @@ BINDING AND OUTCOME RULES (the runtime offers a choice only on its card and play
 @include('ai.agents.adaptation._protagonist-rule', ['protagonist' => $protagonist])
 
 STORY SESSION MAP (including branch dimensions):
-{{ json_encode($storySessionMap, JSON_PRETTY_PRINT) }}
+{!! json_encode($storySessionMap, JSON_PRETTY_PRINT) !!}
 
-PROTAGONIST CORE TRAIT: {{ $protagonistCoreTrait }}
+PROTAGONIST CORE TRAIT: {!! $protagonistCoreTrait !!}
 
-EMOTIONAL PROMISE: {{ $emotionalPromise }}
+EMOTIONAL PROMISE: {!! $emotionalPromise !!}
 
-SESSION NUMBER: {{ $sessionNumber }}
+SESSION NUMBER: {!! $sessionNumber !!}
 
 SOURCE PAGES FOR CHOICE MOMENTS:
-{{ $choiceMomentPages }}
+{!! $choiceMomentPages !!}

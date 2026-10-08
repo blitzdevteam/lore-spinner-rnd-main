@@ -7,6 +7,7 @@ namespace App\Jobs\Adaptation;
 use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\ChoiceDesignCanonicalizer;
 use App\Ai\Adaptation\PlayableProtagonist;
+use App\Ai\Adaptation\StorySessionMapSlice;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ChoiceDesignAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -81,7 +82,7 @@ final class ChoiceDesignJob implements ShouldQueue
 
             $prompt = view('ai.agents.adaptation.choice-design.prompt', [
                 'beatMap' => $session->session_architecture,
-                'storySessionMap' => $adaptation->story_session_map,
+                'storySessionMap' => StorySessionMapSlice::forSession((array) $adaptation->story_session_map, $this->sessionNumber),
                 'protagonistCoreTrait' => $ipAudit['bounded_agency']['evidence'] ?? '',
                 'protagonist' => PlayableProtagonist::for($this->story),
                 'emotionalPromise' => $session->entry_point_diagnosis['emotional_promise'] ?? '',

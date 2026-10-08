@@ -19,7 +19,7 @@ Session structure (20-30 minutes per session):
 
 @if(!empty($formatDetectionOutput))
 Source format detected:
-{{ $formatDetectionOutput }}
+{!! $formatDetectionOutput !!}
 @endif
 
-Current phase: {{ $currentPhase }}
+Current phase: {!! $currentPhase !!}

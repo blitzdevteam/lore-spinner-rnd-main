@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
+use App\Ai\Agents\Adaptation\Concerns\SetsOpenAiReasoningEffort;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -30,12 +31,13 @@ use Throwable;
  * Per implementation note in #5 docs: a RED verdict triggers one auto-retry of the
  * EditorialVerificationJob; the reconciliation job handles that retry orchestration.
  */
-#[Model('gpt-5.4')]
-#[Temperature(0.3)]
+#[Model('gpt-6-luna')]
 #[Timeout(240)]
-final class EditorialVerificationAgent implements Agent, HasStructuredOutput
+final class EditorialVerificationAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use Promptable, SetsOpenAiReasoningEffort;
+
+    private const string REASONING_EFFORT = 'medium';
 
     public function __construct(private bool $boilerEnabled = false) {}
 

@@ -4,22 +4,24 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
+use App\Ai\Agents\Adaptation\Concerns\SetsOpenAiReasoningEffort;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
 use Throwable;
 
-#[Model('gpt-5.4')]
-#[Temperature(0.5)]
+#[Model('gpt-6.1-sol')]
 #[Timeout(540)]
-class StorySessionMapAgent implements Agent, HasStructuredOutput
+final class StorySessionMapAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use Promptable, SetsOpenAiReasoningEffort;
+
+    private const string REASONING_EFFORT = 'medium';
 
     public function __construct(private bool $boilerEnabled = false) {}
 

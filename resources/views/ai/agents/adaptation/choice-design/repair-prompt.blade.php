@@ -1,13 +1,14 @@
-Your previous Boiler-enabled Choice Design failed deterministic validation.
+{!! $originalPrompt !!}
+
+---
+
+CORRECTION REQUIRED: your previous Choice Design for the task above failed deterministic validation. Return a complete replacement, not a patch and not an explanation. Fix every reported error and keep every other field exactly as it was in your previous output.
 
 VALIDATION ERROR:
-{{ $validationError }}
+{!! $validationError !!}
 
-PREVIOUS INVALID CHOICE DESIGN:
-{{ json_encode($previousChoiceDesign, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
-
-ORIGINAL TASK AND AUTHORITIES:
-{{ $originalPrompt }}
+YOUR PREVIOUS INVALID CHOICE DESIGN:
+{!! json_encode($previousChoiceDesign, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 Return the complete corrected structured output.
 

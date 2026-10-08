@@ -134,7 +134,7 @@ it('repairs invalid Boiler Draft references with validation feedback', function 
         ->toContain('must copy one complete `moment_drafts[].moment_key` exactly')
         ->and($repairPrompt)
         ->toContain('VALIDATION ERROR:')
-        ->toContain('PREVIOUS INVALID DRAFT:')
+        ->toContain('YOUR PREVIOUS INVALID BOILER DRAFT:')
         ->toContain('Return only the complete corrected structured output');
 });
 
@@ -177,7 +177,7 @@ it('canonicalizes Finalize references and repairs remaining invalid scene-card f
         ->and($validator)
         ->toContain('must contain exactly the choices authored for that moment')
         ->and($repairPrompt)
-        ->toContain('PREVIOUS CANONICALIZED BUT INVALID CUT:')
+        ->toContain('YOUR PREVIOUS INVALID FINAL CUT:')
         ->toContain('Return only the complete corrected structured output');
 });
 

@@ -6,7 +6,7 @@ This contract is the same for every title. The protagonist, the voice, the choic
 
 RULE 0 — ALWAYS SECOND PERSON, PRESENT TENSE, AS THE NAMED CHARACTER (platform standard, non-negotiable)
 
-LoreSpinner is participatory: the player becomes the protagonist. Therefore every opening — for this title and every title this prompt runs — is written in second person ("you"), present tense, addressed to the specific main character the logic supplies (here, {{ $protagonist }}). The player is never an observer. "You are {{ $protagonist }}, and you have only just woken," never a third-person past-tense sentence about them.
+LoreSpinner is participatory: the player becomes the protagonist. Therefore every opening — for this title and every title this prompt runs — is written in second person ("you"), present tense, addressed to the specific main character the logic supplies (here, {!! $protagonist !!}). The player is never an observer. "You are {!! $protagonist !!}, and you have only just woken," never a third-person past-tense sentence about them.
 
 Voice is preserved inside second person, never by changing POV. The author's rhythm, diction, wit, and stance all live in the second-person narration.
 
@@ -15,11 +15,11 @@ For most authors this is natural (a feverish voice, a dry observational voice, a
 For narrator-voice authors: keep the intrusive or ironic authorial stance within the second person — a narrator who speaks to "you" and still knows more than you do. An aside survives as narration addressed to you. Irony survives as narration about you that sees what you don't. Do not drop to third person to preserve the narrator — carry the wit in the second-person voice.
 
 @if($session_number > 1)
-LATER SESSIONS (this is session {{ $session_number }})
+LATER SESSIONS (this is session {!! $session_number !!})
 
-The player has already played the earlier sessions as {{ $protagonist }}. The four beats still apply, but orientation is a re-entry, not an introduction: say plainly where you are now and what has changed, name everyone present, and pick up from the previous session's authored close given in the user message. Never contradict that close and never recap it.
+The player has already played the earlier sessions as {!! $protagonist !!}. The four beats still apply, but orientation is a re-entry, not an introduction: say plainly where you are now and what has changed, name everyone present, and pick up from the previous session's authored close given in the user message. Never contradict that close and never recap it.
 
-If the source puts the scene somewhere {{ $protagonist }} is not present, do not move them into it. Write that scene in third person, present tense, in the author's voice, the way the author tells it, with no commentary on what it means; then bring the narration back to {{ $protagonist }} in second person for the first choice.
+If the source puts the scene somewhere {!! $protagonist !!} is not present, do not move them into it. Write that scene in third person, present tense, in the author's voice, the way the author tells it, with no commentary on what it means; then bring the narration back to {!! $protagonist !!} in second person for the first choice.
 
 @endif
 THE ONE CRAFT RULE ABOVE ALL
@@ -30,7 +30,7 @@ THE FOUR REQUIRED BEATS (all four, every opening, ≤350 words, second person)
 
 WHERE — world + place. In the first two sentences, ground the player in the concrete setting: the place, the time, and just enough of the world to stand in it. Name the location plainly, using this title's own place. The player must never wonder "where am I?"
 
-WHO — identity + current action. Name {{ $protagonist }} and their role within the first ~60 words, in second person, and say what "you" are doing right now. Earn it with an action or telling detail — but never leave it implicit.
+WHO — identity + current action. Name {!! $protagonist !!} and their role within the first ~60 words, in second person, and say what "you" are doing right now. Earn it with an action or telling detail — but never leave it implicit.
 
 WHAT'S HAPPENING — the inciting event, and everyone in the scene named. State what is occurring around you. Any other character present must be identified, not left as "a boy" or "a stranger." If the source names them, name them; if a mystery is intended, make it legibly a mystery ("a figure you do not recognise"), never an accidental gap. A strange event must be said in plain words: what the thing is, what is wrong with it, and what has already been tried.
 
@@ -38,7 +38,7 @@ OBJECTIVE — the situation to navigate + a clear first choice. State the situat
 
 CONSTRAINTS
 
-Second person, present tense, as {{ $protagonist }} (Rule 0). No exceptions.
+Second person, present tense, as {!! $protagonist !!} (Rule 0). No exceptions.
 
 ≤350 words. Within the budget, the four beats come first; atmosphere and voice serve them, never replace them. (Length was never the problem — priority was.)
 
@@ -50,9 +50,9 @@ No repetition, no meaning-commentary, no filler (the Restraint Contract applies 
 
 PASTE-READY PROMPT BLOCK
 
-COLD OPEN CONTRACT — turn 1 only. Write the story's first output in ≤350 words, in SECOND PERSON, PRESENT TENSE, addressing the player directly as {{ $protagonist }}, in THIS author's voice (see VOICE ANCHOR below). The player IS {{ $protagonist }}; never an observer. A first-time player with zero knowledge of this book must finish it completely un-confused. Deliver all four beats, in this order of priority:
+COLD OPEN CONTRACT — turn 1 only. Write the story's first output in ≤350 words, in SECOND PERSON, PRESENT TENSE, addressing the player directly as {!! $protagonist !!}, in THIS author's voice (see VOICE ANCHOR below). The player IS {!! $protagonist !!}; never an observer. A first-time player with zero knowledge of this book must finish it completely un-confused. Deliver all four beats, in this order of priority:
 1. WHERE: In the first two sentences, ground them — the place, the time, the world enough to stand in. Name the location plainly.
-2. WHO: Within the first ~60 words, name {{ $protagonist }} and their role and say what "you" are doing right now.
+2. WHO: Within the first ~60 words, name {!! $protagonist !!} and their role and say what "you" are doing right now.
 3. WHAT: State what is happening around you. NAME every character present — never "a boy" or "a stranger" when the source gives a name. If a mystery is intended, make it legibly a mystery, not an accidental gap.
 4. OBJECTIVE: State the situation you must navigate or react to, and END on the action of the first choice from FIRST CHOICE below. Do not write a closing question. Do not print the button labels.
 Second person is mandatory. Clarity comes first; your voice is HOW you say each beat, never a reason to withhold it. For a narrator-voice author, keep the intrusive or ironic narratorial stance INSIDE the second person — a narrator who speaks to "you" and knows more than you do — but never switch to third person. No atmospheric ending the player cannot act on. No repetition, no commentary on meaning, no filler. Then apply the CLARITY TEST; if any answer is unclear, revise before delivering.
@@ -64,17 +64,17 @@ CLARITY TEST (a stranger to this story must answer all five from your text alone
 - What do I need to decide or do right now?
 
 PROTAGONIST_NAME
-{{ $protagonist }}
+{!! $protagonist !!}
 
 VOICE ANCHOR
-{{ json_encode(['voice_anchor' => $voice_anchor, 'anchor_card' => $anchor_card], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+{!! json_encode(['voice_anchor' => $voice_anchor, 'anchor_card' => $anchor_card], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 FIRST CHOICE
-Situation: {{ $first_choice['setup_prose'] !== '' ? $first_choice['setup_prose'] : 'Use the established situation in the user message.' }}
-What it turns on: {{ $first_choice['threshold_stake'] !== '' ? $first_choice['threshold_stake'] : 'The first real decision in front of the protagonist.' }}
-This question is for the buttons. Do not write it: {{ $first_choice['question'] !== '' ? $first_choice['question'] : 'none recorded' }}
+Situation: {!! $first_choice['setup_prose'] !== '' ? $first_choice['setup_prose'] : 'Use the established situation in the user message.' !!}
+What it turns on: {!! $first_choice['threshold_stake'] !== '' ? $first_choice['threshold_stake'] : 'The first real decision in front of the protagonist.' !!}
+This question is for the buttons. Do not write it: {!! $first_choice['question'] !== '' ? $first_choice['question'] : 'none recorded' !!}
 @foreach($first_choice['options'] as $option)
-- {{ $option }}
+- {!! $option !!}
 @endforeach
 
 WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)

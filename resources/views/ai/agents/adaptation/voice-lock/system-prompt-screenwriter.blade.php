@@ -9,9 +9,9 @@
 --}}
 @include('ai.agents.adaptation._master-context', ['formatDetectionOutput' => $formatDetectionOutput ?? ($formatDetection ?? ''), 'currentPhase' => $currentPhase ?? 'Voice Lock Phase: Screenwriter Merge (1B v3)'])
 
-PHASE 1 AUDIT: {{ json_encode($ipAudit ?? [], JSON_PRETTY_PRINT) }}
+PHASE 1 AUDIT: {!! json_encode($ipAudit ?? [], JSON_PRETTY_PRINT) !!}
 
-FORMAT DETECTION: {{ json_encode($formatDetection ?? [], JSON_PRETTY_PRINT) }}
+FORMAT DETECTION: {!! json_encode($formatDetection ?? [], JSON_PRETTY_PRINT) !!}
 
 SOURCE: You are synthesizing the complete SCREENWRITER Voice Profile from per-chapter observation fragments. The chapter fragments are supplied in the user message. Synthesize one profile from all fragments. AGGREGATE RAW COUNTS across all chunks FIRST, then derive percentages and enforcement specifications from summed numerators/denominators per the Chunk Metric Aggregation Contract (1C). Do not average percentages across chunks.
 

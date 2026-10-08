@@ -92,6 +92,16 @@ Emma's first boil failed in IP trimming: all 55 chapters timed out on Opus 5.5 (
 
 Model research (October 2026): OpenAI's current API tiers are GPT-6 Astra ($10 / $50), GPT-6.1 Sol ($2 / $10) and GPT-6 Luna ($0.10 / $0.50); GPT-5.6 Sol, Terra and Luna are the previous generation. Anthropic: Opus 5.5 ($4 / $20), Sonnet 5 and 5.5 ($2 / $10), Haiku 5.5 ($0.10 / $0.50 up to 100K-token prompts). GPT-6.1 Sol is cheaper than `gpt-5.4` ($2.50 / $15) and stronger, so it is the candidate for the `gpt-5.4` steps. Migrating them means removing their `Temperature` attributes and setting reasoning effort, so it is a separate change after one validated boil.
 
+### 11. Prompts, models, caching
+
+- **Each session sees its own slice of the Story Session Map** (`StorySessionMapSlice::forSession`). Entry point, architecture, choice design, consequence mapping and editorial verification were each handed the whole map, every session's allocation, guidance and branch plans. Now story-wide sections (branch dimensions, state schema, reactivity rules, canon, alignment labels) stay whole, per-session lists keep this session and its neighbours, and cross-session payoffs keep every entry that touches this session. Sections a prompt already passes separately (state schema, reactivity rules, canon) are no longer sent twice.
+- **Prompts are no longer HTML-escaped.** 210 `{{ }}` interpolations across 24 adaptation prompt views turned every straight quote into `&quot;` and apostrophe into `&#039;`, inside JSON and inside the author's own source text. They are now `{!! !!}`: the model reads exactly what was meant. Runtime narrator prompts were not touched.
+- **Repair prompts start with the original prompt**, word for word, then the errors and the rejected output, with the instruction to fix the reported errors and keep every other field as it was. The identical prefix lets both providers' prompt caching apply to every retry.
+- **GPT-5.4 phases moved to `gpt-6.1-sol`** ($2 / $10, against GPT-5.4's $2.50 / $15, and a stronger model): entry point, architecture, choice design, consequence mapping, session close, story session map, IP audit, trimming merge (reasoning `medium`) and format detection (`low`). GPT-6 reasons on every request and rejects `temperature` with reasoning on, so their `Temperature` attributes were removed and `Concerns\SetsOpenAiReasoningEffort` sets the effort.
+- **Editorial verification on `gpt-6-luna`** (reasoning `medium`): advisory grading for Writer Lab.
+- **Anthropic automatic prompt caching** (`Concerns\CachesAnthropicPrompt`, top-level `cache_control`) on draft, finalize and the whole-book voice read. Their system prompt and schema are identical across sessions, so repeat reads bill at the cache rate.
+- **Not changed:** the per-chapter voice lock path (screenplays and fallback) and the unused legacy `IpTrimmingAgent` and `VoiceLockAgent` stay on GPT-5.4. Runtime narrator prompts are untouched.
+
 ## What did not change
 
 - Product and story contract: the same phases, the same canonical four branching choices per session, the same scene cards, consequence maps and runtime prompt. The runtime reads the same fields.
@@ -103,7 +113,7 @@ Model research (October 2026): OpenAI's current API tiers are GPT-6 Astra ($10 /
 
 Stricter checks mean more repair attempts. In the logs, look for `boiler.<phase>_validation_failed` (a check failed and the model is fixing it) and `boiler.<phase>_corrected` (fixed). A session that fails a check three times now fails visibly with the reason instead of saving the defect. Send any such failure for review.
 
-Open decisions: remove `EditorialVerificationJob` (advisory only, one call per session), and whether to move entry point, choice design, consequence mapping and close to Opus 5.5.
+Editorial verification is kept (it feeds the Writer Lab quality tab) and runs on GPT-6 Luna.
 
 ## Tests
 

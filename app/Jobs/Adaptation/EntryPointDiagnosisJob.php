@@ -7,6 +7,7 @@ namespace App\Jobs\Adaptation;
 use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\EntryPointDiagnosisValidator;
 use App\Ai\Adaptation\PlayableProtagonist;
+use App\Ai\Adaptation\StorySessionMapSlice;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\EntryPointDiagnosisAgent;
 use App\ChaosMode\ChaosStoryConfig;
@@ -91,7 +92,7 @@ final class EntryPointDiagnosisJob implements ShouldQueue
             };
 
             $prompt = view('ai.agents.adaptation.entry-point-diagnosis.prompt', [
-                'storySessionMap' => $storySessionMap,
+                'storySessionMap' => StorySessionMapSlice::forSession((array) $storySessionMap, $this->sessionNumber),
                 'ipAudit' => $adaptation->ip_audit,
                 'sessionNumber' => $this->sessionNumber,
                 'sessionSourcePages' => $sessionSourcePages,

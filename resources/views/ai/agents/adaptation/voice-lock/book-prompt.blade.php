@@ -1,17 +1,17 @@
-SOURCE IP: {{ $title }}, {{ $author }}, {{ $year }}, {{ $format }}
+SOURCE IP: {!! $title !!}, {!! $author !!}, {!! $year !!}, {!! $format !!}
 
 FORMAT DETECTION:
-{{ json_encode($formatDetection, JSON_PRETTY_PRINT) }}
+{!! json_encode($formatDetection, JSON_PRETTY_PRINT) !!}
 
 PHASE 1 AUDIT (scorecard: constitutional input):
-{{ json_encode($ipAudit, JSON_PRETTY_PRINT) }}
+{!! json_encode($ipAudit, JSON_PRETTY_PRINT) !!}
 
 ---
 
 You are building the complete Voice DNA Profile (Deliverable 1A, NOVEL) from the WHOLE BOOK below, read in one pass. Every chapter is here, in order. Judge patterns, frequencies and exemplars against the entire book, not a part of it.
 
-MEASURED PROSE STATISTICS (exact counts computed over all {{ $chapterCount }} chapters; dialogue is text inside quotation marks, narration is everything else). These are facts, not estimates. Use them for every quantitative field (average sentence length, sentence-length distribution, said percentage, punctuation frequencies, dialogue share) and for zero-occurrence bans: a mark at 0 per 1000 words in narration is absent from the author's narration.
-{{ json_encode($metrics, JSON_PRETTY_PRINT) }}
+MEASURED PROSE STATISTICS (exact counts computed over all {!! $chapterCount !!} chapters; dialogue is text inside quotation marks, narration is everything else). These are facts, not estimates. Use them for every quantitative field (average sentence length, sentence-length distribution, said percentage, punctuation frequencies, dialogue share) and for zero-occurrence bans: a mark at 0 per 1000 words in narration is absent from the author's narration.
+{!! json_encode($metrics, JSON_PRETTY_PRINT) !!}
 
 SYNTHESIS REQUIREMENTS:
 
@@ -51,10 +51,10 @@ Return the complete voice profile matching the full required schema.
 
 ---
 
-THE COMPLETE BOOK ({{ $chapterCount }} chapters, in order):
+THE COMPLETE BOOK ({!! $chapterCount !!} chapters, in order):
 
 @foreach($chapters as $chapter)
-===== CHAPTER {{ $chapter['position'] }}: {{ $chapter['title'] }} =====
+===== CHAPTER {!! $chapter['position'] !!}: {!! $chapter['title'] !!} =====
 {!! $chapter['content'] !!}
 
 @endforeach

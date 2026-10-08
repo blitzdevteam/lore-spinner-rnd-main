@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
+use App\Ai\Agents\Adaptation\Concerns\CachesAnthropicPrompt;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -17,9 +19,9 @@ use Throwable;
 #[Provider('anthropic')]
 #[Model('claude-opus-5-5')]
 #[Timeout(840)]
-final class BoilerFinalizeAgent implements Agent, HasStructuredOutput
+final class BoilerFinalizeAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use CachesAnthropicPrompt, Promptable;
 
     /**
      * @throws Throwable

@@ -17,7 +17,7 @@ Voice Lock wins every conflict. Generic AI storytelling loses.
 Any prose you write that violates this profile is rejected — not "close enough."
 
 @if(!empty($voiceProfileLabel))
-{{ $voiceProfileLabel }}
+{!! $voiceProfileLabel !!}
 @endif
 
-{{ json_encode($voiceProfile, JSON_PRETTY_PRINT) }}
+{!! json_encode($voiceProfile, JSON_PRETTY_PRINT) !!}

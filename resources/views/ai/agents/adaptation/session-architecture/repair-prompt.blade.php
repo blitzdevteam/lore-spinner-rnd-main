@@ -1,13 +1,14 @@
-Your previous Boiler-enabled Session Architecture failed deterministic validation.
+{!! $originalPrompt !!}
+
+---
+
+CORRECTION REQUIRED: your previous Session Architecture for the task above failed deterministic validation. Return a complete replacement, not a patch and not an explanation. Fix every reported error and keep every other field exactly as it was in your previous output.
 
 VALIDATION ERROR:
-{{ $validationError }}
+{!! $validationError !!}
 
-PREVIOUS INVALID ARCHITECTURE:
-{{ json_encode($previousArchitecture, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
-
-ORIGINAL TASK AND AUTHORITIES:
-{{ $originalPrompt }}
+YOUR PREVIOUS INVALID SESSION ARCHITECTURE:
+{!! json_encode($previousArchitecture, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 Return the complete corrected structured output. Preserve valid source analysis, Draft moment keys, exact moment count, and all required interaction slots.
 

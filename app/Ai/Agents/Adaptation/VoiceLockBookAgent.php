@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
+use App\Ai\Agents\Adaptation\Concerns\CachesAnthropicPrompt;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -26,9 +28,9 @@ use Throwable;
 #[Model('claude-opus-5-5')]
 #[MaxTokens(64000)]
 #[Timeout(1080)]
-final class VoiceLockBookAgent implements Agent, HasStructuredOutput
+final class VoiceLockBookAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use CachesAnthropicPrompt, Promptable;
 
     /**
      * @param  array<string, mixed>  $formatDetection

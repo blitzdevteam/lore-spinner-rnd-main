@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\Adaptation;
 
+use App\Ai\Adaptation\StorySessionMapSlice;
 use App\Ai\Agents\Adaptation\EditorialVerificationAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
 use App\Enums\BoilerStatus;
@@ -188,7 +189,7 @@ final class EditorialVerificationJob implements ShouldQueue
         $response = (new EditorialVerificationAgent((bool) $adaptation->boiler_enabled))->prompt(
             view('ai.agents.adaptation.editorial-verification.prompt', [
                 'completeSessionDesign' => $completeDesign,
-                'storySessionMap' => $adaptation->story_session_map,
+                'storySessionMap' => StorySessionMapSlice::forSession((array) $adaptation->story_session_map, $this->sessionNumber, ['story_guard_canon', 'persistent_state_schema', 'world_reactivity_rules']),
                 'voiceProfile' => $voiceProfileForEditorial,
                 'storyGuardCanon' => $adaptation->story_session_map['story_guard_canon'] ?? [],
                 'persistentStateSchema' => $adaptation->story_session_map['persistent_state_schema'] ?? [],

@@ -1,13 +1,14 @@
-Your previous Boiler-enabled Consequence Map failed deterministic validation.
+{!! $originalPrompt !!}
+
+---
+
+CORRECTION REQUIRED: your previous Consequence Map for the task above failed deterministic validation. Return a complete replacement, not a patch and not an explanation. Fix every reported error and keep every other field exactly as it was in your previous output.
 
 VALIDATION ERROR:
-{{ $validationError }}
+{!! $validationError !!}
 
-PREVIOUS CANONICALIZED BUT INVALID CONSEQUENCE MAP:
-{{ json_encode($previousConsequenceMap, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
-
-ORIGINAL TASK AND AUTHORITIES:
-{{ $originalPrompt }}
+YOUR PREVIOUS INVALID CONSEQUENCE MAP:
+{!! json_encode($previousConsequenceMap, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 Return the complete corrected structured output. Phase 5 Choice Design is the sole authority for choice identity and branch topology.
 

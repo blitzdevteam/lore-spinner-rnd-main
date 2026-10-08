@@ -1,6 +1,6 @@
 BOILER FINALIZE INPUT
 
-{{ json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
+{!! json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 @include('ai.agents.adaptation._protagonist-rule', ['protagonist' => $context['protagonist']])
 

@@ -6,6 +6,7 @@ namespace App\Jobs\Adaptation;
 
 use App\Ai\Adaptation\SessionArchitectureCanonicalizer;
 use App\Ai\Adaptation\SessionArchitectureValidator;
+use App\Ai\Adaptation\StorySessionMapSlice;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\SessionArchitectureAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -72,7 +73,7 @@ final class SessionArchitectureJob implements ShouldQueue
             $sessionSourcePages = $this->story->getSessionTrimmedText($this->sessionNumber);
 
             $prompt = view('ai.agents.adaptation.session-architecture.prompt', [
-                'storySessionMap' => $adaptation->story_session_map,
+                'storySessionMap' => StorySessionMapSlice::forSession((array) $adaptation->story_session_map, $this->sessionNumber),
                 'entryPointDiagnosis' => $session->entry_point_diagnosis,
                 'sessionNumber' => $this->sessionNumber,
                 'sessionSourcePages' => $sessionSourcePages,

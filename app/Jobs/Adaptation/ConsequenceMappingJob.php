@@ -9,6 +9,7 @@ use App\Ai\Adaptation\ConsequenceMapCanonicalizer;
 use App\Ai\Adaptation\ConsequenceMapValidator;
 use App\Ai\Adaptation\PlayableProtagonist;
 use App\Ai\Adaptation\SessionHandoff;
+use App\Ai\Adaptation\StorySessionMapSlice;
 use App\Ai\Adaptation\VoiceProfilePromptSlice;
 use App\Ai\Agents\Adaptation\ConsequenceMappingAgent;
 use App\Enums\Adaptation\SessionAdaptationStatusEnum;
@@ -67,7 +68,7 @@ final class ConsequenceMappingJob implements ShouldQueue
                 // rules so the consequence map can name specific NPCs / flags.
                 'branchingChoices' => (array) ($choiceDesign['branching_choices'] ?? []),
                 'emotionalChoices' => (array) ($choiceDesign['emotional_choices'] ?? []),
-                'storySessionMap' => $adaptation->story_session_map,
+                'storySessionMap' => StorySessionMapSlice::forSession((array) $adaptation->story_session_map, $this->sessionNumber, ['persistent_state_schema', 'world_reactivity_rules']),
                 'persistentStateSchema' => $adaptation->story_session_map['persistent_state_schema'] ?? [],
                 'worldReactivityRules' => $adaptation->story_session_map['world_reactivity_rules'] ?? [],
                 'protagonistCoreTrait' => $adaptation->ip_audit['bounded_agency']['evidence'] ?? '',

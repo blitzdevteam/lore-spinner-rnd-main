@@ -1,22 +1,22 @@
-SOURCE IP: {{ $title }}, {{ $author }}, {{ $year }}, {{ $format }}
+SOURCE IP: {!! $title !!}, {!! $author !!}, {!! $year !!}, {!! $format !!}
 
 FORMAT DETECTION:
-{{ json_encode($formatDetection, JSON_PRETTY_PRINT) }}
+{!! json_encode($formatDetection, JSON_PRETTY_PRINT) !!}
 
 PHASE 1 AUDIT (scorecard: constitutional input):
-{{ json_encode($ipAudit, JSON_PRETTY_PRINT) }}
+{!! json_encode($ipAudit, JSON_PRETTY_PRINT) !!}
 
 ---
 
 You are synthesizing the complete Voice DNA Profile from per-chapter observation fragments. Each chapter was analysed independently. Produce ONE unified profile matching Deliverable 1A (NOVEL) or 1B (SCREENPLAY) based on detected_format.
 
-Total chapters processed: {{ $totalChapters }}
+Total chapters processed: {!! $totalChapters !!}
 
 PER-CHAPTER VOICE OBSERVATION FRAGMENTS (in chapter order):
 
 @foreach($voiceFragments as $i => $fragment)
---- CHAPTER {{ $i + 1 }} (Chapter ID: {{ $fragment['chapter_id'] ?? '?' }}) ---
-{{ json_encode($fragment, JSON_PRETTY_PRINT) }}
+--- CHAPTER {!! $i + 1 !!} (Chapter ID: {!! $fragment['chapter_id'] ?? '?' !!}) ---
+{!! json_encode($fragment, JSON_PRETTY_PRINT) !!}
 
 @endforeach
 

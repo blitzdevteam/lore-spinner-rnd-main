@@ -1,15 +1,14 @@
-BOILER DRAFT CORRECTION
+{!! $originalPrompt !!}
 
-Your previous structured Boiler Draft failed deterministic validation. Return a complete replacement Draft, not a patch and not an explanation.
+---
+
+CORRECTION REQUIRED: your previous Boiler Draft for the task above failed deterministic validation. Return a complete replacement, not a patch and not an explanation. Fix every reported error and keep every other field exactly as it was in your previous output.
 
 VALIDATION ERROR:
-{{ $validationError }}
+{!! $validationError !!}
 
-PREVIOUS INVALID DRAFT:
-{{ json_encode($previousDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}
-
-AUTHORITATIVE INPUT:
-{{ $originalPrompt }}
+YOUR PREVIOUS INVALID BOILER DRAFT:
+{!! json_encode($previousDraft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 Correct the reported error while preserving all valid editorial decisions that do not conflict with it.
 

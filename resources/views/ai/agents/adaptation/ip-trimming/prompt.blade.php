@@ -1,17 +1,17 @@
 === SOURCE TEXT TO TRIM ===
 
-Title: {{ $title ?? 'Untitled' }}
+Title: {!! $title ?? 'Untitled' !!}
 @isset($author)
-Author: {{ $author }}
+Author: {!! $author !!}
 @endisset
 @isset($year)
-Year: {{ $year }}
+Year: {!! $year !!}
 @endisset
 @isset($format)
-Format: {{ $format }}
+Format: {!! $format !!}
 @endisset
 @isset($pageCount)
-Page count: {{ $pageCount }}
+Page count: {!! $pageCount !!}
 @endisset
 
 Full source text follows. Apply Tasks 1–5 verbatim from the system prompt. Do not paraphrase preserved content. Insert TRIM MARKER lines in the exact bracketed format described in Task 5.
