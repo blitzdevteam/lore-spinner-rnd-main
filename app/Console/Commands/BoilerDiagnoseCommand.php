@@ -148,6 +148,10 @@ final class BoilerDiagnoseCommand extends Command
                 'boiler_enabled' => (bool) $adaptation->boiler_enabled,
                 'has_voice_profile' => ! empty($adaptation->voice_profile),
                 'has_story_session_map' => ! empty($ssm),
+                'detected_format' => data_get($adaptation->format_detection, 'detected_format'),
+                'estimated_session_count' => data_get($adaptation->format_detection, 'estimated_session_count'),
+                'source_duration' => data_get($adaptation->format_detection, 'total_estimated_source_duration'),
+                'confirmed_session_count' => data_get($ssm, 'confirmed_session_count'),
                 'boiling_profile' => data_get($ssm, 'boiling_profile'),
                 'session_allocation' => data_get($ssm, 'session_allocation'),
             ],
@@ -305,6 +309,16 @@ final class BoilerDiagnoseCommand extends Command
             'normalized_moment_summaries' => $normMoments,
             'editorial_verification' => $session->editorial_verification,
             'runtime_prompt_chars' => mb_strlen((string) $session->runtime_narrator_prompt),
+            'opening' => [
+                'start_event_position' => data_get($session->entry_point_diagnosis, 'start_event_position'),
+                'cold_open_words' => str_word_count((string) data_get($session->entry_point_diagnosis, 'cold_open', '')),
+                'cold_open' => (string) data_get($session->entry_point_diagnosis, 'cold_open', ''),
+            ],
+            'close_handoff' => [
+                'option_a' => (string) data_get($session->session_close_design, 'session_end_choice.option_a.next_session_opens', ''),
+                'option_b' => (string) data_get($session->session_close_design, 'session_end_choice.option_b.next_session_opens', ''),
+                'option_c' => (string) data_get($session->session_close_design, 'session_end_choice.option_c.next_session_opens', ''),
+            ],
         ];
     }
 
