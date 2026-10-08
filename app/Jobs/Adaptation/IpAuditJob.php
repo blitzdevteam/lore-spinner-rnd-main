@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Jobs\Adaptation;
 
 use App\Ai\Agents\Adaptation\IpAuditAgent;
+use App\Ai\Agents\Adaptation\VoiceLockSchema;
 use App\Enums\Adaptation\AdaptationStatusEnum;
 use App\Models\Story;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Bus;
 use Throwable;
 
 /**
@@ -75,7 +75,7 @@ final class IpAuditJob implements ShouldQueue
                 'ip_audit' => $response->toArray(),
             ]);
 
-            $this->dispatchVoiceLockChapterBatch();
+            $this->dispatchVoiceLock();
         } catch (Throwable $throwable) {
             $adaptation->update([
                 'adaptation_status' => AdaptationStatusEnum::FAILED,
@@ -85,24 +85,20 @@ final class IpAuditJob implements ShouldQueue
         }
     }
 
-    private function dispatchVoiceLockChapterBatch(): void
+    /**
+     * Novels get the one-pass whole-book Voice Lock. Screenplays keep the
+     * per-chapter path, whose raw counts feed their numerical enforcement layer.
+     */
+    private function dispatchVoiceLock(): void
     {
-        $chapters = $this->story->chapters()->orderBy('position')->get();
-        $storyId = $this->story->id;
+        $format = $this->story->adaptation->format_detection['detected_format'] ?? null;
 
-        if ($chapters->isEmpty()) {
-            VoiceLockMergeJob::dispatch($this->story)->onQueue('adaptation');
+        if (! VoiceLockSchema::isScreenwriter($format) && VoiceLockBookJob::canRead($this->story)) {
+            VoiceLockBookJob::dispatch($this->story)->onQueue('adaptation');
 
             return;
         }
 
-        Bus::batch(
-            $chapters->map(fn ($ch) => new VoiceLockChapterJob($this->story, $ch))->all()
-        )->onQueue('adaptation')
-            ->finally(function () use ($storyId): void {
-                $story = Story::findOrFail($storyId);
-                VoiceLockMergeJob::dispatch($story)->onQueue('adaptation');
-            })
-            ->dispatch();
+        VoiceLockChapterJob::dispatchBatch($this->story);
     }
 }

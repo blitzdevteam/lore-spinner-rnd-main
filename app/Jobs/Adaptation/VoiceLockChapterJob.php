@@ -10,6 +10,7 @@ use App\Models\Story;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -42,6 +43,29 @@ final class VoiceLockChapterJob implements ShouldQueue
         private Chapter $chapter,
     ) {
         $this->onQueue('adaptation');
+    }
+
+    /**
+     * Run Voice Lock over every chapter, then merge. The screenplay path, and
+     * the fallback when the whole-book novel read fails.
+     */
+    public static function dispatchBatch(Story $story): void
+    {
+        $chapters = $story->chapters()->orderBy('position')->get();
+        $storyId = $story->id;
+
+        if ($chapters->isEmpty()) {
+            VoiceLockMergeJob::dispatch($story)->onQueue('adaptation');
+
+            return;
+        }
+
+        Bus::batch($chapters->map(fn (Chapter $chapter) => new self($story, $chapter))->all())
+            ->onQueue('adaptation')
+            ->finally(function () use ($storyId): void {
+                VoiceLockMergeJob::dispatch(Story::findOrFail($storyId))->onQueue('adaptation');
+            })
+            ->dispatch();
     }
 
     /**

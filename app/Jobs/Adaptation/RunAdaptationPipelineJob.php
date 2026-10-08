@@ -66,12 +66,12 @@ final class RunAdaptationPipelineJob implements ShouldQueue
 
         // Pipeline Upgrade V2.2 — map/merge architecture:
         //
-        //  [IpTrimmingChapterJob × N chapters]   (parallel batch, gpt-5.4-mini per chapter)
+        //  [IpTrimmingChapterJob × N chapters]   (parallel batch, gpt-6-luna, one call per chapter)
         //    → IpTrimmingMergeJob                 (PHP merge + small spine synthesis call)
         //      → FormatDetectionJob
         //        → IpAuditJob
-        //          → [VoiceLockChapterJob × N]    (parallel batch, 1A or 1B per chapter)
-        //            → VoiceLockMergeJob          (full synthesis call, gpt-5.4)
+        //          → VoiceLockBookJob             (novels: whole book in one Opus 5.5 pass)
+        //            or [VoiceLockChapterJob × N] → VoiceLockMergeJob (screenplays, or fallback)
         //              → StorySessionMapJob       (kicks off per-session batch internally)
         //
         // Each batch step flows to the next via ->finally() or explicit dispatch.
