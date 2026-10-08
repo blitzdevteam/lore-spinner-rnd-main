@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents\Adaptation;
 
-use App\Ai\Agents\Adaptation\Concerns\SetsOpenAiReasoningEffort;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Model;
+use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -29,13 +28,12 @@ use Throwable;
  * Backward-compatible runtime keys preserved: editorial_diagnosis,
  * format_specific_cut, cold_open, emotional_promise, start_event_position.
  */
-#[Model('gpt-6.1-sol')]
+#[Model('gpt-5.4')]
+#[Temperature(0.6)]
 #[Timeout(180)]
-final class EntryPointDiagnosisAgent implements Agent, HasProviderOptions, HasStructuredOutput
+final class EntryPointDiagnosisAgent implements Agent, HasStructuredOutput
 {
-    use Promptable, SetsOpenAiReasoningEffort;
-
-    private const string REASONING_EFFORT = 'medium';
+    use Promptable;
 
     /**
      * @throws Throwable

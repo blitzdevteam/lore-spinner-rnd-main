@@ -49,24 +49,19 @@ it('slices the story map to one session and its neighbours, keeping story-wide s
         ->and($slice)->not->toHaveKey('persistent_state_schema');
 });
 
-it('runs every GPT-6 phase with an explicit reasoning effort and no sampling parameters', function (string $agent, string $model) {
-    $reflection = new ReflectionClass($agent);
-    $instance = $reflection->newInstanceWithoutConstructor();
+it('runs editorial verification on GPT-6 Luna with explicit reasoning and no sampling parameters', function () {
+    $reflection = new ReflectionClass(EditorialVerificationAgent::class);
 
-    expect($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe($model)
+    expect($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-6-luna')
         ->and($reflection->getAttributes(Temperature::class))->toBe([])
-        ->and($instance->providerOptions('openai'))->toHaveKey('reasoning.effort');
+        ->and($reflection->newInstanceWithoutConstructor()->providerOptions('openai'))->toHaveKey('reasoning.effort');
+});
+
+it('keeps the timing-tuned design phases on gpt-5.4', function (string $agent) {
+    expect((new ReflectionClass($agent))->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-5.4');
 })->with([
-    [ChoiceDesignAgent::class, 'gpt-6.1-sol'],
-    [ConsequenceMappingAgent::class, 'gpt-6.1-sol'],
-    [EntryPointDiagnosisAgent::class, 'gpt-6.1-sol'],
-    [FormatDetectionAgent::class, 'gpt-6.1-sol'],
-    [IpAuditAgent::class, 'gpt-6.1-sol'],
-    [IpTrimmingMergeAgent::class, 'gpt-6.1-sol'],
-    [SessionArchitectureAgent::class, 'gpt-6.1-sol'],
-    [SessionCloseAgent::class, 'gpt-6.1-sol'],
-    [StorySessionMapAgent::class, 'gpt-6.1-sol'],
-    [EditorialVerificationAgent::class, 'gpt-6-luna'],
+    ChoiceDesignAgent::class, ConsequenceMappingAgent::class, EntryPointDiagnosisAgent::class, FormatDetectionAgent::class,
+    IpAuditAgent::class, IpTrimmingMergeAgent::class, SessionArchitectureAgent::class, SessionCloseAgent::class, StorySessionMapAgent::class,
 ]);
 
 it('enables Anthropic prompt caching on the Opus phases', function (string $agent) {
