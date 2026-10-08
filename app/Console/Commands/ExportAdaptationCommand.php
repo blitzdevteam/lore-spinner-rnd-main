@@ -8,19 +8,21 @@ use App\Models\Story;
 use App\Models\StoryAdaptation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Export adaptation results to CSV and JSON for a given story.
  *
- * Produces two files in storage/app/exports/:
- *   - adaptation-{slug}-overview.csv    (one row per session with status + phase completion)
- *   - adaptation-{slug}-full.json       (complete artifact dump)
+ * Writes the complete Boiler output (story-wide artifacts, every session's
+ * phases, scene cards and runtime prompts) to the public disk under exports/,
+ * so it can be downloaded from the Cloud file explorer.
  */
 final class ExportAdaptationCommand extends Command
 {
     protected $signature = 'adaptation:export
         {story? : Story ID or slug (defaults to latest)}
-        {--path= : Custom output directory (defaults to database/exports)}';
+        {--path= : Write into this local directory instead of the public disk}
+        {--disk=public : Filesystem disk when --path is omitted (public = Cloud File explorer)}';
 
     protected $description = 'Export adaptation pipeline results to CSV + JSON';
 
@@ -44,21 +46,30 @@ final class ExportAdaptationCommand extends Command
 
         $adaptation->load('sessionAdaptations');
 
-        $dir = $this->option('path') ?? database_path('exports');
-        File::ensureDirectoryExists($dir);
-
-        $slug = $story->slug ?? 'story-' . $story->id;
+        $slug = $story->slug ?? 'story-'.$story->id;
         $timestamp = now()->format('Y-m-d_His');
+        $csvName = "adaptation-{$slug}-{$timestamp}.csv";
+        $jsonName = "adaptation-{$slug}-{$timestamp}-full.json";
+        $csv = $this->csv($adaptation);
+        $json = $this->json($story, $adaptation);
 
-        $csvPath = "{$dir}/adaptation-{$slug}-{$timestamp}.csv";
-        $jsonPath = "{$dir}/adaptation-{$slug}-{$timestamp}.json";
-
-        $this->exportCsv($adaptation, $csvPath);
-        $this->exportJson($story, $adaptation, $jsonPath);
-
-        $this->info("Exported for: {$story->title}");
-        $this->line("  CSV:  {$csvPath}");
-        $this->line("  JSON: {$jsonPath}");
+        if ($this->option('path')) {
+            $dir = (string) $this->option('path');
+            File::ensureDirectoryExists($dir);
+            File::put("{$dir}/{$csvName}", $csv);
+            File::put("{$dir}/{$jsonName}", $json);
+            $this->info("Exported for: {$story->title}");
+            $this->line("  CSV:  {$dir}/{$csvName}");
+            $this->line("  JSON: {$dir}/{$jsonName} (".mb_strlen($json).' bytes)');
+        } else {
+            $disk = (string) $this->option('disk');
+            Storage::disk($disk)->put("exports/{$csvName}", $csv);
+            Storage::disk($disk)->put("exports/{$jsonName}", $json);
+            $this->info("Exported for: {$story->title}");
+            $this->line("  CSV:  exports/{$csvName} on disk [{$disk}]");
+            $this->line("  JSON: exports/{$jsonName} on disk [{$disk}] (".mb_strlen($json).' bytes)');
+            $this->line('Download both from the Cloud file explorer under exports/.');
+        }
 
         return self::SUCCESS;
     }
@@ -78,9 +89,9 @@ final class ExportAdaptationCommand extends Command
         return Story::where('slug', $identifier)->first();
     }
 
-    private function exportCsv(StoryAdaptation $adaptation, string $path): void
+    private function csv(StoryAdaptation $adaptation): string
     {
-        $handle = fopen($path, 'w');
+        $handle = fopen('php://temp', 'r+');
 
         fputcsv($handle, [
             'story_status',
@@ -131,10 +142,14 @@ final class ExportAdaptationCommand extends Command
             ]);
         }
 
+        rewind($handle);
+        $csv = (string) stream_get_contents($handle);
         fclose($handle);
+
+        return $csv;
     }
 
-    private function exportJson(Story $story, StoryAdaptation $adaptation, string $path): void
+    private function json(Story $story, StoryAdaptation $adaptation): string
     {
         $data = [
             'story' => [
@@ -166,12 +181,13 @@ final class ExportAdaptationCommand extends Command
                     'session_close_design' => $s->session_close_design,
                     'boiler_final_cut' => $s->boiler_final_cut,
                     'editorial_verification' => $s->editorial_verification,
+                    'runtime_narrator_prompt' => $s->runtime_narrator_prompt,
                     'updated_at' => $s->updated_at?->toIso8601String(),
                 ])
                 ->values()
                 ->toArray(),
         ];
 
-        File::put($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        return (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 }
