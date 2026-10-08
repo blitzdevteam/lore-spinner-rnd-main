@@ -31,12 +31,14 @@ use Throwable;
  * The model returns decisions only, as paragraph ranges. IpTrimmingChapterJob
  * rebuilds the trimmed text from the original paragraphs, so preserved prose is
  * verbatim by construction and the output stays small. With output small, input
- * dominates cost, so a strong model stays cheap per book.
+ * dominates cost. Triage is focused classification protected by code (preserved
+ * text is copied, unclassified paragraphs are kept), so GPT-6 Luna, built for
+ * focused high-volume work, is the right size.
  *
- * GPT-6.1 Sol cannot run with reasoning off, and with reasoning on OpenAI
- * rejects temperature and top_p. Never add a Temperature attribute here.
+ * With reasoning on, OpenAI rejects temperature and top_p. Never add a
+ * Temperature attribute here.
  */
-#[Model('gpt-6.1-sol')]
+#[Model('gpt-6-luna')]
 #[Timeout(300)]
 final class IpTrimmingChapterAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {

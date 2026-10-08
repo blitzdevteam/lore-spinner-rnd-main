@@ -95,11 +95,11 @@ it('runs the Anthropic pipeline agents on Opus 5.5', function (string $agent) {
         ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('claude-opus-5-5');
 })->with([BoilerDraftAgent::class, BoilerFinalizeAgent::class]);
 
-it('runs chapter trimming on GPT-6.1 Sol with low reasoning and no sampling parameters', function () {
+it('runs chapter trimming on GPT-6 Luna with low reasoning and no sampling parameters', function () {
     $reflection = new ReflectionClass(IpTrimmingChapterAgent::class);
 
     expect($reflection->getAttributes(Provider::class))->toBe([])
-        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-6.1-sol')
+        ->and($reflection->getAttributes(Model::class)[0]->getArguments()[0])->toBe('gpt-6-luna')
         ->and($reflection->getAttributes(Temperature::class))->toBe([])
         ->and((new IpTrimmingChapterAgent)->providerOptions('openai'))->toBe(['reasoning' => ['effort' => 'low']]);
 });
