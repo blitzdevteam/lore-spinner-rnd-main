@@ -112,6 +112,13 @@ final class ChaosStoryConfig
                 'tagline' => 'Poe — hide from the plague behind abbey walls.',
             ],
             [
+                'slug' => 'sense-and-sensibility',
+                'title' => 'Sense and Sensibility',
+                'protagonist' => 'Elinor Dashwood',
+                'tagline' => 'Austen — the Dashwoods are still at Norland when play begins.',
+                'prefer_literal_opening' => true,
+            ],
+            [
                 'slug' => 'the-wonderful-wizard-of-oz',
                 'title' => 'The Wonderful Wizard of Oz',
                 'protagonist' => 'Dorothy Gale',

@@ -32,7 +32,7 @@ Do NOT open on a flashback, a dream, or a non-interactive info-dump.
 
 STORY OVERRIDE:
 
-If `prefer_literal_opening` is true (see user prompt STORY ENTRY OVERRIDE), and this is Session 1 of a SCREENPLAY source, you must strongly prefer the earliest available session moment that represents the literal source opening.
+If `prefer_literal_opening` is true (see user prompt STORY ENTRY OVERRIDE), and this is Session 1, you must start at the earliest available session moment. That is the literal source opening, for a novel or a screenplay.
 
 **`prefer_literal_opening` governs entry-point selection, not prose transcription.** Keep the same event and beat. Rewrite every line via the Screenplay-to-Body rules in Task 5 — camera grammar is never copied verbatim into player-facing prose.
 
@@ -90,7 +90,7 @@ If you move forward in a SCREENPLAY source, you must explicitly state why the ea
 
 NOVEL ENTRY RULE:
 
-For NOVEL sources, the literal opening often contains narration, scene-setting, backstory, or interiority before live pressure begins. You may move forward to the first live threshold if the earlier material cannot create an embodied, playable opening within roughly 300 words.
+For NOVEL sources, the literal opening often contains narration, scene-setting, backstory, or interiority before live pressure begins. When `prefer_literal_opening` is false, you may move forward to the first live threshold if the earlier material cannot create an embodied, playable opening within roughly 300 words. When `prefer_literal_opening` is true, you do not use that permission: stay on the earliest available session moment unless it fails the playable-opening test.
 
 ENTRY-POINT RUBRIC (among moments that PASS the gate, the strongest entry maximizes these):
 
@@ -105,8 +105,8 @@ Evaluate candidate moments from the allocated source against this rubric. Score 
 Selection rule:
 
 - For SCREENPLAY: choose the earliest available session moment that passes the playable-opening test. Do not skip it for a louder later beat.
-- For NOVEL: choose the first moment that produces live embodied pressure and a meaningful first choice within roughly 300 words.
-- If `prefer_literal_opening=true`, apply the screenplay rule even more strictly: strongly prefer the earliest available literal-opening moment unless it clearly fails the playable-opening test.
+- For NOVEL, when `prefer_literal_opening` is false: choose the first moment that produces live embodied pressure and a meaningful first choice within roughly 300 words.
+- If `prefer_literal_opening=true`, novel or screenplay: choose the earliest available session moment unless it clearly fails the playable-opening test. Do not skip it for a louder later beat.
 
 The cold open, `start_event_position`, and `first_choice_spec` must all come from the same chosen entry moment.
 
@@ -261,7 +261,7 @@ OUTPUT the Emotional Promise (consumed by D4): one word + one sentence naming wh
 
 FORMAT-AGNOSTIC NOTES (apply per source):
 - **Screenplay (1B v3):** the source opening is usually already compressed, visual, and playable. Prefer the earliest available session moment when it contains scene-body, procedure, object-focused mystery, discovery, tension, or a threshold. Translate it to second-person present prose via the Screenplay-to-Prose protocol. Do not move forward merely to find a louder hook. If `prefer_literal_opening=true`, strongly prefer the literal opening unless it is genuinely non-playable.
-- **Novel (1A v2):** the hook is often buried under interiority/scene-setting; move the entry point forward to the first live threshold and convert POV/tense (third/first past → second present). Preserve the author's prose TEXTURE — rhythm, diction, compression, register. "Texture" never means transcription: do not carry the author's sentence order, framing clauses, or narration grammar across. A pronoun-swapped copy of the source paragraph is a failure of this phase, however faithful it sounds. The Body Drop-In rules in Task 5 outrank texture preservation wherever the two conflict.
+- **Novel (1A v2):** the hook is often buried under interiority/scene-setting. When `prefer_literal_opening` is false, move the entry point forward to the first live threshold. When `prefer_literal_opening` is true, stay on the earliest available session moment and play that opening. Either way, convert POV/tense (third/first past → second present). Preserve the author's prose TEXTURE — rhythm, diction, compression, register. "Texture" never means transcription: do not carry the author's sentence order, framing clauses, or narration grammar across. A pronoun-swapped copy of the source paragraph is a failure of this phase, however faithful it sounds. The Body Drop-In rules in Task 5 outrank texture preservation wherever the two conflict.
 
 GRACEFUL DEGRADATION: if this phase has not been run for an IP, D8 Section 13 uses the existing cold open. This phase only ever improves the slot; it never blocks it.
 
@@ -276,7 +276,7 @@ STOP. Do not pass to Phase 4 until all are YES:
 1B. **Embodied from line 1?** (ALL sources) Does the FIRST CLAUSE contain **you/your**? Do the first two sentences deliver physical sensation rather than framing? Are there zero runs of 2+ consecutive non-you sentences in the first 80 words? Is there no date, year, season, clock time, or weather opening the piece ahead of the body? Was the literal **moment** kept but the delivery rewritten per Task 5 Body Drop-In rules? If any of these FAIL, revise Task 5 — do not adjust the entry point.
 
 1C. **Present tense throughout?** (ALL sources) Scan every verb in the cold open. Any past-tense narration is a failure — revise Task 5.
-1A. **Screenplay opening honored?** If this is a SCREENPLAY source, did you start at the earliest available session moment when it was already playable? If you moved forward, did you prove the earlier moment was genuinely non-playable? If `prefer_literal_opening=true`, did you strongly prefer the literal opening per the story-level override?
+1A. **Opening honored?** If this is a SCREENPLAY source, did you start at the earliest available session moment when it was already playable? If you moved forward, did you prove the earlier moment was genuinely non-playable? If `prefer_literal_opening=true`, novel or screenplay, did you start at the earliest available session moment unless it failed the playable-opening test?
 2. **Identity earned, not dumped?** Is the name revealed at a moment of weight, with role conveyed through instinct/detail — and zero résumé-stack exposition?
 2A. **Identity present in the NARRATION?** Does the final `cold_open` prose reveal the protagonist's name in the narrator's own voice, addressed to the player as **you**, at a pressure-bearing moment — not only in Task 2 metadata and not only inside a line of dialogue? Strip every quoted line from the draft and re-read what remains: if the name is gone, this gate FAILS. Revise Task 5.
 3. **Stakes as present pressure?** Are the stakes felt as live pressure, not explained?

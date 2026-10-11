@@ -27,6 +27,11 @@ it('binds Dr Jekyll as the playable protagonist including legacy slug aliases', 
     }
 });
 
+it('starts Sense and Sensibility as Elinor at the book opening', function (): void {
+    expect(ChaosStoryConfig::find('sense-and-sensibility')['protagonist'])->toBe('Elinor Dashwood')
+        ->and(ChaosStoryConfig::find('sense-and-sensibility')['prefer_literal_opening'] ?? false)->toBeTrue();
+});
+
 it('resolves launch-only titles from the launch catalog', function (): void {
     expect(ChaosStoryConfig::find('dracula')['protagonist'])->toBe('Mina Murray')
         ->and(ChaosStoryConfig::protagonistFor('peter-pan'))->toBe('Wendy Darling');
