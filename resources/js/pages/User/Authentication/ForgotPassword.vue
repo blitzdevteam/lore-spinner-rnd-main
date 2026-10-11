@@ -26,11 +26,24 @@ const loginUrl = login.create.url();
         :shift-image="!resetLinkSent"
         :back-href="resetLinkSent ? undefined : loginUrl"
     >
-        <div v-if="resetLinkSent" class="flex w-full flex-col gap-3.5 text-center">
-            <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Check Your Email</h1>
-            <p class="font-inter text-base text-[#ffbe58]">
-                We’ve sent a password reset link to your email. Open it to create a new password.
-            </p>
+        <div v-if="resetLinkSent" class="flex w-full flex-col items-center gap-10">
+            <div class="flex w-full flex-col gap-3.5 text-center">
+                <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Check Your Email</h1>
+                <p class="font-inter text-base text-[#ffbe58]">
+                    We’ve sent a password reset link to your email. Open it to create a new password.
+                </p>
+            </div>
+
+            <Form :action="store()" class="flex w-full flex-col items-center gap-3" #default="{ errors, processing }">
+                <input type="hidden" name="email" :value="email" />
+                <p v-if="errors.email" class="text-center font-inter text-sm text-red-400">{{ errors.email }}</p>
+                <p class="text-center font-inter text-[15px] text-[#585858]">
+                    Didn't receive the email?
+                    <button type="submit" class="font-semibold text-white underline" :disabled="processing">
+                        Resend Link
+                    </button>
+                </p>
+            </Form>
         </div>
 
         <Form v-else :action="store()" class="flex w-full flex-col items-center gap-10" #default="{ errors, processing }">
@@ -45,13 +58,7 @@ const loginUrl = login.create.url();
                 <input name="email" type="email" autocomplete="email" :value="email" :class="fieldClass" />
             </AuthField>
 
-            <div class="flex w-full flex-col items-center gap-5">
-                <button type="submit" class="auth-submit" :disabled="processing">Send Reset Link</button>
-                <p class="text-center font-inter text-[15px] text-[#585858]">
-                    Didn't receive the email?
-                    <button type="submit" class="font-semibold text-white underline" :disabled="processing">Resend Link</button>
-                </p>
-            </div>
+            <button type="submit" class="auth-submit" :disabled="processing">Send Reset Link</button>
         </Form>
     </AuthSplitLayout>
 </template>

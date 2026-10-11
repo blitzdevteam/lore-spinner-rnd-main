@@ -212,11 +212,13 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->toContain('name="password_confirmation"')
         ->toContain(':back-href="index().url"');
 
+    $emailForm = mb_substr($forgot, (int) mb_strpos($forgot, 'Forgot Password?'));
+
     expect($forgot)
-        ->toContain('Forgot Password?')
         ->toContain('Check Your Email')
-        ->toContain('Send Reset Link')
-        ->toContain('Resend Link');
+        ->toContain('Resend Link')
+        ->and($emailForm)->toContain('Send Reset Link')
+        ->and($emailForm)->not->toContain('Resend Link');
 });
 
 it('places the auth back button on the left side of the image', function (): void {

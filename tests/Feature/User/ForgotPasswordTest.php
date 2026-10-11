@@ -26,10 +26,13 @@ it('brands the reset email as lorespinner', function () {
         ->and(config('mail.from.name'))->toBe('lorespinner');
 });
 
-it('renders the forgot password page', function () {
+it('renders the forgot password page before a reset link is sent', function () {
     $this->get(route('user.authentication.forgot-password.create'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('User/Authentication/ForgotPassword'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('User/Authentication/ForgotPassword')
+            ->where('resetLinkSent', false)
+            ->where('email', ''));
 });
 
 it('emails a password reset link', function () {
@@ -47,12 +50,47 @@ it('emails a password reset link', function () {
         ->assertRedirect(route('user.authentication.forgot-password.create'))
         ->assertSessionHas('success', 'We have emailed your password reset link.');
 
+    $this->get(route('user.authentication.forgot-password.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('User/Authentication/ForgotPassword')
+            ->where('resetLinkSent', true)
+            ->where('email', $user->email));
+
     Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user): bool {
         $url = $notification->toMail($user)->actionUrl;
 
         return str_contains($url, '/user/authentication/reset-password/')
             && str_contains($url, 'email='.urlencode($user->email));
     });
+});
+
+it('keeps resend available when another link is requested too soon', function () {
+    Notification::fake();
+
+    $user = User::factory()->create([
+        'email' => 'player@example.com',
+    ]);
+
+    $this->post(route('user.authentication.forgot-password.store'), [
+        'email' => $user->email,
+    ])->assertSessionHas('success');
+
+    $this->from(route('user.authentication.forgot-password.create'))
+        ->post(route('user.authentication.forgot-password.store'), [
+            'email' => $user->email,
+        ])
+        ->assertSessionHas('reset_link_sent')
+        ->assertSessionHasErrors([
+            'email' => 'Please wait before requesting another reset link.',
+        ]);
+
+    $this->get(route('user.authentication.forgot-password.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('User/Authentication/ForgotPassword')
+            ->where('resetLinkSent', true)
+            ->where('email', $user->email));
 });
 
 it('does not email a reset link for an unknown address', function () {

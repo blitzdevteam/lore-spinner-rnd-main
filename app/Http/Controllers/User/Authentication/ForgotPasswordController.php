@@ -16,7 +16,7 @@ final class ForgotPasswordController extends Controller
     public function create(): Response
     {
         return inertia('User/Authentication/ForgotPassword', [
-            'resetLinkSent' => session()->has('success'),
+            'resetLinkSent' => session()->has('success') || session()->has('reset_link_sent'),
             'email' => (string) old('email', ''),
         ]);
     }
@@ -31,6 +31,13 @@ final class ForgotPasswordController extends Controller
             return back()
                 ->withInput($request->only('email'))
                 ->with('error', 'We could not send the reset email. Please try again in a moment.');
+        }
+
+        if ($status === Password::RESET_THROTTLED) {
+            return back()
+                ->withInput($request->only('email'))
+                ->with('reset_link_sent', true)
+                ->withErrors(['email' => __($status)]);
         }
 
         if ($status !== Password::RESET_LINK_SENT) {
