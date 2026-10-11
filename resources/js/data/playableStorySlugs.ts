@@ -16,6 +16,7 @@ export const LAUNCH_PLAYABLE_SLUGS = [
     'the-tell-tale-heart',
     'pride-and-prejudice',
     'emma',
+    'sense-and-sensibility',
     'around-the-world-in-eighty-days',
     'journey-to-the-center-of-the-earth',
     'the-three-musketeers',

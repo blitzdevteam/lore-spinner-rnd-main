@@ -311,6 +311,24 @@ return [
             'rating' => 'teen',
             'creator' => 'classics',
         ],
+        [
+            'seed_keys' => ['sense-and-sensibility', 'sense', 'sensibility'],
+            'title' => 'Sense and Sensibility',
+            'slug' => 'sense-and-sensibility',
+            'world' => 'Jane Austen',
+            'world_slug' => '05-jane-austen',
+            'world_catalog_slug' => 'jane-austen',
+            'launch_path' => 'launch/05-jane-austen/sense-and-sensibility',
+            'source' => 'Sense and Sensibility.pdf',
+            'source_inbox' => null,
+            'legacy_source_pdf' => null,
+            'script' => 'Sense and Sensibility_script.txt',
+            'story_cover' => 'database:covers/sense-and-sensibility.webp',
+            'category' => 'Romance',
+            'teaser' => 'Two sisters, two fortunes, and the difference between what the heart wants and what the world allows.',
+            'rating' => 'teen',
+            'creator' => 'classics',
+        ],
 
         // ── 06 LoreSpinner Originals ──────────────────────────────────────
         [

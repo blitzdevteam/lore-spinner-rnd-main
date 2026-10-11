@@ -378,7 +378,7 @@ final class AddSingleStorySeeder extends Seeder
      *   wizard-of-oz · marvelous-land-of-oz
      *   theseus-and-the-minotaur · orpheus-and-eurydice
      *   havoc-in-heaven · white-bone-demon
-     *   pride-and-prejudice · emma
+     *   pride-and-prejudice · emma · sense-and-sensibility
      *   anima-machina · wasteland · driftheart · dream-police · unwritten-ones
      *   jekyll · dr-jekyll-and-mr-hyde
      *   momotaro · tell-tale-heart

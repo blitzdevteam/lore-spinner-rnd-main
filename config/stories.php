@@ -22,6 +22,7 @@ return [
         'the-tell-tale-heart',
         'pride-and-prejudice',
         'emma',
+        'sense-and-sensibility',
         'around-the-world-in-eighty-days',
         'journey-to-the-center-of-the-earth',
         'the-three-musketeers',
@@ -154,6 +155,12 @@ return [
             'emma' => [
                 'title' => 'Emma',
                 'protagonist' => 'Emma Woodhouse',
+                'world_slug' => 'jane-austen',
+                'world' => 'Jane Austen',
+            ],
+            'sense-and-sensibility' => [
+                'title' => 'Sense and Sensibility',
+                'protagonist' => 'Elinor Dashwood',
                 'world_slug' => 'jane-austen',
                 'world' => 'Jane Austen',
             ],

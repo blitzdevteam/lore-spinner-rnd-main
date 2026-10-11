@@ -11,6 +11,7 @@ const LAUNCH_WORLD_BY_SLUG: Record<string, string> = {
     'the-tell-tale-heart': 'Gothic Horrors',
     'pride-and-prejudice': 'Jane Austen',
     emma: 'Jane Austen',
+    'sense-and-sensibility': 'Jane Austen',
     'treasure-island': 'High Adventure',
     'around-the-world-in-eighty-days': 'Extraordinary Voyages',
     'journey-to-the-center-of-the-earth': 'Extraordinary Voyages',

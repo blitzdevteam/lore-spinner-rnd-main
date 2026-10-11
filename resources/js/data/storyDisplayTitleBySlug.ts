@@ -11,6 +11,7 @@ const DISPLAY_TITLES_BY_SLUG: Record<string, string> = {
     'the-tell-tale-heart': 'The Tell-Tale Heart',
     'pride-and-prejudice': 'Pride and Prejudice',
     emma: 'Emma',
+    'sense-and-sensibility': 'Sense and Sensibility',
     'treasure-island': 'Treasure Island',
     'around-the-world-in-eighty-days': 'Around the World in Eighty Days',
     'journey-to-the-center-of-the-earth': 'Journey to the Center of the Earth',

@@ -55,6 +55,7 @@ it('binds each launch playable slug to a playable protagonist', function (): voi
         'the-tell-tale-heart' => 'The Narrator',
         'pride-and-prejudice' => 'Elizabeth Bennet',
         'emma' => 'Emma Woodhouse',
+        'sense-and-sensibility' => 'Elinor Dashwood',
         'treasure-island' => 'Jim Hawkins',
         'around-the-world-in-eighty-days' => 'Jean Passepartout',
         'the-three-musketeers' => "D'Artagnan",
