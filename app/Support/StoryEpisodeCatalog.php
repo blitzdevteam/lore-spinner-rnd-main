@@ -15,6 +15,8 @@ use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Player-facing episodes are adaptation sessions, not extracted book chapters.
@@ -108,9 +110,20 @@ final class StoryEpisodeCatalog
         }
 
         $paragraphs = preg_split('/\R{2,}/u', mb_trim($coldOpen)) ?: [];
-        $opening = is_string($paragraphs[0] ?? null) ? $paragraphs[0] : '';
 
-        return self::normalizeTeaser(str_replace(['*', '_'], '', $opening));
+        foreach ($paragraphs as $paragraph) {
+            if (! is_string($paragraph)) {
+                continue;
+            }
+
+            $opening = self::normalizeTeaser($paragraph);
+
+            if ($opening !== '') {
+                return $opening;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -150,6 +163,10 @@ final class StoryEpisodeCatalog
 
     private static function normalizeTeaser(string $raw): string
     {
+        $raw = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $raw = (string) preg_replace('/===[^=]*===/u', ' ', $raw);
+        $raw = str_replace(['*', '_'], '', $raw);
+
         $teaser = mb_trim((string) preg_replace('/\s+/u', ' ', $raw));
 
         if ($teaser === '') {
@@ -284,17 +301,38 @@ final class StoryEpisodeCatalog
             ->get(['id', 'story_id'])
             ->keyBy('id');
 
+        $storyCover = self::readableMediaUrl($story->getFirstMedia('cover'));
         $covers = [];
 
         foreach ($chapterIdBySession as $number => $chapterId) {
-            $cover = $chapters->get($chapterId)?->getFirstMediaUrl('cover') ?? '';
+            $cover = self::readableMediaUrl($chapters->get($chapterId)?->getFirstMedia('cover'))
+                ?? $storyCover;
 
-            if ($cover !== '') {
+            if ($cover !== null) {
                 $covers[$number] = $cover;
             }
         }
 
         return $covers;
+    }
+
+    /**
+     * A media row whose file is gone still produces a URL. Streaming that URL
+     * 500s, and the episode card shows a broken image.
+     */
+    private static function readableMediaUrl(?Media $media): ?string
+    {
+        if (! $media instanceof Media) {
+            return null;
+        }
+
+        if (! Storage::disk($media->disk)->exists($media->getPathRelativeToRoot())) {
+            return null;
+        }
+
+        $url = $media->getUrl();
+
+        return $url === '' ? null : $url;
     }
 
     /**

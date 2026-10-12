@@ -386,6 +386,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                                         v-for="episode in leftColumnEpisodes"
                                         :key="episode.number"
                                         :episode
+                                        :fallback-cover="coverImageUrl"
                                     />
                                 </div>
                                 <div class="flex min-w-0 flex-1 flex-col gap-2.5">
@@ -393,6 +394,7 @@ const rightColumnEpisodes = computed(() => episodes.value.filter((_, index) => i
                                         v-for="episode in rightColumnEpisodes"
                                         :key="episode.number"
                                         :episode
+                                        :fallback-cover="coverImageUrl"
                                     />
                                 </div>
                             </div>

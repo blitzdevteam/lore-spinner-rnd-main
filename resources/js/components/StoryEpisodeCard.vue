@@ -4,13 +4,45 @@ import lockIcon from '@/assets/story-play/episode-lock.svg';
 import progressIcon from '@/assets/story-play/episode-progress.svg';
 import chapterPlaceholder from '@/assets/temp/chapter.png';
 import { StoryEpisodeInterface } from '@/types';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
     episode: StoryEpisodeInterface;
+    fallbackCover?: string | null;
 }>();
 
-const coverImage = computed(() => props.episode.cover || chapterPlaceholder);
+type CoverStage = 'episode' | 'fallback' | 'placeholder';
+
+const coverStage = ref<CoverStage>('episode');
+
+watch(
+    () => props.episode.cover,
+    () => {
+        coverStage.value = 'episode';
+    },
+);
+
+const coverImage = computed(() => {
+    if (coverStage.value === 'episode' && props.episode.cover) {
+        return props.episode.cover;
+    }
+
+    if (coverStage.value !== 'placeholder' && props.fallbackCover && props.fallbackCover !== props.episode.cover) {
+        return props.fallbackCover;
+    }
+
+    return chapterPlaceholder;
+});
+
+function onCoverError(): void {
+    if (coverStage.value === 'episode' && props.fallbackCover && props.fallbackCover !== props.episode.cover) {
+        coverStage.value = 'fallback';
+
+        return;
+    }
+
+    coverStage.value = 'placeholder';
+}
 
 type EpisodeStatus = 'completed' | 'in_progress' | 'not_started';
 
@@ -53,7 +85,7 @@ const statusLabel = computed(() => {
     <article class="rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-2.5">
         <div class="flex items-center gap-2">
             <div class="relative h-[116px] w-[79px] shrink-0 overflow-hidden rounded-md bg-gray-800">
-                <img :src="coverImage" alt="" class="size-full object-cover" />
+                <img :src="coverImage" alt="" class="size-full object-cover" @error="onCoverError" />
                 <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-black/60" />
                 <img
                     :src="coverImage"

@@ -14,6 +14,8 @@ use App\Models\PlayableSessionCut;
 use App\Models\Story;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -227,6 +229,69 @@ it('shows the event being played on the in-progress episode and locks the rest',
                 ->where('episodes.1.events_total', 3)
                 ->where('episodes.2.events_played', 0)
                 ->where('episodes.2.events_total', 1)
+                ->etc()
+        );
+});
+
+it('drops cold-open banners from the episode description', function (): void {
+    $story = storyWithSessions(1);
+    $session = $story->adaptation->sessionAdaptations()->where('session_number', 1)->firstOrFail();
+    $session->update([
+        'entry_point_diagnosis' => [
+            'cold_open' => "=== COLD OPEN: The Morning Summons | Session 1 ===\nYour sleep breaks sharply, and your eyes open upon Holmes.",
+        ],
+    ]);
+
+    $this->get(route('stories.show', $story))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('episodes.0.teaser', 'Your sleep breaks sharply, and your eyes open upon Holmes.')
+                ->etc()
+        );
+});
+
+it('uses the story cover when a chapter cover file is missing', function (): void {
+    Storage::fake('public');
+
+    $story = storyWithSessions(1);
+    $story->addMedia(UploadedFile::fake()->image('story.jpg'))
+        ->toMediaCollection('cover');
+
+    $chapter = $story->chapters()->firstOrFail();
+    $chapter->addMedia(UploadedFile::fake()->image('chapter.png'))
+        ->toMediaCollection('cover');
+
+    $chapterMedia = $chapter->getFirstMedia('cover');
+    expect($chapterMedia)->not->toBeNull();
+    Storage::disk($chapterMedia->disk)->delete($chapterMedia->getPathRelativeToRoot());
+
+    $storyCover = $story->fresh()->getFirstMediaUrl('cover');
+
+    $this->get(route('stories.show', $story))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('episodes.0.cover', $storyCover)
+                ->etc()
+        );
+});
+
+it('keeps a chapter cover when its file is on disk', function (): void {
+    Storage::fake('public');
+
+    $story = storyWithSessions(1);
+    $chapter = $story->chapters()->firstOrFail();
+    $chapter->addMedia(UploadedFile::fake()->image('chapter.png'))
+        ->toMediaCollection('cover');
+
+    $chapterCover = $chapter->fresh()->getFirstMediaUrl('cover');
+
+    $this->get(route('stories.show', $story))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('episodes.0.cover', $chapterCover)
                 ->etc()
         );
 });

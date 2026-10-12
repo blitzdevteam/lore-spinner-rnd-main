@@ -57,6 +57,23 @@ it('lets guests stream uploaded world backgrounds from the app origin', function
         ->assertHeader('content-type', 'image/png');
 });
 
+it('returns not found when a public cover file is missing', function (): void {
+    $story = Story::factory()->create([
+        'title' => 'Emma',
+        'slug' => 'emma',
+        'status' => StoryStatusEnum::PUBLISHED,
+        'published_at' => now(),
+    ]);
+    $story->addMedia(UploadedFile::fake()->image('emma.jpg'))
+        ->toMediaCollection('cover');
+
+    $media = $story->getFirstMedia('cover');
+    expect($media)->not->toBeNull();
+    Storage::disk($media->disk)->delete($media->getPathRelativeToRoot());
+
+    $this->get(PublicMedia::url($media))->assertNotFound();
+});
+
 it('hides private story scripts from the public media route', function (): void {
     $story = Story::factory()->create();
     $story->addMediaFromString('The story begins on Baker Street.')
