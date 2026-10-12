@@ -709,6 +709,7 @@ const handleInputSubmit = (prompt: string) => {
 :global(body.gameplay-scrollbar-theme) {
     scrollbar-color: rgba(84, 244, 218, 0.3) transparent;
     scrollbar-width: thin;
+    overflow-anchor: none;
 }
 
 :global(html.gameplay-scrollbar-theme::-webkit-scrollbar),

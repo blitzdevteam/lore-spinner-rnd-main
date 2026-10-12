@@ -47,8 +47,17 @@ final class GameController extends Controller
                 'adaptation' => fn ($a) => $a
                     ->withCount('sessionAdaptations')
                     ->with(['sessionAdaptations' => fn ($sa) => $sa
-                        ->where('session_number', 1)
-                        ->select(['id', 'story_adaptation_id', 'session_number', 'entry_point_diagnosis']),
+                        ->whereIn('session_number', array_values(array_unique([
+                            1,
+                            (int) ($game->current_session_number ?? 1),
+                        ])))
+                        ->select([
+                            'id',
+                            'story_adaptation_id',
+                            'session_number',
+                            'entry_point_diagnosis',
+                            'session_close_design',
+                        ]),
                     ]),
             ]),
             // Ordered by the ULID primary key, not created_at: turns committed within

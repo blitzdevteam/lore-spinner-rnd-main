@@ -77,6 +77,7 @@ function visitLeavesThisGame(url: string | { toString?: () => string; href?: str
 }
 
 let removeNavigationListener: (() => void) | undefined;
+let removeReadingScrollListener: (() => void) | undefined;
 
 const isSubmitting = ref(false);
 const beginSettled = ref(false);
@@ -285,8 +286,28 @@ function handleNarrationFinished() {
     }
 }
 
-function keepWindowScroll(scrollY: number): void {
-    if (typeof window === 'undefined') {
+// Last place the reader was actually reading. Showing the achievement card
+// destroys the focused input or choice, and browsers answer that by jumping
+// to the top after the card has already been inserted.
+let readingScrollY = 0;
+
+function rememberReadingScroll(): void {
+    if (typeof window === 'undefined' || window.scrollY <= 1) {
+        return;
+    }
+
+    readingScrollY = window.scrollY;
+}
+
+function blurActiveElement(): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body) {
+        active.blur();
+    }
+}
+
+function restoreWindowScroll(scrollY: number): void {
+    if (typeof window === 'undefined' || scrollY <= 1) {
         return;
     }
 
@@ -304,12 +325,51 @@ function keepWindowScroll(scrollY: number): void {
     });
 }
 
+function holdWindowScroll(scrollY: number): void {
+    if (typeof window === 'undefined' || scrollY <= 1) {
+        return;
+    }
+
+    const restore = (): void => {
+        if (Math.abs(window.scrollY - scrollY) > 1) {
+            window.scrollTo({ top: scrollY, behavior: 'auto' });
+        }
+    };
+
+    let released = false;
+    const release = (): void => {
+        released = true;
+    };
+
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchmove', release, { passive: true });
+
+    const started = performance.now();
+    const tick = (): void => {
+        if (released || performance.now() - started > 800) {
+            window.removeEventListener('wheel', release);
+            window.removeEventListener('touchmove', release);
+            return;
+        }
+
+        restore();
+        window.requestAnimationFrame(tick);
+    };
+
+    blurActiveElement();
+    restore();
+    void nextTick(() => {
+        window.requestAnimationFrame(tick);
+    });
+}
+
 watch(ceremonyReady, (ready) => {
     if (!ready || typeof window === 'undefined') {
         return;
     }
 
-    keepWindowScroll(window.scrollY);
+    const scrollY = window.scrollY > 1 ? window.scrollY : readingScrollY;
+    holdWindowScroll(scrollY);
 });
 
 // Cinematic opening: shown on first visit (no prompts yet); hidden once begin fires
@@ -540,7 +600,7 @@ function setPromptCardElement(promptId: string, element: unknown) {
 function scrollToPromptStart(promptId: string): boolean {
     // The completion card is appended under the episode the reader just finished.
     // Anchoring to a narration start here pulls them back to the top of the story.
-    if (ceremonyReady.value) {
+    if (ceremonyReady.value || sessionComplete.value) {
         return true;
     }
 
@@ -553,6 +613,7 @@ function scrollToPromptStart(promptId: string): boolean {
     const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
 
     window.scrollTo({ top, behavior: 'auto' });
+    rememberReadingScroll();
 
     return true;
 }
@@ -741,14 +802,15 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
             }
 
             if (event.event === 'done' && event.prompt) {
-                const scrollY = window.scrollY;
+                rememberReadingScroll();
+                const scrollY = readingScrollY || window.scrollY;
                 commitStreamedPrompt(
                     activeStreamingPromptId,
                     event.source_prompt_id ?? options.promptId,
                     event.source_prompt_value ?? prompt,
                     event.prompt,
                 );
-                keepWindowScroll(scrollY);
+                restoreWindowScroll(scrollY);
                 completed = true;
                 isSubmitting.value = false;
                 isStreamingTurn.value = false;
@@ -905,6 +967,14 @@ async function pollForTurnCompletion(sourcePromptId: string) {
 }
 
 onMounted(() => {
+    const onWindowScroll = (): void => {
+        rememberReadingScroll();
+    };
+    window.addEventListener('scroll', onWindowScroll, { passive: true });
+    removeReadingScrollListener = () => {
+        window.removeEventListener('scroll', onWindowScroll);
+    };
+
     // Start after mount so browser audio APIs are available. If autoplay is
     // blocked, the composable retries on the first cinematic gesture.
     if (showCinematic.value) {
@@ -930,9 +1000,11 @@ onMounted(() => {
         showCinematic.value = false;
         if (openedOnCompletedSession) {
             void nextTick(() => {
-                document
-                    .querySelector('[data-completion-ceremony]')
-                    ?.scrollIntoView({ block: 'start', behavior: 'auto' });
+                window.requestAnimationFrame(() => {
+                    document
+                        .querySelector('[data-completion-ceremony]')
+                        ?.scrollIntoView({ block: 'end', behavior: 'auto' });
+                });
             });
         } else if (latestPromptId.value) {
             scrollToNarrationStartOnce(latestPromptId.value);
@@ -977,6 +1049,7 @@ const handleCinematicDone = () => {
 
 onUnmounted(() => {
     removeNavigationListener?.();
+    removeReadingScrollListener?.();
 });
 </script>
 

@@ -24,6 +24,8 @@ An AI-powered interactive fiction platform that transforms screenplay scripts in
 - [Domain Model](#domain-model)
 - [Troubleshooting](#troubleshooting)
 
+Distribution planning for Steam and Discord lives in [STEAM-AND-DISCORD.md](STEAM-AND-DISCORD.md).
+
 ---
 
 ## Architecture Overview
