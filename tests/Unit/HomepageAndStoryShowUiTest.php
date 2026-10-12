@@ -360,6 +360,8 @@ it('shows the fixed episode duration and builds the episode list from sessions',
         ->toContain('Events completed')
         ->toContain('Events {{ episode.events_played }}/')
         ->toContain('episode-lock.svg')
+        ->toContain('class="size-full object-cover"')
+        ->not->toContain('h-[37px] w-[69px]')
         ->not->toContain('Spins Earned');
 
     expect($storyController)

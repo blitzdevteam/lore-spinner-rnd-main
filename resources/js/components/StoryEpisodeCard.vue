@@ -87,13 +87,8 @@ const statusLabel = computed(() => {
             <div class="relative h-[116px] w-[79px] shrink-0 overflow-hidden rounded-md bg-gray-800">
                 <img :src="coverImage" alt="" class="size-full object-cover" @error="onCoverError" />
                 <div aria-hidden="true" class="pointer-events-none absolute inset-0 bg-black/60" />
-                <img
-                    :src="coverImage"
-                    alt=""
-                    class="pointer-events-none absolute top-[18px] left-[5px] h-[37px] w-[69px] rounded-md object-cover"
-                />
                 <span
-                    class="pointer-events-none absolute inset-x-0 top-[69px] z-[1] text-center font-['Times_New_Roman',Times,serif] text-[50px] leading-5 font-bold text-white/80"
+                    class="pointer-events-none absolute inset-0 z-[1] grid place-items-center font-['Times_New_Roman',Times,serif] text-[50px] leading-none font-bold text-white/80"
                     aria-hidden="true"
                 >
                     {{ episode.number }}
