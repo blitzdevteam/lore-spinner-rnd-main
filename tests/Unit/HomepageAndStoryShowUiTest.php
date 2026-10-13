@@ -67,10 +67,10 @@ it('features the curated homepage story order', function (): void {
     $worldStoryCovers = file_get_contents(resource_path('js/data/storyTopMoodCoverBySlug.ts'));
 
     expect($worldStoryCovers)
-        ->toContain("import speckledBandCover from '@/assets/newStories/speckled-band-landscape.jpg'")
-        ->toContain("import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.jpg'")
-        ->toContain("import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.jpg'")
-        ->toContain("import emmaCover from '@/assets/newStories/emma-wide.jpg'")
+        ->toContain("import speckledBandCover from '@/assets/newStories/speckled-band-landscape.webp'")
+        ->toContain("import blueCarbuncleCover from '@/assets/newStories/blue-carbuncle-wide.webp'")
+        ->toContain("import scandalBohemiaCover from '@/assets/newStories/scandal-in-bohemia-wide.webp'")
+        ->toContain("import emmaCover from '@/assets/newStories/emma-wide.webp'")
         ->toContain("'the-adventure-of-the-speckled-band': speckledBandCover")
         ->toContain("'the-adventure-of-the-blue-carbuncle': blueCarbuncleCover")
         ->toContain("'a-scandal-in-bohemia': scandalBohemiaCover")

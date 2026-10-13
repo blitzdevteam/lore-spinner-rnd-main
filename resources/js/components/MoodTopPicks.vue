@@ -134,6 +134,8 @@ function openSheet(story: StoryInterface): void {
                                                 :src="coverForStory(story)"
                                                 :alt="story.title"
                                                 class="absolute inset-0 size-full object-cover"
+                                                decoding="async"
+                                                loading="lazy"
                                             />
                                         </span>
                                         <span class="flex w-full items-end justify-between gap-2">
