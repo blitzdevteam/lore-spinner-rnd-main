@@ -29,3 +29,24 @@ it('keeps the reading position when an episode or story completion card appears'
 
     expect($layout)->toContain('overflow-anchor: none');
 });
+
+it('scrolls to the narration choices only while autoplay is on', function () {
+    $show = file_get_contents(resource_path('js/pages/User/Games/Show.vue'));
+
+    expect($show)->not->toBeFalse();
+
+    expect($show)
+        ->toContain('function scrollToNarrationEndOnce')
+        ->toContain('if (!gameplaySettings.autoplay)')
+        ->toContain("scrollIntoView({ block: 'end', behavior: 'auto' })")
+        ->toContain('class="scroll-mb-42 md:scroll-mb-32"')
+        ->toContain('scrollToNarrationEndOnce(latestPromptId.value)')
+        ->toContain('scrollToNarrationEndOnce(committedPromptId)')
+        ->not->toContain('function scrollToNarrationStartOnce')
+        ->not->toContain('scrollToNarrationStartOnce');
+
+    $autoplayOff = mb_strpos($show, '} else {
+                    restoreWindowScroll(scrollY);');
+
+    expect($autoplayOff)->not->toBeFalse();
+});

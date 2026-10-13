@@ -473,6 +473,10 @@ const nudgeTrigger = ref(0);
 
 function handleChoicesReady() {
     nudgeTrigger.value++;
+
+    if (latestPromptId.value) {
+        scrollToNarrationEndOnce(latestPromptId.value);
+    }
 }
 
 const handleBegin = () => {
@@ -597,11 +601,15 @@ function setPromptCardElement(promptId: string, element: unknown) {
     promptCardElements.value[promptId] = element instanceof HTMLElement ? element : null;
 }
 
-function scrollToPromptStart(promptId: string): boolean {
+function scrollToNarrationEnd(promptId: string): boolean {
     // The completion card is appended under the episode the reader just finished.
-    // Anchoring to a narration start here pulls them back to the top of the story.
+    // Anchoring to a narration here pulls them back to the top of the story.
     if (ceremonyReady.value || sessionComplete.value) {
         return true;
+    }
+
+    if (!gameplaySettings.autoplay) {
+        return false;
     }
 
     const element = promptCardElements.value[promptId];
@@ -609,23 +617,20 @@ function scrollToPromptStart(promptId: string): boolean {
         return false;
     }
 
-    const stickyHeaderOffset = 112;
-    const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - stickyHeaderOffset);
-
-    window.scrollTo({ top, behavior: 'auto' });
+    element.scrollIntoView({ block: 'end', behavior: 'auto' });
     rememberReadingScroll();
 
     return true;
 }
 
-function scrollToNarrationStartOnce(promptId: string): void {
-    if (typeof window === 'undefined' || autoScrolledNarrationPromptIds.has(promptId)) {
+function scrollToNarrationEndOnce(promptId: string): void {
+    if (typeof window === 'undefined' || !gameplaySettings.autoplay || autoScrolledNarrationPromptIds.has(promptId)) {
         return;
     }
 
     void nextTick(() => {
         window.requestAnimationFrame(() => {
-            if (autoScrolledNarrationPromptIds.has(promptId) || !scrollToPromptStart(promptId)) {
+            if (autoScrolledNarrationPromptIds.has(promptId) || !gameplaySettings.autoplay || !scrollToNarrationEnd(promptId)) {
                 return;
             }
 
@@ -793,24 +798,27 @@ async function streamPrompt(prompt: string, options: SubmitOptions) {
 
             if (event.event === 'ready') {
                 openingMusic.fadeOut();
-                scrollToNarrationStartOnce(activeStreamingPromptId);
             }
 
             if (event.event === 'delta' && event.text) {
                 appendToStreamingPrompt(activeStreamingPromptId, event.text);
-                scrollToNarrationStartOnce(activeStreamingPromptId);
             }
 
             if (event.event === 'done' && event.prompt) {
                 rememberReadingScroll();
                 const scrollY = readingScrollY || window.scrollY;
+                const committedPromptId = String(event.prompt.id);
                 commitStreamedPrompt(
                     activeStreamingPromptId,
                     event.source_prompt_id ?? options.promptId,
                     event.source_prompt_value ?? prompt,
                     event.prompt,
                 );
-                restoreWindowScroll(scrollY);
+                if (gameplaySettings.autoplay) {
+                    scrollToNarrationEndOnce(committedPromptId);
+                } else {
+                    restoreWindowScroll(scrollY);
+                }
                 completed = true;
                 isSubmitting.value = false;
                 isStreamingTurn.value = false;
@@ -893,9 +901,6 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
             isRetryingBegin.value = false;
             openingMusic.fadeOut();
             shouldAnimate.value = true;
-            if (latestPromptId.value) {
-                scrollToNarrationStartOnce(latestPromptId.value);
-            }
             return;
         }
 
@@ -906,9 +911,6 @@ async function pollForOpeningCompletion(kind: 'begin' | 'next', priorSession?: n
         ) {
             isStartingNextSession.value = false;
             shouldAnimate.value = true;
-            if (latestPromptId.value) {
-                scrollToNarrationStartOnce(latestPromptId.value);
-            }
             return;
         }
 
@@ -955,9 +957,6 @@ async function pollForTurnCompletion(sourcePromptId: string) {
             isSubmitting.value = false;
             pendingSelection.value = {};
             shouldAnimate.value = true;
-            if (latestPromptId.value) {
-                scrollToNarrationStartOnce(latestPromptId.value);
-            }
             return;
         }
     }
@@ -1007,7 +1006,7 @@ onMounted(() => {
                 });
             });
         } else if (latestPromptId.value) {
-            scrollToNarrationStartOnce(latestPromptId.value);
+            scrollToNarrationEndOnce(latestPromptId.value);
         }
     }
 
@@ -1042,8 +1041,11 @@ const handleRetryBegin = () => {
 
 const handleCinematicDone = () => {
     showCinematic.value = false;
-    if (latestPromptId.value) {
-        scrollToNarrationStartOnce(latestPromptId.value);
+
+    // An opening that is still typing reveals its choices later. Scrolling now
+    // would lock onto the narration before those buttons exist.
+    if (latestPromptId.value && !shouldAnimate.value) {
+        scrollToNarrationEndOnce(latestPromptId.value);
     }
 };
 
@@ -1151,6 +1153,7 @@ onUnmounted(() => {
             <div
                 v-for="prompt in prompts"
                 :key="prompt.id"
+                class="scroll-mb-42 md:scroll-mb-32"
                 :ref="(element) => setPromptCardElement(prompt.id, element)"
             >
                 <GameplayChatCard
