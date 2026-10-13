@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import epicStoriesImage from '@/assets/auth/epic-stories.png';
 import AuthField from '@/components/auth/AuthField.vue';
 import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
@@ -21,25 +20,20 @@ const fieldClass =
 
 <template>
     <Form :action="store()" #default="{ errors, processing }">
-        <AuthSplitLayout
-            :image-src="epicStoriesImage"
-            panel-title="Epic stories"
-            panel-subtitle="Legends. Conflict. Destiny."
-            :back-href="index().url"
-        >
-            <div class="flex w-full flex-col items-center gap-7">
+        <AuthSplitLayout :back-href="index().url">
+            <div class="flex w-full flex-col items-center gap-5">
                 <input v-if="props.returnTo" type="hidden" name="return_to" :value="props.returnTo" />
-                <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Sign Up</h1>
+                <h1 class="font-inter text-2xl font-medium leading-none text-white">Sign Up</h1>
                 <div class="flex w-full flex-col gap-2.5 text-center">
-                    <p class="font-inter text-[1.125rem] text-[#ffbe58]">Step Into The Story</p>
-                    <p class="font-inter text-base text-[#83b1ce]">
+                    <p class="font-inter text-lg text-[#ffbe58]">Step Into The Story</p>
+                    <p class="font-inter text-base leading-[22px] text-[#83b1ce]">
                         Every story changes because of your imagination and choices.
                     </p>
                 </div>
 
                 <AuthProviderButtons />
 
-                <div class="flex w-full flex-col gap-5">
+                <div class="flex w-full flex-col gap-[14px]">
                     <div class="grid w-full grid-cols-2 gap-[1.125rem]">
                         <AuthField label="First Name" :error="errors.first_name">
                             <input name="first_name" type="text" autocomplete="given-name" :class="fieldClass" />
@@ -62,7 +56,7 @@ const fieldClass =
                             />
                         </AuthField>
                         <input type="hidden" name="password_confirmation" :value="password" />
-                        <p v-if="!errors.password" class="font-inter text-sm text-[#585858]">Must be at least 8 characters</p>
+                        <p v-if="!errors.password" class="font-inter text-[13px] text-[#585858]">Must be at least 8 characters</p>
                     </div>
                 </div>
 
@@ -91,7 +85,7 @@ const fieldClass =
     color: #000;
     font-family: Inter, sans-serif;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .auth-submit:disabled {

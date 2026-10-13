@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import mysteriousStoriesImage from '@/assets/auth/mysterious-stories.jpg';
-import whimsicalStoriesImage from '@/assets/auth/whimsical-stories.png';
 import AuthField from '@/components/auth/AuthField.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/ForgotPasswordController';
@@ -19,17 +17,11 @@ const loginUrl = login.create.url();
 </script>
 
 <template>
-    <AuthSplitLayout
-        :image-src="resetLinkSent ? mysteriousStoriesImage : whimsicalStoriesImage"
-        :panel-title="resetLinkSent ? 'Mysterious stories' : 'Whimsical stories'"
-        :panel-subtitle="resetLinkSent ? 'Secrets. Questions. Obsession.' : 'Curiosity. Imagination. Delight.'"
-        :shift-image="!resetLinkSent"
-        :back-href="resetLinkSent ? undefined : loginUrl"
-    >
+    <AuthSplitLayout :back-href="resetLinkSent ? undefined : loginUrl">
         <div v-if="resetLinkSent" class="flex w-full flex-col items-center gap-10">
             <div class="flex w-full flex-col gap-3.5 text-center">
-                <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Check Your Email</h1>
-                <p class="font-inter text-base text-[#ffbe58]">
+                <h1 class="font-inter text-2xl font-medium leading-none text-white">Check Your Email</h1>
+                <p class="font-inter text-base leading-[22px] text-[#ffbe58]">
                     We’ve sent a password reset link to your email. Open it to create a new password.
                 </p>
             </div>
@@ -48,8 +40,8 @@ const loginUrl = login.create.url();
 
         <Form v-else :action="store()" class="flex w-full flex-col items-center gap-10" #default="{ errors, processing }">
             <div class="flex w-full flex-col gap-3.5 text-center">
-                <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Forgot Password?</h1>
-                <p class="font-inter text-base text-[#ffbe58]">
+                <h1 class="font-inter text-2xl font-medium leading-none text-white">Forgot Password?</h1>
+                <p class="font-inter text-base leading-[22px] text-[#ffbe58]">
                     Enter your email and we’ll send you a password reset link.
                 </p>
             </div>
@@ -76,7 +68,7 @@ const loginUrl = login.create.url();
     color: #000;
     font-family: Inter, sans-serif;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .auth-submit:disabled {

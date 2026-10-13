@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import whimsicalStoriesImage from '@/assets/auth/whimsical-stories.png';
 import AuthField from '@/components/auth/AuthField.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/ResetPasswordController';
@@ -21,16 +20,10 @@ const fieldClass =
 
 <template>
     <Form :action="store()" #default="{ errors, processing }">
-        <AuthSplitLayout
-            :image-src="whimsicalStoriesImage"
-            panel-title="Whimsical stories"
-            panel-subtitle="Curiosity. Imagination. Delight."
-            shift-image
-            :back-href="login.create.url()"
-        >
+        <AuthSplitLayout :back-href="login.create.url()">
             <div class="flex w-full flex-col items-center gap-10">
                 <div class="flex w-full flex-col gap-3.5 text-center">
-                    <h1 class="font-inter text-[2.125rem] font-medium leading-none text-white">Reset Password</h1>
+                    <h1 class="font-inter text-2xl font-medium leading-none text-white">Reset Password</h1>
                     <p class="font-inter text-base text-[#ffbe58]">
                         <template v-if="props.email">Choose a new password for {{ props.email }}.</template>
                         <template v-else>Choose a new password for your account.</template>
@@ -60,7 +53,7 @@ const fieldClass =
                                 :class="fieldClass"
                             />
                         </AuthField>
-                        <p v-if="!errors.password" class="font-inter text-sm text-[#585858]">Must be at least 8 characters</p>
+                        <p v-if="!errors.password" class="font-inter text-[13px] text-[#585858]">Must be at least 8 characters</p>
                     </div>
                 </div>
 
@@ -83,7 +76,7 @@ const fieldClass =
     color: #000;
     font-family: Inter, sans-serif;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .auth-submit:disabled {

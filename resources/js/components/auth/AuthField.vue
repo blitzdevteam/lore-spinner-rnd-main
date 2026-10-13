@@ -7,7 +7,7 @@ defineProps<{
 
 <template>
     <label class="flex w-full flex-col gap-2.5">
-        <span class="font-inter text-base font-normal text-white">{{ label }}</span>
+        <span class="font-inter text-sm font-normal text-white">{{ label }}</span>
         <slot />
         <span v-if="error" class="font-inter text-sm text-red-400">{{ error }}</span>
     </label>
