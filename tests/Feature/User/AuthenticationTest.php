@@ -15,6 +15,7 @@ uses(RefreshDatabase::class);
 
 const TEST_EMAIL = 'john@example.com';
 const TEST_PASSWORD = 'password';
+const NEW_ACCOUNT_PASSWORD = 'n7K!mQ2vLx9p';
 
 function createUser(array $payload = [], bool $withCompleteProfile = true, bool $markEmailVerified = true): User
 {
@@ -42,8 +43,8 @@ function getRegistrationPayload(array $overrides = []): array
         'first_name' => 'John',
         'last_name' => 'Doe',
         'email' => TEST_EMAIL,
-        'password' => TEST_PASSWORD,
-        'password_confirmation' => TEST_PASSWORD,
+        'password' => NEW_ACCOUNT_PASSWORD,
+        'password_confirmation' => NEW_ACCOUNT_PASSWORD,
     ], $overrides);
 }
 

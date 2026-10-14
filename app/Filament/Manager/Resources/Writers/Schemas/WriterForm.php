@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Writers\Schemas;
 
+use App\Support\PasswordRequirements;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -22,10 +23,14 @@ final class WriterForm
                 ->unique(ignoreRecord: true),
             TextInput::make('password')
                 ->password()
+                ->revealable()
                 ->required(fn (string $operation): bool => $operation === 'create')
-                ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? bcrypt($state) : null)
                 ->dehydrated(fn (?string $state): bool => filled($state))
-                ->label('Password (leave blank to keep current)'),
+                ->rules(PasswordRequirements::rules())
+                ->maxLength(255)
+                ->helperText(fn (string $operation): string => $operation === 'edit'
+                    ? 'Leave blank to keep the current password.'
+                    : 'At least 8 characters. Avoid common, breached, or sequential passwords.'),
         ]);
     }
 }

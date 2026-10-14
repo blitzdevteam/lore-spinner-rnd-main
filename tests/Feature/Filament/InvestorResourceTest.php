@@ -53,7 +53,7 @@ it('registers a simple user from the users form', function (): void {
             'last_name' => 'Player',
             'username' => 'ada-player',
             'email' => 'ada.player@example.test',
-            'password' => 'password',
+            'password' => 'n7K!mQ2vLx9p',
         ])
         ->call('create')
         ->assertHasNoFormErrors()

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\User\Authentication;
 
 use App\Enums\GenderEnum;
+use App\Support\PasswordRequirements;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -31,7 +32,7 @@ final class StoreRegisterRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:64'],
             'gender' => ['nullable', 'string', Rule::in(GenderEnum::values())],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'confirmed', ...PasswordRequirements::rules()],
         ];
     }
 }

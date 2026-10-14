@@ -7,6 +7,7 @@ namespace App\Filament\Manager\Resources\Users\Schemas;
 use App\Enums\UserType;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Support\PasswordRequirements;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -70,8 +71,14 @@ final class UserForm
                                     ->maxLength(255),
                                 TextInput::make('password')
                                     ->password()
+                                    ->revealable()
                                     ->required(fn (string $operation): bool => $operation === 'create')
-                                    ->maxLength(255),
+                                    ->dehydrated(fn (?string $state): bool => filled($state))
+                                    ->rules(PasswordRequirements::rules())
+                                    ->maxLength(255)
+                                    ->helperText(fn (string $operation): string => $operation === 'edit'
+                                        ? 'Leave blank to keep the current password.'
+                                        : 'At least 8 characters. Avoid common, breached, or sequential passwords.'),
                             ])
                             ->columns(3)
                             ->columnSpanFull(),

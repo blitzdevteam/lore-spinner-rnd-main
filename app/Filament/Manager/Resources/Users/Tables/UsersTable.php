@@ -6,6 +6,7 @@ namespace App\Filament\Manager\Resources\Users\Tables;
 
 use App\Actions\Investor\UpdateInvestorAccessAction;
 use App\Enums\UserType;
+use App\Filament\Manager\Actions\UnlockAccountAction;
 use App\Filament\Manager\Pages\AnalyticsDashboard;
 use App\Models\User;
 use App\Services\PurchasedPlanName;
@@ -71,6 +72,7 @@ final class UsersTable
                 IconColumn::make('is_active')
                     ->sortable()
                     ->boolean(),
+                UnlockAccountAction::column(),
                 TextColumn::make('games_count')
                     ->label('Games')
                     ->sortable(),
@@ -94,6 +96,7 @@ final class UsersTable
                     ->options(UserType::class),
             ])
             ->recordActions([
+                UnlockAccountAction::make(),
                 Action::make('viewAnalytics')
                     ->label('Analytics')
                     ->icon(Heroicon::OutlinedPresentationChartBar)

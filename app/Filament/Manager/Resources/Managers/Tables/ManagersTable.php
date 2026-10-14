@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Managers\Tables;
 
+use App\Filament\Manager\Actions\UnlockAccountAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -28,8 +29,10 @@ final class ManagersTable
                     ->label('Added')
                     ->dateTime()
                     ->sortable(),
+                UnlockAccountAction::column(),
             ])
             ->recordActions([
+                UnlockAccountAction::make(),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

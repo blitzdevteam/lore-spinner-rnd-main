@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Ai\AnthropicThinkingPolicy;
+use App\Auth\EnforceLoginLockout;
 use App\Filament\Support\EnsureLocalLivewireUploads;
 use App\Services\SubscriptionEntitlementService;
+use Illuminate\Auth\Events\Attempting;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
@@ -52,6 +56,10 @@ final class AppServiceProvider extends ServiceProvider
             : 'stripe/*';
 
         ValidateCsrfToken::except([$cashierWebhookPath]);
+
+        Event::listen(Attempting::class, [EnforceLoginLockout::class, 'blockLockedAccount']);
+        Event::listen(Failed::class, [EnforceLoginLockout::class, 'recordFailure']);
+        Event::listen(Login::class, [EnforceLoginLockout::class, 'clearAfterSuccess']);
 
         Event::listen(WebhookHandled::class, static function (WebhookHandled $event): void {
             app(SubscriptionEntitlementService::class)->syncFromWebhook($event->payload);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\User\Authentication;
 
+use App\Support\PasswordRequirements;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -27,7 +28,7 @@ final class ResetPasswordRequest extends FormRequest
         return [
             'token' => ['required', 'string'],
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'confirmed', ...PasswordRequirements::rules()],
         ];
     }
 }

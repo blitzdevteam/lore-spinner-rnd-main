@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Managers\Schemas;
 
+use App\Support\PasswordRequirements;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -29,10 +30,11 @@ final class ManagerForm
                 ->revealable()
                 ->required(fn (string $operation): bool => $operation === 'create')
                 ->dehydrated(fn (?string $state): bool => filled($state))
+                ->rules(PasswordRequirements::rules())
                 ->maxLength(255)
-                ->helperText(fn (string $operation): ?string => $operation === 'edit'
+                ->helperText(fn (string $operation): string => $operation === 'edit'
                     ? 'Leave blank to keep the current password.'
-                    : null),
+                    : 'At least 8 characters. Avoid common, breached, or sequential passwords.'),
         ]);
     }
 }

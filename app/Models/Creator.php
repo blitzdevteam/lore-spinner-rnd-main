@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Contracts\LockableAccount;
 use App\Jobs\Creator\CreatorAvatarGeneratorJob;
+use App\Models\Concerns\LocksAfterFailedLogins;
 use Database\Factories\CreatorFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
@@ -31,6 +33,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $username
  * @property string $email
  * @property string $password
+ * @property int $failed_login_attempts
+ * @property Carbon|null $locked_until
  * @property string|null $avatar
  * @property string|null $bio
  * @property bool $is_active
@@ -42,16 +46,17 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read Collection<int, Story> $stories
  * @property-read int|null $stories_count
  */
-final class Creator extends Authenticatable implements FilamentUser, HasMedia, HasName
+final class Creator extends Authenticatable implements FilamentUser, HasMedia, HasName, LockableAccount
 {
     /** @use HasFactory<CreatorFactory> */
     use HasFactory;
 
     use InteractsWithMedia;
+    use LocksAfterFailedLogins;
     use Notifiable;
 
     protected $guarded = [
-        'id', 'created_at', 'updated_at',
+        'id', 'created_at', 'updated_at', 'failed_login_attempts', 'locked_until',
     ];
 
     protected $hidden = [

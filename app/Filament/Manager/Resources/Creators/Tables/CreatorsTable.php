@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Creators\Tables;
 
+use App\Filament\Manager\Actions\UnlockAccountAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -27,6 +28,7 @@ final class CreatorsTable
                 IconColumn::make('is_active')
                     ->sortable()
                     ->boolean(),
+                UnlockAccountAction::column(),
                 TextColumn::make('stories_count')
                     ->counts('stories')
                     ->badge()
@@ -43,6 +45,7 @@ final class CreatorsTable
                 //
             ])
             ->recordActions([
+                UnlockAccountAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([

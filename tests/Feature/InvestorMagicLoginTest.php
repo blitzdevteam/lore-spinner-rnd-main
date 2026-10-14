@@ -35,8 +35,8 @@ it('lets an investor finish setup from the magic link and sign in', function ():
     $this->from($url)
         ->post($url, [
             'email' => 'mira.investor@example.test',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'n7K!mQ2vLx9p',
+            'password_confirmation' => 'n7K!mQ2vLx9p',
         ])
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('index'));
@@ -45,7 +45,7 @@ it('lets an investor finish setup from the magic link and sign in', function ():
 
     expect($investor->hasCompletedSetup())->toBeTrue()
         ->and($investor->email)->toBe('mira.investor@example.test')
-        ->and(Hash::check('password', $investor->password))->toBeTrue();
+        ->and(Hash::check('n7K!mQ2vLx9p', $investor->password))->toBeTrue();
 
     $this->assertAuthenticatedAs($investor, 'user');
 

@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+final class CommonPasswords
+{
+    /**
+     * Well-known passwords from public breach lists.
+     *
+     * @var list<string>
+     */
+    private const array PASSWORDS = [
+        'password',
+        'password1',
+        'password12',
+        'password123',
+        'passw0rd',
+        'p@ssword',
+        'p@ssw0rd',
+        'passwd',
+        '123456',
+        '1234567',
+        '12345678',
+        '123456789',
+        '1234567890',
+        '12345',
+        '123123',
+        '111111',
+        '000000',
+        '654321',
+        '121212',
+        'qwerty',
+        'qwerty1',
+        'qwerty123',
+        'qwertyuiop',
+        'asdfgh',
+        'asdfghjkl',
+        'zxcvbn',
+        'zxcvbnm',
+        '1qaz2wsx',
+        '1q2w3e4r',
+        'qazwsx',
+        'zaq12wsx',
+        '123qwe',
+        'abc123',
+        'abcd1234',
+        'letmein',
+        'welcome',
+        'welcome1',
+        'admin',
+        'admin123',
+        'login',
+        'master',
+        'monkey',
+        'dragon',
+        'sunshine',
+        'princess',
+        'football',
+        'baseball',
+        'shadow',
+        'trustno1',
+        'iloveyou',
+        'whatever',
+        'starwars',
+        'superman',
+        'batman',
+        'freedom',
+        'hello',
+        'hello123',
+        'charlie',
+        'aa123456',
+        'secret',
+        'secret123',
+        'changeme',
+        'default',
+        'guest',
+        'pokemon',
+        'pepper',
+        'hunter',
+        'hunter2',
+        'soccer',
+        'hockey',
+        'ranger',
+        'access',
+        'flower',
+        'cheese',
+        'computer',
+        'matrix',
+        'mustang',
+        'cookie',
+        'thunder',
+        'ninja',
+        'google',
+        'apple',
+        'samsung',
+        'test',
+        'test123',
+        'testing',
+        'testing123',
+        'lorespinner',
+        'lore-spinner',
+    ];
+
+    public static function contains(string $password): bool
+    {
+        return in_array($password, self::PASSWORDS, true);
+    }
+}

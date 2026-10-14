@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Manager\Resources\Writers\Tables;
 
+use App\Filament\Manager\Actions\UnlockAccountAction;
 use App\Models\Writer;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -31,9 +32,11 @@ final class WritersTable
                     ->label('Joined')
                     ->dateTime()
                     ->sortable(),
+                UnlockAccountAction::column(),
             ])
             ->filters([])
             ->recordActions([
+                UnlockAccountAction::make(),
                 Action::make('login_as')
                     ->label('Login as Writer')
                     ->icon('heroicon-o-arrow-right-end-on-rectangle')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Manager\Resources\Investors\Tables;
 
 use App\Actions\Investor\UpdateInvestorAccessAction;
+use App\Filament\Manager\Actions\UnlockAccountAction;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -45,6 +46,7 @@ final class InvestorsTable
                 TextColumn::make('duration_months')
                     ->label('Duration')
                     ->formatStateUsing(fn (int $state): string => User::durationOptions()[$state] ?? "{$state} months"),
+                UnlockAccountAction::column(),
                 TextColumn::make('access_status')
                     ->label('Access')
                     ->badge()
@@ -102,6 +104,7 @@ final class InvestorsTable
                     ->falseLabel('Blocked'),
             ])
             ->recordActions([
+                UnlockAccountAction::make(),
                 Action::make('blockAccess')
                     ->label('Block test access')
                     ->icon('heroicon-o-no-symbol')

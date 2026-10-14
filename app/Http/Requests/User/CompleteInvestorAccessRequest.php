@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\User;
 
 use App\Models\User;
+use App\Support\PasswordRequirements;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,7 +31,7 @@ final class CompleteInvestorAccessRequest extends FormRequest
                 'max:255',
                 Rule::unique('users', 'email')->ignore($investor?->id),
             ],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'confirmed', ...PasswordRequirements::rules()],
         ];
     }
 

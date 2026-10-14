@@ -53,7 +53,7 @@ const fieldClass =
                                 :class="fieldClass"
                             />
                         </AuthField>
-                        <p v-if="!errors.password" class="font-inter text-[13px] text-[#585858]">Must be at least 8 characters</p>
+                        <p v-if="!errors.password" class="font-inter text-[13px] text-[#585858]">At least 8 characters. Avoid common, breached, or sequential passwords.</p>
                     </div>
                 </div>
 

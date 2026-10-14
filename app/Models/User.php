@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Actions\Investor\SyncInvestorPlanAccessAction;
+use App\Contracts\LockableAccount;
 use App\Enums\UserType;
+use App\Models\Concerns\LocksAfterFailedLogins;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,6 +36,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $username
  * @property string $email
  * @property string $password
+ * @property int $failed_login_attempts
+ * @property Carbon|null $locked_until
  * @property string|null $avatar
  * @property string|null $bio
  * @property bool $is_active
@@ -70,14 +74,15 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property-read Collection<int, SubscriptionUsageEvent> $subscriptionUsageEvents
  * @property-read SubscriptionPlan|null $plan
  */
-final class User extends Authenticatable implements CanResetPassword, HasMedia
+final class User extends Authenticatable implements CanResetPassword, HasMedia, LockableAccount
 {
     use Billable;
-
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
     use InteractsWithMedia;
+
+    use LocksAfterFailedLogins;
     use Notifiable;
 
     public const string PENDING_EMAIL_DOMAIN = 'pending.invalid';
@@ -85,7 +90,7 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia
     public const UNLIMITED_DURATION_MONTHS = 0;
 
     protected $guarded = [
-        'id', 'created_at', 'updated_at',
+        'id', 'created_at', 'updated_at', 'failed_login_attempts', 'locked_until',
     ];
 
     protected $hidden = [

@@ -135,6 +135,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Breached Password Check
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, newly chosen passwords are checked against the Have I
+    | Been Pwned range API. Passwords already stored on an account are left
+    | unchanged and are not sent for checking.
+    |
+    */
+
+    'check_breached_passwords' => filter_var(
+        env('AUTH_CHECK_BREACHED_PASSWORDS', true),
+        FILTER_VALIDATE_BOOLEAN,
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Verification Settings
     |--------------------------------------------------------------------------
     |

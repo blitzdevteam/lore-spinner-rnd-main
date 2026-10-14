@@ -63,7 +63,7 @@ const fieldClass =
                         </AuthField>
                         <input type="hidden" name="password_confirmation" :value="password" />
                         <p v-if="!errors.password" class="font-inter text-xs text-[#585858] lg:text-[13px]">
-                            Must be at least 8 characters
+                            At least 8 characters. Avoid common, breached, or sequential passwords.
                         </p>
                         <Link
                             :href="forgotPassword.create.url()"
