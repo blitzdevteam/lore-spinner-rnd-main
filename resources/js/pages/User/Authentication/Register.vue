@@ -4,6 +4,7 @@ import AuthProviderButtons from '@/components/auth/AuthProviderButtons.vue';
 import AuthSplitLayout from '@/components/auth/AuthSplitLayout.vue';
 import { store } from '@/wayfinder/actions/App/Http/Controllers/User/Authentication/RegisterController';
 import { index } from '@/wayfinder/routes';
+import forgotPassword from '@/wayfinder/routes/user/authentication/forgot-password';
 import login from '@/wayfinder/routes/user/authentication/login';
 import { Form, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -15,26 +16,31 @@ const props = defineProps<{
 const password = ref('');
 
 const fieldClass =
-    'h-14 w-full rounded-[10px] border-0 bg-[#191919] px-4 font-inter text-base text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50';
+    'h-10 w-full rounded-[10px] border-0 bg-[#191919] px-4 font-inter text-sm text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50 lg:h-14 lg:text-base';
 </script>
 
 <template>
     <Form :action="store()" #default="{ errors, processing }">
         <AuthSplitLayout :back-href="index().url">
-            <div class="flex w-full flex-col items-center gap-5">
+            <div class="flex w-full flex-col items-center gap-6 lg:gap-5">
                 <input v-if="props.returnTo" type="hidden" name="return_to" :value="props.returnTo" />
-                <h1 class="font-inter text-2xl font-medium leading-none text-white">Sign Up</h1>
-                <div class="flex w-full flex-col gap-2.5 text-center">
-                    <p class="font-inter text-lg text-[#ffbe58]">Step Into The Story</p>
-                    <p class="font-inter text-base leading-[22px] text-[#83b1ce]">
-                        Every story changes because of your imagination and choices.
-                    </p>
+                <div class="flex w-full flex-col items-center gap-2.5 text-center">
+                    <h1 class="font-inter text-xl leading-[35px] font-semibold text-white lg:text-2xl lg:leading-none lg:font-medium">
+                        Sign Up
+                    </h1>
+                    <div class="flex w-full flex-col gap-2 lg:gap-2.5">
+                        <p class="font-inter text-sm text-[#ffbe58] lg:text-lg">Step Into The Story</p>
+                        <p class="font-inter text-xs leading-5 text-[#585858] lg:text-base lg:leading-[22px] lg:text-[#83b1ce]">
+                            Every story changes because of your imagination and choices.
+                        </p>
+                    </div>
                 </div>
 
                 <AuthProviderButtons />
 
+                <div class="flex w-full flex-col gap-[30px] lg:gap-5">
                 <div class="flex w-full flex-col gap-[14px]">
-                    <div class="grid w-full grid-cols-2 gap-[1.125rem]">
+                    <div class="grid w-full grid-cols-1 gap-[14px] lg:grid-cols-2 lg:gap-[1.125rem]">
                         <AuthField label="First Name" :error="errors.first_name">
                             <input name="first_name" type="text" autocomplete="given-name" :class="fieldClass" />
                         </AuthField>
@@ -56,16 +62,28 @@ const fieldClass =
                             />
                         </AuthField>
                         <input type="hidden" name="password_confirmation" :value="password" />
-                        <p v-if="!errors.password" class="font-inter text-[13px] text-[#585858]">Must be at least 8 characters</p>
+                        <p v-if="!errors.password" class="font-inter text-xs text-[#585858] lg:text-[13px]">
+                            Must be at least 8 characters
+                        </p>
+                        <Link
+                            :href="forgotPassword.create.url()"
+                            class="text-center font-inter text-[13px] text-[#59c1ca] lg:hidden"
+                        >
+                            Forgot Password?
+                        </Link>
                     </div>
                 </div>
 
-                <div class="flex w-full flex-col items-center gap-5">
-                    <button type="submit" class="auth-submit" :disabled="processing">Sign Up</button>
-                    <p class="text-center font-inter text-[15px] text-[#585858]">
+                <div class="flex w-full flex-col items-center gap-3.5 lg:gap-5">
+                    <button type="submit" class="auth-submit" :disabled="processing">
+                        <span class="lg:hidden">Sign up</span>
+                        <span class="hidden lg:inline">Sign Up</span>
+                    </button>
+                    <p class="text-center font-inter text-sm text-[#585858] lg:text-[15px]">
                         Already have an account?
                         <Link :href="login.create.url()" class="font-semibold text-white underline">Sign in</Link>
                     </p>
+                </div>
                 </div>
             </div>
         </AuthSplitLayout>
@@ -82,10 +100,18 @@ const fieldClass =
     border-radius: 10px;
     border: 0.5px solid #59c1ca;
     background: #59c1ca;
-    color: #000;
+    color: #0f0f0f;
     font-family: Inter, sans-serif;
     font-size: 1rem;
     font-weight: 500;
+    text-shadow: 0 0 35px #008ab8;
+}
+
+@media (min-width: 1024px) {
+    .auth-submit {
+        color: #000;
+        text-shadow: none;
+    }
 }
 
 .auth-submit:disabled {

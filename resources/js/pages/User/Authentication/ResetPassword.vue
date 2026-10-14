@@ -15,7 +15,7 @@ const page = usePage();
 const errorMessages = computed(() => page.props.flash?.error ?? []);
 
 const fieldClass =
-    "h-14 w-full rounded-[10px] border-0 bg-[#161616] px-4 font-inter text-base text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50";
+    'h-10 w-full rounded-[10px] border-0 bg-[#191919] px-4 font-inter text-sm text-white outline-none focus:ring-2 focus:ring-[#59c1ca]/50 lg:h-14 lg:bg-[#161616] lg:text-base';
 </script>
 
 <template>

@@ -15,7 +15,6 @@ import col41 from '@/assets/auth/covers/col4-1.webp';
 import col42 from '@/assets/auth/covers/col4-2.webp';
 import col43 from '@/assets/auth/covers/col4-3.webp';
 import col44 from '@/assets/auth/covers/col4-4.webp';
-import { onMounted, onUnmounted, ref } from 'vue';
 
 const columnOffsets = ['-75px', '-41px', '-14px', '11px'] as const;
 
@@ -26,31 +25,11 @@ const columns: string[][] = [
     [col31, col32, col33, col34],
     [col41, col42, col43, col44],
 ].map((covers) => [...covers, ...covers]);
-
-const visible = ref(false);
-let wallMedia: MediaQueryList | null = null;
-
-function syncWall(): void {
-    visible.value = wallMedia?.matches ?? false;
-}
-
-onMounted(() => {
-    wallMedia = window.matchMedia('(min-width: 1024px)');
-    syncWall();
-    wallMedia.addEventListener('change', syncWall);
-});
-
-onUnmounted(() => {
-    wallMedia?.removeEventListener('change', syncWall);
-});
 </script>
 
 <template>
-    <div
-        class="auth-story-wall sticky top-0 hidden h-svh w-[min(50rem,56vw)] shrink-0 self-start overflow-hidden lg:block"
-        aria-hidden="true"
-    >
-        <div v-if="visible" class="auth-story-stage">
+    <div class="auth-story-wall sticky top-0 h-svh w-full shrink-0 self-start overflow-hidden lg:w-[min(50rem,56vw)]" aria-hidden="true">
+        <div class="auth-story-stage">
             <div
                 v-for="(column, columnIndex) in columns"
                 :key="columnIndex"
@@ -76,19 +55,24 @@ onUnmounted(() => {
 
 <style scoped>
 .auth-story-wall {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
     container-type: inline-size;
     contain: paint;
     pointer-events: none;
 }
 
 .auth-story-stage {
+    position: absolute;
+    top: 0;
+    left: 50%;
     display: flex;
     height: 100%;
     width: max-content;
-    gap: 20px;
-    padding-left: 4rem;
-    transform-origin: top left;
-    scale: min(1, calc((100cqw - 4rem) / 44rem));
+    gap: 10px;
+    transform: translateX(-50%) scale(calc(100cqw / 24.625rem));
+    transform-origin: top center;
 }
 
 .auth-story-column {
@@ -116,25 +100,25 @@ onUnmounted(() => {
 .auth-story-set {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding-bottom: 20px;
+    gap: 10px;
+    padding-bottom: 10px;
 }
 
 .auth-story-card {
     box-sizing: border-box;
-    width: 161px;
-    padding: 2px;
-    border: 0.5px solid #373737;
-    border-radius: 8px;
+    width: 136.85px;
+    padding: 1.7px;
+    border: 0.425px solid #373737;
+    border-radius: 6.8px;
     background: #0f0f0f;
-    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 3.4px 3.4px rgba(0, 0, 0, 0.25);
 }
 
 .auth-story-card img {
     display: block;
-    width: 156px;
-    height: 234px;
-    border-radius: 5px;
+    width: 132.6px;
+    height: 198.9px;
+    border-radius: 4.25px;
     object-fit: cover;
 }
 
@@ -194,6 +178,44 @@ onUnmounted(() => {
 
     to {
         transform: translate3d(0, 0, 0);
+    }
+}
+
+@media (min-width: 1024px) {
+    .auth-story-wall {
+        position: sticky;
+        inset: auto;
+        top: 0;
+        z-index: auto;
+    }
+
+    .auth-story-stage {
+        position: static;
+        left: auto;
+        gap: 20px;
+        padding-left: 4rem;
+        transform: none;
+        transform-origin: top left;
+        scale: min(1, calc((100cqw - 4rem) / 44rem));
+    }
+
+    .auth-story-set {
+        gap: 20px;
+        padding-bottom: 20px;
+    }
+
+    .auth-story-card {
+        width: 161px;
+        padding: 2px;
+        border-width: 0.5px;
+        border-radius: 8px;
+        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    .auth-story-card img {
+        width: 156px;
+        height: 234px;
+        border-radius: 5px;
     }
 }
 

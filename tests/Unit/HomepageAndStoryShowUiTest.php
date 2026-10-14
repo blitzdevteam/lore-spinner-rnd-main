@@ -200,6 +200,8 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->toContain('Continue Your Story')
         ->toContain('AuthSplitLayout')
         ->toContain('Forgot password?')
+        ->toContain('mobileFormOpen')
+        ->toContain('auth-gate__sign-in')
         ->toContain(':back-href="index().url"')
         ->not->toContain('AuthenticationLayout');
 
@@ -210,6 +212,7 @@ it('renders the split sign in, sign up, and password screens', function (): void
         ->not->toContain('Gender')
         ->not->toContain('Select your gender')
         ->toContain('name="password_confirmation"')
+        ->toContain('Forgot Password?')
         ->toContain(':back-href="index().url"');
 
     $emailForm = mb_substr($forgot, (int) mb_strpos($forgot, 'Forgot Password?'));
@@ -235,11 +238,17 @@ it('places the auth back button and story columns on the left', function (): voi
         ->and($wallOffset)->toBeLessThan($formOffset)
         ->and($layout)->not->toContain('lg:left-[calc(50%+5.375rem)]');
 
+    expect($layout)
+        ->toContain('auth-frame--gate')
+        ->toContain('auth-frame--sheet');
+
     expect($wall)
         ->toContain('auth-story-column--up')
         ->toContain('auth-story-column--down')
         ->toContain('prefers-reduced-motion: reduce')
-        ->toContain('translate3d');
+        ->toContain('translate3d')
+        ->toContain('136.85px')
+        ->not->toContain('matchMedia');
 });
 
 it('renders story detail tabs as one pill track without a rating tab', function (): void {
