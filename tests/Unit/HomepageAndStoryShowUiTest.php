@@ -87,6 +87,7 @@ it('features the curated homepage story order', function (): void {
         'the-wonderful-wizard-of-oz',
         'the-tell-tale-heart',
         'pride-and-prejudice',
+        'sense-and-sensibility',
         'sir-gawain-and-the-green-knight',
     ];
     $newStories = [
@@ -101,7 +102,6 @@ it('features the curated homepage story order', function (): void {
     ];
     $comingSoon = [
         'the-marvelous-land-of-oz',
-        'sense-and-sensibility',
         'the-masque-of-the-red-death',
         'the-quest-of-the-holy-grail',
         'theseus-and-the-minotaur',

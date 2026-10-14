@@ -12,9 +12,9 @@ export const HOMEPAGE_CAROUSEL_SLUGS = [
     'the-adventure-of-the-speckled-band',
     'the-wonderful-wizard-of-oz',
     'the-tell-tale-heart',
-    'the-masque-of-the-red-death',
-    'nocturne',
-    'jane-eyre',
+    'pride-and-prejudice',
+    'sense-and-sensibility',
+    'sir-gawain-and-the-green-knight',
 ] as const;
 
 /** Homepage New Stories row, in display order. */
@@ -67,11 +67,6 @@ export const HOMEPAGE_COMING_SOON: HomepageFeaturedStory[] = [
         slug: 'the-marvelous-land-of-oz',
         title: 'The Marvelous Land of Oz',
         teaser: 'Oz is in revolt, armies march, and impossible companions join the cause.',
-    },
-    {
-        slug: 'sense-and-sensibility',
-        title: 'Sense and Sensibility',
-        teaser: 'Two sisters, two fortunes, and the difference between what the heart wants and what the world allows.',
     },
     {
         slug: 'the-masque-of-the-red-death',

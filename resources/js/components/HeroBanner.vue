@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import greenKnightImage from '@/assets/carosel/greenknight.webp';
+import senseImage from '@/assets/carosel/Sense and Sensibility 16_9.webp';
 import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.webp';
 import ozImage from '@/assets/carosel/Ultrawide Oz.webp';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.webp';
@@ -98,6 +99,21 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         ],
         fallbackTeaser:
             'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
+        fallbackAuthor: 'Jane Austen',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'sense-and-sensibility',
+        image: senseImage,
+        imagePosition: 'object-center',
+        titleLines: ['Sense and', 'Sensibility'],
+        fallbackTitle: 'Sense and Sensibility',
+        teaserLines: [
+            'Two sisters, two fortunes, and the difference between',
+            'what the heart wants and what the world allows.',
+        ],
+        fallbackTeaser:
+            'Two sisters, two fortunes, and the difference between what the heart wants and what the world allows.',
         fallbackAuthor: 'Jane Austen',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
