@@ -4,37 +4,44 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Ai\Adaptation\ApprovedColdOpenReference;
+use App\Ai\Adaptation\BannedProseValidator;
 use App\Ai\Adaptation\ColdOpenRepairContext;
 use App\Ai\Adaptation\ColdOpenRepairValidator;
+use App\Ai\Adaptation\StoryRepairContext;
 use App\Ai\Agents\Adaptation\ColdOpenRepairAgent;
 use App\Models\SessionAdaptation;
 use App\Models\Story;
 use App\Services\Adaptation\SessionEventLoader;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
- * Rewrite one session's cold open from the story's own diagnosis and voice.
+ * Rewrite a story's cold opens from its own diagnosis, voice, narrator rules
+ * and scene cards, under the same punctuation pass and ban scan as the Boiler.
  *
- * Prints a candidate for review. Pass --apply to store it. The entry-point
- * pipeline agent is unchanged.
+ * Prints each candidate for review. Pass --apply to store them. The
+ * entry-point pipeline agent is unchanged.
  */
 final class RepairColdOpenCommand extends Command
 {
+    private const int MAX_ATTEMPTS = 3;
+
     protected $signature = 'stories:repair-cold-open
                             {story : Story ID or slug}
                             {--session=1 : Session number}
+                            {--all : Repair every session of the story, in order}
                             {--dry-run : Print the pulled facts without calling the model}
                             {--show-prompt : With --dry-run, print the full prompt}
-                            {--apply : Store a valid cold open on the session diagnosis}';
+                            {--apply : Store each valid cold open on its session diagnosis}';
 
-    protected $description = 'Repair one story cold open from its diagnosis, voice, and source';
+    protected $description = 'Repair a story cold open from its diagnosis, voice, narrator rules, and source';
 
     public function handle(
-        ApprovedColdOpenReference $approvedReferences,
         ColdOpenRepairContext $contextBuilder,
         ColdOpenRepairValidator $validator,
+        BannedProseValidator $bans,
+        StoryRepairContext $storyContext,
         SessionEventLoader $eventLoader,
     ): int {
         if ($this->option('dry-run') && $this->option('apply')) {
@@ -51,47 +58,106 @@ final class RepairColdOpenCommand extends Command
             return self::FAILURE;
         }
 
-        $sessionNumber = filter_var($this->option('session'), FILTER_VALIDATE_INT);
+        $sessions = $this->sessions($story);
 
-        if ($sessionNumber === false || $sessionNumber < 1) {
-            $this->error('Provide a positive --session number.');
+        if ($sessions === null) {
+            return self::FAILURE;
+        }
+
+        $failed = [];
+
+        foreach ($sessions as $session) {
+            $repaired = $this->repairSession($story, $session, $contextBuilder, $validator, $bans, $storyContext, $eventLoader);
+
+            if (! $repaired) {
+                $failed[] = (int) $session->session_number;
+            }
+
+            $this->newLine();
+        }
+
+        if ($failed !== []) {
+            $this->error('Not repaired: session '.implode(', ', $failed).'.');
 
             return self::FAILURE;
         }
 
-        $session = $story->adaptation->sessionAdaptations()
-            ->where('session_number', $sessionNumber)
-            ->first();
+        return self::SUCCESS;
+    }
+
+    /**
+     * @return Collection<int, SessionAdaptation>|null
+     */
+    private function sessions(Story $story): ?Collection
+    {
+        $query = $story->adaptation->sessionAdaptations()->orderBy('session_number');
+
+        if ($this->option('all')) {
+            $sessions = $query->get();
+
+            if ($sessions->isEmpty()) {
+                $this->error('This adaptation has no sessions.');
+
+                return null;
+            }
+
+            return $sessions;
+        }
+
+        $sessionNumber = filter_var($this->option('session'), FILTER_VALIDATE_INT);
+
+        if ($sessionNumber === false || $sessionNumber < 1) {
+            $this->error('Provide a positive --session number, or --all.');
+
+            return null;
+        }
+
+        $session = $query->where('session_number', $sessionNumber)->first();
 
         if ($session === null) {
             $this->error("Session {$sessionNumber} does not exist for this adaptation.");
 
-            return self::FAILURE;
+            return null;
         }
 
+        return collect([$session]);
+    }
+
+    private function repairSession(
+        Story $story,
+        SessionAdaptation $session,
+        ColdOpenRepairContext $contextBuilder,
+        ColdOpenRepairValidator $validator,
+        BannedProseValidator $bans,
+        StoryRepairContext $storyContext,
+        SessionEventLoader $eventLoader,
+    ): bool {
+        $sessionNumber = (int) $session->session_number;
         $diagnosis = (array) ($session->entry_point_diagnosis ?? []);
-        $sourceEvents = $contextBuilder->sourceWindow(
-            $this->sourceEvents($story, $sessionNumber, $eventLoader),
-            (int) ($diagnosis['start_event_position'] ?? 0),
-        );
+        $voiceProfile = (array) ($story->adaptation->voice_profile ?? []);
 
         $context = $contextBuilder->build(
             $story->title,
             $story->slug,
             $sessionNumber,
             $contextBuilder->protagonistFor($story),
-            (array) ($story->adaptation->voice_profile ?? []),
+            $voiceProfile,
             $diagnosis,
-            $sourceEvents,
+            $contextBuilder->sourceWindow(
+                $this->sourceEvents($story, $sessionNumber, $eventLoader),
+                (int) ($diagnosis['start_event_position'] ?? 0),
+            ),
             $this->previousSessionClose($story, $sessionNumber, $contextBuilder),
+            $storyContext->narratorRules((string) $session->runtime_narrator_prompt),
+            (array) ($storyContext->moments($session)->first()?->scene_card ?? []),
         );
 
         $missing = $contextBuilder->missingContext($context);
 
         if ($missing !== null) {
-            $this->error($missing);
+            $this->error("Session {$sessionNumber}: {$missing}");
 
-            return self::FAILURE;
+            return false;
         }
 
         $this->reportContext($context);
@@ -106,29 +172,41 @@ final class RepairColdOpenCommand extends Command
 
             $this->info('Dry run only. The model was not called and nothing was saved.');
 
-            return self::SUCCESS;
+            return true;
         }
 
-        $prose = $approvedReferences->for($story->slug, $sessionNumber);
+        $prompt = view('ai.agents.adaptation.cold-open-repair.prompt', $context)->render();
+        $attemptPrompt = $prompt;
+        $prose = '';
+        $failures = [];
 
-        if ($prose !== null) {
-            $this->info('Using the approved title reference. The model was not called.');
-        } else {
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
             try {
-                $response = (new ColdOpenRepairAgent($context))->prompt(
-                    view('ai.agents.adaptation.cold-open-repair.prompt', $context)->render(),
-                    timeout: 300,
-                );
+                $response = (new ColdOpenRepairAgent($context))->prompt($attemptPrompt, timeout: 300);
             } catch (Throwable $throwable) {
                 $this->error($throwable->getMessage());
 
-                return self::FAILURE;
+                return false;
             }
 
-            $prose = mb_trim((string) ($response['cold_open'] ?? ''));
-        }
+            $prose = BannedProseValidator::neutralizeBannedPunctuation(mb_trim((string) ($response['cold_open'] ?? '')));
+            $failures = [
+                ...$validator->failures($prose, $context['protagonist']),
+                ...$bans->scan(['cold_open' => $prose], $voiceProfile, ['cold_open'])['errors'],
+            ];
 
-        $failures = $validator->failures($prose, $context['protagonist']);
+            if ($failures === []) {
+                break;
+            }
+
+            if ($attempt < self::MAX_ATTEMPTS) {
+                $this->warn("Attempt {$attempt} rejected: ".implode(' ', $failures));
+                $attemptPrompt = $prompt
+                    ."\n\n---\n\nYOUR PREVIOUS COLD OPEN WAS REJECTED. Fix every problem below and return the complete corrected cold_open.\n- "
+                    .implode("\n- ", $failures)
+                    ."\n\nREJECTED COLD OPEN:\n".$prose;
+            }
+        }
 
         $this->newLine();
         $this->line($prose);
@@ -140,21 +218,22 @@ final class RepairColdOpenCommand extends Command
                 $this->error($failure);
             }
 
-            $this->error('The candidate was not saved.');
+            $this->error("Session {$sessionNumber}: the candidate was not saved.");
 
-            return self::FAILURE;
+            return false;
         }
 
         if (! $this->option('apply')) {
-            $this->info('Candidate passed. It was not saved. Pass --apply to store it.');
+            $this->info("Session {$sessionNumber}: candidate passed. It was not saved. Pass --apply to store it.");
 
-            return self::SUCCESS;
+            return true;
         }
 
-        $this->store($session, $diagnosis, $prose);
+        $diagnosis['cold_open'] = $prose;
+        $session->update(['entry_point_diagnosis' => $diagnosis]);
         $this->info("Stored the repaired cold open on {$story->slug} session {$sessionNumber}.");
 
-        return self::SUCCESS;
+        return true;
     }
 
     /**
@@ -164,7 +243,13 @@ final class RepairColdOpenCommand extends Command
     {
         $this->info("Cold open repair — {$context['story_slug']}, session {$context['session_number']}");
         $this->line('Protagonist: '.$context['protagonist']);
-        $this->line('Contract: '.ColdOpenRepairContext::CONTRACT_VERSION.' — Tom\'s first-output prompt, with no closing question');
+        $this->line('Contract: '.ColdOpenRepairContext::CONTRACT_VERSION.' — Tom\'s first-output prompt, Boiler style and bans, no closing question');
+        $this->line($context['narrator_rules'] !== ''
+            ? 'Narrator rules loaded from the runtime prompt (Sections 4, 14, 18).'
+            : 'No runtime narrator prompt is stored; the universal bans and voice profile still apply.');
+        $this->line($context['first_scene_card'] !== []
+            ? 'First scene card loaded: '.(string) ($context['first_scene_card']['moment_key'] ?? $context['first_scene_card']['title'] ?? 'card 1')
+            : 'No finalized scene card is stored.');
 
         if ((int) $context['session_number'] > 1) {
             $this->line($context['previous_session_close'] !== []
@@ -222,15 +307,6 @@ final class RepairColdOpenCommand extends Command
                 'content' => (string) $event->content,
             ])
             ->all();
-    }
-
-    /**
-     * @param  array<string, mixed>  $diagnosis
-     */
-    private function store(SessionAdaptation $session, array $diagnosis, string $prose): void
-    {
-        $diagnosis['cold_open'] = $prose;
-        $session->update(['entry_point_diagnosis' => $diagnosis]);
     }
 
     private function resolveStory(): ?Story

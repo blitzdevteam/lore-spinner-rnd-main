@@ -104,20 +104,74 @@ it('prints the pulled Peter Pan facts without calling the model', function (): v
         ->toBe('A boy is crying on the floor. What do you do?');
 });
 
-it('prints the approved Peter Pan reference without calling the model', function (): void {
-    ColdOpenRepairAgent::fake()->preventStrayPrompts();
+it('turns banned punctuation into plain punctuation before storing', function (): void {
+    ColdOpenRepairAgent::fake([
+        ['cold_open' => str_replace('in a tall London house.', 'in a tall London house — the top room.', validRepairedOpening())],
+    ])->preventStrayPrompts();
 
     $story = coldOpenRepairStory();
-    $story->update(['slug' => 'peter-pan']);
 
     $this->artisan('stories:repair-cold-open', [
-        'story' => 'peter-pan',
+        'story' => $story->slug,
+        '--apply' => true,
+    ])->assertSuccessful();
+
+    expect($story->adaptation->sessionAdaptations()->first()->entry_point_diagnosis['cold_open'])
+        ->toContain('in a tall London house, the top room.')
+        ->not->toContain('—');
+});
+
+it('retries a candidate that uses a banned phrase and stores the clean one', function (): void {
+    ColdOpenRepairAgent::fake([
+        ['cold_open' => validRepairedOpening().' Something shifted in the room.'],
+        ['cold_open' => validRepairedOpening()],
+    ])->preventStrayPrompts();
+
+    $story = coldOpenRepairStory();
+
+    $this->artisan('stories:repair-cold-open', [
+        'story' => $story->slug,
+        '--apply' => true,
     ])
-        ->expectsOutputToContain('Using the approved title reference. The model was not called.')
-        ->expectsOutputToContain('Then he holds out his hand, bare and certain')
+        ->expectsOutputToContain('Attempt 1 rejected')
         ->assertSuccessful();
 
-    ColdOpenRepairAgent::assertNeverPrompted();
+    expect($story->adaptation->sessionAdaptations()->first()->entry_point_diagnosis['cold_open'])
+        ->toBe(validRepairedOpening());
+
+    ColdOpenRepairAgent::assertPrompted(fn (AgentPrompt $prompt): bool => str_contains($prompt->prompt, 'YOUR PREVIOUS COLD OPEN WAS REJECTED')
+        && str_contains($prompt->prompt, 'something shifted'));
+});
+
+it('repairs every session in order with --all', function (): void {
+    $story = coldOpenRepairStory();
+    $first = $story->adaptation->sessionAdaptations()->first();
+
+    $story->adaptation->sessionAdaptations()->create([
+        'session_number' => 2,
+        'session_status' => SessionAdaptationStatusEnum::COMPLETED,
+        'boiler_status' => BoilerStatus::FINALIZED,
+        'entry_point_diagnosis' => $first->entry_point_diagnosis,
+    ]);
+
+    $secondOpening = str_replace('It is the middle of the night', 'It is the next night', validRepairedOpening());
+
+    ColdOpenRepairAgent::fake([
+        ['cold_open' => validRepairedOpening()],
+        ['cold_open' => $secondOpening],
+    ])->preventStrayPrompts();
+
+    $this->artisan('stories:repair-cold-open', [
+        'story' => $story->slug,
+        '--all' => true,
+        '--apply' => true,
+    ])
+        ->expectsOutputToContain('Stored the repaired cold open on '.$story->slug.' session 1.')
+        ->expectsOutputToContain('Stored the repaired cold open on '.$story->slug.' session 2.')
+        ->assertSuccessful();
+
+    expect($story->adaptation->sessionAdaptations()->where('session_number', 2)->first()->entry_point_diagnosis['cold_open'])
+        ->toBe($secondOpening);
 });
 
 it('stores only a valid cold open and leaves the rest of the diagnosis', function (): void {
@@ -145,9 +199,8 @@ it('stores only a valid cold open and leaves the rest of the diagnosis', functio
 });
 
 it('refuses to store an opening that still asks the player a question', function (): void {
-    ColdOpenRepairAgent::fake([
-        ['cold_open' => validRepairedOpening()."\n\nDo you take his hand?"],
-    ])->preventStrayPrompts();
+    ColdOpenRepairAgent::fake(array_fill(0, 3, ['cold_open' => validRepairedOpening()."\n\nDo you take his hand?"]))
+        ->preventStrayPrompts();
 
     $story = coldOpenRepairStory();
 

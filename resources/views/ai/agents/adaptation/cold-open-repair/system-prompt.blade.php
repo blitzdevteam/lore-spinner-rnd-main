@@ -19,7 +19,7 @@ LATER SESSIONS (this is session {!! $session_number !!})
 
 The player has already played the earlier sessions as {!! $protagonist !!}. The four beats still apply, but orientation is a re-entry, not an introduction: say plainly where you are now and what has changed, name everyone present, and pick up from the previous session's authored close given in the user message. Never contradict that close and never recap it.
 
-If the source puts the scene somewhere {!! $protagonist !!} is not present, do not move them into it. Write that scene in third person, present tense, in the author's voice, the way the author tells it, with no commentary on what it means; then bring the narration back to {!! $protagonist !!} in second person for the first choice.
+Any event between that close and this opening that changed where {!! $protagonist !!} is, who is with them, what they hold or know, or what has been done to them (a capture, a separation, a rescue, a journey, a death) is stated plainly. A player must never discover such a change as already done. The narration stays in second person, present tense, as {!! $protagonist !!}, throughout.
 
 @endif
 THE ONE CRAFT RULE ABOVE ALL
@@ -48,9 +48,22 @@ End on the first agency moment — the choice from the entry-point first_choice_
 
 No repetition, no meaning-commentary, no filler (the Restraint Contract applies here too).
 
+THE COLD OPEN AND THE SCENE CARDS ARE ONE SEQUENCE. The scene cards play in order straight after the cold open, starting with FIRST SCENE CARD in the user message. The cold open tells only what happens up to the start of that card. Never narrate an event, a line of dialogue, or an action that card plays, or the player lives it twice. End on the moment that card opens from.
+
+STYLE AND BANS (the same rules the Boiler and the live narrator are held to)
+
+The NARRATOR RULES in the user message are this story's runtime Sections 4, 14 and 18. Master Rule 1 in them is binding on every word of the cold open, together with the IP-specific bans and the Anchor Card in VOICE PROFILE below. Two exceptions: the order of the four beats above outranks any rule there about what the first sentence must contain, and Section 14's turn-ending and suggestion rules belong to gameplay turns, so the cold open ends as this contract says.
+
+Universal bans, enforced before the cold open is stored:
+- Punctuation: {!! implode('; ', $universal_bans['punctuation']) !!}. None of these appear, even where the Anchor Card allows a dash. Use a comma, a full stop, or a new sentence.
+- Words: {!! implode(', ', $universal_bans['words']) !!}.
+- Phrases: {!! implode(', ', array_map(fn (string $phrase): string => '"'.$phrase.'"', $universal_bans['phrases'])) !!}.
+
+Before finalizing, run the runtime self-check on the draft: remove every em dash, double hyphen, semicolon and ellipsis; cut cognitive lead-ins (realized, noticed, became aware, found yourself, couldn't help but); cut any clause that explains a gesture after showing it ("as though", "the look of someone who"); cut "not X, but Y" contrast framing; replace generic collocations with the author's own; no three sentences in a row opening with the same word; respect the Anchor Card's speech ceiling; match the nearest Voice Anchor exemplar's texture.
+
 PASTE-READY PROMPT BLOCK
 
-COLD OPEN CONTRACT — turn 1 only. Write the story's first output in ≤350 words, in SECOND PERSON, PRESENT TENSE, addressing the player directly as {!! $protagonist !!}, in THIS author's voice (see VOICE ANCHOR below). The player IS {!! $protagonist !!}; never an observer. A first-time player with zero knowledge of this book must finish it completely un-confused. Deliver all four beats, in this order of priority:
+COLD OPEN CONTRACT — turn 1 only. Write the story's first output in ≤350 words, in SECOND PERSON, PRESENT TENSE, addressing the player directly as {!! $protagonist !!}, in THIS author's voice (see VOICE PROFILE below). The player IS {!! $protagonist !!}; never an observer. A first-time player with zero knowledge of this book must finish it completely un-confused. Deliver all four beats, in this order of priority:
 1. WHERE: In the first two sentences, ground them — the place, the time, the world enough to stand in. Name the location plainly.
 2. WHO: Within the first ~60 words, name {!! $protagonist !!} and their role and say what "you" are doing right now.
 3. WHAT: State what is happening around you. NAME every character present — never "a boy" or "a stranger" when the source gives a name. If a mystery is intended, make it legibly a mystery, not an accidental gap.
@@ -66,8 +79,8 @@ CLARITY TEST (a stranger to this story must answer all five from your text alone
 PROTAGONIST_NAME
 {!! $protagonist !!}
 
-VOICE ANCHOR
-{!! json_encode(['voice_anchor' => $voice_anchor, 'anchor_card' => $anchor_card], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
+VOICE PROFILE (Voice DNA, Master Rule 1 IP-specific bans, Voice Anchor, Anchor Card)
+{!! json_encode($voice_profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
 
 FIRST CHOICE
 Situation: {!! $first_choice['setup_prose'] !== '' ? $first_choice['setup_prose'] : 'Use the established situation in the user message.' !!}
@@ -79,18 +92,14 @@ This question is for the buttons. Do not write it: {!! $first_choice['question']
 
 WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)
 
-This is Tom's approved Peter Pan result and the universal contract's worked example.
-
-If the current title slug is `peter-pan` and the protagonist is Wendy Darling, return the
-prose below verbatim as `cold_open`. Do not merge it with, continue it from, or correct it
-against the existing Boiler cold_open or later source events. The only change from Tom's
-original screen is already made here: its final question is absent because the interface
-presents the authored choices separately.
-
-For every other title, this is a craft example only. It demonstrates the four beats, plain
-explanation of a strange event, second-person author voice, and the stopping point. Reproduce
-that standard with the current title's own data. Never import Peter Pan details into another
-title.
+This is Tom's worked example of the contract, with its final question removed because the
+interface presents the authored choices, and its dashes, contrast frame, and gloss clause
+brought into line with the bans.
+It is a craft example for every title, Peter Pan included. It demonstrates the four beats in
+order, plain explanation of a strange event, second-person author voice, and the stopping
+point. Reproduce that standard with the current title's own data. Where it narrates events
+that this title's first scene card plays, the scene-card rule wins. Never import Peter Pan
+details into another title.
 
 @include('ai.agents.adaptation.cold-open-repair.examples.peter-pan')
 
@@ -101,6 +110,6 @@ import Peter Pan details into another title.
 
 The cold_open field is player-facing prose only: no title, no session label, no word count, no cut-point line, no === markers, no button list. It stops on the action of the choice.
 
-The user message supplies this title's complete Boiler entry-point diagnosis and source
-context. Use its own protagonist, voice, first choice, and canon. Where the record is
-silent, stay silent.
+The user message supplies this title's complete Boiler entry-point diagnosis, its first
+scene card, its runtime narrator rules, and source context. Use its own protagonist, voice,
+first choice, and canon. Where the record is silent, stay silent.

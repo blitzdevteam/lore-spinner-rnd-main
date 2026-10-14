@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Ai\Adaptation\ApprovedColdOpenReference;
 use App\Ai\Adaptation\ColdOpenRepairContext;
 use App\Ai\Adaptation\ColdOpenRepairValidator;
 use App\Ai\Agents\Adaptation\ColdOpenRepairAgent;
@@ -86,6 +85,9 @@ function peterPanRepairPrompt(): string
                 'content' => 'The boy tries to stick his shadow on with a cake of soap.',
             ],
         ],
+        [],
+        "### SECTION 4: VOICE\nMASTER RULE 1: HARD BANS",
+        ['moment_key' => 'S1_M01', 'runtime_goal' => 'Wendy crosses the floor to the crying boy.'],
     );
 
     return view('ai.agents.adaptation.cold-open-repair.system-prompt', $context)->render()
@@ -110,10 +112,46 @@ it('pulls Peter Pan facts into the repair prompt and forbids a closing question'
         ->toContain('This question is for the buttons. Do not write it: What do you do?')
         ->toContain('You go with Peter at once.')
         ->toContain('WORKED FIRST SCREEN — what the user sees (Peter Pan / Wendy Darling)')
-        ->toContain('prose below verbatim as `cold_open`')
         ->toContain('Then he holds out his hand, bare and certain')
         ->toContain('COMPLETE CURRENT BOILER ENTRY-POINT DIAGNOSIS')
+        ->toContain('THE COLD OPEN AND THE SCENE CARDS ARE ONE SEQUENCE.')
+        ->toContain('Wendy crosses the floor to the crying boy.')
+        ->toContain('STYLE AND BANS')
+        ->toContain('MASTER RULE 1: HARD BANS')
+        ->toContain('semicolon')
+        ->toContain('"something shifted"')
+        ->toContain('VOICE PROFILE (Voice DNA, Master Rule 1 IP-specific bans, Voice Anchor, Anchor Card)')
+        ->not->toContain('verbatim as `cold_open`')
         ->not->toContain("this very night.\n\nDo you take his hand?");
+});
+
+it('keeps the worked example free of banned punctuation and molds', function (): void {
+    $example = view('ai.agents.adaptation.cold-open-repair.examples.peter-pan')->render();
+
+    expect($example)
+        ->not->toMatch('/\x{2014}|\x{2013}|--|;|\.\.\./u')
+        ->not->toContain('not the way one cries for help, but')
+        ->not->toContain('as though you ought to have known')
+        ->toContain('Then he holds out his hand, bare and certain, and asks you to come with him, out the open window, off into the dark, this very night.');
+});
+
+it('keeps later sessions in second person and plain about the gap', function (): void {
+    $context = (new ColdOpenRepairContext)->build(
+        'Peter Pan: Wendy\'s Neverland',
+        'peter-pan',
+        2,
+        'Wendy Darling',
+        ['anchor_card' => ['Keep the aside.']],
+        peterPanDiagnosis(),
+        [],
+        ['final_line' => 'The window closes behind you.'],
+    );
+
+    expect(view('ai.agents.adaptation.cold-open-repair.system-prompt', $context)->render())
+        ->toContain('LATER SESSIONS (this is session 2)')
+        ->toContain('A player must never discover such a change as already done.')
+        ->toContain('stays in second person, present tense, as Wendy Darling, throughout')
+        ->not->toContain('third person, present tense');
 });
 
 it('drops the editorial reason from a cold-open fact', function (): void {
@@ -220,13 +258,4 @@ it('accepts the approved Peter Pan opening and rejects the closing question', fu
         ->and($validator->wordCount($approved))->toBeLessThanOrEqual(350)
         ->and($validator->failures($approved."\n\nDo you take his hand?", 'Wendy Darling'))
         ->toContain('The cold open ends on a question to the player. End on the action of the choice instead.');
-});
-
-it('returns the approved Peter Pan prose exactly and leaves other titles to the model', function (): void {
-    $references = new ApprovedColdOpenReference;
-
-    expect($references->for('peter-pan', 1))
-        ->toBe(approvedPeterPanOpening())
-        ->and($references->for('peter-pan', 2))->toBeNull()
-        ->and($references->for('anima-machina', 1))->toBeNull();
 });

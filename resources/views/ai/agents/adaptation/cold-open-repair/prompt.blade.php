@@ -18,6 +18,16 @@ Begin where this close leaves {!! $protagonist !!}. Nothing in the cold open may
 place, people present, objects held or lost, what is already known. Do not retell it.
 
 @endif
+FIRST SCENE CARD (plays straight after the cold open; never narrate what it plays):
+@if($first_scene_card !== [])
+{!! json_encode($first_scene_card, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) !!}
+@else
+No finalized scene card is stored. Stop at the first choice the diagnosis describes.
+@endif
+
+NARRATOR RULES (this story's runtime Sections 4, 14 and 18; Master Rule 1 binds the cold open):
+{!! $narrator_rules !== '' ? $narrator_rules : 'No runtime narrator prompt is stored. Apply the universal bans and the Voice Profile.' !!}
+
 SOURCE AROUND THE BOILER ENTRY AND HANDOFF:
 Use this to keep names and events canonical. Do not invent unsupported facts.
 @forelse($source_events as $event)

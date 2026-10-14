@@ -2,19 +2,22 @@
 
 27 September 2026 | Cursor implementation handoff | Integrates Tom's supplied Cold Open Contract
 
-## Implemented review repair (3 October 2026)
+## Implemented review repair (updated 14 October 2026)
 
-The runnable repair is documented in [Cold_Open_Repair_Process.md](Cold_Open_Repair_Process.md). It is generalized: one command, every story, session 1. Peter Pan is the pilot and the worked screen in Appendix A is a labeled craft example inside the system prompt. The title-specific facts still come from that title's complete Boiler diagnosis. The example's last line (the question to the player) is not part of the outcome.
+The runnable repair is documented in [Cold_Open_Repair_Process.md](Cold_Open_Repair_Process.md). It is generalized: one command, every story, every session. The title-specific facts come from that title's complete Boiler diagnosis. The worked screen in Appendix A is a craft example inside the system prompt, with its final question removed and its punctuation and phrasing brought into line with the bans.
 
 Decisions that override this specification for the review repair:
 
 | Topic | This repair |
 |---|---|
-| Scope | Rewrite `cold_open` only, from the stored diagnosis, voice anchor, and source window. Cards, initial state, and the pipeline agent stay as they are until a candidate is greenlit. |
+| Scope | Rewrite `cold_open` only, for one session or every session (`--all`). Cards, initial state, and the pipeline agent stay as they are. |
+| Beat order | Tom's order (where, who, what, decision) outranks the Boiler's body-first rule. |
+| Style and bans | The same as the optimized Boiler: the session's runtime narrator rules (Sections 4, 14, 18), the full voice profile, the universal bans, the punctuation pass, and the `BannedProseValidator` scan, with up to three attempts. |
+| Scene cards | The cold open stops where the first finalized scene card begins and never narrates what it plays. |
 | Closing question | The prose does not end on a question. The choice buttons carry the decision. |
-| Worked example | Appendix A's Peter Pan screen is the approved Peter Pan candidate and a labeled quality example for every other title. Peter Pan session 1 reads the approved reference directly; another title uses only its own Boiler facts. The final question is removed. |
-| Model | Approved references bypass generation. Other title candidates use `claude-sonnet-4-6` at temperature 0.6. |
-| Command | `php artisan stories:repair-cold-open {slug}` in the Laravel Cloud command box. The box runs bash, so the `php artisan` prefix is required. `--dry-run` prints the pull. No flag generates and does not save. `--apply` stores a candidate that passes the checks. |
+| Worked example | A craft example for every title, Peter Pan included. There is no verbatim bypass. |
+| Model | `claude-opus-5-5`. |
+| Command | `php artisan stories:repair-cold-open {slug} --all` in the Laravel Cloud command box. `--dry-run` prints the pull. No flag generates and does not save. `--apply` stores candidates that pass. |
 
 The sections below are the original 27 September handoff. Where they disagree with the table above, the table is what the review command does.
 

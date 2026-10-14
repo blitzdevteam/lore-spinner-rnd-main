@@ -7,27 +7,33 @@ namespace App\Ai\Adaptation;
 use App\Models\Story;
 
 /**
- * Hydrates the cold-open repair prompt from a story's stored diagnosis,
- * voice anchor, and the source events around the chosen entry.
+ * Hydrates the cold-open repair prompt from a story's stored diagnosis, voice
+ * profile, runtime narrator rules, first scene card, and the source events
+ * around the chosen entry.
  *
  * This is the review path. It does not change the entry-point pipeline agent.
  */
 final class ColdOpenRepairContext
 {
-    public const string CONTRACT_VERSION = '2026-10-06';
+    public const string CONTRACT_VERSION = '2026-10-14';
 
     /**
      * @param  array<string, mixed>  $diagnosis
      * @param  array<string, mixed>  $voiceProfile
      * @param  list<array{position: int, title: string, content: string}>  $sourceEvents
      * @param  array<string, string>  $previousSessionClose
+     * @param  array<string, mixed>  $firstSceneCard
      * @return array{
      *     story_title: string,
      *     story_slug: string,
      *     session_number: int,
      *     protagonist: string,
+     *     voice_profile: array<string, mixed>,
      *     voice_anchor: mixed,
      *     anchor_card: mixed,
+     *     narrator_rules: string,
+     *     universal_bans: array{punctuation: list<string>, words: list<string>, phrases: list<string>},
+     *     first_scene_card: array<string, mixed>,
      *     current_entry_point_diagnosis: array<string, mixed>,
      *     established: string,
      *     deferred: string,
@@ -47,6 +53,8 @@ final class ColdOpenRepairContext
         array $diagnosis,
         array $sourceEvents,
         array $previousSessionClose = [],
+        string $narratorRules = '',
+        array $firstSceneCard = [],
     ): array {
         $firstChoice = (array) ($diagnosis['first_choice_spec'] ?? []);
 
@@ -55,8 +63,12 @@ final class ColdOpenRepairContext
             'story_slug' => $slug,
             'session_number' => $sessionNumber,
             'protagonist' => $protagonist,
+            'voice_profile' => $voiceProfile,
             'voice_anchor' => $voiceProfile['voice_anchor'] ?? [],
             'anchor_card' => $voiceProfile['anchor_card'] ?? [],
+            'narrator_rules' => $narratorRules,
+            'universal_bans' => BannedProseValidator::universalBans(),
+            'first_scene_card' => $firstSceneCard,
             'current_entry_point_diagnosis' => $diagnosis,
             'established' => (string) data_get($diagnosis, 'situation_stakes_world.established', ''),
             'deferred' => (string) data_get($diagnosis, 'situation_stakes_world.deferred', ''),

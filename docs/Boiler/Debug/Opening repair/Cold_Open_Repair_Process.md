@@ -1,67 +1,50 @@
 # Cold open repair
 
-3 October 2026. How the review repair works, what it reads, and what it writes.
+14 October 2026. How the repair works, what it reads, and what it writes.
 
-This repair runs on any story, one title at a time. The same contract is used for every title. Peter Pan is the pilot we check first, not a special case inside the prompt. It does not change the entry-point pipeline agent (`EntryPointDiagnosisAgent`). That agent still has the old opening instructions. Move this prompt into the pipeline only after a repaired opening is greenlit.
+The repair rewrites a story's stored cold opens with Tom's Cold Open Contract, held to the same style and ban rules as the optimized Boiler and the live narrator. One contract serves every title and every session. It does not change the entry-point pipeline agent (`EntryPointDiagnosisAgent`).
 
-## Is this the first session?
+## Sessions
 
-Yes. Tom's contract is the **first output a new player reads**: session 1, turn 1.
+Each session's `entry_point_diagnosis.cold_open` is the prose the game delivers word for word at the start of that session. The repair rewrites that field only. It does not rebuild the cached runtime narrator prompt. Live delivery already injects `cold_open` from the diagnosis on the session-start turn.
 
-The command defaults to session 1. On Laravel Cloud the box runs bash, so prefix Artisan:
+- `--session=N` repairs one session. Session 1 is the default.
+- `--all` repairs every session of the story, in order.
 
-```
-php artisan stories:repair-cold-open peter-pan
-```
-
-That session's stored `entry_point_diagnosis.cold_open` is the prose the game delivers word for word when a new game starts. The repair rewrites that field. It does not rewrite later turns, and it does not rebuild the cached runtime narrator prompt. Live delivery already injects `cold_open` from the diagnosis on the session-start turn.
-
-`--session=` can point at another session number, but the prompt is still Tom's first-output contract. It does not include the previous session's handoff. Use it for session 1 until a later-session opening is designed on purpose. If you pass another session, the command says so before it does anything.
+Session 1 is an introduction. Session 2 and later are a re-entry: the model also reads the previous session's authored close and must start where that close leaves the protagonist. Any change in the gap (a capture, a separation, a journey) is stated plainly. The narration stays in second person, present tense, as the protagonist, in every session.
 
 ## What the model is told
 
-The system prompt is Tom's Cold Open Contract (the text in `LoreSpinner_Cold_Open_Repair_Spec.md`, Appendix A), with the story's own values filled into his three slots:
+The system prompt is Tom's contract (`LoreSpinner_Cold_Open_Repair_Spec.md`, Appendix A), with the story's values filled into his slots:
 
 | Tom's slot | Filled from |
 |---|---|
-| `PROTAGONIST_NAME` | Launch catalog, then the story session map, then the IP audit. Peter Pan is `Wendy Darling`. |
-| `VOICE_ANCHOR` | `story_adaptations.voice_profile.voice_anchor` and `anchor_card`. |
-| `FIRST_CHOICE_SPEC` | `entry_point_diagnosis.first_choice_spec` for that session. |
+| `PROTAGONIST_NAME` | Launch catalog, then the story session map, then the IP audit. |
+| `VOICE_ANCHOR` | The full `story_adaptations.voice_profile`: Voice DNA, Master Rule 1 IP-specific bans, Voice Anchor, Anchor Card. |
+| `FIRST_CHOICE_SPEC` | That session's `entry_point_diagnosis.first_choice_spec`. |
 
-The contract's rules are his: Rule 0 (second person, present tense, as the named protagonist), the four beats (where, who, what is happening, the decision), the clarity test, and the voice-anchor rule.
+Tom's order of beats is kept: where, who, what is happening, the decision. It outranks the Boiler's body-first rule.
 
-Tom's worked Peter Pan screen is included in the system prompt as a labeled craft
-example and as the approved Peter Pan candidate. When the command repairs `peter-pan`,
-the command reads that approved reference directly and does not call the model. The
-agreed final-question removal is already made. This guarantees that the older Boiler
-`cold_open` and later source events cannot be merged back into Tom's approved result.
-For every other title it is only a craft example: the prompt requires that title's own
-protagonist, voice, choice, facts, and setting, and Sonnet 4.6 generates the candidate.
+Added so the repair matches the optimized Boiler:
 
-The user message contains the title's actual Boiler material:
+- **Style and bans.** The user message carries that session's runtime narrator rules (Sections 4, 14 and 18 of its runtime prompt), the same slice `stories:repair-session` uses. Master Rule 1 in them binds the cold open. The system prompt also lists the universal bans from `BannedProseValidator` and the runtime self-check. Section 14's turn-ending rules belong to gameplay turns, so the cold open still ends as Tom's contract says.
+- **One sequence with the scene cards.** The user message carries the session's first finalized scene card. The cold open stops where that card begins and never narrates what it plays, so the player does not live it twice. This matches the latest Boiler play, where the opening ends as Wendy crosses the floor and the cards play Peter's name, the shadow, and the invitation.
+- **Worked example.** Tom's Peter Pan screen stays as a craft example for every title, Peter Pan included. Its final question is removed. Its em dashes, the "not the way… but the way…" contrast, the "as though you ought to have known" gloss, and the repeated "quiet" are brought into line with the bans. Where it covers events the first card plays, the card rule wins.
 
-- The complete current `entry_point_diagnosis`, including its entry-point reasoning,
-  established/deferred facts, full `first_choice_spec`, reintroductions, current
-  `cold_open`, emotional promise, and event positions.
-- The actual source events around the diagnosed entry and handoff.
-- The title's real Voice Anchor, Anchor Card, protagonist, and first-choice slots in
-  the system prompt.
-
-This is intentionally Boiler-based. Tom's contract was designed to repair that output.
-The earlier test diverged because the worked example was removed and the complete
-diagnosis was flattened into a few hand-written instructions.
+There is no longer a Peter Pan verbatim bypass. Every session goes through the model and the same gates.
 
 ## How a run works
 
 1. Resolve the story by slug or numeric id. It must have an adaptation.
-2. Load that session's `entry_point_diagnosis`. Session 1 if `--session` is omitted.
-3. Load the voice profile and the source events for that session.
-4. Stop if the protagonist name, the voice anchor, or the situation is missing. Nothing is invented to fill a gap.
-5. `--dry-run` prints the protagonist, the cold-open facts, and the question being kept off the prose. It does not call the model and does not write. `--show-prompt` on a dry run prints Tom's filled system prompt and the user message.
-6. Without `--dry-run`, the command first checks for an approved title reference. Peter Pan session 1 has one and is returned exactly without a model call. If a title has no approved reference, `ColdOpenRepairAgent` calls `claude-sonnet-4-6` at temperature 0.6. Its system prompt is Tom's universal contract plus his labeled Peter Pan craft example. The user message is the complete title-specific Boiler diagnosis and source context. The model returns one field: `cold_open`.
-7. The candidate is rejected if it is empty, contains an editorial `===` marker, runs past 350 words, does not address the player as "you" at the start, does not name the protagonist within the first 80 words, or ends on a question. A rejected candidate is printed and not saved.
-8. A candidate that passes is printed and still not saved, unless you also passed `--apply`.
-9. `--apply` writes the new prose onto `entry_point_diagnosis.cold_open` only. The rest of the diagnosis (the entry point, the first-choice spec, the emotional promise, the start event) stays as it was.
+2. Select the sessions: one with `--session`, every one with `--all`.
+3. For each session, load the diagnosis, voice profile, runtime narrator rules, first scene card, previous session close, and source events.
+4. Stop that session if the protagonist name, the voice anchor, or the situation is missing. Nothing is invented to fill a gap.
+5. `--dry-run` prints what was loaded and does not call the model or write. `--show-prompt` with it prints both prompts.
+6. Otherwise `ColdOpenRepairAgent` (`claude-opus-5-5`) writes a candidate.
+7. Banned punctuation (em and en dashes, double hyphens, semicolons, ellipses) is rewritten into commas and full stops, the same pass the Boiler runs before storing.
+8. The candidate is checked by `ColdOpenRepairValidator` (empty, `===` marker, over 350 words, no "you" at the start, protagonist not named in the first 80 words, closing question) and by the `BannedProseValidator` scan (banned words, phrase-tells, three or more "like a" similes).
+9. A rejected candidate is sent back with the problems listed, up to three attempts. If it still fails, it is printed and not saved.
+10. A passing candidate is printed and saved only with `--apply`. `--apply` writes `entry_point_diagnosis.cold_open` and nothing else.
 
 Existing games are not reset. The next new start of that story reads the stored cold open.
 
@@ -69,44 +52,36 @@ Existing games are not reset. The next new start of that story reads the stored 
 
 | Piece | Role |
 |---|---|
-| `app/Console/Commands/RepairColdOpenCommand.php` | `stories:repair-cold-open`. Loads one story, prints, and optionally stores. |
-| `app/Ai/Adaptation/ColdOpenRepairContext.php` | Pulls the protagonist, voice, complete Boiler diagnosis, first choice, and the source window. |
-| `app/Ai/Adaptation/ApprovedColdOpenReference.php` | Returns an approved title/session opening exactly. Peter Pan session 1 is the first registered reference. |
-| `app/Ai/Agents/Adaptation/ColdOpenRepairAgent.php` | Sends Tom's contract as the system prompt, with that story's slots filled. Model: `claude-sonnet-4-6` at 0.6. |
-| `resources/views/ai/agents/adaptation/cold-open-repair/system-prompt.blade.php` | Tom's universal contract, including his labeled Peter Pan craft example with the final question removed. |
-| `resources/views/ai/agents/adaptation/cold-open-repair/prompt.blade.php` | That title's complete `entry_point_diagnosis` plus the source events around the entry. |
-| `app/Ai/Adaptation/ColdOpenRepairValidator.php` | Rejects an empty opening, a marker, a missing name, a third-person start, an over-long opening, or a closing question. |
-| `tests/Unit/ColdOpenRepairPromptTest.php` | The complete Boiler diagnosis is sent, the Peter Pan screen stays a labeled example, and a closing question fails. |
-| `tests/Feature/RepairColdOpenCommandTest.php` | Dry run does not write. `--apply` stores only `cold_open`. A question is not stored. |
-
-`EntryPointDiagnosisAgent` and `resources/views/ai/agents/adaptation/entry-point-diagnosis/system-prompt.blade.php` are untouched. New boils still use the old opening instructions until this repair is greenlit and that agent is switched on purpose.
+| `app/Console/Commands/RepairColdOpenCommand.php` | `stories:repair-cold-open`. One session or `--all`, punctuation pass, ban scan, retries, optional store. |
+| `app/Ai/Adaptation/ColdOpenRepairContext.php` | Builds the prompt data: protagonist, voice profile, narrator rules, universal bans, first scene card, diagnosis, previous close, source window. |
+| `app/Ai/Adaptation/StoryRepairContext.php` | Reused for the runtime narrator rules and the finalized scene cards. |
+| `app/Ai/Agents/Adaptation/ColdOpenRepairAgent.php` | Sends Tom's contract as the system prompt. Model: `claude-opus-5-5`. |
+| `resources/views/ai/agents/adaptation/cold-open-repair/system-prompt.blade.php` | Tom's contract, later-session rules, the scene-card rule, style and bans, and the worked example. |
+| `resources/views/ai/agents/adaptation/cold-open-repair/prompt.blade.php` | The diagnosis, previous close, first scene card, narrator rules, and source events. |
+| `resources/views/ai/agents/adaptation/cold-open-repair/examples/peter-pan.blade.php` | Tom's worked example, ban-compliant. |
+| `app/Ai/Adaptation/ColdOpenRepairValidator.php` | Structural checks, shared with the entry-point validator. |
+| `app/Ai/Adaptation/BannedProseValidator.php` | Punctuation pass and ban scan, shared with the Boiler. |
 
 ## Laravel Cloud
 
 The Cloud command box runs bash. Prefix Artisan. Do not use `vendor/bin/sail`.
 
-Read what would be sent, without calling the model:
+Check what would be sent, for every session, without calling the model:
 
 ```
-php artisan stories:repair-cold-open peter-pan --dry-run
+php artisan stories:repair-cold-open peter-pan --all --dry-run
 ```
 
-Print the full prompt as well:
+Generate and print a candidate for every session. This calls the model once to three times per session. It does not save.
 
 ```
-php artisan stories:repair-cold-open peter-pan --dry-run --show-prompt
+php artisan stories:repair-cold-open peter-pan --all
 ```
 
-Generate a candidate and print it. This calls the model. It does not save.
+Store the candidates that pass:
 
 ```
-php artisan stories:repair-cold-open peter-pan
+php artisan stories:repair-cold-open peter-pan --all --apply
 ```
 
-Store a candidate that passes the checks:
-
-```
-php artisan stories:repair-cold-open peter-pan --apply
-```
-
-Another title is the same command with that story's slug. Session 1 is the default.
+One session only: replace `--all` with `--session=2`. Another title: replace `peter-pan` with its slug.
