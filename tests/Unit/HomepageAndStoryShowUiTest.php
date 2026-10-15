@@ -84,11 +84,10 @@ it('features the curated homepage story order', function (): void {
 
     $carousel = [
         'the-adventure-of-the-speckled-band',
-        'the-wonderful-wizard-of-oz',
-        'the-tell-tale-heart',
-        'pride-and-prejudice',
         'sense-and-sensibility',
+        'the-tell-tale-heart',
         'sir-gawain-and-the-green-knight',
+        'the-wonderful-wizard-of-oz',
     ];
     $newStories = [
         'peter-pan',
@@ -118,6 +117,7 @@ it('features the curated homepage story order', function (): void {
     }
 
     expect($hero)
+        ->not->toContain("slug: 'pride-and-prejudice'")
         ->not->toContain("slug: 'dracula'")
         ->not->toContain("slug: 'robin-hood'")
         ->not->toContain("slug: 'the-masque-of-the-red-death'")

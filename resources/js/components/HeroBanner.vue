@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import greenKnightImage from '@/assets/carosel/greenknight.webp';
 import senseImage from '@/assets/carosel/Sense and Sensibility 16_9.webp';
-import prideImage from '@/assets/top-moods/Pride prejudice 16_9 untitled.webp';
 import ozImage from '@/assets/carosel/Ultrawide Oz.webp';
 import sherlockImage from '@/assets/carosel/Sherlock Ultrawide hero banner.webp';
 import tellTaleImage from '@/assets/carosel/Ultrawide the tell tale heart.webp';
@@ -58,18 +57,18 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'the-wonderful-wizard-of-oz',
-        image: ozImage,
-        imagePosition: 'object-[58%_top] md:object-top',
-        titleLines: ['The Wonderful', 'Wizard of Oz'],
-        fallbackTitle: 'The Wonderful Wizard of Oz',
+        slug: 'sense-and-sensibility',
+        image: senseImage,
+        imagePosition: 'object-center',
+        titleLines: ['Sense and', 'Sensibility'],
+        fallbackTitle: 'Sense and Sensibility',
         teaserLines: [
-            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble,',
-            'and every step down the Yellow Brick Road changes who you are becoming.',
+            'Two sisters, two fortunes, and the difference between',
+            'what the heart wants and what the world allows.',
         ],
         fallbackTeaser:
-            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
-        fallbackAuthor: 'L. Frank Baum',
+            'Two sisters, two fortunes, and the difference between what the heart wants and what the world allows.',
+        fallbackAuthor: 'Jane Austen',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
@@ -88,36 +87,6 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
     {
-        slug: 'pride-and-prejudice',
-        image: prideImage,
-        imagePosition: 'object-[62%_center] md:object-center',
-        titleLines: ['Pride and', 'Prejudice'],
-        fallbackTitle: 'Pride and Prejudice',
-        teaserLines: [
-            'In a world ruled by reputation, romance, and social expectation,',
-            'Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
-        ],
-        fallbackTeaser:
-            'In a world ruled by reputation, romance, and social expectation, Elizabeth Bennet must navigate pride, misunderstanding, and the dangerous possibility of falling in love.',
-        fallbackAuthor: 'Jane Austen',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-    },
-    {
-        slug: 'sense-and-sensibility',
-        image: senseImage,
-        imagePosition: 'object-center',
-        titleLines: ['Sense and', 'Sensibility'],
-        fallbackTitle: 'Sense and Sensibility',
-        teaserLines: [
-            'Two sisters, two fortunes, and the difference between',
-            'what the heart wants and what the world allows.',
-        ],
-        fallbackTeaser:
-            'Two sisters, two fortunes, and the difference between what the heart wants and what the world allows.',
-        fallbackAuthor: 'Jane Austen',
-        seriesLabel: LORE_SPINNER_CLASSIC,
-    },
-    {
         slug: 'sir-gawain-and-the-green-knight',
         image: greenKnightImage,
         imagePosition: 'object-center',
@@ -129,6 +98,21 @@ const featuredHeroSlideConfigs: FeaturedHeroSlideConfig[] = [
         ],
         fallbackTeaser: 'Green knights, oaths, and the year that will define a hero.',
         fallbackAuthor: 'Anonymous',
+        seriesLabel: LORE_SPINNER_CLASSIC,
+    },
+    {
+        slug: 'the-wonderful-wizard-of-oz',
+        image: ozImage,
+        imagePosition: 'object-[58%_top] md:object-top',
+        titleLines: ['The Wonderful', 'Wizard of Oz'],
+        fallbackTitle: 'The Wonderful Wizard of Oz',
+        teaserLines: [
+            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble,',
+            'and every step down the Yellow Brick Road changes who you are becoming.',
+        ],
+        fallbackTeaser:
+            'A storm carries you into the magical land of Oz, where witches whisper, lions tremble, and every step down the Yellow Brick Road changes who you are becoming.',
+        fallbackAuthor: 'L. Frank Baum',
         seriesLabel: LORE_SPINNER_CLASSIC,
     },
 ];

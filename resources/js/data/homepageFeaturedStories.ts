@@ -10,11 +10,10 @@ export interface HomepageFeaturedStory {
 /** Homepage hero, in carousel order. */
 export const HOMEPAGE_CAROUSEL_SLUGS = [
     'the-adventure-of-the-speckled-band',
-    'the-wonderful-wizard-of-oz',
-    'the-tell-tale-heart',
-    'pride-and-prejudice',
     'sense-and-sensibility',
+    'the-tell-tale-heart',
     'sir-gawain-and-the-green-knight',
+    'the-wonderful-wizard-of-oz',
 ] as const;
 
 /** Homepage New Stories row, in display order. */
