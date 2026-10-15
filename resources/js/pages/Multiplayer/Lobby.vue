@@ -106,7 +106,12 @@ const inviteLink = computed(() => {
 });
 const page = usePage();
 const members = computed(() => liveLobby.value.members);
-const waitingSlots = computed(() => Math.max(liveLobby.value.max_players - members.value.length, 0));
+const visibleLobbySeatFloor = 4;
+const waitingSlots = computed(() => {
+    const visibleSeats = Math.min(liveLobby.value.max_players, Math.max(members.value.length, visibleLobbySeatFloor));
+
+    return Math.max(visibleSeats - members.value.length, 0);
+});
 const currentUserId = computed(() => page.props.auth?.id ?? null);
 const currentMember = computed(() => members.value.find((member) => member.user.id === currentUserId.value));
 const isCurrentUserReady = computed(() => currentMember.value?.is_ready ?? false);

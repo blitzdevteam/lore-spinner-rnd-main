@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
+use App\Models\MultiplayerLobby;
 use App\Models\Story;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -29,7 +30,7 @@ final class MultiplayerLobbyFactory extends Factory
             'room_code' => 'TRS-'.Str::upper(Str::random(6)),
             'mode' => MultiplayerLobbyModeEnum::Arbiter,
             'status' => MultiplayerLobbyStatusEnum::Waiting,
-            'max_players' => 4,
+            'max_players' => MultiplayerLobby::MAX_PLAYERS,
             'last_activity_at' => now(),
             'settings' => [
                 'choices_enabled' => true,

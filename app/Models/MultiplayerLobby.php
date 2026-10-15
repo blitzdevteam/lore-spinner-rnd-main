@@ -54,6 +54,10 @@ final class MultiplayerLobby extends Model
 
     use HasUlids;
 
+    public const int MIN_PLAYERS = 3;
+
+    public const int MAX_PLAYERS = 10;
+
     public const int DEFAULT_DECISION_WINDOW_SECONDS = 180;
 
     public const int DISABLED_DECISION_WINDOW_SECONDS = 0;

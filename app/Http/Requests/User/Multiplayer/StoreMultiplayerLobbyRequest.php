@@ -29,7 +29,7 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
     {
         return [
             'mode' => ['required', Rule::enum(MultiplayerLobbyModeEnum::class)],
-            'max_players' => ['required', 'integer', 'between:3,4'],
+            'max_players' => ['required', 'integer', 'between:'.MultiplayerLobby::MIN_PLAYERS.','.MultiplayerLobby::MAX_PLAYERS],
             'settings' => ['required', 'array:choices_enabled,custom_input_enabled,voice_over_enabled,decision_window_seconds'],
             'settings.choices_enabled' => ['sometimes', 'boolean'],
             'settings.custom_input_enabled' => [
@@ -51,7 +51,7 @@ final class StoreMultiplayerLobbyRequest extends FormRequest
     {
         return [
             'mode.required' => 'Choose a multiplayer mode.',
-            'max_players.between' => 'A multiplayer room can have between 3 and 4 players.',
+            'max_players.between' => 'A multiplayer room can have between '.MultiplayerLobby::MIN_PLAYERS.' and '.MultiplayerLobby::MAX_PLAYERS.' players.',
             'settings.required' => 'Choose the lobby settings before creating the room.',
             'settings.decision_window_seconds.in' => 'Choose a countdown of 3, 4, 5, or 6 minutes, or turn it off.',
         ];

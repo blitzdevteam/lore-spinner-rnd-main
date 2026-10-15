@@ -69,7 +69,7 @@ const lobbyCreationForm = useForm<{
     };
 }>({
     mode: 'arbiter',
-    max_players: 4,
+    max_players: 10,
     settings: {
         decision_window_seconds: 180,
     },
@@ -119,7 +119,7 @@ const storyModes: StoryMode[] = [
         selectedBackground: '#221b0f',
         border: '#59c1ca',
         icon: LucideScale,
-        features: ['2-4\nPlayers', 'Turn\nBased', 'One judge\nat a time'],
+        features: ['3-10\nPlayers', 'Turn\nBased', 'One judge\nat a time'],
         available: true,
     },
     {
@@ -131,7 +131,7 @@ const storyModes: StoryMode[] = [
         selectedBackground: '#102324',
         border: '#373737',
         icon: LucideVenetianMask,
-        features: ['2-4\nPlayers', 'Shared\nstory', 'Each player\na character'],
+        features: ['3-10\nPlayers', 'Shared\nstory', 'Each player\na character'],
         available: true,
     },
     {
@@ -249,7 +249,7 @@ function createLobby(): void {
     const mode = selectedModeName.value === 'Roulette' ? 'roulette' : 'arbiter';
 
     lobbyCreationForm.mode = mode;
-    lobbyCreationForm.max_players = 4;
+    lobbyCreationForm.max_players = 10;
     lobbyCreationForm.settings = {
         choices_enabled: lobbySettings.value.choices === 'On',
         voice_over_enabled: lobbySettings.value.voiceOver === 'On',
