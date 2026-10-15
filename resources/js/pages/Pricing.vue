@@ -190,10 +190,10 @@ const registerHref = computed(() => {
                                 <h1
                                     class="font-marcellus-sc text-[2.5rem] leading-[3.75rem] text-white uppercase text-shadow-[0px_0px_21.2px_black]"
                                 >
-                                    choose your path
+                                    Your story starts here
                                 </h1>
-                                <p class="text-xl leading-[26px] text-[#ffbe58]">Try 20 actions and 10 minutes of voice free</p>
-                                <p class="max-w-[22rem] text-base leading-[26px] text-[#8f8f8f]">One-time allowance for new accounts.</p>
+                                <p class="text-xl leading-[26px] text-[#ffbe58]">Try your first 20 actions free, with voice narration included.</p>
+                                <p class="max-w-[22rem] text-base leading-[26px] text-[#8f8f8f]">For first time players.</p>
                             </div>
 
                             <Link
