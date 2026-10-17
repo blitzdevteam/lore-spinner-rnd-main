@@ -57,7 +57,10 @@ final class SubscriptionPlansTable
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label('Active')
-                    ->boolean(),
+                    ->placeholder('All')
+                    ->trueLabel('Active')
+                    ->falseLabel('Inactive')
+                    ->default(true),
             ])
             ->recordActions([
                 EditAction::make(),

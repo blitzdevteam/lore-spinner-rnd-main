@@ -4,12 +4,36 @@ declare(strict_types=1);
 
 use App\Filament\Manager\Resources\SubscriptionPlans\Pages\CreateSubscriptionPlan;
 use App\Filament\Manager\Resources\SubscriptionPlans\Pages\EditSubscriptionPlan;
+use App\Filament\Manager\Resources\SubscriptionPlans\Pages\ListSubscriptionPlans;
 use App\Models\Manager;
 use App\Models\SubscriptionPlan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
+
+it('hides inactive subscription plans until an admin chooses to see them', function (): void {
+    $manager = Manager::factory()->create();
+    $active = SubscriptionPlan::factory()->create([
+        'name' => 'Story',
+        'is_active' => true,
+    ]);
+    $inactive = SubscriptionPlan::factory()->create([
+        'name' => 'Adventurer Pass',
+        'is_active' => false,
+    ]);
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(ListSubscriptionPlans::class)
+        ->assertCanSeeTableRecords([$active])
+        ->assertCanNotSeeTableRecords([$inactive])
+        ->filterTable('is_active', false)
+        ->assertCanSeeTableRecords([$inactive])
+        ->assertCanNotSeeTableRecords([$active])
+        ->filterTable('is_active', null)
+        ->assertCanSeeTableRecords([$active, $inactive]);
+});
 
 it('saves pricing card copy from the subscription plan form', function (): void {
     $manager = Manager::factory()->create();
