@@ -57,13 +57,13 @@ it('normalizes legacy choices and Boiler suggestion objects without changing can
         ->toBe(['Inspect', 'Wait', 'Leave'])
         ->and($normalizer->choices([
             'visible_suggestions' => [
-                'option_1' => [
+                [
                     'text' => 'Hide the shard.',
                     'canonical_choice_id' => 'S1_C1',
                     'canonical_path_label' => 'b',
                 ],
-                'option_2' => ['text' => 'Inspect the residue.'],
-                'option_3' => ['text' => 'Ask who left it behind.'],
+                ['text' => 'Inspect the residue.'],
+                ['text' => 'Ask who left it behind.'],
             ],
         ], true))->toBe([
             [

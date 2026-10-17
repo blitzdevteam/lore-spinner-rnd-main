@@ -61,14 +61,15 @@ final class ChaosNarrationSchema
 
         $visibleSuggestions = $boilerActive
             ? $schema->object([
-                'option_1' => $suggestion(),
-                'option_2' => $suggestion(),
-                'option_3' => $suggestion(),
+                'option_1' => $schema->string()->required()->description('First suggestion text: the authored A option at a decision, otherwise a contextual pursuit action.'),
+                'option_2' => $schema->string()->required()->description('Second suggestion text: the authored B option at a decision, otherwise a contextual risk action.'),
+                'option_3' => $schema->string()->required()->description('Third suggestion text: the authored C option at a decision, otherwise a contextual deepening action.'),
+                'canonical_choice_id' => $schema->string()->required()->description('At an authored decision, the one choice ID shared by option_1, option_2, and option_3. Empty string when the three options are freeform. The runtime assigns A/B/C labels by slot.'),
             ])
                 ->required()
                 ->withoutAdditionalProperties()
                 ->title('Visible Suggestions')
-                ->description('Boiler-only contextual suggestions. Fill all three required option slots on every response, including every Continue and a response that completes the session. At an authored decision, the three slots are its mapped A/B/C options. At every other handoff, they are freeform pursuit, risk, and deepening actions with empty canonical identity. The runtime hides them after completion.')
+                ->description('Boiler-only contextual suggestions. Fill all three required option strings on every response, including every Continue and a response that completes the session. At an authored decision, the slots are its mapped A/B/C options and canonical_choice_id is their shared choice ID. At every other handoff, they are freeform pursuit, risk, and deepening actions and canonical_choice_id is empty. The runtime hides them after completion.')
             : $schema
                 ->array()
                 ->required()

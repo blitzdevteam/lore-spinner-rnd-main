@@ -244,26 +244,50 @@ it('uses three required object slots for Boiler visible suggestions', function (
     $suggestions = $schema['properties']['visible_suggestions'];
 
     expect($suggestions['type'])->toBe('object')
-        ->and(array_keys($suggestions['properties']))->toBe(['option_1', 'option_2', 'option_3'])
-        ->and($suggestions['required'])->toBe(['option_1', 'option_2', 'option_3'])
-        ->and($suggestions['additionalProperties'])->toBeFalse();
-
-    foreach ($suggestions['properties'] as $suggestion) {
-        expect($suggestion['required'])->toBe(['text', 'canonical_choice_id', 'canonical_path_label'])
-            ->and($suggestion['additionalProperties'])->toBeFalse();
-    }
+        ->and(array_keys($suggestions['properties']))->toBe([
+            'option_1',
+            'option_2',
+            'option_3',
+            'canonical_choice_id',
+        ])
+        ->and($suggestions['required'])->toBe([
+            'option_1',
+            'option_2',
+            'option_3',
+            'canonical_choice_id',
+        ])
+        ->and($suggestions['additionalProperties'])->toBeFalse()
+        ->and($suggestions['properties']['option_1']['type'])->toBe('string')
+        ->and($suggestions['properties']['option_1'])->not->toHaveKey('properties');
 });
 
 it('converts fixed Boiler suggestion slots to the existing ordered runtime array', function () {
     $engine = sparseStateEngine();
     $method = (new ReflectionClass($engine))->getMethod('visibleSuggestionsFromStructured');
     $suggestions = $method->invoke($engine, [
-        'option_3' => ['text' => 'Third'],
-        'option_1' => ['text' => 'First'],
-        'option_2' => ['text' => 'Second'],
+        'option_3' => 'Third',
+        'option_1' => 'First',
+        'option_2' => 'Second',
+        'canonical_choice_id' => 'S1_C1',
     ]);
 
-    expect(array_column($suggestions, 'text'))->toBe(['First', 'Second', 'Third']);
+    expect($suggestions)->toBe([
+        [
+            'text' => 'First',
+            'canonical_choice_id' => 'S1_C1',
+            'canonical_path_label' => 'A',
+        ],
+        [
+            'text' => 'Second',
+            'canonical_choice_id' => 'S1_C1',
+            'canonical_path_label' => 'B',
+        ],
+        [
+            'text' => 'Third',
+            'canonical_choice_id' => 'S1_C1',
+            'canonical_path_label' => 'C',
+        ],
+    ]);
 });
 
 it('builds Anthropic narration requests with GA native output config instead of a schema tool', function () {

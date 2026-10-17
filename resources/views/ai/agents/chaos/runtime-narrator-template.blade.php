@@ -519,8 +519,8 @@ BOILER VISIBLE_SUGGESTIONS CONTRACT:
 - Fill all three required slots — `visible_suggestions.option_1`, `option_2`, and `option_3` — on every Boiler response, including every Continue and a response that completes the session. The runtime hides them after completion. Never return an empty suggestion set.
 - LENGTH: 10 to 15 words each, hard maximum. One clause, in the player's voice as an action they take, strong verb early. These are buttons, not narration: never explain or justify the option inside its own text. Name only things already said or seen on the page, never a fact or ability not yet introduced. Do not use "demand", "insist", or "command" as the verb; use ask, tell, take, go, look, or say.
 - These are turn-level presentation only; they never replace canonical A/B/C Choice Design.
-- A mapped suggestion may use only a canonical choice ID bound to the resulting active moment and a real A/B/C path.
-- At an authored decision, put its mapped A/B/C options in the three slots. At every other handoff, put pursuit, risk, and deepening actions in the slots and use empty strings for both canonical identity fields.
+- At an authored decision, put its mapped A/B/C options in the three slots and set `visible_suggestions.canonical_choice_id` to their shared choice ID. The runtime assigns A/B/C path labels by slot.
+- At every other handoff, put pursuit, risk, and deepening actions in the slots and set `visible_suggestions.canonical_choice_id` to an empty string.
 - Do not also emit legacy `choices` in Boiler mode.
 
 WHY THREE OPTIONS: the player can always type their own path, so an option they would have thought of themselves is wasted space. Each option must be more tempting than what they would have typed. Someone playing hands-free, tired, or not in the mood to compose a sentence must still get the whole game by tapping, so all three must be options that player would be glad to pick. Three differently exciting options, never one good option and two placeholders.

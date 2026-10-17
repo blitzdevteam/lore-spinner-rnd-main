@@ -892,7 +892,7 @@ TEXT;
             'Fill "response" first so the UI can stream it while the rest of the object is still generating.',
             ! $boilerActive
                 ? 'LEGACY GAMEPLAY REQUIREMENT: when "session_complete" is false, "choices" MUST contain exactly three non-empty suggested actions. Only a completed session may return "choices": []. "visible_suggestions" MUST be [].'
-                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Fill visible_suggestions.option_1, option_2, and option_3 on EVERY response, including every Continue and a response that completes the session. At an authored decision map the exact A/B/C options. At every other handoff emit three contextual freeform actions with empty canonical identity.',
+                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Fill visible_suggestions.option_1, option_2, and option_3 on EVERY response, including every Continue and a response that completes the session. At an authored decision map the exact A/B/C options and set their shared canonical_choice_id. At every other handoff emit three contextual freeform actions and leave canonical_choice_id empty.',
         ]);
 
         $providerOptions = $this->providerOptionsFor($config);
@@ -1532,6 +1532,30 @@ TEXT;
         if (array_key_exists('option_1', $suggestions)
             && array_key_exists('option_2', $suggestions)
             && array_key_exists('option_3', $suggestions)) {
+            if (is_string($suggestions['option_1'])
+                && is_string($suggestions['option_2'])
+                && is_string($suggestions['option_3'])) {
+                $choiceId = mb_trim((string) ($suggestions['canonical_choice_id'] ?? ''));
+
+                return [
+                    [
+                        'text' => $suggestions['option_1'],
+                        'canonical_choice_id' => $choiceId,
+                        'canonical_path_label' => $choiceId !== '' ? 'A' : '',
+                    ],
+                    [
+                        'text' => $suggestions['option_2'],
+                        'canonical_choice_id' => $choiceId,
+                        'canonical_path_label' => $choiceId !== '' ? 'B' : '',
+                    ],
+                    [
+                        'text' => $suggestions['option_3'],
+                        'canonical_choice_id' => $choiceId,
+                        'canonical_path_label' => $choiceId !== '' ? 'C' : '',
+                    ],
+                ];
+            }
+
             return [
                 $suggestions['option_1'],
                 $suggestions['option_2'],
@@ -1965,7 +1989,7 @@ TEXT;
         } elseif (! $isSessionStart && $pendingChoiceIds !== []) {
             $lines[] = implode("\n", [
                 'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
-                '- Play the scene toward it. On the turn the story reaches the decision, visible_suggestions.option_1, option_2, and option_3 ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label and worded for this exact moment.',
+                '- Play the scene toward it. On the turn the story reaches the decision, visible_suggestions.option_1, option_2, and option_3 ARE its A, B, and C options, worded for this exact moment. Set visible_suggestions.canonical_choice_id to their shared choice ID; the runtime assigns A/B/C labels by slot.',
                 '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
                 '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
             ]);
@@ -2036,7 +2060,7 @@ TEXT;
                 implode("\n", [
                     'CONTINUE SLOWS DOWN HERE: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not been offered it yet. This is a decision they can shape.',
                     '- Narrate forward like the next page of the book until the decision is in front of the protagonist, then stop there.',
-                    '- Fill visible_suggestions.option_1, option_2, and option_3 with its A, B, and C options, each mapped with its canonical_choice_id and canonical_path_label and worded for this exact moment.',
+                    '- Fill visible_suggestions.option_1, option_2, and option_3 with its A, B, and C options, worded for this exact moment. Set visible_suggestions.canonical_choice_id to their shared choice ID; the runtime assigns A/B/C labels by slot.',
                     '- '.$neverChoose.' Keep exit_condition_met=false and caught_up_to_moment_key empty.',
                 ]),
                 'THE DECISION:',
@@ -2045,7 +2069,7 @@ TEXT;
         }
 
         $lines = [];
-        $lines[] = 'Every Continue response fills visible_suggestions.option_1, option_2, and option_3. If the prose stops before an authored decision, fill them with three contextual freeform actions and leave both canonical identity fields empty. Never return an empty suggestion set.';
+        $lines[] = 'Every Continue response fills visible_suggestions.option_1, option_2, and option_3. If the prose stops before an authored decision, fill them with three contextual freeform actions and leave visible_suggestions.canonical_choice_id empty. Never return an empty suggestion set.';
         if ($pendingChoiceIds !== []) {
             $lines[] = 'The player was offered '.implode(', ', $pendingChoiceIds).' and pressed Continue instead: they want the author\'s story to carry on. Follow the author\'s canonical path through it.';
         }
@@ -2173,7 +2197,7 @@ TEXT;
                 }
             }
             $lines[] = '';
-            $lines[] = 'Put these same three options in visible_suggestions.option_1, option_2, and option_3 this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen, so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
+            $lines[] = 'Put these same three options in visible_suggestions.option_1, option_2, and option_3 this turn and set visible_suggestions.canonical_choice_id to this choice_id. The runtime assigns A/B/C paths by slot so the player can take one directly. The session does not close until one is genuinely chosen, so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
 
             if (! empty($choice['final_line'])) {
                 $lines[] = '';
