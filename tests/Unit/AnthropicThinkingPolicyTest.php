@@ -114,7 +114,7 @@ it('never sends disabled thinking to Opus 5.5', function () {
         ->and(decodedBody($stripped))->not->toHaveKey('thinking');
 });
 
-it('makes the Haiku 5.5 narration tool strict without enabling manual thinking', function () {
+it('keeps Haiku 5.5 forced narration non-strict and omits sampling', function () {
     $request = AnthropicThinkingPolicy::disableOpusThinking(anthropicRequest([
         'model' => 'claude-haiku-5-5',
         'tool_choice' => ['type' => 'tool', 'name' => 'emit_narration'],
@@ -133,8 +133,8 @@ it('makes the Haiku 5.5 narration tool strict without enabling manual thinking',
 
     expect($body)->not->toHaveKeys(['thinking', 'temperature'])
         ->and($body['tool_choice'])->toBe(['type' => 'tool', 'name' => 'emit_narration'])
-        ->and($body['tools'][0]['strict'])->toBeTrue()
-        ->and($body['tools'][0]['input_schema']['additionalProperties'])->toBeFalse();
+        ->and($body['tools'][0])->not->toHaveKey('strict')
+        ->and($body['tools'][0]['input_schema'])->not->toHaveKey('additionalProperties');
 });
 
 it('turns forced tool use into auto with a system instruction for Opus 5.5', function () {

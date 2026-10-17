@@ -27,8 +27,8 @@ use Psr\Http\Message\RequestInterface;
  *
  * Haiku 5.5 supports forced tools with adaptive thinking, but a forced tool
  * starts directly with the tool call. Production narration deliberately keeps
- * that behaviour for streaming. Its narration tool is strict so the three
- * required Boiler suggestion slots are generated in the primary response.
+ * that behaviour for streaming. Sampling parameters are omitted because the
+ * model rejects non-default sampling alongside adaptive thinking.
  */
 final class AnthropicThinkingPolicy
 {
@@ -37,8 +37,6 @@ final class AnthropicThinkingPolicy
     private const OPUS_5_5_PREFIX = 'claude-opus-5-5';
 
     private const HAIKU_5_5 = 'claude-haiku-5-5';
-
-    private const NARRATION_TOOL = 'emit_narration';
 
     public static function disableOpusThinking(RequestInterface $request): RequestInterface
     {
@@ -152,23 +150,6 @@ final class AnthropicThinkingPolicy
                 unset($payload[$samplingParameter]);
                 $changed = true;
             }
-        }
-
-        foreach ((array) ($payload['tools'] ?? []) as $index => $tool) {
-            if (! is_array($tool) || ($tool['name'] ?? null) !== self::NARRATION_TOOL) {
-                continue;
-            }
-
-            $inputSchema = $tool['input_schema'] ?? null;
-            if (! is_array($inputSchema)) {
-                continue;
-            }
-
-            $inputSchema['additionalProperties'] = false;
-            $tool['input_schema'] = $inputSchema;
-            $tool['strict'] = true;
-            $payload['tools'][$index] = $tool;
-            $changed = true;
         }
 
         return $changed ? $payload : null;
