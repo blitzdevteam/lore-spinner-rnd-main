@@ -237,6 +237,35 @@ it('uses native-compatible required nullable fields for sparse narration output'
         ->and($countUnionTypes($schema))->toBe(11);
 });
 
+it('uses three required object slots for Boiler visible suggestions', function () {
+    $schema = (new NativeObjectSchema(
+        ChaosNarrationSchema::definition(new JsonSchemaTypeFactory, boilerActive: true),
+    ))->toArray();
+    $suggestions = $schema['properties']['visible_suggestions'];
+
+    expect($suggestions['type'])->toBe('object')
+        ->and(array_keys($suggestions['properties']))->toBe(['option_1', 'option_2', 'option_3'])
+        ->and($suggestions['required'])->toBe(['option_1', 'option_2', 'option_3'])
+        ->and($suggestions['additionalProperties'])->toBeFalse();
+
+    foreach ($suggestions['properties'] as $suggestion) {
+        expect($suggestion['required'])->toBe(['text', 'canonical_choice_id', 'canonical_path_label'])
+            ->and($suggestion['additionalProperties'])->toBeFalse();
+    }
+});
+
+it('converts fixed Boiler suggestion slots to the existing ordered runtime array', function () {
+    $engine = sparseStateEngine();
+    $method = (new ReflectionClass($engine))->getMethod('visibleSuggestionsFromStructured');
+    $suggestions = $method->invoke($engine, [
+        'option_3' => ['text' => 'Third'],
+        'option_1' => ['text' => 'First'],
+        'option_2' => ['text' => 'Second'],
+    ]);
+
+    expect(array_column($suggestions, 'text'))->toBe(['First', 'Second', 'Third']);
+});
+
 it('builds Anthropic narration requests with GA native output config instead of a schema tool', function () {
     $schema = new NativeObjectSchema(
         ChaosNarrationSchema::definition(new JsonSchemaTypeFactory),

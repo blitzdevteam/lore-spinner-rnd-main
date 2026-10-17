@@ -158,7 +158,7 @@ it('marks a card with an untaken branching choice as a decision point', function
 
     expect($block)
         ->toContain('DECISION POINT: this card carries the authored choice S1_C1')
-        ->toContain('the three visible_suggestions ARE its A, B, and C options')
+        ->toContain('visible_suggestions.option_1, option_2, and option_3 ARE its A, B, and C options')
         ->toContain('The runtime holds this card until it is.');
 
     expect(callEnginePrivate('buildActiveMomentBlock', [['moment_key' => 'S1_M02']]))
@@ -180,6 +180,8 @@ it('lets Continue stop at an unseen decision and pass a declined one without wea
         ->and($unseen)->toContain('CONTINUE SLOWS DOWN HERE')
         ->and($declined)->toContain('pressed Continue instead')
         ->and($declined)->toContain('CONTINUE NARRATES LIKE A BOOK')
+        ->and($declined)->toContain('Every Continue response fills visible_suggestions.option_1, option_2, and option_3')
+        ->and($declined)->toContain('three contextual freeform actions')
         ->and($unseen)->not->toContain('The runtime holds this card until it is.')
         ->and($declined)->not->toContain('The runtime holds this card until it is.');
 });

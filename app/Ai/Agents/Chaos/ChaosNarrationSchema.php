@@ -51,8 +51,31 @@ final class ChaosNarrationSchema
     /**
      * @return array<string, mixed>
      */
-    public static function definition(JsonSchema $schema): array
+    public static function definition(JsonSchema $schema, bool $boilerActive = false): array
     {
+        $suggestion = static fn () => $schema->object([
+            'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration. Only name things already said or seen on the page; never use demand, insist, or command as the verb.'),
+            'canonical_choice_id' => $schema->string()->required()->title('Canonical Choice ID')->description('Empty string for a freeform suggestion.'),
+            'canonical_path_label' => $schema->string()->required()->title('Canonical Path Label')->description('A, B, or C for a mapped suggestion; empty string otherwise.'),
+        ])->required()->withoutAdditionalProperties();
+
+        $visibleSuggestions = $boilerActive
+            ? $schema->object([
+                'option_1' => $suggestion(),
+                'option_2' => $suggestion(),
+                'option_3' => $suggestion(),
+            ])
+                ->required()
+                ->withoutAdditionalProperties()
+                ->title('Visible Suggestions')
+                ->description('Boiler-only contextual suggestions. Fill all three required option slots on every response, including every Continue and a response that completes the session. At an authored decision, the three slots are its mapped A/B/C options. At every other handoff, they are freeform pursuit, risk, and deepening actions with empty canonical identity. The runtime hides them after completion.')
+            : $schema
+                ->array()
+                ->required()
+                ->title('Visible Suggestions')
+                ->description('Outside Boiler mode return [].')
+                ->items($suggestion());
+
         return [
             'response' => $schema
                 ->string()
@@ -67,18 +90,7 @@ final class ChaosNarrationSchema
                 ->description('Outside Boiler mode, return exactly three non-empty suggested action strings whenever session_complete is false; return [] after the session completes. In Boiler mode return []; Boiler prompts emit visible_suggestions instead. Never emit both.')
                 ->items($schema->string()->required()),
 
-            'visible_suggestions' => $schema
-                ->array()
-                ->required()
-                ->title('Visible Suggestions')
-                ->description('Boiler-only contextual suggestions: exactly three on any turn where the player can act, each with a different function (pursuit / risk / deepening) and a different consequence domain. Freeform input remains available. Mapped canonical identity is optional and must reference the active moment on an ordinary turn, or the later landing moment reported by a Continue. Return [] outside Boiler mode.')
-                ->items(
-                    $schema->object([
-                        'text' => $schema->string()->required()->title('Suggestion Text')->description('10 to 15 words maximum. One clause, an action the player takes, strong verb early. A button label, never a sentence of narration. Only name things already said or seen on the page; never use demand, insist, or command as the verb.'),
-                        'canonical_choice_id' => $schema->string()->required()->title('Canonical Choice ID')->description('Empty string for a freeform suggestion.'),
-                        'canonical_path_label' => $schema->string()->required()->title('Canonical Path Label')->description('A, B, or C for a mapped suggestion; empty string otherwise.'),
-                    ])->required()->withoutAdditionalProperties()
-                ),
+            'visible_suggestions' => $visibleSuggestions,
 
             'moment_progress' => $schema->object([
                 'moment_key' => $schema->string()->required()->title('Active Moment Key'),

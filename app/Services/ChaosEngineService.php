@@ -761,6 +761,7 @@ TEXT;
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
         $systemPrompt = $this->withSparseStateDeltaContract($systemPrompt);
+        $boilerActive = $game?->current_playable_moment_id !== null;
 
         $messages = $this->conversationHistoryToMessages(
             $conversationHistory,
@@ -769,7 +770,7 @@ TEXT;
             $isOpening,
         );
 
-        $schemaArray = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory);
+        $schemaArray = ChaosNarrationSchema::definition(new JsonSchemaTypeFactory, $boilerActive);
         $providerOptions = $this->providerOptionsFor($config);
 
         // The browser response has already been sent before production game
@@ -876,6 +877,7 @@ TEXT;
     ): array {
         $config = self::MODEL_CONFIG[$model] ?? self::MODEL_CONFIG[self::DEFAULT_MODEL];
         $systemPrompt = $this->withSparseStateDeltaContract($systemPrompt);
+        $boilerActive = $game?->current_playable_moment_id !== null;
 
         $messages = $this->conversationHistoryToMessages(
             $conversationHistory,
@@ -888,9 +890,9 @@ TEXT;
             'STREAMING OUTPUT CONTRACT:',
             'Deliver this turn by calling the '.self::NARRATION_TOOL_NAME.' tool. Never answer in plain prose.',
             'Fill "response" first so the UI can stream it while the rest of the object is still generating.',
-            $game?->current_playable_moment_id === null
+            ! $boilerActive
                 ? 'LEGACY GAMEPLAY REQUIREMENT: when "session_complete" is false, "choices" MUST contain exactly three non-empty suggested actions. Only a completed session may return "choices": []. "visible_suggestions" MUST be [].'
-                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Emit contextual "visible_suggestions" and follow every authored option requirement in the active-moment block.',
+                : 'BOILER GAMEPLAY REQUIREMENT: "choices" MUST be []. Fill visible_suggestions.option_1, option_2, and option_3 on EVERY response, including every Continue and a response that completes the session. At an authored decision map the exact A/B/C options. At every other handoff emit three contextual freeform actions with empty canonical identity.',
         ]);
 
         $providerOptions = $this->providerOptionsFor($config);
@@ -901,7 +903,7 @@ TEXT;
         $request = Prism::text()
             ->using($config['provider'], $model)
             ->withMessages($messages)
-            ->withTools([$this->narrationTool()])
+            ->withTools([$this->narrationTool($boilerActive)])
             ->withToolChoice(self::NARRATION_TOOL_NAME)
             ->withMaxSteps(1)
             ->withClientOptions(['timeout' => 150, 'connect_timeout' => 10])
@@ -1488,7 +1490,7 @@ TEXT;
             'response' => (string) ($structured['response'] ?? ''),
             'choices' => (array) ($structured['choices'] ?? []),
             'visible_suggestions' => array_key_exists('visible_suggestions', $structured)
-                ? (array) $structured['visible_suggestions']
+                ? $this->visibleSuggestionsFromStructured($structured['visible_suggestions'])
                 : null,
             'moment_progress' => isset($structured['moment_progress'])
                 ? (array) $structured['moment_progress']
@@ -1516,6 +1518,31 @@ TEXT;
     }
 
     /**
+     * Convert the model-facing fixed Boiler object into the existing ordered
+     * array consumed by storage and the UI. Legacy responses already use [].
+     *
+     * @return array<int, mixed>|null
+     */
+    private function visibleSuggestionsFromStructured(mixed $suggestions): ?array
+    {
+        if (! is_array($suggestions)) {
+            return null;
+        }
+
+        if (array_key_exists('option_1', $suggestions)
+            && array_key_exists('option_2', $suggestions)
+            && array_key_exists('option_3', $suggestions)) {
+            return [
+                $suggestions['option_1'],
+                $suggestions['option_2'],
+                $suggestions['option_3'],
+            ];
+        }
+
+        return array_values($suggestions);
+    }
+
+    /**
      * Build the narration tool from the same schema the buffered structured
      * call uses, so streaming and non-streaming turns can never drift apart.
      *
@@ -1523,10 +1550,10 @@ TEXT;
      * it once to close the step and then ends the stream instead of sending
      * the result back for a second, billable round trip.
      */
-    private function narrationTool(): Tool
+    private function narrationTool(bool $boilerActive): Tool
     {
         $schema = (new NativeObjectSchema(
-            ChaosNarrationSchema::definition(new JsonSchemaTypeFactory),
+            ChaosNarrationSchema::definition(new JsonSchemaTypeFactory, $boilerActive),
         ))->toArray();
 
         /** @var array<string, array<string, mixed>> $properties */
@@ -1925,7 +1952,7 @@ TEXT;
         }
 
         if ($authoredOptions !== []) {
-            $lines[] = 'AUTHORED OPTIONS BOUND TO THIS MOMENT (map visible_suggestions identities only to these when you map):';
+            $lines[] = 'AUTHORED OPTIONS BOUND TO THIS MOMENT (map the three visible_suggestions slot identities only to these when you map):';
             $lines[] = json_encode($authoredOptions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
         }
 
@@ -1938,7 +1965,7 @@ TEXT;
         } elseif (! $isSessionStart && $pendingChoiceIds !== []) {
             $lines[] = implode("\n", [
                 'DECISION POINT: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not taken it yet.',
-                '- Play the scene toward it. On the turn the story reaches the decision, the three visible_suggestions ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                '- Play the scene toward it. On the turn the story reaches the decision, visible_suggestions.option_1, option_2, and option_3 ARE its A, B, and C options: each mapped with its canonical_choice_id and canonical_path_label and worded for this exact moment.',
                 '- The player may still type anything; a typed action that clearly takes one of the paths resolves it (report the defining_choice_id, label, and line).',
                 '- Do not set exit_condition_met=true, and do not report a later card as caught_up_to_moment_key, until the choice is taken. The runtime holds this card until it is.',
             ]);
@@ -2009,7 +2036,7 @@ TEXT;
                 implode("\n", [
                     'CONTINUE SLOWS DOWN HERE: this card carries the authored choice '.implode(', ', $pendingChoiceIds).', and the player has not been offered it yet. This is a decision they can shape.',
                     '- Narrate forward like the next page of the book until the decision is in front of the protagonist, then stop there.',
-                    '- The three visible_suggestions ARE its A, B, and C options, each mapped with its canonical_choice_id and canonical_path_label, worded for this exact moment.',
+                    '- Fill visible_suggestions.option_1, option_2, and option_3 with its A, B, and C options, each mapped with its canonical_choice_id and canonical_path_label and worded for this exact moment.',
                     '- '.$neverChoose.' Keep exit_condition_met=false and caught_up_to_moment_key empty.',
                 ]),
                 'THE DECISION:',
@@ -2018,6 +2045,7 @@ TEXT;
         }
 
         $lines = [];
+        $lines[] = 'Every Continue response fills visible_suggestions.option_1, option_2, and option_3. If the prose stops before an authored decision, fill them with three contextual freeform actions and leave both canonical identity fields empty. Never return an empty suggestion set.';
         if ($pendingChoiceIds !== []) {
             $lines[] = 'The player was offered '.implode(', ', $pendingChoiceIds).' and pressed Continue instead: they want the author\'s story to carry on. Follow the author\'s canonical path through it.';
         }
@@ -2026,7 +2054,7 @@ TEXT;
 
         $stop = $context['continue_decision_stop'] ?? null;
         if (is_array($stop)) {
-            $lines[] = "NEXT DECISION THE PLAYER CAN SHAPE: {$stop['moment_key']} \"{$stop['title']}\" (".implode(', ', (array) $stop['choice_ids']).'). If the story reaches it, narrate up to the moment that decision is in front of the protagonist and stop there. Offer its options as the three visible_suggestions, each mapped to its canonical_choice_id and canonical_path_label. Report it as caught_up_to_moment_key with exit_condition_met=false.';
+            $lines[] = "NEXT DECISION THE PLAYER CAN SHAPE: {$stop['moment_key']} \"{$stop['title']}\" (".implode(', ', (array) $stop['choice_ids']).'). If the story reaches it, narrate up to the moment that decision is in front of the protagonist and stop there. Put its three mapped A/B/C options in visible_suggestions.option_1, option_2, and option_3. Report it as caught_up_to_moment_key with exit_condition_met=false.';
             $lines[] = $encode($stop['options'] ?? []);
             $lines[] = 'Before that card, stop earlier only where a moment arrives that clearly asks for the player\'s own hand (a confrontation, a person speaking directly to the protagonist and waiting for an answer).';
         } elseif ((bool) ($context['is_final_card'] ?? false)) {
@@ -2145,7 +2173,7 @@ TEXT;
                 }
             }
             $lines[] = '';
-            $lines[] = 'Offer these same three options as your visible_suggestions this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen, so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
+            $lines[] = 'Put these same three options in visible_suggestions.option_1, option_2, and option_3 this turn, each mapped to this choice_id and its A/B/C path, so the player can take one directly. The session does not close until one is genuinely chosen, so never narrate the story as finished while still asking for this decision, and never ask for it twice as though the first answer did not count.';
 
             if (! empty($choice['final_line'])) {
                 $lines[] = '';
@@ -2225,7 +2253,7 @@ TEXT;
                     : '- Add NOTHING before it. No date line, no year, no establishing shot, no scene heading, no "It is early in..." preamble. The first words the player reads are the first words above.',
                 '- For this turn the text above OUTRANKS every other source of opening material in this prompt: the Voice Anchor exemplars in Section 4A, the re-anchor in Section 18, the episode script in Section 12, and the active scene card\'s opening image and source extracts. Where any of them differ, the text above wins.',
                 '- This matters most for the Voice Anchor. An exemplar may render the same scene as this cold open, because both were translated from the same source passage. An exemplar is a model of TEXTURE (rhythm, diction, compression) and never a supply of sentences. Do not lift its wording, its opening clause, its date or time framing, or its dialogue into this response. The authored cold open above is already in that voice; imitating the exemplar here means overwriting a finished opening with a draft of itself.',
-                '- After the final line above, stop the prose. Attach the authored options as your visible_suggestions; those carry the handoff, not a question.',
+                '- After the final line above, stop the prose. Put the authored options in visible_suggestions.option_1, option_2, and option_3; those carry the handoff, not a question.',
                 '- SINGLE EXCEPTION to reproducing the text word for word: if the authored cold open ends with a question aimed at the player ("How do you go down to meet her?", "What do you do?"), drop that final question and end on the image or action immediately before it. Everything else above is still reproduced exactly. Never add a closing question of your own.',
                 '- The only text you may add is what is required to satisfy this turn\'s structured output contract (choices/suggestions and progress fields).',
             ]);
@@ -2346,15 +2374,13 @@ TEXT;
             ]);
         }
 
-        if (! is_array($result['visible_suggestions'] ?? null)) {
-            $result['visible_suggestions'] = [];
-            Log::channel('narration')->warning('boiler.visible_suggestions_defaulted', [
+        if (! is_array($result['visible_suggestions'] ?? null)
+            || count($result['visible_suggestions']) !== 3) {
+            Log::channel('narration')->error('boiler.visible_suggestions_invalid_count', [
                 'game_id' => $game->id,
-            ]);
-        } elseif (count($result['visible_suggestions']) > 3) {
-            $result['visible_suggestions'] = array_slice($result['visible_suggestions'], 0, 3);
-            Log::channel('narration')->warning('boiler.visible_suggestions_truncated', [
-                'game_id' => $game->id,
+                'count' => is_array($result['visible_suggestions'] ?? null)
+                    ? count($result['visible_suggestions'])
+                    : null,
             ]);
         }
 

@@ -57,12 +57,13 @@ it('normalizes legacy choices and Boiler suggestion objects without changing can
         ->toBe(['Inspect', 'Wait', 'Leave'])
         ->and($normalizer->choices([
             'visible_suggestions' => [
-                [
+                'option_1' => [
                     'text' => 'Hide the shard.',
                     'canonical_choice_id' => 'S1_C1',
                     'canonical_path_label' => 'b',
                 ],
-                ['text' => 'Inspect the residue.'],
+                'option_2' => ['text' => 'Inspect the residue.'],
+                'option_3' => ['text' => 'Ask who left it behind.'],
             ],
         ], true))->toBe([
             [
@@ -72,6 +73,11 @@ it('normalizes legacy choices and Boiler suggestion objects without changing can
             ],
             [
                 'text' => 'Inspect the residue.',
+                'canonical_choice_id' => null,
+                'canonical_path_label' => null,
+            ],
+            [
+                'text' => 'Ask who left it behind.',
                 'canonical_choice_id' => null,
                 'canonical_path_label' => null,
             ],
@@ -90,20 +96,33 @@ it('allows no next choices after a legacy session completes', function () {
     ], false))->toBe([]);
 });
 
-it('truncates more than three visible suggestions instead of failing the turn', function () {
-    $choices = (new NarrationResultNormalizer())->choices([
+it('rejects a Boiler turn unless the primary response contains exactly three suggestions', function (array $suggestions) {
+    (new NarrationResultNormalizer())->choices([
+        'visible_suggestions' => $suggestions,
+    ], true);
+})->with([
+    'none' => [[]],
+    'two' => [[
+        ['text' => 'One'],
+        ['text' => 'Two'],
+    ]],
+    'four' => [[
+        ['text' => 'One'],
+        ['text' => 'Two'],
+        ['text' => 'Three'],
+        ['text' => 'Four'],
+    ]],
+])->throws(RuntimeException::class, 'exactly three visible suggestions');
+
+it('rejects a Boiler turn when one of the three suggestion slots is invalid', function () {
+    (new NarrationResultNormalizer())->choices([
         'visible_suggestions' => [
             ['text' => 'One'],
             ['text' => 'Two'],
-            ['text' => 'Three'],
-            ['text' => 'Four'],
+            ['text' => ''],
         ],
     ], true);
-
-    expect($choices)->toHaveCount(3)
-        ->and($choices[0]['text'])->toBe('One')
-        ->and($choices[2]['text'])->toBe('Three');
-});
+})->throws(RuntimeException::class, 'three valid visible suggestions');
 
 it('demotes half-mapped or invalid path suggestions to freeform text', function () {
     $choices = (new NarrationResultNormalizer())->choices([

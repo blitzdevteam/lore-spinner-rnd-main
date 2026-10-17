@@ -17,19 +17,8 @@ final class NarrationResultNormalizer
     {
         if ($boilerActive) {
             $suggestions = $result['visible_suggestions'] ?? [];
-            if (! is_array($suggestions)) {
-                Log::channel('narration')->warning('boiler.visible_suggestions_normalized_empty', [
-                    'reason' => 'missing_or_non_array',
-                ]);
-
-                return [];
-            }
-
-            if (count($suggestions) > 3) {
-                Log::channel('narration')->warning('boiler.visible_suggestions_normalized_truncated', [
-                    'original_count' => count($suggestions),
-                ]);
-                $suggestions = array_slice($suggestions, 0, 3);
+            if (! is_array($suggestions) || count($suggestions) !== 3) {
+                throw new RuntimeException('Boiler narration must contain exactly three visible suggestions.');
             }
 
             $normalized = [];
@@ -79,6 +68,10 @@ final class NarrationResultNormalizer
                     'canonical_choice_id' => $choiceId !== '' ? $choiceId : null,
                     'canonical_path_label' => $pathLabel !== '' ? $pathLabel : null,
                 ];
+            }
+
+            if (count($normalized) !== 3) {
+                throw new RuntimeException('Boiler narration must contain three valid visible suggestions.');
             }
 
             return $normalized;

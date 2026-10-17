@@ -516,11 +516,11 @@ Describe actions and directions, never personality, motive, or who they are beco
 USING THE INCOMING FOOTNOTE: give the threads it names room. Let the people and places the player keeps reaching for answer them, keep their open questions alive, and let their direction bend the next scene. The player's latest action always outranks it; if they turn somewhere new, follow them.
 
 BOILER VISIBLE_SUGGESTIONS CONTRACT:
-- Emit exactly three `visible_suggestions` on every turn where the player can act.
+- Fill all three required slots — `visible_suggestions.option_1`, `option_2`, and `option_3` — on every Boiler response, including every Continue and a response that completes the session. The runtime hides them after completion. Never return an empty suggestion set.
 - LENGTH: 10 to 15 words each, hard maximum. One clause, in the player's voice as an action they take, strong verb early. These are buttons, not narration: never explain or justify the option inside its own text. Name only things already said or seen on the page, never a fact or ability not yet introduced. Do not use "demand", "insist", or "command" as the verb; use ask, tell, take, go, look, or say.
 - These are turn-level presentation only; they never replace canonical A/B/C Choice Design.
 - A mapped suggestion may use only a canonical choice ID bound to the resulting active moment and a real A/B/C path.
-- A normal action has null canonical identity.
+- At an authored decision, put its mapped A/B/C options in the three slots. At every other handoff, put pursuit, risk, and deepening actions in the slots and use empty strings for both canonical identity fields.
 - Do not also emit legacy `choices` in Boiler mode.
 
 WHY THREE OPTIONS: the player can always type their own path, so an option they would have thought of themselves is wasted space. Each option must be more tempting than what they would have typed. Someone playing hands-free, tired, or not in the mood to compose a sentence must still get the whole game by tapping, so all three must be options that player would be glad to pick. Three differently exciting options, never one good option and two placeholders.
@@ -551,7 +551,7 @@ REPLAY: If the player replays before choosing, deliver the same outcome text ver
 AGENCY HANDOFF: End the prose on the live moment itself and stop: a gesture half-finished, a door still open, someone waiting. Never append a question to the player ("What do you do?", "How do you answer?"), and never a rhetorical question standing in for one. Never end by recapping the stakes, explaining the dilemma, or telling the player what they must now decide ("what you do next will determine everything"). Let the stakes be felt in the scene. @if($boilerActive)The three visible suggestions carry the handoff from there; they are examples of what is possible, never the boundary of it.@else The three suggested actions carry the handoff from there.@endif The player can always speak or type their own action. Characters may ask each other questions in dialogue; what is banned is the narrator turning to the player at the end of a turn.
 
 @if($boilerActive)
-CHOICE PRESENTATION: Show exactly the three `visible_suggestions` authored for this turn. Canonical alignment remains hidden. The player is never limited to suggestions.
+CHOICE PRESENTATION: Show exactly the three values from the required `visible_suggestions` slots. Canonical alignment remains hidden. The player is never limited to suggestions.
 @else
 CHOICE PRESENTATION: 3 options. Alignment (chaotic/lawful/neutral) MAPPED but NEVER visible. Randomized order per the Session Packet. The player is never limited to the three.
 @endif

@@ -8,7 +8,7 @@ use GuzzleHttp\Psr7\Utils;
 use Psr\Http\Message\RequestInterface;
 
 /**
- * Rewrites outgoing Claude Opus 5-family requests into the shape each model accepts.
+ * Rewrites outgoing Claude requests into the shape each model accepts.
  *
  * Opus 5 runs adaptive thinking whenever the request omits a `thinking` field,
  * and thinking tokens bill as output tokens at the Opus output rate even when
@@ -24,12 +24,21 @@ use Psr\Http\Message\RequestInterface;
  * Opus 5.5 requests get `tool_choice = auto` and no sampling parameters. With
  * the structured-output tool as the only tool, the model still calls it, and
  * the SDK falls back to parsing JSON text when it does not.
+ *
+ * Haiku 5.5 supports forced tools with adaptive thinking, but a forced tool
+ * starts directly with the tool call. Production narration deliberately keeps
+ * that behaviour for streaming. Its narration tool is strict so the three
+ * required Boiler suggestion slots are generated in the primary response.
  */
 final class AnthropicThinkingPolicy
 {
     private const OPUS_5_PREFIX = 'claude-opus-5';
 
     private const OPUS_5_5_PREFIX = 'claude-opus-5-5';
+
+    private const HAIKU_5_5 = 'claude-haiku-5-5';
+
+    private const NARRATION_TOOL = 'emit_narration';
 
     public static function disableOpusThinking(RequestInterface $request): RequestInterface
     {
@@ -51,13 +60,16 @@ final class AnthropicThinkingPolicy
 
         $model = $payload['model'] ?? null;
 
-        if (! is_string($model) || ! str_starts_with($model, self::OPUS_5_PREFIX)) {
+        if (! is_string($model)) {
             return $request;
         }
 
-        $rewritten = str_starts_with($model, self::OPUS_5_5_PREFIX)
-            ? self::forOpus55($payload)
-            : self::forOpus5($payload);
+        $rewritten = match (true) {
+            $model === self::HAIKU_5_5 => self::forHaiku55($payload),
+            str_starts_with($model, self::OPUS_5_5_PREFIX) => self::forOpus55($payload),
+            str_starts_with($model, self::OPUS_5_PREFIX) => self::forOpus5($payload),
+            default => null,
+        };
 
         if ($rewritten === null) {
             return $request;
@@ -122,6 +134,41 @@ final class AnthropicThinkingPolicy
                 unset($payload[$samplingParameter]);
                 $changed = true;
             }
+        }
+
+        return $changed ? $payload : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>|null
+     */
+    private static function forHaiku55(array $payload): ?array
+    {
+        $changed = false;
+
+        foreach (['temperature', 'top_p', 'top_k'] as $samplingParameter) {
+            if (array_key_exists($samplingParameter, $payload)) {
+                unset($payload[$samplingParameter]);
+                $changed = true;
+            }
+        }
+
+        foreach ((array) ($payload['tools'] ?? []) as $index => $tool) {
+            if (! is_array($tool) || ($tool['name'] ?? null) !== self::NARRATION_TOOL) {
+                continue;
+            }
+
+            $inputSchema = $tool['input_schema'] ?? null;
+            if (! is_array($inputSchema)) {
+                continue;
+            }
+
+            $inputSchema['additionalProperties'] = false;
+            $tool['input_schema'] = $inputSchema;
+            $tool['strict'] = true;
+            $payload['tools'][$index] = $tool;
+            $changed = true;
         }
 
         return $changed ? $payload : null;
