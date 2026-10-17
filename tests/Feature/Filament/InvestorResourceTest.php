@@ -289,6 +289,22 @@ it('links each user to the analytics dashboard for that player', function (): vo
         );
 });
 
+it('shows investor access duration on the users table', function (): void {
+    $manager = Manager::factory()->create();
+    $player = User::factory()->create();
+    $investor = User::factory()->investor()->create();
+    $investor->update(['duration_months' => 3]);
+    $unlimited = User::factory()->investor()->create();
+    $unlimited->update(['duration_months' => User::UNLIMITED_DURATION_MONTHS]);
+
+    $this->actingAs($manager, 'manager');
+
+    Livewire::test(ListUsers::class)
+        ->assertTableColumnStateSet('duration_months', '3 months', $investor)
+        ->assertTableColumnStateSet('duration_months', 'Unlimited', $unlimited)
+        ->assertTableColumnStateSet('duration_months', null, $player);
+});
+
 it('lists investors alongside players in the users table', function (): void {
     $manager = Manager::factory()->create();
     $player = User::factory()->create(['is_active' => true]);

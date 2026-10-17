@@ -69,6 +69,11 @@ final class UsersTable
                     ->placeholder('—')
                     ->state(fn (User $record): ?string => self::planLabel($record, $planNames))
                     ->toggleable(),
+                TextColumn::make('duration_months')
+                    ->label('Access duration')
+                    ->placeholder('—')
+                    ->state(fn (User $record): ?string => self::accessDurationLabel($record))
+                    ->toggleable(),
                 IconColumn::make('is_active')
                     ->sortable()
                     ->boolean(),
@@ -130,6 +135,17 @@ final class UsersTable
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private static function accessDurationLabel(User $record): ?string
+    {
+        if (! $record->isInvestor()) {
+            return null;
+        }
+
+        $months = (int) $record->duration_months;
+
+        return User::durationOptions()[$months] ?? "{$months} months";
     }
 
     private static function planLabel(User $record, PurchasedPlanName $planNames): ?string
