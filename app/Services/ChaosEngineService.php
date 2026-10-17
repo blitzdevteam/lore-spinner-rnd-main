@@ -57,6 +57,7 @@ final class ChaosEngineService
         'claude-opus-4-7' => ['provider' => 'anthropic', 'temperature' => 1.0,  'reasoning_effort' => null],
         'claude-sonnet-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-sonnet-4-6' => ['provider' => 'anthropic', 'temperature' => 0.9,  'reasoning_effort' => null],
+        'claude-haiku-5-5' => ['provider' => 'anthropic', 'reasoning_effort' => null],
         'claude-haiku-4-5' => ['provider' => 'anthropic', 'temperature' => 0.95, 'reasoning_effort' => null],
     ];
 
@@ -64,8 +65,24 @@ final class ChaosEngineService
     public const DEFAULT_MODEL = 'claude-haiku-4-5';
 
     /**
+     * These models return 400 unless temperature, top_p, and top_k are omitted.
+     * Haiku 5.5 rejects every temperature other than 1, including the 0.7 used
+     * for Haiku 4.5. Thinking stays at the provider default (adaptive, medium).
+     *
+     * @var list<string>
+     */
+    public const MODELS_WITHOUT_SAMPLING = [
+        'claude-opus-5-5',
+        'claude-sonnet-5',
+        'claude-opus-5',
+        'claude-opus-4-8',
+        'claude-opus-4-7',
+        'claude-haiku-5-5',
+    ];
+
+    /**
      * Production /user/games narration. Sent on every turn whose model accepts
-     * sampling parameters. Haiku 4.5 does; Sonnet 5 and Opus 4.7+ do not.
+     * sampling parameters. Haiku 4.5 does. Haiku 5.5, Sonnet 5, and Opus 4.7+ do not.
      */
     public const GAME_TEMPERATURE = 0.7;
 
@@ -200,6 +217,15 @@ TEXT;
      * No dynamic budgeting and no in-request truncation retry — one call, one budget.
      */
     private const NARRATION_MAX_TOKENS = 8_192;
+
+    /**
+     * Haiku 5.5 thinks by default, and those tokens share this ceiling.
+     * The Haiku 4.5 ceiling is sized for a reply with no thinking block.
+     */
+    private const HAIKU_55_NARRATION_MAX_TOKENS = 32_768;
+
+    /** Room for a short adaptive think plus three repaired choices. */
+    private const HAIKU_55_REPAIR_MAX_TOKENS = 2_048;
 
     /**
      * Tool the streaming narrator is forced to call. Its input_schema is the
@@ -761,7 +787,7 @@ TEXT;
         }
 
         if ($config['provider'] === 'anthropic') {
-            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
+            $request = $request->withMaxTokens($this->narrationMaxTokens($model));
         }
 
         $response = $request->asStructured();
@@ -884,7 +910,7 @@ TEXT;
         }
 
         if ($config['provider'] === 'anthropic') {
-            $request = $request->withMaxTokens(self::NARRATION_MAX_TOKENS);
+            $request = $request->withMaxTokens($this->narrationMaxTokens($model));
         }
 
         $text = '';
@@ -1388,7 +1414,7 @@ TEXT;
         }
 
         if ($config['provider'] === 'anthropic') {
-            $repairRequest = $repairRequest->withMaxTokens(512);
+            $repairRequest = $repairRequest->withMaxTokens($this->repairMaxTokens($model));
         }
 
         $repairResponse = $repairRequest->asStructured();
@@ -3060,20 +3086,28 @@ TEXT;
     }
 
     /**
-     * Anthropic Sonnet 5 and Opus 4.7+ return 400 if temperature/top_p/top_k
-     * are set to non-default values. Omit sampling params for those models.
+     * Anthropic models in MODELS_WITHOUT_SAMPLING return 400 if temperature,
+     * top_p, or top_k is set to a non-default value.
      *
-     * @see https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5
+     * @see https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide
      */
     private function modelAcceptsSamplingParams(string $model): bool
     {
-        return ! in_array($model, [
-            'claude-opus-5-5',
-            'claude-sonnet-5',
-            'claude-opus-5',
-            'claude-opus-4-8',
-            'claude-opus-4-7',
-        ], true);
+        return ! in_array($model, self::MODELS_WITHOUT_SAMPLING, true);
+    }
+
+    private function narrationMaxTokens(string $model): int
+    {
+        return $model === 'claude-haiku-5-5'
+            ? self::HAIKU_55_NARRATION_MAX_TOKENS
+            : self::NARRATION_MAX_TOKENS;
+    }
+
+    private function repairMaxTokens(string $model): int
+    {
+        return $model === 'claude-haiku-5-5'
+            ? self::HAIKU_55_REPAIR_MAX_TOKENS
+            : 512;
     }
 
     private function modelHasConfiguredProvider(string $model): bool

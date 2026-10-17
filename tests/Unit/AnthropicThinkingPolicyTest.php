@@ -61,7 +61,7 @@ it('leaves models that reject the disabled thinking type untouched', function (s
     );
 
     expect(decodedBody($request))->not->toHaveKey('thinking');
-})->with(['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5']);
+})->with(['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-haiku-5-5']);
 
 it('respects an explicitly configured thinking field', function () {
     $request = AnthropicThinkingPolicy::disableOpusThinking(
@@ -147,4 +147,12 @@ it('prices Opus 5 at the standard Opus rate', function () {
 
 it('omits sampling params for Opus 5 in the chaos runtime', function () {
     expect(ChaosEngineService::MODEL_CONFIG['claude-opus-5'])->not->toHaveKey('temperature');
+});
+
+it('registers Haiku 5.5 without sampling and keeps Haiku 4.5 as the default', function () {
+    expect(ChaosEngineService::DEFAULT_MODEL)->toBe('claude-haiku-4-5')
+        ->and(ChaosEngineService::MODEL_CONFIG['claude-haiku-5-5'])->not->toHaveKey('temperature')
+        ->and(ChaosEngineService::MODEL_CONFIG['claude-haiku-5-5']['provider'])->toBe('anthropic')
+        ->and(ChaosEngineService::MODELS_WITHOUT_SAMPLING)->toContain('claude-haiku-5-5')
+        ->and(ChaosEngineService::MODELS_WITHOUT_SAMPLING)->not->toContain('claude-haiku-4-5');
 });

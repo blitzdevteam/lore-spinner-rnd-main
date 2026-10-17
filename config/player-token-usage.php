@@ -186,6 +186,24 @@ return [
                 'source' => 'https://platform.claude.com/docs/en/about-claude/pricing',
             ]],
         ],
+        'claude-haiku-5-5' => [
+            'provider' => 'anthropic',
+            'periods' => [[
+                'version' => 'anthropic-haiku-5-5-2026-10',
+                'effective_from' => null,
+                'effective_until' => null,
+                'input' => '0.100000',
+                'output' => '0.500000',
+                'cache_write' => '0.200000',
+                'cache_read' => '0.010000',
+                'long_context_above_tokens' => 100_000,
+                'long_input' => '0.500000',
+                'long_output' => '2.500000',
+                'long_cache_write' => '1.000000',
+                'long_cache_read' => '0.050000',
+                'source' => 'https://platform.claude.com/docs/en/about-claude/pricing',
+            ]],
+        ],
         'claude-haiku-4-5' => [
             'provider' => 'anthropic',
             'periods' => [[

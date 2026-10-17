@@ -93,6 +93,37 @@ it('requires every selectable gameplay model to have matching pricing', function
     }
 });
 
+it('prices Haiku 5.5 at the short rate through 100k prompt tokens and steps up above it', function () {
+    $calculator = app(PlayerTokenUsageCalculator::class);
+    $at = CarbonImmutable::parse('2026-10-17T12:00:00Z');
+    $short = $calculator->calculate(
+        'claude-haiku-5-5',
+        ['prompt_tokens' => 100_000, 'completion_tokens' => 1_000],
+        $at,
+    );
+    $crossedByCache = $calculator->calculate(
+        'claude-haiku-5-5',
+        [
+            'prompt_tokens' => 90_000,
+            'cache_read_input_tokens' => 10_001,
+            'completion_tokens' => 1_000,
+        ],
+        $at,
+    );
+
+    expect($short['pricing_version'])->toBe('anthropic-haiku-5-5-2026-10')
+        ->and($short['input_price_per_million_usd'])->toBe('0.100000')
+        ->and($short['output_price_per_million_usd'])->toBe('0.500000')
+        ->and($short['cache_write_price_per_million_usd'])->toBe('0.200000')
+        ->and($short['cache_read_price_per_million_usd'])->toBe('0.010000')
+        ->and($short['input_cost_usd'])->toBe('0.010000000000')
+        ->and($crossedByCache['pricing_version'])->toBe('anthropic-haiku-5-5-2026-10-over-100k')
+        ->and($crossedByCache['input_price_per_million_usd'])->toBe('0.500000')
+        ->and($crossedByCache['output_price_per_million_usd'])->toBe('2.500000')
+        ->and($crossedByCache['cache_read_price_per_million_usd'])->toBe('0.050000')
+        ->and($crossedByCache['total_input_tokens'])->toBe(100_001);
+});
+
 it('fails closed when a future gameplay model has no price configuration', function () {
     app(PlayerTokenUsageCalculator::class)->calculate(
         'future-unpriced-model',

@@ -63,6 +63,7 @@ final class PlayerTokenUsageCalculator
         $reasoningTokens = $this->tokens($rawUsage['thought_tokens'] ?? 0);
         $cachedInputTokens = $cacheWriteTokens + $cacheReadTokens;
         $totalInputTokens = $inputTokens + $cachedInputTokens;
+        $period = $this->periodForPromptLength($period, $totalInputTokens);
 
         [$inputRate, $inputCost] = $this->cost($inputTokens, $period['input']);
         [$outputRate, $outputCost] = $this->cost($outputTokens, $period['output']);
@@ -121,6 +122,11 @@ final class PlayerTokenUsageCalculator
      *         cache_write:string,
      *         cache_read:string,
      *         source:string,
+     *         long_context_above_tokens:?int,
+     *         long_input:?string,
+     *         long_output:?string,
+     *         long_cache_write:?string,
+     *         long_cache_read:?string,
      *     }>
      * }
      */
@@ -160,6 +166,27 @@ final class PlayerTokenUsageCalculator
                 throw new LogicException("Player token pricing [{$model}] has an invalid effective period.");
             }
 
+            $longContextAbove = $period['long_context_above_tokens'] ?? null;
+            $longInput = $period['long_input'] ?? null;
+            $longOutput = $period['long_output'] ?? null;
+            $longCacheWrite = $period['long_cache_write'] ?? null;
+            $longCacheRead = $period['long_cache_read'] ?? null;
+            $hasLongContext = $longContextAbove !== null
+                || $longInput !== null
+                || $longOutput !== null
+                || $longCacheWrite !== null
+                || $longCacheRead !== null;
+
+            if ($hasLongContext && (
+                ! is_int($longContextAbove)
+                || ! is_string($longInput)
+                || ! is_string($longOutput)
+                || ! is_string($longCacheWrite)
+                || ! is_string($longCacheRead)
+            )) {
+                throw new LogicException("Player token pricing [{$model}] has an incomplete long-context rate.");
+            }
+
             $normalizedPeriods[] = [
                 'version' => $version,
                 'effective_from' => $effectiveFrom,
@@ -169,6 +196,11 @@ final class PlayerTokenUsageCalculator
                 'cache_write' => $cacheWrite,
                 'cache_read' => $cacheRead,
                 'source' => $source,
+                'long_context_above_tokens' => is_int($longContextAbove) ? $longContextAbove : null,
+                'long_input' => is_string($longInput) ? $longInput : null,
+                'long_output' => is_string($longOutput) ? $longOutput : null,
+                'long_cache_write' => is_string($longCacheWrite) ? $longCacheWrite : null,
+                'long_cache_read' => is_string($longCacheRead) ? $longCacheRead : null,
             ];
         }
 
@@ -188,6 +220,11 @@ final class PlayerTokenUsageCalculator
      *     cache_write:string,
      *     cache_read:string,
      *     source:string,
+     *     long_context_above_tokens:?int,
+     *     long_input:?string,
+     *     long_output:?string,
+     *     long_cache_write:?string,
+     *     long_cache_read:?string,
      * }>  $periods
      * @return array{
      *     version:string,
@@ -198,6 +235,11 @@ final class PlayerTokenUsageCalculator
      *     cache_write:string,
      *     cache_read:string,
      *     source:string,
+     *     long_context_above_tokens:?int,
+     *     long_input:?string,
+     *     long_output:?string,
+     *     long_cache_write:?string,
+     *     long_cache_read:?string,
      * }
      */
     private function activePeriod(string $model, array $periods, CarbonImmutable $at): array
@@ -219,6 +261,66 @@ final class PlayerTokenUsageCalculator
         throw new LogicException(
             "No player token pricing period for model [{$model}] is active at [{$at->toIso8601String()}].",
         );
+    }
+
+    /**
+     * Haiku 5.5 bills a higher rate once the whole prompt, including cache
+     * reads and writes, is over 100,000 tokens. At the threshold the short rate
+     * still applies.
+     *
+     * @param  array{
+     *     version:string,
+     *     effective_from:?string,
+     *     effective_until:?string,
+     *     input:string,
+     *     output:string,
+     *     cache_write:string,
+     *     cache_read:string,
+     *     source:string,
+     *     long_context_above_tokens:?int,
+     *     long_input:?string,
+     *     long_output:?string,
+     *     long_cache_write:?string,
+     *     long_cache_read:?string,
+     * }  $period
+     * @return array{
+     *     version:string,
+     *     effective_from:?string,
+     *     effective_until:?string,
+     *     input:string,
+     *     output:string,
+     *     cache_write:string,
+     *     cache_read:string,
+     *     source:string,
+     *     long_context_above_tokens:?int,
+     *     long_input:?string,
+     *     long_output:?string,
+     *     long_cache_write:?string,
+     *     long_cache_read:?string,
+     * }
+     */
+    private function periodForPromptLength(array $period, int $promptTokens): array
+    {
+        $threshold = $period['long_context_above_tokens'];
+        $longInput = $period['long_input'];
+        $longOutput = $period['long_output'];
+        $longCacheWrite = $period['long_cache_write'];
+        $longCacheRead = $period['long_cache_read'];
+        if ($threshold === null || $promptTokens <= $threshold) {
+            return $period;
+        }
+
+        if (! is_string($longInput) || ! is_string($longOutput) || ! is_string($longCacheWrite) || ! is_string($longCacheRead)) {
+            throw new LogicException('Long-context token rates are incomplete.');
+        }
+
+        $period['version'] .= '-over-100k';
+        $period['input'] = $longInput;
+        $period['output'] = $longOutput;
+        $period['cache_write'] = $longCacheWrite;
+        $period['cache_read'] = $longCacheRead;
+
+        return $period;
     }
 
     private function tokens(mixed $value): int
