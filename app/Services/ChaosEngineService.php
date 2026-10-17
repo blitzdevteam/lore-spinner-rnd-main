@@ -276,6 +276,17 @@ TEXT;
         return $this->modelForConfiguredProvider(self::DEFAULT_MODEL);
     }
 
+    /**
+     * Model stored on a new game, and written back when that game is reset.
+     * Peter Pan is the Haiku 5.5 trial. Every other title stays on Haiku 4.5.
+     */
+    public function gameModelFor(string $storySlug): string
+    {
+        $model = $storySlug === 'peter-pan' ? 'claude-haiku-5-5' : self::DEFAULT_MODEL;
+
+        return $this->modelForConfiguredProvider($model);
+    }
+
     public function defaultTemperatureFor(string $model): float
     {
         return (float) (self::MODEL_CONFIG[$model]['temperature'] ?? 1.0);

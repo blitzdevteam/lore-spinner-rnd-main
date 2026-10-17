@@ -150,9 +150,14 @@ it('omits sampling params for Opus 5 in the chaos runtime', function () {
 });
 
 it('registers Haiku 5.5 without sampling and keeps Haiku 4.5 as the default', function () {
+    config(['prism.providers.anthropic.api_key' => 'test-anthropic-key']);
+    $engine = app(ChaosEngineService::class);
+
     expect(ChaosEngineService::DEFAULT_MODEL)->toBe('claude-haiku-4-5')
         ->and(ChaosEngineService::MODEL_CONFIG['claude-haiku-5-5'])->not->toHaveKey('temperature')
         ->and(ChaosEngineService::MODEL_CONFIG['claude-haiku-5-5']['provider'])->toBe('anthropic')
         ->and(ChaosEngineService::MODELS_WITHOUT_SAMPLING)->toContain('claude-haiku-5-5')
-        ->and(ChaosEngineService::MODELS_WITHOUT_SAMPLING)->not->toContain('claude-haiku-4-5');
+        ->and(ChaosEngineService::MODELS_WITHOUT_SAMPLING)->not->toContain('claude-haiku-4-5')
+        ->and($engine->gameModelFor('peter-pan'))->toBe('claude-haiku-5-5')
+        ->and($engine->gameModelFor('emma'))->toBe('claude-haiku-4-5');
 });

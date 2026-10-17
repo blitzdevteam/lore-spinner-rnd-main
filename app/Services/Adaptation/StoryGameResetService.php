@@ -26,10 +26,11 @@ final class StoryGameResetService
             ]);
 
             $lockedGame->prompts()->delete();
+            $slug = $lockedGame->story()->value('slug');
             $lockedGame->update([
                 'current_session_number' => 1,
                 'current_story_cycle_number' => $lockedGame->current_story_cycle_number + 1,
-                'model'                  => $this->engine->defaultGameModel(),
+                'model' => $this->engine->gameModelFor(is_string($slug) ? $slug : ''),
                 'current_session_complete' => false,
                 'world_state' => null,
                 'symbolic_memory' => null,

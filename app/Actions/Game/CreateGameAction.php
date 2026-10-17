@@ -16,10 +16,10 @@ final readonly class CreateGameAction
     public function handle(User $user, Story $story): Game
     {
         return $user->games()->create([
-            'story_id'               => $story->id,
+            'story_id' => $story->id,
             'current_session_number' => 1,
-            'model'                  => $this->engine->defaultGameModel(),
-            'alignment_scaffold'     => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
+            'model' => $this->engine->gameModelFor($story->slug),
+            'alignment_scaffold' => ['chaotic' => 0, 'lawful' => 0, 'neutral' => 0],
         ]);
     }
 }
