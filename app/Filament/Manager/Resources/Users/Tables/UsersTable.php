@@ -69,10 +69,11 @@ final class UsersTable
                     ->placeholder('—')
                     ->state(fn (User $record): ?string => self::planLabel($record, $planNames))
                     ->toggleable(),
-                TextColumn::make('duration_months')
+                TextColumn::make('access_granted_at')
                     ->label('Access duration')
                     ->placeholder('—')
-                    ->state(fn (User $record): ?string => self::accessDurationLabel($record))
+                    ->state(fn (User $record): ?string => self::accessWindowLabel($record))
+                    ->wrap()
                     ->toggleable(),
                 IconColumn::make('is_active')
                     ->sortable()
@@ -137,15 +138,20 @@ final class UsersTable
             ]);
     }
 
-    private static function accessDurationLabel(User $record): ?string
+    private static function accessWindowLabel(User $record): ?string
     {
         if (! $record->isInvestor()) {
             return null;
         }
 
-        $months = (int) $record->duration_months;
+        $start = $record->access_granted_at?->format('M j, Y g:i A');
+        $end = $record->expires_at?->format('M j, Y g:i A') ?? 'No end';
 
-        return User::durationOptions()[$months] ?? "{$months} months";
+        if ($start === null) {
+            return $record->expires_at === null ? null : $end;
+        }
+
+        return "{$start} – {$end}";
     }
 
     private static function planLabel(User $record, PurchasedPlanName $planNames): ?string

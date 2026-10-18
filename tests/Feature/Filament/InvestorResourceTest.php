@@ -289,20 +289,27 @@ it('links each user to the analytics dashboard for that player', function (): vo
         );
 });
 
-it('shows investor access duration on the users table', function (): void {
+it('shows investor access start and end on the users table', function (): void {
     $manager = Manager::factory()->create();
     $player = User::factory()->create();
     $investor = User::factory()->investor()->create();
-    $investor->update(['duration_months' => 3]);
+    $investor->update([
+        'access_granted_at' => '2026-10-16 09:48:00',
+        'expires_at' => '2027-01-16 09:48:00',
+    ]);
     $unlimited = User::factory()->investor()->create();
-    $unlimited->update(['duration_months' => User::UNLIMITED_DURATION_MONTHS]);
+    $unlimited->update([
+        'duration_months' => User::UNLIMITED_DURATION_MONTHS,
+        'access_granted_at' => '2026-10-15 10:00:00',
+        'expires_at' => null,
+    ]);
 
     $this->actingAs($manager, 'manager');
 
     Livewire::test(ListUsers::class)
-        ->assertTableColumnStateSet('duration_months', '3 months', $investor)
-        ->assertTableColumnStateSet('duration_months', 'Unlimited', $unlimited)
-        ->assertTableColumnStateSet('duration_months', null, $player);
+        ->assertTableColumnStateSet('access_granted_at', 'Oct 16, 2026 9:48 AM – Jan 16, 2027 9:48 AM', $investor)
+        ->assertTableColumnStateSet('access_granted_at', 'Oct 15, 2026 10:00 AM – No end', $unlimited)
+        ->assertTableColumnStateSet('access_granted_at', null, $player);
 });
 
 it('lists investors alongside players in the users table', function (): void {
