@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import AuroraBackground from '@/components/AuroraBackground.vue';
 import BaseButton from '@/components/BaseButton.vue';
-import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayAudioPanel from '@/components/GameplayAudioPanel.vue';
 import GameplayBottomSheet from '@/components/GameplayBottomSheet.vue';
+import GameplayCapsuleButton from '@/components/GameplayCapsuleButton.vue';
 import GameplayInput from '@/components/GameplayInput.vue';
 import GameplayJournalPanel, { type JournalMeta } from '@/components/GameplayJournalPanel.vue';
 import GameplayMediaPlayer from '@/components/GameplayMediaPlayer.vue';
@@ -14,15 +14,24 @@ import { useFeedbackWidget } from '@/composables/useFeedbackWidget';
 import { useGameplaySettings } from '@/composables/useGameplaySettings';
 import { useInputNudge } from '@/composables/useInputNudge';
 import { useTextToSpeech } from '@/composables/useTextToSpeech';
+import { buildAuroraProps } from '@/data/storyAuroraThemes';
 import { GameplayUsageSummary, SubscriptionUsageSummary } from '@/types';
 import { router } from '@inertiajs/vue3';
-import { LucideAudioLines, LucideChevronDown, LucideChevronLeft, LucideChevronUp, LucideGauge, LucideMenu, LucideNotebookText, LucideSettings, LucideX, LucideZap } from 'lucide-vue-next';
+import {
+    LucideAudioLines,
+    LucideChevronLeft,
+    LucideGauge,
+    LucideMenu,
+    LucideNotebookText,
+    LucideSettings,
+    LucideX,
+    LucideZap,
+} from 'lucide-vue-next';
 import Tab from 'primevue/tab';
 import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
 import TabPanels from 'primevue/tabpanels';
 import Tabs from 'primevue/tabs';
-import { buildAuroraProps } from '@/data/storyAuroraThemes';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const props = withDefaults(
@@ -142,6 +151,7 @@ const MOBILE_MQ = '(max-width: 767px)';
 
 const { settings } = useGameplaySettings();
 const tts = useTextToSpeech();
+const hasDockedAudio = computed(() => tts.isActive.value && !tts.mediaCollapsed.value);
 const { audioSheetOpen } = useFeedbackWidget();
 
 function syncMobile() {
@@ -380,11 +390,6 @@ const handleInputSubmit = (prompt: string) => {
                             </div>
                         </div>
 
-                        <!-- Center: media player (desktop) -->
-                        <div class="hidden min-w-0 flex-1 items-center justify-center md:flex">
-                            <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" />
-                        </div>
-
                         <!-- Right: desktop action buttons (capsule expands on hover) -->
                         <div class="hidden shrink-0 items-center gap-2 sm:gap-3 md:flex">
                             <GameplayCapsuleButton
@@ -479,15 +484,12 @@ const handleInputSubmit = (prompt: string) => {
                     <div :class="props.hideInput ? 'px-3' : 'p-3'">
                         <slot name="header" />
                     </div>
-                    <div
-                        class="mx-auto flex max-w-3xl flex-col gap-8 p-3"
-                        :class="props.hideInput ? 'pb-4' : isMobile ? 'pb-42' : 'pb-32'"
-                    >
+                    <div class="mx-auto flex max-w-3xl flex-col gap-8 p-3" :class="props.hideInput ? 'pb-4' : 'pb-42'">
                         <slot name="game" />
                     </div>
                     <div
                         v-if="!props.hideInput"
-                        class="fixed right-0 bottom-0 left-0 z-20 w-full px-3 py-6 md:p-6"
+                        class="fixed right-0 bottom-3 left-0 z-20 w-full px-3 py-6 md:p-6"
                         :class="{ 'bg-linear-to-t from-black via-black/95 to-transparent': !(isIos && isMobile && inputFocused) }"
                     >
                         <div ref="recapDockEl" class="flex flex-col items-center gap-0 px-0">
@@ -525,68 +527,66 @@ const handleInputSubmit = (prompt: string) => {
                                                 </button>
                                             </div>
                                             <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 md:px-6">
-                                                <GameplayRecapPanel
-                                                    :text="props.recapText"
-                                                    :loading="props.recapLoading"
-                                                    :error="props.recapError"
-                                                />
+                                                <GameplayRecapPanel :text="props.recapText" :loading="props.recapLoading" :error="props.recapError" />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </Transition>
 
-                            <Transition name="recap-nub">
+                            <div class="relative w-full max-w-3xl">
+                                <div
+                                    aria-hidden="true"
+                                    class="pointer-events-none absolute inset-x-1.5 top-0 bg-[#101010]"
+                                    :class="hasDockedAudio ? 'bottom-0 rounded-[28px]' : 'bottom-3 rounded-t-[28px]'"
+                                />
                                 <button
-                                    v-if="!recapOpen"
                                     type="button"
-                                    class="group flex h-6 shrink-0 items-center justify-center"
-                                    :title="recapView === 'closed' ? 'Show recap' : 'Hide'"
-                                    :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide'"
+                                    class="group relative flex h-4 w-full cursor-pointer items-start justify-center rounded-t-[28px] pt-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+                                    :title="recapView === 'closed' ? 'Show recap' : 'Hide recap actions'"
+                                    :aria-label="recapView === 'closed' ? 'Show recap' : 'Hide recap actions'"
                                     :aria-expanded="recapView !== 'closed'"
+                                    aria-controls="solo-game-recap-actions"
                                     @click="toggleRecapPanel"
                                 >
-                                    <span class="flex items-center rounded-full border border-white/10 bg-black/40 px-2.5 py-0.5 text-gray-500 transition group-hover:border-primary/30 group-hover:text-primary-300">
-                                        <LucideChevronUp v-if="recapView === 'closed'" class="size-3.5" />
-                                        <LucideChevronDown v-else class="size-3.5" />
-                                    </span>
+                                    <span class="h-0.75 w-28 rounded-full bg-white/15 transition-colors group-hover:bg-white/35" />
                                 </button>
-                            </Transition>
-
-                            <Transition name="action-strip">
-                                <div v-if="recapView !== 'closed'" class="action-strip w-full max-w-3xl">
-                                    <div class="min-h-0 overflow-hidden">
-                                        <div class="mb-2 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/95 px-3 py-2 md:px-4">
-                                            <button
-                                                type="button"
-                                                class="flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm transition"
-                                                :class="recapOpen
-                                                    ? 'border-primary/60 bg-primary/15 text-primary-300'
-                                                    : 'border-white/15 bg-black/35 text-gray-300 hover:border-primary/50 hover:text-primary-300'"
-                                                :title="recapOpen ? 'Close recap' : 'Catch me up'"
-                                                @click="recapOpen ? closeRecap() : toggleRecap()"
-                                            >
-                                                <LucideX v-if="recapOpen" class="size-4" />
-                                                <LucideMenu v-else class="size-4 text-primary-300" />
-                                                <span>Recap</span>
-                                            </button>
+                                <Transition name="action-strip">
+                                    <div v-if="recapView !== 'closed'" id="solo-game-recap-actions" class="action-strip relative w-full">
+                                        <div class="min-h-0 overflow-hidden">
+                                            <div class="flex items-center gap-2 px-4 pb-2">
+                                                <button
+                                                    type="button"
+                                                    class="flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+                                                    :class="
+                                                        recapOpen
+                                                            ? 'border-primary/60 bg-primary/15 text-primary-300'
+                                                            : 'border-white/20 text-gray-400 hover:border-primary/50 hover:text-primary-300'
+                                                    "
+                                                    :title="recapOpen ? 'Close recap' : 'Catch me up'"
+                                                    :aria-expanded="recapOpen"
+                                                    @click="recapOpen ? closeRecap() : toggleRecap()"
+                                                >
+                                                    <LucideX v-if="recapOpen" class="size-3.5" />
+                                                    <LucideMenu v-else class="size-3.5 text-primary-300" />
+                                                    <span>Recap</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Transition>
-
-                            <div class="flex w-full max-w-3xl items-center justify-start md:hidden">
-                                <GameplayMediaPlayer :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
+                                </Transition>
+                                <GameplayInput
+                                    compact
+                                    :disabled="props.inputDisabled"
+                                    :glow-variant="inputGlowVariant"
+                                    :placeholder="props.inputPlaceholder || 'Type Your Action'"
+                                    @submit="handleInputSubmit"
+                                    @ready-to-type="onInputReadyToType"
+                                    @focus="inputFocused = true"
+                                    @blur="inputFocused = false"
+                                />
+                                <GameplayMediaPlayer docked :collapsed="tts.mediaCollapsed.value" @open-audio-settings="openAudioSettings" />
                             </div>
-                            <GameplayInput
-                                :disabled="props.inputDisabled"
-                                :glow-variant="inputGlowVariant"
-                                :placeholder="props.inputPlaceholder"
-                                @submit="handleInputSubmit"
-                                @ready-to-type="onInputReadyToType"
-                                @focus="inputFocused = true"
-                                @blur="inputFocused = false"
-                            />
                         </div>
                     </div>
                 </div>
@@ -786,26 +786,11 @@ const handleInputSubmit = (prompt: string) => {
     opacity: 0;
 }
 
-.recap-nub-enter-active,
-.recap-nub-leave-active {
-    transition:
-        opacity 0.18s ease,
-        transform 0.18s ease;
-}
-
-.recap-nub-enter-from,
-.recap-nub-leave-to {
-    opacity: 0;
-    transform: translateY(0.25rem);
-}
-
 @media (prefers-reduced-motion: reduce) {
     .recap-drawer-enter-active,
     .recap-drawer-leave-active,
     .action-strip-enter-active,
-    .action-strip-leave-active,
-    .recap-nub-enter-active,
-    .recap-nub-leave-active {
+    .action-strip-leave-active {
         transition-duration: 0.01ms;
     }
 }

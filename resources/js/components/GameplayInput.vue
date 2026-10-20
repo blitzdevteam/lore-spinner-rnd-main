@@ -7,6 +7,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 const props = withDefaults(
     defineProps<{
         disabled?: boolean;
+        compact?: boolean;
         /** 'sweep' = idle left↔right loop, 'orbit' = clockwork ring while waiting, 'twinkle' = one-shot nudge pulse */
         glowVariant?: 'sweep' | 'orbit' | 'twinkle';
         /**
@@ -16,7 +17,7 @@ const props = withDefaults(
          */
         placeholder?: string;
     }>(),
-    { disabled: false, placeholder: '' },
+    { disabled: false, compact: false, placeholder: '' },
 );
 
 const emit = defineEmits<{
@@ -136,7 +137,8 @@ onUnmounted(() => {
         <!-- Gradient border pill -->
         <div
             :class="[
-                'flex h-14 items-center rounded-[32px] border border-[#373737] p-2 backdrop-blur-lg sm:h-[70px] sm:rounded-[39px] sm:p-2.5',
+                'flex items-center rounded-full border border-[#373737] backdrop-blur-lg',
+                props.compact ? 'h-14 p-1' : 'h-14 p-2 sm:h-[70px] sm:p-2.5',
                 !displayedVariant && 'gp-pill--breathe',
                 displayedVariant === 'sweep' && 'gp-pill--sweep',
                 displayedVariant === 'orbit' && 'gp-pill--orbit',
@@ -146,7 +148,8 @@ onUnmounted(() => {
         >
             <!-- Inner dark field -->
             <div
-                class="flex h-full flex-1 items-center gap-2 rounded-[28px] border border-[#373737] bg-[#1c1c1c] sm:px-1 px-0 sm:gap-3 sm:rounded-[35px]"
+                class="flex h-full min-w-0 flex-1 items-center gap-2 rounded-full border border-[#373737] bg-[#1c1c1c]"
+                :class="props.compact ? 'px-1.5' : 'px-0 sm:gap-3 sm:px-1'"
                 @click="focusInput"
             >
                 <!-- Recording pulse indicator -->
@@ -155,7 +158,8 @@ onUnmounted(() => {
                 <PrimeInputText
                     ref="inputEl"
                     v-model="inputText"
-                    class="flex-1 border-none! bg-transparent! px-2! py-0! text-base! text-white! shadow-none! ring-0! outline-none! placeholder:text-gray-500!"
+                    class="min-w-0 flex-1 border-none! bg-transparent! py-0! text-base! text-white! shadow-none! ring-0! outline-none!"
+                    :class="props.compact ? 'px-0.5! tracking-wide! placeholder:text-[#808080]! sm:text-sm!' : 'px-2! placeholder:text-gray-500!'"
                     :placeholder="stt.isRecording.value ? 'Listening...' : stt.isTranscribing.value ? 'Transcribing...' : props.placeholder"
                     :disabled="props.disabled || stt.isRecording.value || stt.isTranscribing.value"
                     autocomplete="off"
@@ -163,8 +167,12 @@ onUnmounted(() => {
                     autocapitalize="off"
                     spellcheck="false"
                     name="story_input"
+                    aria-label="Your action"
                     @keydown="handleKeydown"
-                    @focus="signalReadyToType(); emit('focus')"
+                    @focus="
+                        signalReadyToType();
+                        emit('focus');
+                    "
                     @blur="handleBlur"
                     @input="signalReadyToType"
                 />
@@ -173,12 +181,26 @@ onUnmounted(() => {
                 <button
                     v-if="hasText"
                     type="button"
-                    class="gp-send-btn grid size-9 shrink-0 place-items-center rounded-full sm:size-10"
+                    class="gp-send-btn grid shrink-0 place-items-center rounded-full"
+                    :class="props.compact ? 'size-8' : 'size-9 sm:size-10'"
                     :disabled="props.disabled"
                     title="Send"
+                    aria-label="Send action"
                     @click="handleSubmit"
                 >
                     <LucideArrowUp class="size-4 sm:size-5" :stroke-width="2.75" />
+                </button>
+                <button
+                    v-else-if="props.compact"
+                    type="button"
+                    class="grid size-8 shrink-0 place-items-center rounded-full bg-[#939393] text-[#303030] transition-colors hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-wait disabled:opacity-60"
+                    :disabled="props.disabled || stt.isTranscribing.value"
+                    :aria-label="stt.isTranscribing.value ? 'Transcribing audio' : stt.isRecording.value ? 'Stop recording' : 'Record your action'"
+                    @click="handleMicToggle"
+                >
+                    <LucideLoader v-if="stt.isTranscribing.value" class="size-4 animate-spin" />
+                    <LucideSquare v-else-if="stt.isRecording.value" class="size-3.5 fill-current" />
+                    <LucideMic v-else class="size-4.5" />
                 </button>
                 <BaseButton v-else severity="glass" :icon-only="true" class="size-9! shrink-0 sm:size-10!" type="button" @click="handleMicToggle">
                     <LucideLoader v-if="stt.isTranscribing.value" class="size-5 animate-spin text-white" />
@@ -322,10 +344,18 @@ onUnmounted(() => {
 }
 
 @keyframes gp-glow-twinkle-pulse {
-    0%   { --gp-breathe-alpha: 0.22; }
-    35%  { --gp-breathe-alpha: 0.78; }
-    65%  { --gp-breathe-alpha: 0.78; }
-    100% { --gp-breathe-alpha: 0.22; }
+    0% {
+        --gp-breathe-alpha: 0.22;
+    }
+    35% {
+        --gp-breathe-alpha: 0.78;
+    }
+    65% {
+        --gp-breathe-alpha: 0.78;
+    }
+    100% {
+        --gp-breathe-alpha: 0.22;
+    }
 }
 
 /* Sending: the glow travels clockwise around the pill perimeter */
