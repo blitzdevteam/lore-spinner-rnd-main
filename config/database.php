@@ -99,6 +99,25 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        /*
+         * Local-only database for the Discord branch. A database URL is not
+         * read here, so a production DB_URL cannot redirect this connection.
+         */
+        'discord' => [
+            'driver' => 'pgsql',
+            'url' => null,
+            'host' => env('DISCORD_DB_HOST', 'pgsql'),
+            'port' => env('DISCORD_DB_PORT', '5432'),
+            'database' => env('DISCORD_DB_DATABASE', 'lore_spinner_discord'),
+            'username' => env('DISCORD_DB_USERNAME', 'sail'),
+            'password' => env('DISCORD_DB_PASSWORD', 'secret'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
