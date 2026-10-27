@@ -4,18 +4,28 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Discord\SoloTestStory;
+use App\Http\Controllers\Discord\ActivityController;
 use App\Models\ComingSoonStory;
 use App\Models\Creator;
 use App\Models\Game;
 use App\Models\Story;
 use App\Models\World;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 final class IndexController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(Request $request, SoloTestStory $story): InertiaResponse|Response
     {
+        if ($request->filled('frame_id')) {
+            $request->merge(['test' => '1']);
+
+            return app(ActivityController::class)($request, $story);
+        }
+
         return inertia('Index', self::homepageProps());
     }
 

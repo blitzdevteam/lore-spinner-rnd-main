@@ -68,6 +68,16 @@ final class SoloTestStory
     }
 
     /**
+     * Scenes shared by the /play command and the Discord Activity.
+     *
+     * @return array<string, array{text: string, choices: list<array{id: string, label: string, next: string}>}>
+     */
+    public function scenes(): array
+    {
+        return self::SCENES;
+    }
+
+    /**
      * @return array{type: int, data: array<string, mixed>}
      */
     public function choose(string $customId): array
