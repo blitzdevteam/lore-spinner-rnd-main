@@ -166,6 +166,28 @@ it('uses a shared 20px font for section titles on every page', function (): void
         ->not->toContain('--section-header-title-size: 1.175rem');
 });
 
+it('uses a fluid wide-screen container across public pages', function (): void {
+    $appCss = file_get_contents(resource_path('css/app.css'));
+    $worlds = file_get_contents(resource_path('js/components/StepIntoWorlds.vue'));
+    $moods = file_get_contents(resource_path('js/components/ExploreByMood.vue'));
+
+    expect($appCss)
+        ->toContain('--container: 96rem;')
+        ->toContain('--content-width: 90rem;')
+        ->toContain('--container-gutter: clamp(1rem, 3vw, 3rem);')
+        ->toContain('max-width: calc(var(--container) + var(--container-gutter) + var(--container-gutter));')
+        ->toContain('padding-inline: var(--container-gutter);')
+        ->not->toContain('--content-width: 1018px;');
+
+    expect($worlds)
+        ->toContain('width: calc((100% - 1.25rem) / 3);')
+        ->toContain('flex: 1 1 0;');
+
+    expect($moods)
+        ->toContain('md:min-w-0 md:flex-1')
+        ->not->toContain('md:w-max');
+});
+
 it('adds top spacing to the hero branch graphic', function (): void {
     $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 
@@ -398,7 +420,7 @@ it('marks only completed episodes and derives the story progress percentage', fu
 
     expect($episodeCard)
         ->toContain("type EpisodeStatus = 'completed' | 'in_progress' | 'not_started'")
-        ->toContain("if (props.episode.events_played > 0)")
+        ->toContain('if (props.episode.events_played > 0)')
         ->toContain('line-clamp-2')
         ->not->toContain('text-justify');
 

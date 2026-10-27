@@ -21,12 +21,7 @@ const props = withDefaults(
 );
 
 const isDesktopHover = useDesktopStoryPreview();
-const {
-    onCardEnter,
-    onCardLeave,
-    isExpanded: isHoverExpanded,
-    isDimmed: isHoverDimmed,
-} = useStoryCardExpand(isDesktopHover);
+const { onCardEnter, onCardLeave, isExpanded: isHoverExpanded, isDimmed: isHoverDimmed } = useStoryCardExpand(isDesktopHover);
 
 const sliderEl = ref<HTMLElement | null>(null);
 const isMobileSlider = ref(false);
@@ -156,11 +151,7 @@ onUnmounted(() => {
                             @mouseenter="onCardEnter(worldCardId(world.id))"
                             @mouseleave="onCardLeave()"
                         >
-                            <WorldCard
-                                :world="world"
-                                :expanded="isExpanded(worldCardId(world.id))"
-                                :dimmed="isDimmed(worldCardId(world.id))"
-                            />
+                            <WorldCard :world="world" :expanded="isExpanded(worldCardId(world.id))" :dimmed="isDimmed(worldCardId(world.id))" />
                         </div>
                     </div>
                 </div>
@@ -223,7 +214,9 @@ onUnmounted(() => {
     }
 
     .world-card-slot {
-        width: 20.75rem;
+        min-width: 0;
+        width: calc((100% - 1.25rem) / 3);
+        flex: 1 1 0;
         scroll-snap-align: unset;
     }
 }

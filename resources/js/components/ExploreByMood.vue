@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import SectionHeader from '@/components/SectionHeader.vue';
 import MoodPhotoCardFace from '@/components/MoodPhotoCardFace.vue';
-import { MOOD_PHOTO_CARD_CONFIGS } from '@/data/moodPhotoCards';
+import SectionHeader from '@/components/SectionHeader.vue';
+import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { MOOD_BANNER_CONFIGS, MOOD_IDS, type MoodId } from '@/data/moodBanners';
-import { isStoryPlayable } from '@/data/playableStorySlugs';
+import { MOOD_PHOTO_CARD_CONFIGS } from '@/data/moodPhotoCards';
 import { canonicalMoodStorySlug, getMoodStorySlugs } from '@/data/moodStories';
+import { isStoryPlayable } from '@/data/playableStorySlugs';
 import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
-import { mergeLibraryStoriesWithMocks } from '@/utils/mergeLibraryStories';
 import type { StoryInterface } from '@/types';
 import { StoryStatusEnum } from '@/types/enum';
+import { mergeLibraryStoriesWithMocks } from '@/utils/mergeLibraryStories';
 import { index as storiesIndex, show as storyShow } from '@/wayfinder/routes/stories';
 import { Link } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
-import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { computed, onUnmounted, ref, watch } from 'vue';
 
 interface MoodGame {
@@ -127,18 +127,17 @@ onUnmounted(() => {
             <div class="container-content home-section-gap">
                 <SectionHeader title="Explore by mood" subtitle="Choose the feeling you want to step into." />
 
-                <!-- Figma 5412:908: flex row, gap exactly 10px (not stretched 1fr columns) -->
                 <div class="relative">
                     <div
                         ref="moodScrollEl"
-                        class="mood-scroll flex w-full max-w-full flex-nowrap items-center gap-[0.625rem] overflow-x-auto pb-1 md:w-max md:overflow-visible"
+                        class="mood-scroll flex w-full max-w-full flex-nowrap items-center gap-[0.625rem] overflow-x-auto pb-1 md:overflow-visible"
                     >
                         <!-- Figma 5412:903: background photo + gradient + bottom-left icon badge/label -->
                         <button
                             v-for="card in MOOD_PHOTO_CARD_CONFIGS"
                             :key="card.id"
                             type="button"
-                            class="mood-card relative z-0 h-[5.625rem] w-[12.1875rem] shrink-0 cursor-pointer overflow-hidden rounded-[0.625rem] border-0 bg-transparent p-0 text-left transition-[transform,opacity] duration-200 hover:scale-[1.02] active:scale-[0.99]"
+                            class="mood-card relative z-0 h-[5.625rem] w-[12.1875rem] shrink-0 cursor-pointer overflow-hidden rounded-[0.625rem] border-0 bg-transparent p-0 text-left transition-[transform,opacity] duration-200 hover:scale-[1.02] active:scale-[0.99] md:min-w-0 md:flex-1"
                             :class="{
                                 'mood-card--active': openMoodId === card.id,
                                 'opacity-50': openMoodId !== null && openMoodId !== card.id,

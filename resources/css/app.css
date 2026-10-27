@@ -15,10 +15,11 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --container: 1152px;
-    /** Homepage / landing inner column — matches Figma content frame (~1018px). */
-    --content-width: 1018px;
-    --container-gap: max(0px, calc((100vw - var(--container)) / 2));
+    /** Public-site shell with fluid gutters and a wide-screen ceiling. */
+    --container: 96rem;
+    --content-width: 90rem;
+    --container-gutter: clamp(1rem, 3vw, 3rem);
+    --container-gap: max(var(--container-gutter), calc((100vw - var(--content-width)) / 2));
     --color-background: #000000;
 
     /* Teal slate — accent #59C1CA at 500; CTA fills on 700–950 */
@@ -95,13 +96,14 @@ body {
 }
 
 .container {
-    @apply mx-auto w-full px-4;
-    max-width: calc(var(--container) + 2rem);
+    @apply mx-auto w-full;
+    max-width: calc(var(--container) + var(--container-gutter) + var(--container-gutter));
+    padding-inline: var(--container-gutter);
 }
 
 /**
- * Inner content band shared by hero copy and stacked homepage sections.
- * Keeps left edges aligned under `.container` horizontal padding on all breakpoints.
+ * Shared public-site content band. It grows fluidly until 1440px while preserving
+ * readable component-level widths for copy, forms, and long-form content.
  */
 .container-content {
     @apply mx-auto w-full max-w-[var(--content-width)];
@@ -191,9 +193,7 @@ body.wl-playground-open [data-feedback-btn] {
 
 /* Header controls — dark liquid glass */
 .gameplay-header-glass {
-    background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(8, 18, 22, 0.22)),
-        rgba(16, 24, 28, 0.34);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(8, 18, 22, 0.22)), rgba(16, 24, 28, 0.34);
     backdrop-filter: blur(18px) saturate(155%);
     -webkit-backdrop-filter: blur(18px) saturate(155%);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -206,9 +206,7 @@ body.wl-playground-open [data-feedback-btn] {
 }
 
 .gameplay-header-glass--active {
-    background:
-        linear-gradient(145deg, rgba(143, 203, 211, 0.3), rgba(84, 151, 161, 0.2) 45%, rgba(14, 31, 34, 0.34)),
-        rgba(16, 30, 34, 0.5);
+    background: linear-gradient(145deg, rgba(143, 203, 211, 0.3), rgba(84, 151, 161, 0.2) 45%, rgba(14, 31, 34, 0.34)), rgba(16, 30, 34, 0.5);
     border-color: rgba(143, 203, 211, 0.58);
     box-shadow:
         0 0 2px rgba(0, 0, 0, 0.1),
