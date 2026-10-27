@@ -15,10 +15,13 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    /** Public-site shell with fluid gutters and a wide-screen ceiling. */
-    --container: 96rem;
-    --content-width: 90rem;
-    --container-gutter: clamp(1rem, 3vw, 3rem);
+    /**
+     * Preserve the original 1440px design proportions on desktop displays:
+     * 1152px shell (80%) and 1018px content band (~70.7%).
+     */
+    --container: 80vw;
+    --content-width: 70.694444vw;
+    --container-gutter: 1rem;
     --container-gap: max(var(--container-gutter), calc((100vw - var(--content-width)) / 2));
     --color-background: #000000;
 
@@ -97,16 +100,27 @@ body {
 
 .container {
     @apply mx-auto w-full;
-    max-width: calc(var(--container) + var(--container-gutter) + var(--container-gutter));
+    max-width: none;
     padding-inline: var(--container-gutter);
 }
 
 /**
- * Shared public-site content band. It grows fluidly until 1440px while preserving
- * readable component-level widths for copy, forms, and long-form content.
+ * Shared public-site content band. The frame scales with desktop viewport width,
+ * while component-level card, copy, form, and reading widths remain unchanged.
  */
 .container-content {
-    @apply mx-auto w-full max-w-[var(--content-width)];
+    @apply mx-auto w-full;
+    max-width: none;
+}
+
+@media (min-width: 64rem) {
+    .container {
+        max-width: calc(var(--container) + var(--container-gutter) + var(--container-gutter));
+    }
+
+    .container-content {
+        max-width: var(--content-width);
+    }
 }
 
 /**

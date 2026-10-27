@@ -166,26 +166,33 @@ it('uses a shared 20px font for section titles on every page', function (): void
         ->not->toContain('--section-header-title-size: 1.175rem');
 });
 
-it('uses a fluid wide-screen container across public pages', function (): void {
+it('preserves the original desktop design ratio across public pages', function (): void {
     $appCss = file_get_contents(resource_path('css/app.css'));
     $worlds = file_get_contents(resource_path('js/components/StepIntoWorlds.vue'));
     $moods = file_get_contents(resource_path('js/components/ExploreByMood.vue'));
+    $header = file_get_contents(resource_path('js/components/HomeHeader.vue'));
 
     expect($appCss)
-        ->toContain('--container: 96rem;')
-        ->toContain('--content-width: 90rem;')
-        ->toContain('--container-gutter: clamp(1rem, 3vw, 3rem);')
+        ->toContain('--container: 80vw;')
+        ->toContain('--content-width: 70.694444vw;')
+        ->toContain('--container-gutter: 1rem;')
+        ->toContain('@media (min-width: 64rem)')
         ->toContain('max-width: calc(var(--container) + var(--container-gutter) + var(--container-gutter));')
-        ->toContain('padding-inline: var(--container-gutter);')
-        ->not->toContain('--content-width: 1018px;');
+        ->toContain('max-width: var(--content-width);');
 
     expect($worlds)
-        ->toContain('width: calc((100% - 1.25rem) / 3);')
-        ->toContain('flex: 1 1 0;');
+        ->toContain('width: 20.75rem;')
+        ->not->toContain('flex: 1 1 0;');
 
     expect($moods)
-        ->toContain('md:min-w-0 md:flex-1')
-        ->not->toContain('md:w-max');
+        ->toContain('md:w-max')
+        ->not->toContain('md:min-w-0 md:flex-1');
+
+    expect($header)
+        ->toContain('home-header-container')
+        ->toContain('home-header-content')
+        ->toContain('max-width: 89.999rem')
+        ->toContain('max-width: calc(100% - 2rem)');
 });
 
 it('adds top spacing to the hero branch graphic', function (): void {

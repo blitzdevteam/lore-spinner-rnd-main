@@ -130,14 +130,14 @@ onUnmounted(() => {
                 <div class="relative">
                     <div
                         ref="moodScrollEl"
-                        class="mood-scroll flex w-full max-w-full flex-nowrap items-center gap-[0.625rem] overflow-x-auto pb-1 md:overflow-visible"
+                        class="mood-scroll flex w-full max-w-full flex-nowrap items-center gap-[0.625rem] overflow-x-auto pb-1 md:w-max md:overflow-visible"
                     >
                         <!-- Figma 5412:903: background photo + gradient + bottom-left icon badge/label -->
                         <button
                             v-for="card in MOOD_PHOTO_CARD_CONFIGS"
                             :key="card.id"
                             type="button"
-                            class="mood-card relative z-0 h-[5.625rem] w-[12.1875rem] shrink-0 cursor-pointer overflow-hidden rounded-[0.625rem] border-0 bg-transparent p-0 text-left transition-[transform,opacity] duration-200 hover:scale-[1.02] active:scale-[0.99] md:min-w-0 md:flex-1"
+                            class="mood-card relative z-0 h-[5.625rem] w-[12.1875rem] shrink-0 cursor-pointer overflow-hidden rounded-[0.625rem] border-0 bg-transparent p-0 text-left transition-[transform,opacity] duration-200 hover:scale-[1.02] active:scale-[0.99]"
                             :class="{
                                 'mood-card--active': openMoodId === card.id,
                                 'opacity-50': openMoodId !== null && openMoodId !== card.id,

@@ -24,22 +24,15 @@ onUnmounted(() => {
 
 <template>
     <header class="home-header-bar relative z-20 flex min-h-[4.5rem] items-center overflow-visible md:min-h-[5.6875rem]">
-        <div class="relative container w-full overflow-visible py-0">
+        <div class="home-header-container relative container w-full overflow-visible py-0">
             <div
-                class="container-content grid h-[4rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 overflow-visible md:h-[4.6875rem] md:grid-cols-[auto_1fr_auto] md:gap-x-[3.125rem]"
+                class="home-header-content container-content grid h-[4rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 overflow-visible md:h-[4.6875rem] md:grid-cols-[auto_1fr_auto] md:gap-x-[3.125rem]"
             >
                 <Link
                     :href="index().url"
                     class="logo-link min-w-0 shrink justify-self-start pr-1 ring-offset-2 ring-offset-black outline-none focus-visible:ring-2 focus-visible:ring-primary md:shrink-0 md:pr-0"
                 >
-                    <img
-                        :src="mainLogo"
-                        alt="LoreSpinner"
-                        class="brand-logo select-none"
-                        width="286"
-                        height="56"
-                        decoding="async"
-                    />
+                    <img :src="mainLogo" alt="LoreSpinner" class="brand-logo select-none" width="286" height="56" decoding="async" />
                 </Link>
 
                 <div class="hidden min-h-[4.6875rem] min-w-0 items-center justify-center justify-self-center md:flex md:translate-y-[5px]">
@@ -75,6 +68,17 @@ onUnmounted(() => {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+}
+
+@media (min-width: 48rem) and (max-width: 89.999rem) {
+    .home-header-container {
+        max-width: calc(100% - 2rem);
+    }
+
+    .home-header-content {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 .brand-logo {

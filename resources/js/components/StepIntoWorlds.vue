@@ -214,9 +214,7 @@ onUnmounted(() => {
     }
 
     .world-card-slot {
-        min-width: 0;
-        width: calc((100% - 1.25rem) / 3);
-        flex: 1 1 0;
+        width: 20.75rem;
         scroll-snap-align: unset;
     }
 }
