@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
  * session don't create additional rows.
  *
  * The unique constraint on (session_id, view_date) makes the upsert idempotent.
+ * Discord Activity launches include frame_id and are not marketing page views.
  */
 final class RecordPageView
 {
@@ -28,13 +29,14 @@ final class RecordPageView
             $request->isMethod('GET')
             && $response->isSuccessful()
             && ! $request->header('X-Inertia')
+            && ! $request->filled('frame_id')
         ) {
             DB::table('page_views')->upsert(
                 [
-                    'user_id'    => $request->user('user')?->id,
+                    'user_id' => $request->user('user')?->id,
                     'session_id' => $request->session()->getId(),
-                    'path'       => mb_substr($request->path(), 0, 512),
-                    'view_date'  => now()->toDateString(),
+                    'path' => mb_substr($request->path(), 0, 512),
+                    'view_date' => now()->toDateString(),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],

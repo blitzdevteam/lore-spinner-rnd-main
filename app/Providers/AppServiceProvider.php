@@ -8,6 +8,7 @@ use App\Ai\AnthropicThinkingPolicy;
 use App\Auth\EnforceLoginLockout;
 use App\Filament\Support\EnsureLocalLivewireUploads;
 use App\Services\SubscriptionEntitlementService;
+use App\Support\DiscordTestDatabase;
 use Illuminate\Auth\Events\Attempting;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -39,6 +40,8 @@ final class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        DiscordTestDatabase::assertLocal();
+
         JsonResource::withoutWrapping();
 
         ResetPassword::createUrlUsing(function (CanResetPassword $notifiable, string $token): string {
