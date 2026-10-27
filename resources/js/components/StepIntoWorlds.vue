@@ -218,4 +218,21 @@ onUnmounted(() => {
         scroll-snap-align: unset;
     }
 }
+
+@media (min-width: 1440px) {
+    .worlds-row {
+        gap: 0.694444vw;
+    }
+
+    .world-card-slot {
+        width: auto;
+        height: 20.138889vw;
+        min-width: 0;
+        flex: 1 1 0;
+    }
+
+    .world-card-slot :deep(.world-card) {
+        height: 100%;
+    }
+}
 </style>

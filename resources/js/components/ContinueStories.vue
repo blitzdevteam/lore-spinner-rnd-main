@@ -82,11 +82,7 @@ const creatorName = computed(() => {
         return '';
     }
 
-    const raw =
-        creator.full_name?.trim() ||
-        [creator.first_name, creator.last_name].filter(Boolean).join(' ') ||
-        creator.username ||
-        '';
+    const raw = creator.full_name?.trim() || [creator.first_name, creator.last_name].filter(Boolean).join(' ') || creator.username || '';
 
     if (!raw) {
         return '';
@@ -102,28 +98,16 @@ const creatorName = computed(() => {
             <div class="container-content home-section-gap">
                 <SectionHeader title="Continue Your Adventure" subtitle="Pick up where you left off." />
 
-                <article
-                    class="flex flex-col rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-2.5"
-                >
+                <article class="flex flex-col rounded-lg border border-solid border-[#373737] bg-[#0f0f0f] p-2.5">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-                        <div
-                            class="relative aspect-[433/231] w-full shrink-0 overflow-hidden rounded-[5px] sm:aspect-auto sm:h-[12.5rem] sm:w-[min(27.0625rem,42%)] lg:h-[14.4375rem] lg:w-[27.0625rem]"
-                        >
-                            <img
-                                v-if="hasCover"
-                                :src="posterUrl"
-                                :alt="displayTitle"
-                                class="absolute inset-0 size-full object-cover object-center"
-                            />
-                            <div
-                                v-else
-                                class="absolute inset-0 grid place-items-center bg-[#1a1a1a]"
-                            >
+                        <div class="relative aspect-[433/231] w-full shrink-0 overflow-hidden rounded-[5px] sm:h-auto sm:w-[42%]">
+                            <img v-if="hasCover" :src="posterUrl" :alt="displayTitle" class="absolute inset-0 size-full object-cover object-center" />
+                            <div v-else class="absolute inset-0 grid place-items-center bg-[#1a1a1a]">
                                 <span class="text-4xl font-semibold text-white/30">{{ displayTitle.charAt(0)?.toUpperCase() }}</span>
                             </div>
                         </div>
 
-                        <div class="flex min-w-0 flex-1 flex-col justify-between gap-5 sm:h-[12.5rem] sm:items-end lg:h-[13.4375rem]">
+                        <div class="flex min-w-0 flex-1 flex-col justify-between gap-5 sm:h-auto sm:items-end sm:self-stretch">
                             <div class="flex w-full flex-col gap-3.5">
                                 <div class="flex max-w-[24.5625rem] flex-col gap-1.5">
                                     <div class="flex flex-wrap items-center gap-3.5">
@@ -132,13 +116,10 @@ const creatorName = computed(() => {
                                             class="relative flex h-7 min-w-[5.0625rem] shrink-0 items-center justify-center overflow-hidden rounded-[27px] px-2.5"
                                             style="box-shadow: 0 4px 80px rgba(0, 0, 0, 0.2)"
                                         >
+                                            <span aria-hidden="true" class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]" />
                                             <span
                                                 aria-hidden="true"
-                                                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-white/[0.04]"
-                                            />
-                                            <span
-                                                aria-hidden="true"
-                                                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] backdrop-blur-[3px] mix-blend-plus-lighter"
+                                                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-[rgba(30,30,30,0.25)] mix-blend-plus-lighter backdrop-blur-[3px]"
                                             />
                                             <span
                                                 class="relative z-[1] font-['Inter',sans-serif] text-[13px] leading-none font-normal text-[#fdd24f]"
@@ -150,31 +131,21 @@ const creatorName = computed(() => {
                                                 class="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0.25px_0.5px_0.5px_0.25px_rgba(255,255,255,0.22),inset_-0.2px_-0.5px_0.15px_0.5px_rgba(255,255,255,0.05)]"
                                             />
                                         </div>
-                                        <span class="flex items-center gap-1 font-['Inter',sans-serif] text-xs leading-normal font-normal text-[#7e7e7e]">
+                                        <span
+                                            class="flex items-center gap-1 font-['Inter',sans-serif] text-xs leading-normal font-normal text-[#7e7e7e]"
+                                        >
                                             <span class="relative size-[18px] shrink-0 overflow-clip">
-                                                <img
-                                                    :src="clockIcon"
-                                                    alt=""
-                                                    class="size-full"
-                                                    width="18"
-                                                    height="18"
-                                                    aria-hidden="true"
-                                                />
+                                                <img :src="clockIcon" alt="" class="size-full" width="18" height="18" aria-hidden="true" />
                                             </span>
                                             Last played {{ timeAgo }}
                                         </span>
                                     </div>
 
                                     <div class="flex w-full flex-col gap-1">
-                                        <h3
-                                            class="font-['Inter',sans-serif] text-xl leading-[1.875rem] font-semibold text-white"
-                                        >
+                                        <h3 class="font-['Inter',sans-serif] text-xl leading-[1.875rem] font-semibold text-white">
                                             {{ displayTitle }}
                                         </h3>
-                                        <p
-                                            v-if="creatorName"
-                                            class="font-['Inter',sans-serif] text-[13px] leading-normal font-normal text-[#d8d8d8]"
-                                        >
+                                        <p v-if="creatorName" class="font-['Inter',sans-serif] text-[13px] leading-normal font-normal text-[#d8d8d8]">
                                             {{ creatorName }}
                                         </p>
                                     </div>
@@ -182,14 +153,7 @@ const creatorName = computed(() => {
 
                                 <div v-if="currentEpisodeLine" class="flex items-center gap-1">
                                     <span class="relative size-[18px] shrink-0 overflow-clip">
-                                        <img
-                                            :src="bookOpenIcon"
-                                            alt=""
-                                            class="size-full"
-                                            width="18"
-                                            height="18"
-                                            aria-hidden="true"
-                                        />
+                                        <img :src="bookOpenIcon" alt="" class="size-full" width="18" height="18" aria-hidden="true" />
                                     </span>
                                     <p class="font-['Inter',sans-serif] text-xs leading-normal font-normal text-[#fdd24f]">
                                         {{ currentEpisodeLine }}
@@ -210,7 +174,7 @@ const creatorName = computed(() => {
                                 >
                                     <span class="flex h-6 items-center justify-center gap-2.5">
                                         <span
-                                            class="font-['Inter',sans-serif] text-center text-base leading-normal font-normal whitespace-nowrap text-white"
+                                            class="text-center font-['Inter',sans-serif] text-base leading-normal font-normal whitespace-nowrap text-white"
                                         >
                                             Continue Story
                                         </span>

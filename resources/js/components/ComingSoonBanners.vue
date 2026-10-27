@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import SectionHeader from '@/components/SectionHeader.vue';
 import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
+import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
-import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
-import { index as storiesIndex } from '@/wayfinder/routes/stories';
-import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
+import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
+import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { ComingSoonStoryInterface } from '@/types';
+import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { computed, ref } from 'vue';
 
 interface ComingSoonCard {
@@ -90,22 +90,21 @@ function openSheet(card: ComingSoonCard) {
     <section v-if="cards.length > 0" class="home-section-y overflow-visible !pb-2 md:!pb-2">
         <div class="container">
             <div class="container-content home-section-gap">
-                <SectionHeader
-                    title="Coming Soon"
-                    :subtitle="subtitle || undefined"
-                    :href="showViewAll ? storiesIndex().url : undefined"
-                />
+                <SectionHeader title="Coming Soon" :subtitle="subtitle || undefined" :href="showViewAll ? storiesIndex().url : undefined" />
 
                 <div class="story-slider-viewport story-slider-viewport--portrait coming-soon-slider-viewport relative overflow-visible">
                     <div class="story-slider-row">
-                        <button
-                            type="button"
-                            class="story-slider-arrow"
-                            aria-label="Scroll left"
-                            @click="scrollSlider(-1)"
-                        >
-                            <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="rotate-180">
-                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                        <button type="button" class="story-slider-arrow" aria-label="Scroll left" @click="scrollSlider(-1)">
+                            <svg
+                                viewBox="0 0 8 14"
+                                width="8"
+                                height="14"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                                class="rotate-180"
+                            >
+                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
 
@@ -149,14 +148,9 @@ function openSheet(card: ComingSoonCard) {
                             />
                         </div>
 
-                        <button
-                            type="button"
-                            class="story-slider-arrow"
-                            aria-label="Scroll right"
-                            @click="scrollSlider(1)"
-                        >
+                        <button type="button" class="story-slider-arrow" aria-label="Scroll right" @click="scrollSlider(1)">
                             <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
                     </div>
@@ -183,6 +177,13 @@ function openSheet(card: ComingSoonCard) {
 @media (min-width: 1280px) {
     .coming-soon-slider-viewport {
         --story-portrait-card-width: 166px;
+    }
+}
+
+@media (min-width: 1440px) {
+    .coming-soon-slider-viewport {
+        --story-portrait-card-width: 11.527778vw;
+        --story-slider-track-gap: 1.111111vw;
     }
 }
 </style>

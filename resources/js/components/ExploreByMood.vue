@@ -385,6 +385,22 @@ onUnmounted(() => {
         0 0 1.25rem color-mix(in srgb, var(--mood-accent) 35%, transparent);
 }
 
+/*
+ * Above the 1440px design canvas, keep the original five-card composition
+ * proportional to the viewport instead of leaving a fixed 1015px row.
+ */
+@media (min-width: 64rem) {
+    .mood-scroll {
+        gap: 0.694444vw;
+    }
+
+    .mood-card {
+        width: 13.541667vw;
+        height: 6.25vw;
+        border-radius: 0.694444vw;
+    }
+}
+
 .mood-overlay-enter-active,
 .mood-overlay-leave-active {
     transition: opacity 0.28s ease;

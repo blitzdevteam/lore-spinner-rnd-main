@@ -168,12 +168,7 @@ function storyHref(story: StoryInterface): string {
 
                     <span class="world-card__cta-fill" aria-hidden="true" />
 
-                    <button
-                        type="button"
-                        class="world-card__cta"
-                        tabindex="-1"
-                        aria-hidden="true"
-                    >
+                    <button type="button" class="world-card__cta" tabindex="-1" aria-hidden="true">
                         <span class="world-card__cta-label">Enter World</span>
                     </button>
                 </div>
@@ -246,15 +241,13 @@ function storyHref(story: StoryInterface): string {
 
 .world-card__shade--rest {
     background-image:
-        linear-gradient(to top, rgb(0, 0, 0) 14.31%, rgba(0, 0, 0, 0) 68.276%),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
+        linear-gradient(to top, rgb(0, 0, 0) 14.31%, rgba(0, 0, 0, 0) 68.276%), linear-gradient(90deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
 }
 
 .world-card__shade--hover {
     opacity: 0;
     background-image:
-        linear-gradient(to top, rgb(0, 0, 0) 11.552%, rgba(0, 0, 0, 0) 100%),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4));
+        linear-gradient(to top, rgb(0, 0, 0) 11.552%, rgba(0, 0, 0, 0) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4));
 }
 
 .world-card--expanded .world-card__shade--rest {
@@ -309,7 +302,7 @@ function storyHref(story: StoryInterface): string {
     position: relative;
     z-index: 1;
     display: flex;
-    height: 16.625rem;
+    height: calc(100% - 1.5rem);
     width: 100%;
     flex-direction: column;
     justify-content: flex-end;

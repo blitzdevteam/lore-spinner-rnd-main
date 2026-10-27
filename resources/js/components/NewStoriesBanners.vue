@@ -3,15 +3,15 @@ import HomePortraitStoryCard from '@/components/HomePortraitStoryCard.vue';
 import SectionHeader from '@/components/SectionHeader.vue';
 import StoryDetailsSheet, { type StorySheetData } from '@/components/StoryDetailsSheet.vue';
 import StoryExpandableCard from '@/components/StoryExpandableCard.vue';
-import { findStoryBySlug, HOMEPAGE_NEW_STORIES } from '@/data/homepageFeaturedStories';
-import { isStoryPlayable } from '@/data/playableStorySlugs';
-import { resolveNewStoryCover } from '@/data/newStoriesCoverBySlug';
-import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import { useDesktopStoryPreview } from '@/composables/useDesktopStoryPreview';
 import { useSliderEdgeShadows } from '@/composables/useSliderEdgeShadows';
 import { useStoryCardExpand } from '@/composables/useStoryCardExpand';
-import { index as storiesIndex } from '@/wayfinder/routes/stories';
+import { findStoryBySlug, HOMEPAGE_NEW_STORIES } from '@/data/homepageFeaturedStories';
+import { resolveNewStoryCover } from '@/data/newStoriesCoverBySlug';
+import { isStoryPlayable } from '@/data/playableStorySlugs';
+import { getStoryDescriptorThemes } from '@/data/storyCardHoverMeta';
 import type { StoryInterface } from '@/types';
+import { index as storiesIndex } from '@/wayfinder/routes/stories';
 import { computed, ref } from 'vue';
 
 interface NewStoryCard {
@@ -99,23 +99,21 @@ function openSheet(story: NewStoryCard) {
     <section v-if="stories.length > 0" class="home-section-y overflow-visible">
         <div class="container">
             <div class="container-content home-section-gap">
-
-                <SectionHeader
-                    title="New Stories"
-                    subtitle="New branches, hidden paths, and fresh story worlds."
-                    :href="storiesIndex().url"
-                />
+                <SectionHeader title="New Stories" subtitle="New branches, hidden paths, and fresh story worlds." :href="storiesIndex().url" />
 
                 <div class="story-slider-viewport story-slider-viewport--portrait relative overflow-visible">
                     <div class="story-slider-row">
-                        <button
-                            type="button"
-                            class="story-slider-arrow"
-                            aria-label="Scroll left"
-                            @click="scrollSlider(-1)"
-                        >
-                            <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="rotate-180">
-                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                        <button type="button" class="story-slider-arrow" aria-label="Scroll left" @click="scrollSlider(-1)">
+                            <svg
+                                viewBox="0 0 8 14"
+                                width="8"
+                                height="14"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                                class="rotate-180"
+                            >
+                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
 
@@ -159,14 +157,9 @@ function openSheet(story: NewStoryCard) {
                             />
                         </div>
 
-                        <button
-                            type="button"
-                            class="story-slider-arrow"
-                            aria-label="Scroll right"
-                            @click="scrollSlider(1)"
-                        >
+                        <button type="button" class="story-slider-arrow" aria-label="Scroll right" @click="scrollSlider(1)">
                             <svg viewBox="0 0 8 14" width="8" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M1 1L7 7L1 13" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
                     </div>
@@ -193,6 +186,13 @@ function openSheet(story: NewStoryCard) {
 @media (min-width: 1280px) {
     .story-slider-viewport--portrait {
         --story-portrait-card-width: 166px;
+    }
+}
+
+@media (min-width: 1440px) {
+    .story-slider-viewport--portrait {
+        --story-portrait-card-width: 11.527778vw;
+        --story-slider-track-gap: 1.111111vw;
     }
 }
 

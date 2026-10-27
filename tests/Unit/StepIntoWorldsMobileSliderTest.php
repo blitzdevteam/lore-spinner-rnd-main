@@ -20,8 +20,8 @@ it('implements the mobile worlds section as a horizontal snap slider', function 
         ->not->toContain('worlds-section-header');
 
     expect($worldCard)
-        ->toContain('@media (min-width: 1024px) and (hover: hover)')
-        ->toContain('transform: translateY(-6px) scale(1.02)');
+        ->toContain('height: calc(100% - 1.5rem)')
+        ->toContain('.world-card--expanded');
 });
 
 it('uses bundled story posters for world card thumbnails', function (): void {

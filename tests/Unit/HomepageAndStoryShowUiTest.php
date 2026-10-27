@@ -171,6 +171,9 @@ it('preserves the original desktop design ratio across public pages', function (
     $worlds = file_get_contents(resource_path('js/components/StepIntoWorlds.vue'));
     $moods = file_get_contents(resource_path('js/components/ExploreByMood.vue'));
     $header = file_get_contents(resource_path('js/components/HomeHeader.vue'));
+    $newStories = file_get_contents(resource_path('js/components/NewStoriesBanners.vue'));
+    $comingSoon = file_get_contents(resource_path('js/components/ComingSoonBanners.vue'));
+    $continueStories = file_get_contents(resource_path('js/components/ContinueStories.vue'));
 
     expect($appCss)
         ->toContain('--container: 80vw;')
@@ -182,17 +185,32 @@ it('preserves the original desktop design ratio across public pages', function (
 
     expect($worlds)
         ->toContain('width: 20.75rem;')
-        ->not->toContain('flex: 1 1 0;');
+        ->toContain('height: 20.138889vw;')
+        ->toContain('flex: 1 1 0;');
 
     expect($moods)
         ->toContain('md:w-max')
-        ->not->toContain('md:min-w-0 md:flex-1');
+        ->toContain('width: 13.541667vw;')
+        ->toContain('height: 6.25vw;');
 
     expect($header)
         ->toContain('home-header-container')
         ->toContain('home-header-content')
         ->toContain('max-width: 89.999rem')
         ->toContain('max-width: calc(100% - 2rem)');
+
+    expect($newStories)
+        ->toContain('--story-portrait-card-width: 11.527778vw;')
+        ->toContain('--story-slider-track-gap: 1.111111vw;');
+
+    expect($comingSoon)
+        ->toContain('--story-portrait-card-width: 11.527778vw;')
+        ->toContain('--story-slider-track-gap: 1.111111vw;');
+
+    expect($continueStories)
+        ->toContain('sm:w-[42%]')
+        ->toContain('sm:self-stretch')
+        ->not->toContain('lg:w-[27.0625rem]');
 });
 
 it('adds top spacing to the hero branch graphic', function (): void {
