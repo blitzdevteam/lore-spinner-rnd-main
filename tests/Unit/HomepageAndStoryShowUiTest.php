@@ -213,6 +213,21 @@ it('preserves the original desktop design ratio across public pages', function (
         ->not->toContain('lg:w-[27.0625rem]');
 });
 
+it('keeps the original hero layout at fixed heights across slides and window sizes', function (): void {
+    $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
+
+    expect($heroBanner)
+        ->toContain('--hero-height: 20.5rem;')
+        ->toContain('--hero-height: 38rem;')
+        ->toContain('hero-slide-image h-full w-full object-cover')
+        ->toContain(':class="slide.imagePosition"')
+        ->not->toContain('vh')
+        ->not->toContain('--hero-image-ratio')
+        ->not->toContain('imageWidth');
+
+    expect(mb_substr_count($heroBanner, 'height: var(--hero-height);'))->toBe(3);
+});
+
 it('adds top spacing to the hero branch graphic', function (): void {
     $heroBanner = file_get_contents(resource_path('js/components/HeroBanner.vue'));
 

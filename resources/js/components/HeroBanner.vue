@@ -391,6 +391,7 @@ function goNext() {
 
 <style scoped>
 .home-hero {
+    --hero-height: 20.5rem;
     display: grid;
     grid-template-columns: 1fr;
     background: #000;
@@ -431,9 +432,7 @@ function goNext() {
 .hero-media {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
-    min-height: 12.5rem;
-    max-height: min(48vh, 20.5rem);
+    height: var(--hero-height);
 }
 
 .hero-swiper :deep(.swiper-slide) {
@@ -604,10 +603,6 @@ function goNext() {
 }
 
 @media (min-width: 40rem) {
-    .hero-media {
-        max-height: min(44vh, 23rem);
-    }
-
     .hero-arrow-prev {
         left: 0.875rem;
     }
@@ -667,13 +662,14 @@ function goNext() {
 
 @media (min-width: 48rem) {
     .home-hero {
+        --hero-height: 38rem;
         grid-template-rows: auto auto;
     }
 
     .hero-carousel {
         grid-row: 1;
         grid-column: 1;
-        height: clamp(33rem, 50vh, 48rem);
+        height: var(--hero-height);
     }
 
     .hero-branch {
@@ -686,7 +682,7 @@ function goNext() {
         z-index: 10;
         grid-row: 1;
         grid-column: 1;
-        height: clamp(33rem, 50vh, 48rem);
+        height: var(--hero-height);
         pointer-events: none;
         background: transparent;
     }
@@ -808,21 +804,6 @@ function goNext() {
     .hero-title {
         font-size: 3rem;
         line-height: 1.08;
-    }
-}
-
-/* iMac / large desktop — taller hero without dominating the page */
-@media (min-width: 80rem) {
-    .hero-carousel {
-        height: clamp(38rem, 55vh, 56rem);
-    }
-
-    .hero-copy-block {
-        height: clamp(38rem, 55vh, 56rem);
-    }
-
-    .hero-copy-wrap {
-        padding-top: clamp(5.5625rem, 10vh, 7.5rem);
     }
 }
 

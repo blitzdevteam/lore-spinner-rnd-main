@@ -476,6 +476,36 @@
                 text-transform: uppercase;
             }
 
+            #room {
+                margin: 0 0 1.5rem;
+            }
+
+            #room-status {
+                margin: 0;
+                color: var(--gold);
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            #room-players {
+                display: grid;
+                gap: 0.35rem;
+                margin: 0.75rem 0 0;
+                padding: 0;
+                list-style: none;
+            }
+
+            #room-players:empty {
+                display: none;
+            }
+
+            #room-players li {
+                color: var(--text);
+                font-size: 0.95rem;
+            }
+
             #scene-title {
                 margin: 0;
                 max-width: 12ch;
@@ -1083,7 +1113,7 @@
             }
         </style>
     </head>
-    <body data-application-id="{{ $applicationId }}" data-scene="gate">
+    <body data-application-id="{{ $applicationId }}" data-scene="gate" @if ($roomUrl) data-room-url="{{ $roomUrl }}" @endif>
         <div class="game-shell">
             <header class="topbar">
                 <div class="brand">
@@ -1093,7 +1123,7 @@
                         <p class="brand-subtitle">A story shaped by choice</p>
                     </div>
                 </div>
-                <div class="session-state">Solo session</div>
+                <div class="session-state" id="session-state">Solo session</div>
             </header>
 
             <main class="game">
@@ -1133,6 +1163,10 @@
                 </section>
 
                 <section class="story-panel" aria-label="Story choices">
+                    <section id="room" aria-label="Voice channel room">
+                        <p id="room-status">Open this activity from a voice channel to share a room.</p>
+                        <ul id="room-players"></ul>
+                    </section>
                     <div class="panel-topline">
                         <p class="chapter">Chapter I · The Threshold</p>
                         @if ($testMode)
@@ -1168,6 +1202,6 @@
             </main>
         </div>
         <script type="application/json" id="activity-scenes">@json($scenes)</script>
-        <script type="module" src="/discord/activity.js?v=3"></script>
+        <script type="module" src="/discord/activity.js?v=4"></script>
     </body>
 </html>

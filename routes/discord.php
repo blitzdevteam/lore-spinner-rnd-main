@@ -14,5 +14,9 @@ Route::post('discord/activity/begin', [ActivityController::class, 'begin'])
     ->middleware('web')
     ->name('discord.activity.begin');
 
+Route::post('discord/activity/rooms', [ActivityController::class, 'syncRoom'])
+    ->middleware('web')
+    ->name('discord.activity.rooms.sync');
+
 Route::post('discord/interactions', InteractionController::class)
     ->name('discord.interactions');

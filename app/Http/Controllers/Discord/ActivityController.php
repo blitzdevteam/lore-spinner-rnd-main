@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Discord;
 
+use App\Actions\Discord\SyncDiscordActivityRoomAction;
 use App\Discord\SoloTestStory;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Discord\SyncDiscordActivityRoomRequest;
+use App\Models\DiscordActivityRoomMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -27,6 +30,9 @@ final class ActivityController extends Controller
                     : ($gameId === null
                         ? null
                         : route('user.games.begin', ['game' => $gameId], false)),
+                'roomUrl' => $testMode
+                    ? route('discord.activity.rooms.sync', ['test' => 1], false)
+                    : null,
             ])
             ->header(
                 'Content-Security-Policy',
@@ -47,6 +53,37 @@ final class ActivityController extends Controller
             'scene' => 'gate',
             'text' => $scene['text'],
             'choices' => $scene['choices'],
+        ]);
+    }
+
+    public function syncRoom(
+        SyncDiscordActivityRoomRequest $request,
+        SyncDiscordActivityRoomAction $action,
+    ): JsonResponse {
+        $snapshot = $request->snapshot();
+        $room = $action->handle($snapshot);
+        $members = $room->members->keyBy('discord_user_id');
+
+        return response()->json([
+            'test' => true,
+            'room_id' => $room->id,
+            'instance_id' => $room->instance_id,
+            'participants' => array_map(
+                static function (array $participant) use ($members): array {
+                    $member = $members->get($participant['id']);
+
+                    return [
+                        'id' => $participant['id'],
+                        'username' => $member instanceof DiscordActivityRoomMember
+                            ? $member->username
+                            : $participant['username'],
+                        'global_name' => $member instanceof DiscordActivityRoomMember
+                            ? $member->global_name
+                            : $participant['global_name'],
+                    ];
+                },
+                $snapshot['participants'],
+            ),
         ]);
     }
 
