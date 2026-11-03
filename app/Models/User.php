@@ -35,6 +35,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $gender
  * @property string|null $username
  * @property string $email
+ * @property string|null $discord_user_id
  * @property string $password
  * @property int $failed_login_attempts
  * @property Carbon|null $locked_until
@@ -77,11 +78,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 final class User extends Authenticatable implements CanResetPassword, HasMedia, LockableAccount
 {
     use Billable;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
     use InteractsWithMedia;
-
     use LocksAfterFailedLogins;
     use Notifiable;
 
@@ -94,7 +95,7 @@ final class User extends Authenticatable implements CanResetPassword, HasMedia, 
     ];
 
     protected $hidden = [
-        'password', 'remember_token', 'email_verified_at', 'is_active', 'created_at', 'updated_at',
+        'password', 'remember_token', 'email_verified_at', 'is_active', 'created_at', 'updated_at', 'discord_user_id',
         'stripe_id', 'pm_type', 'pm_last_four', 'trial_ends_at',
         'type', 'subscription_plan_id', 'duration_months', 'access_enabled', 'notes',
         'access_granted_at', 'expires_at', 'access_blocked_at', 'credentials_set_at', 'welcomed_at',

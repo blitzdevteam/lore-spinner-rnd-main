@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Discord\SoloTestStory;
+use App\Discord\DiscordClient;
 use App\Http\Controllers\Discord\ActivityController;
 use App\Models\ComingSoonStory;
 use App\Models\Creator;
@@ -18,12 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class IndexController extends Controller
 {
-    public function __invoke(Request $request, SoloTestStory $story): InertiaResponse|Response
+    public function __invoke(Request $request, DiscordClient $discord): InertiaResponse|Response
     {
         if ($request->filled('frame_id')) {
-            $request->merge(['test' => '1']);
-
-            return app(ActivityController::class)($request, $story);
+            return app(ActivityController::class)($discord);
         }
 
         return inertia('Index', self::homepageProps());

@@ -13,36 +13,36 @@ final class SoloTestStory
      */
     private const array SCENES = [
         'gate' => [
-            'text' => 'Solo test. You are alone in a small room. A lantern hangs by one shut door.',
+            'text' => 'The voice channel shares one story. Two paths wait.',
             'choices' => [
-                ['id' => 'open', 'label' => 'Open the door', 'next' => 'hall'],
-                ['id' => 'lantern', 'label' => 'Take the lantern', 'next' => 'lantern'],
+                ['id' => 'left', 'label' => 'Take the left path', 'next' => 'left'],
+                ['id' => 'right', 'label' => 'Take the right path', 'next' => 'right'],
             ],
         ],
-        'hall' => [
-            'text' => 'The door opens onto an empty hall. A bell sits on a table.',
+        'left' => [
+            'text' => 'The left path is quiet. A wooden marker stands in the grass.',
             'choices' => [
-                ['id' => 'ring', 'label' => 'Ring the bell', 'next' => 'bell-end'],
-                ['id' => 'back', 'label' => 'Turn back', 'next' => 'gate'],
+                ['id' => 'read', 'label' => 'Read the marker', 'next' => 'marker-end'],
+                ['id' => 'back', 'label' => 'Go back', 'next' => 'gate'],
             ],
         ],
-        'lantern' => [
-            'text' => 'The lantern is warm. A note on the handle says: one step is enough.',
+        'right' => [
+            'text' => 'The right path ends at a shut gate.',
             'choices' => [
-                ['id' => 'read', 'label' => 'Read the note', 'next' => 'note-end'],
-                ['id' => 'back', 'label' => 'Put it back', 'next' => 'gate'],
+                ['id' => 'open', 'label' => 'Open the gate', 'next' => 'gate-end'],
+                ['id' => 'back', 'label' => 'Go back', 'next' => 'gate'],
             ],
         ],
-        'bell-end' => [
-            'text' => 'The bell rings once. This solo test is complete.',
+        'marker-end' => [
+            'text' => 'The marker says: you walked this turn together.',
             'choices' => [
-                ['id' => 'again', 'label' => 'Play again', 'next' => 'gate'],
+                ['id' => 'again', 'label' => 'Start again', 'next' => 'gate'],
             ],
         ],
-        'note-end' => [
-            'text' => 'You finish the note. This solo test is complete.',
+        'gate-end' => [
+            'text' => 'The gate opens. You walked this turn together.',
             'choices' => [
-                ['id' => 'again', 'label' => 'Play again', 'next' => 'gate'],
+                ['id' => 'again', 'label' => 'Start again', 'next' => 'gate'],
             ],
         ],
     ];
@@ -75,6 +75,14 @@ final class SoloTestStory
     public function scenes(): array
     {
         return self::SCENES;
+    }
+
+    /**
+     * Move from a scene when the choice belongs to it.
+     */
+    public function advance(string $sceneId, string $choiceId): ?string
+    {
+        return $this->nextScene($sceneId, $choiceId);
     }
 
     /**

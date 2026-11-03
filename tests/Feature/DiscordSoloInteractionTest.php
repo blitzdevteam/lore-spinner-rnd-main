@@ -35,20 +35,20 @@ it('starts the solo test from the play command', function () {
 
     $response->assertSuccessful()
         ->assertJsonPath('type', 4)
-        ->assertJsonPath('data.components.0.components.0.custom_id', 'solo:gate:open')
-        ->assertJsonPath('data.components.0.components.1.label', 'Take the lantern');
+        ->assertJsonPath('data.components.0.components.0.custom_id', 'solo:gate:left')
+        ->assertJsonPath('data.components.0.components.1.label', 'Take the right path');
 });
 
 it('advances the solo test when a choice is clicked', function () {
     $response = discordInteraction([
         'type' => 3,
         'application_id' => '100',
-        'data' => ['custom_id' => 'solo:gate:open'],
+        'data' => ['custom_id' => 'solo:gate:left'],
     ]);
 
     $response->assertSuccessful()
         ->assertJsonPath('type', 7)
-        ->assertJsonPath('data.components.0.components.0.custom_id', 'solo:hall:ring');
+        ->assertJsonPath('data.components.0.components.0.custom_id', 'solo:left:read');
 });
 
 it('rejects a choice from a different application', function () {

@@ -29,4 +29,18 @@ return [
 
     'redirect_uri' => env('DISCORD_REDIRECT_URI'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Discord Activity
+    |--------------------------------------------------------------------------
+    |
+    | The voice channel activity runs the platform multiplayer lobby inside
+    | Discord. Players sign in with Discord OAuth (DISCORD_CLIENT_SECRET) and
+    | the bot token checks they are really in the activity instance.
+    | The origin defaults to https://{application_id}.discordsays.com.
+    |
+    */
+
+    'activity_origin' => env('DISCORD_ACTIVITY_ORIGIN'),
+
 ];

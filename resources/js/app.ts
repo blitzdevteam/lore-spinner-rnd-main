@@ -34,9 +34,21 @@ import Textarea from 'primevue/textarea';
 import { configureEcho } from '@laravel/echo-vue';
 import { appNameFromPage } from './utils/appName';
 
+// Discord only lets an activity reach its own discordsays.com origin, so the
+// socket goes through the "/reverb" URL mapping set in the Discord portal.
+const insideDiscordActivity = window.location.hostname.endsWith('.discordsays.com');
+
 configureEcho({
     broadcaster: 'reverb',
-    forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
+    forceTLS: insideDiscordActivity || import.meta.env.VITE_REVERB_SCHEME === 'https',
+    ...(insideDiscordActivity
+        ? {
+              wsHost: window.location.hostname,
+              wsPort: 443,
+              wssPort: 443,
+              wsPath: '/reverb',
+          }
+        : {}),
 });
 
 let appName = appNameFromPage();

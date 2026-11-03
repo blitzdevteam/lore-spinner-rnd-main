@@ -23,6 +23,7 @@ use Override;
  * @property int $host_user_id
  * @property string|null $game_id
  * @property string $room_code
+ * @property string|null $discord_instance_id
  * @property MultiplayerLobbyModeEnum $mode
  * @property MultiplayerLobbyStatusEnum $status
  * @property string|null $current_arbiter_member_id

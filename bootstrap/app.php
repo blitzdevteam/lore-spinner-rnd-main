@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\ConfigureDiscordActivityCookies;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\UseDiscordActivityOrigin;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,11 +26,6 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: [
-            'discord/activity/begin',
-            'discord/activity/rooms',
-        ]);
-
         /**
          * Alias custom middleware
          */
@@ -42,7 +39,12 @@ return Application::configure(basePath: dirname(__DIR__))
         /**
          * Append custom middleware to the "web" middleware group
          */
+        $middleware->web(prepend: [
+            ConfigureDiscordActivityCookies::class,
+        ]);
+
         $middleware->web(append: [
+            UseDiscordActivityOrigin::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
