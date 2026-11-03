@@ -8,6 +8,7 @@ use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Enums\Multiplayer\MultiplayerLobbyStatusEnum;
 use App\Enums\Story\StoryStatusEnum;
 use App\Http\Controllers\Discord\ActivityController;
+use App\Http\Middleware\PrepareDiscordActivityRequest;
 use App\Models\MultiplayerLobby;
 use App\Models\MultiplayerLobbyMember;
 use App\Models\Story;
@@ -331,6 +332,22 @@ it('gives discord activity requests a cross-site host-only session cookie', func
         ->and($cookie->isSecure())->toBeTrue()
         ->and($cookie->isPartitioned())->toBeTrue()
         ->and($cookie->getDomain())->toBeNull();
+});
+
+it('lets discord frame platform pages opened inside the activity', function () {
+    $this->withoutVite();
+    $lobby = discordLobby(discordPlayableStory('dracula', 'Dracula'), discordGuest('100'));
+
+    $this->actingAs($lobby->host, 'user')
+        ->withHeader('Referer', 'https://1561830278056509511.discordsays.com/discord/activity')
+        ->get(route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]))
+        ->assertSuccessful()
+        ->assertHeader('Content-Security-Policy', PrepareDiscordActivityRequest::FRAME_ANCESTORS)
+        ->assertHeaderMissing('X-Frame-Options');
+});
+
+it('does not add the discord frame policy to website pages', function () {
+    $this->get('/up')->assertHeaderMissing('Content-Security-Policy');
 });
 
 it('keeps the website session cookie settings outside discord', function () {

@@ -11,6 +11,7 @@ use App\Discord\DiscordClient;
 use App\Enums\Multiplayer\MultiplayerLobbyModeEnum;
 use App\Exceptions\Multiplayer\MultiplayerLobbyJoinException;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\PrepareDiscordActivityRequest;
 use App\Http\Requests\Discord\StartDiscordActivitySessionRequest;
 use App\Http\Requests\Discord\StoreDiscordActivityLobbyRequest;
 use App\Models\MultiplayerLobby;
@@ -38,10 +39,7 @@ final class ActivityController extends Controller
                     MultiplayerLobbyModeEnum::Roulette->value => 'Roulette: everyone votes on the choice',
                 ],
             ])
-            ->header(
-                'Content-Security-Policy',
-                "frame-ancestors 'self' https://discord.com https://*.discord.com https://*.discordsays.com https://*.discordapp.com",
-            );
+            ->header('Content-Security-Policy', PrepareDiscordActivityRequest::FRAME_ANCESTORS);
     }
 
     public function session(
