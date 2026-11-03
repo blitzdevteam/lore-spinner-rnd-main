@@ -5,7 +5,8 @@ const openLobbyButton = document.getElementById('open-lobby');
 const clientId = document.body.dataset.clientId;
 const sessionUrl = document.body.dataset.sessionUrl;
 const lobbyUrl = document.body.dataset.lobbyUrl;
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+const csrfTokenNode = document.querySelector('meta[name="csrf-token"]');
+let csrfToken = csrfTokenNode?.content ?? '';
 const params = new URLSearchParams(window.location.search);
 const insideDiscord = Boolean(params.get('frame_id') && params.get('instance_id'));
 const LOBBY_POLL_MS = 2000;
@@ -42,6 +43,14 @@ async function request(url, options = {}) {
         const firstError = body.errors ? Object.values(body.errors)[0]?.[0] : null;
 
         throw new Error(firstError || body.message || 'Something went wrong. Try again.');
+    }
+
+    if (typeof body.csrf_token === 'string' && body.csrf_token !== '') {
+        csrfToken = body.csrf_token;
+
+        if (csrfTokenNode) {
+            csrfTokenNode.content = csrfToken;
+        }
     }
 
     return body;

@@ -14,9 +14,11 @@ use App\Models\MultiplayerLobbyMember;
 use App\Models\Story;
 use App\Models\StoryAdaptation;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 
 uses(RefreshDatabase::class);
 
@@ -44,7 +46,7 @@ it('shows the story picker page with the discord client id', function () {
         ->assertSee('Dracula')
         ->assertSee('value="arbiter"', false)
         ->assertSee('value="roulette"', false)
-        ->assertSee('src="/discord/activity.js?v=7"', false)
+        ->assertSee('src="/discord/activity.js?v=8"', false)
         ->assertDontSee('Test only')
         ->assertHeader(
             'Content-Security-Policy',
@@ -112,6 +114,100 @@ it('reuses the same guest when a discord player comes back', function () {
         ->and($existing->refresh()->first_name)->toBe('Ada');
 
     $this->assertAuthenticatedAs($existing, 'user');
+});
+
+it('returns the regenerated csrf token so a signed in discord player can open a lobby', function (): void {
+    $this->app->instance(ValidateCsrfToken::class, new class($this->app, $this->app['encrypter']) extends ValidateCsrfToken
+    {
+        protected function runningUnitTests(): bool
+        {
+            return false;
+        }
+    });
+
+    $story = discordPlayableStory('dracula', 'Dracula');
+    $originalToken = 'activity-page-token';
+    fakeDiscord();
+
+    $session = $this->withSession(['_token' => $originalToken])
+        ->postJson(route('discord.activity.session'), [
+            'code' => 'oauth-code',
+            'instance_id' => DISCORD_INSTANCE,
+        ], ['X-CSRF-TOKEN' => $originalToken])
+        ->assertSuccessful()
+        ->assertJsonStructure(['csrf_token']);
+
+    $refreshedToken = $session->json('csrf_token');
+
+    expect($refreshedToken)->toBe(csrf_token())->not->toBe($originalToken);
+
+    $lobby = [
+        'story' => $story->slug,
+        'mode' => MultiplayerLobbyModeEnum::Arbiter->value,
+    ];
+
+    $this->postJson(route('discord.activity.lobby.store'), $lobby, ['X-CSRF-TOKEN' => $originalToken])
+        ->assertStatus(419);
+
+    expect(MultiplayerLobby::query()->count())->toBe(0);
+
+    $this->postJson(route('discord.activity.lobby.store'), $lobby, ['X-CSRF-TOKEN' => $refreshedToken])
+        ->assertSuccessful();
+
+    expect(MultiplayerLobby::query()->sole()->story_id)->toBe($story->id);
+});
+
+it('uses the refreshed csrf token when the activity submits a story after sign in', function (): void {
+    $result = Process::path(base_path())->input(<<<'JS'
+        import assert from 'node:assert/strict';
+        import { readFileSync } from 'node:fs';
+        import { runInNewContext } from 'node:vm';
+
+        const listeners = new Map();
+        const csrfMeta = { content: 'activity-page-token' };
+        const nodes = new Map(['status', 'player', 'picker', 'open-lobby'].map(id => [id, {
+            dataset: {},
+            addEventListener(event, callback) { listeners.set(event, callback); },
+        }]));
+        const requests = [];
+        const replies = [
+            { csrf_token: 'signed-in-token', player: 'Ada', lobby_url: null },
+            { lobby_url: null },
+            { lobby_url: '/multiplayer/lobbies/ABCDEF' },
+        ];
+        let destination = null;
+        const context = {
+            document: {
+                body: { dataset: { clientId: 'discord-client', sessionUrl: '/session', lobbyUrl: '/lobby' } },
+                getElementById: id => nodes.get(id),
+                querySelector: () => csrfMeta,
+            },
+            window: { location: { search: '', assign: url => { destination = url; } } },
+            URLSearchParams,
+            FormData: class {
+                get(key) { return key === 'story' ? 'dracula' : 'arbiter'; }
+            },
+            fetch: async (url, options) => {
+                requests.push({ url, ...options });
+                return { ok: true, json: async () => replies.shift() };
+            },
+        };
+
+        runInNewContext(readFileSync('public/discord/activity.js', 'utf8'), context);
+        await context.request('/session', { method: 'POST' });
+        await context.request('/lobby');
+        await listeners.get('submit')({ preventDefault() {} });
+
+        assert.equal(requests[0].headers['X-CSRF-TOKEN'], 'activity-page-token');
+        assert.equal(requests[1].headers['X-CSRF-TOKEN'], 'signed-in-token');
+        assert.equal(requests[2].headers['X-CSRF-TOKEN'], 'signed-in-token');
+        assert.equal(csrfMeta.content, 'signed-in-token');
+        assert.equal(requests[2].method, 'POST');
+        assert.deepEqual(JSON.parse(requests[2].body), { story: 'dracula', mode: 'arbiter' });
+        assert.equal(destination, '/multiplayer/lobbies/ABCDEF');
+        JS)->run(['node', '--input-type=module']);
+
+    expect($result->successful())->toBeTrue($result->errorOutput());
 });
 
 it('refuses a player who is not in the activity instance', function () {

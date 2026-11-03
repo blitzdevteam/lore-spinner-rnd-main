@@ -68,6 +68,7 @@ final class ActivityController extends Controller
 
         return response()->json([
             'player' => $user->first_name,
+            'csrf_token' => $request->session()->token(),
             ...$this->lobbyPayload($user, $instanceId, $joinMultiplayerLobby),
         ]);
     }

@@ -184,6 +184,6 @@
                 <button id="open-lobby" type="submit" @disabled($stories === [])>Open the lobby</button>
             </form>
         </main>
-        <script type="module" src="/discord/activity.js?v=7"></script>
+        <script type="module" src="/discord/activity.js?v=8"></script>
     </body>
 </html>
