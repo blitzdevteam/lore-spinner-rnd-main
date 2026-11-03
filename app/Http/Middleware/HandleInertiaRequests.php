@@ -80,6 +80,12 @@ final class HandleInertiaRequests extends Middleware
             // Lightweight writer-auth flag for nav — avoids full model query on every page.
             'writerLoggedIn' => fn () => (bool) $request->user('writer'),
             'appName' => config('app.display_name'),
+            'reverb' => [
+                'key' => config('broadcasting.connections.reverb.key'),
+                'host' => config('reverb.apps.apps.0.options.host'),
+                'port' => (int) config('reverb.apps.apps.0.options.port', 443),
+                'scheme' => config('reverb.apps.apps.0.options.scheme', 'https'),
+            ],
         ];
     }
 }

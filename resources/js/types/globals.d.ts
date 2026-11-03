@@ -1,4 +1,5 @@
 import { UserInterface } from '@/types/index';
+import type { ReverbConnectionConfig } from '@/utils/reverbEchoOptions';
 
 declare module 'vite/client' {
     interface ImportMetaEnv {
@@ -28,6 +29,7 @@ declare global {
 
 declare module '@inertiajs/core' {
     interface PageProps extends InertiaPageProps {
+        reverb?: ReverbConnectionConfig;
         flash: {
             error?: string[];
             success?: string[];

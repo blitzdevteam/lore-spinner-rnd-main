@@ -19,6 +19,7 @@ import PrimeVue from 'primevue/config';
 import customPresetOptions from '../css/primevue-theme/aura/options';
 
 // Primevue Component
+import { configureEcho } from '@laravel/echo-vue';
 import Checkbox from 'primevue/checkbox';
 import Divider from 'primevue/divider';
 import Drawer from 'primevue/drawer';
@@ -31,25 +32,8 @@ import Password from 'primevue/password';
 import Rating from 'primevue/rating';
 import Select from 'primevue/select';
 import Textarea from 'primevue/textarea';
-import { configureEcho } from '@laravel/echo-vue';
 import { appNameFromPage } from './utils/appName';
-
-// Discord only lets an activity reach its own discordsays.com origin, so the
-// socket goes through the "/reverb" URL mapping set in the Discord portal.
-const insideDiscordActivity = window.location.hostname.endsWith('.discordsays.com');
-
-configureEcho({
-    broadcaster: 'reverb',
-    forceTLS: insideDiscordActivity || import.meta.env.VITE_REVERB_SCHEME === 'https',
-    ...(insideDiscordActivity
-        ? {
-              wsHost: window.location.hostname,
-              wsPort: 443,
-              wssPort: 443,
-              wsPath: '/reverb',
-          }
-        : {}),
-});
+import { reverbEchoOptions } from './utils/reverbEchoOptions';
 
 let appName = appNameFromPage();
 
@@ -74,6 +58,20 @@ createInertiaApp({
         });
     },
     setup({ el, App, props, plugin }) {
+        configureEcho(
+            reverbEchoOptions(
+                props.initialPage.props.reverb,
+                {
+                    key: import.meta.env.VITE_REVERB_APP_KEY,
+                    host: import.meta.env.VITE_REVERB_HOST,
+                    port: import.meta.env.VITE_REVERB_PORT,
+                    scheme: import.meta.env.VITE_REVERB_SCHEME,
+                },
+                window.location.hostname,
+                () => document.cookie,
+            ),
+        );
+
         appName = appNameFromPage(props.initialPage);
         router.on('navigate', (event) => {
             appName = appNameFromPage(event.detail.page);

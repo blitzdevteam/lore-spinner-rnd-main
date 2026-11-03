@@ -19,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Inertia\Testing\AssertableInertia;
 
 uses(RefreshDatabase::class);
 
@@ -440,6 +441,68 @@ it('lets discord frame platform pages opened inside the activity', function () {
         ->assertSuccessful()
         ->assertHeader('Content-Security-Policy', PrepareDiscordActivityRequest::FRAME_ANCESTORS)
         ->assertHeaderMissing('X-Frame-Options');
+});
+
+it('shares the public runtime reverb settings with the discord lobby', function (): void {
+    $this->withoutVite();
+    config([
+        'broadcasting.connections.reverb.key' => 'runtime-public-key',
+        'broadcasting.connections.reverb.secret' => 'private-reverb-secret',
+        'broadcasting.connections.reverb.options.host' => 'internal-reverb',
+        'reverb.apps.apps.0.options.host' => 'public-reverb.example.com',
+        'reverb.apps.apps.0.options.port' => 443,
+        'reverb.apps.apps.0.options.scheme' => 'https',
+    ]);
+    $lobby = discordLobby(discordPlayableStory('dracula', 'Dracula'), discordGuest('100'));
+
+    $this->actingAs($lobby->host, 'user')
+        ->withSession([ActivityController::SESSION_INSTANCE_KEY => DISCORD_INSTANCE])
+        ->get(route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]))
+        ->assertSuccessful()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Multiplayer/Lobby')
+            ->where('reverb.key', 'runtime-public-key')
+            ->where('reverb.host', 'public-reverb.example.com')
+            ->where('reverb.port', 443)
+            ->where('reverb.scheme', 'https')
+            ->missing('reverb.secret'))
+        ->assertDontSee('private-reverb-secret')
+        ->assertDontSee('internal-reverb');
+});
+
+it('initializes discord realtime from runtime settings when the build has no reverb key', function (): void {
+    $result = Process::path(base_path())->input(<<<'JS'
+        import assert from 'node:assert/strict';
+        import { readFileSync } from 'node:fs';
+        import ts from 'typescript';
+
+        const source = readFileSync('resources/js/utils/reverbEchoOptions.ts', 'utf8');
+        const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+        const { reverbEchoOptions } = await import('data:text/javascript,' + encodeURIComponent(compiled));
+        let cookie = 'other=value; XSRF-TOKEN=first%2Btoken';
+        const runtime = { key: 'runtime-key', host: 'reverb.example.com', port: 443, scheme: 'https' };
+        const discord = reverbEchoOptions(runtime, {}, '1561830278056509511.discordsays.com', () => cookie);
+
+        assert.equal(discord.key, 'runtime-key');
+        assert.equal(discord.wsHost, '1561830278056509511.discordsays.com');
+        assert.equal(discord.wsPath, '/reverb');
+        assert.equal(discord.wsPort, 443);
+        assert.equal(discord.wssPort, 443);
+        assert.equal(discord.forceTLS, true);
+        assert.equal(discord.channelAuthorization.endpoint, '/broadcasting/auth');
+        assert.equal(discord.channelAuthorization.headersProvider()['X-XSRF-TOKEN'], 'first+token');
+        cookie = 'XSRF-TOKEN=refreshed%2Ftoken';
+        assert.equal(discord.channelAuthorization.headersProvider()['X-XSRF-TOKEN'], 'refreshed/token');
+
+        const website = reverbEchoOptions(null, { key: 'build-key', host: 'localhost', port: '8081', scheme: 'http' }, 'localhost', () => '');
+        assert.equal(website.key, 'build-key');
+        assert.equal(website.wsHost, 'localhost');
+        assert.equal(website.wsPort, 8081);
+        assert.equal(website.forceTLS, false);
+        assert.equal(website.wsPath, undefined);
+        JS)->run(['node', '--input-type=module']);
+
+    expect($result->successful())->toBeTrue($result->errorOutput());
 });
 
 it('does not add the discord frame policy to website pages', function () {
