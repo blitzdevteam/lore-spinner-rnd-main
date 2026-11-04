@@ -440,7 +440,9 @@ it('lets discord frame platform pages opened inside the activity', function () {
         ->get(route('multiplayer.lobbies.show', ['lobby' => $lobby->room_code]))
         ->assertSuccessful()
         ->assertHeader('Content-Security-Policy', PrepareDiscordActivityRequest::FRAME_ANCESTORS)
-        ->assertHeaderMissing('X-Frame-Options');
+        ->assertHeaderMissing('X-Frame-Options')
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('lobby.invite_url', rtrim((string) config('app.url'), '/').'/stories/dracula/multiplayer?room='.$lobby->room_code));
 });
 
 it('shares the public runtime reverb settings with the discord lobby', function (): void {
