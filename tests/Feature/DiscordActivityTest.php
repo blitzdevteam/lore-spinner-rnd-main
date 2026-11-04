@@ -379,7 +379,7 @@ it('refuses lobby routes for visitors who are not signed in', function () {
     $this->getJson(route('discord.activity.lobby.show'))->assertUnauthorized();
 });
 
-it('points urls at the discordsays origin for discord players', function () {
+it('keeps a discord activity redirect on the current page', function () {
     $lobby = discordLobby(discordPlayableStory('dracula', 'Dracula'), discordGuest('100'));
     $player = discordGuest('200');
     $lobby->members()->create([
@@ -391,8 +391,9 @@ it('points urls at the discordsays origin for discord players', function () {
 
     $this->actingAs($player, 'user')
         ->withSession([ActivityController::SESSION_INSTANCE_KEY => DISCORD_INSTANCE])
+        ->withHeader('Referer', 'https://1561830278056509511.discordsays.com/multiplayer/lobbies/'.$lobby->room_code)
         ->patch(route('multiplayer.lobbies.readiness.update', ['lobby' => $lobby->room_code]), ['is_ready' => true])
-        ->assertRedirect('https://1561830278056509511.discordsays.com/multiplayer/lobbies/'.$lobby->room_code);
+        ->assertRedirect('/multiplayer/lobbies/'.$lobby->room_code);
 });
 
 it('keeps normal website redirects on the app host', function () {

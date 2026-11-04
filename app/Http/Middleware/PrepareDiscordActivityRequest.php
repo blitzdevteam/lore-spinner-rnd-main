@@ -36,8 +36,44 @@ final class PrepareDiscordActivityRequest
 
         $response->headers->set('Content-Security-Policy', self::FRAME_ANCESTORS);
         $response->headers->remove('X-Frame-Options');
+        $this->keepRedirectInsideActivity($response);
 
         return $response;
+    }
+
+    /**
+     * An absolute redirect to discordsays.com makes Discord's proxy call itself and Cloudflare returns a 520.
+     */
+    private function keepRedirectInsideActivity(Response $response): void
+    {
+        $location = $response->headers->get('Location');
+
+        if (! is_string($location) || ! str_starts_with($location, 'http')) {
+            return;
+        }
+
+        $parts = parse_url($location);
+        $host = $parts['host'] ?? null;
+
+        if (! is_string($host) || ! $this->isActivityHost($host)) {
+            return;
+        }
+
+        $path = $parts['path'] ?? '/';
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        $response->headers->set('Location', $path.$query);
+    }
+
+    private function isActivityHost(string $host): bool
+    {
+        if (str_ends_with($host, '.discordsays.com')) {
+            return true;
+        }
+
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return is_string($appHost) && strcasecmp($appHost, $host) === 0;
     }
 
     public static function comesFromDiscordActivity(Request $request): bool
