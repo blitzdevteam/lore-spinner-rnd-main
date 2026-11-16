@@ -62,7 +62,7 @@ const onProgressInput = (event: Event) => {
             class="player-bar pointer-events-auto relative isolate z-10"
             :class="
                 props.docked
-                    ? 'player-bar--docked mx-1.5 flex min-w-0 flex-col gap-1.5 px-3 pt-2 pb-3 sm:flex-row sm:items-center'
+                    ? 'player-bar--docked mx-1.5 flex min-w-0 flex-col gap-1.5 px-3 py-2 sm:flex-row sm:items-center'
                     : 'flex w-full items-center gap-2 overflow-hidden rounded-full px-2 py-2 sm:gap-2.5 sm:px-2.5 md:w-auto'
             "
         >
